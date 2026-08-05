@@ -3010,7 +3010,10 @@ function openListingFiles(id){
 }
 
 // ─── 옵션 선택 칩 ───
-const OPTION_LIST=['풀옵션','신축급','공동현관','무옵션','에어컨','올수리','복층','테라스','탑층','지정주차','급매','세안고','고층','1층'];
+// 앞쪽 10개는 당근 옵션 허용값 — 이걸 골라야 당근 광고의 옵션 아이콘으로 등록된다.
+// '풀옵션'만 고르면 당근에는 옵션이 하나도 안 올라간다(없는 품목을 임의로 채우지 않기 위함).
+const OPTION_LIST=['에어컨','냉장고','세탁기','가스렌지','인덕션','전자렌지','침대','엘리베이터','복층','옥탑',
+  '풀옵션','신축급','공동현관','무옵션','올수리','테라스','탑층','지정주차','급매','세안고','고층','1층'];
 function renderOptionChips(selectedStr){
   const box=document.getElementById('l-options-chips');
   if(!box) return;
@@ -3566,38 +3569,130 @@ function delLandlord(id){
 }
 updateLandlordBadge();
 
-// ─── 당근부동산 일괄등록 엑셀 내보내기 (당근 bulk-upload-template 양식 그대로) ───
+// ─── 당근부동산 일괄등록 엑셀 내보내기 (당근 bulk-upload-template 양식 + '입력 가이드' 허용값 검증) ───
+// 당근 파서는 드롭다운·쉼표 구분 칼럼에 양식 2번째 시트 '입력 가이드'에 적힌 값만 인식한다.
+// 자유 텍스트는 표준 값으로 변환하고, 변환이 안 되면 비운다(선택 항목) — 값이 틀린 채 올라가는 것 방지.
 const DAANGN_HEADERS=['매물유형','거래유형','보증금/매매가(만원)','월세(만원)','주소','상세주소','면적(㎡)','방 수','욕실 수','층','총 층','향','입주가능일','관리비 유형','총 관리비(만원)','관리비 포함항목','관리비 기준','관리비 실비근거','관리비 확인불가 사유','주차','반려동물','대출','옵션','건축년도','매물 설명','메모','토지 지목','용도지역','권리금(만원)','건물용도'];
-const DAANGN_KIND_MAP={'빌라·연립':'빌라(투룸 이상)','단독주택':'주택','오픈형원룸':'오픈형 원룸','분리형원룸':'분리형 원룸'};
+const DAANGN_KINDS=['오픈형 원룸','분리형 원룸','빌라(투룸 이상)','아파트','오피스텔','주택','상가','사무실','건물','공장/창고','토지'];
+const DAANGN_KIND_MAP={'빌라·연립':'빌라(투룸 이상)','빌라':'빌라(투룸 이상)','연립':'빌라(투룸 이상)','다세대':'빌라(투룸 이상)','연립다세대':'빌라(투룸 이상)','투룸':'빌라(투룸 이상)','쓰리룸':'빌라(투룸 이상)','단독주택':'주택','다가구':'주택','단독':'주택','오픈형원룸':'오픈형 원룸','원룸':'오픈형 원룸','분리형원룸':'분리형 원룸','공장':'공장/창고','창고':'공장/창고'};
+const DAANGN_TYPES=['매매','전세','월세','연세','단기'];
+const DAANGN_DIRS=['남향','동향','서향','북향','남동향','남서향','북동향','북서향'];
+const DAANGN_DIR_SWAP={'동남':'남동','서남':'남서','동북':'북동','서북':'북서'};
+const DAANGN_FEE_TYPES=['정액 관리비','기타 부과','확인 불가'];
+const DAANGN_FEE_BASIS=['직전 월','최근 3개월 평균','최근 1년 평균','기타'];
+const DAANGN_FEE_EVID=['세대별 사용량에 따라 부과','관리규약에 따라 부과','전체 사용량을 세대수로 나누어 부과'];
+const DAANGN_FEE_NOTE=['단독주택','오피스텔 제외 상가 건물','미등기/신축건물'];
+const DAANGN_ZONES=['도시지역','관리지역','농림지역','자연환경보전지역'];
+// 쉼표 구분 칼럼: 키워드 → 당근 표준 단어 (관리비 포함항목 8종 · 옵션 10종)
+const DAANGN_FEE_ITEM_MAP=[['공용','공용'],['공동','공용'],['청소','공용'],['경비','공용'],['승강기','공용'],['엘리베이터','공용'],['전기','전기료'],['수도','수도료'],['가스','가스비'],['난방','난방비'],['인터넷','인터넷비'],['유선','TV'],['케이블','TV'],['티비','TV'],['TV','TV']];
+// ⚠ '풀옵션'을 에어컨·냉장고·세탁기로 펼치지 않는다 — 실제로 있는지 확인된 바 없는 품목을
+// 있다고 광고하면 허위매물 신고 대상이다. 개별 품목은 매물 등록 화면에서 직접 선택해야 한다.
+const DAANGN_OPTION_MAP=[['에어컨','에어컨'],['냉장고','냉장고'],['세탁기','세탁기'],['가스레인지','가스렌지'],['가스렌지','가스렌지'],['인덕션','인덕션'],['전자레인지','전자렌지'],['전자렌지','전자렌지'],['침대','침대'],['엘리베이터','엘리베이터'],['엘베','엘리베이터'],['승강기','엘리베이터'],['복층','복층'],['옥탑','옥탑']];
+// '3억 2천'·'5,000만원'·'500' → 만원 단위 숫자 문자열 (변환 불가·0이면 '')
+function daangnManwon(s){
+  s=String(s||'').trim().replace(/[,\s]/g,'').replace(/원$/,'');
+  if(!s)return'';
+  let v='';
+  let m=s.match(/^(\d+(?:\.\d+)?)억(?:(\d+(?:\.\d+)?)(천|백)?만?)?$/);
+  if(m)v=String(Math.round(parseFloat(m[1])*10000+(m[2]?parseFloat(m[2])*(m[3]==='천'?1000:m[3]==='백'?100:1):0)));
+  else if(m=s.match(/^(\d+(?:\.\d+)?)(천|백)$/))v=String(Math.round(parseFloat(m[1])*(m[2]==='천'?1000:100)));
+  else{s=s.replace(/만$/,'');if(/^\d+(\.\d+)?$/.test(s))v=s;}
+  return v&&Number(v)!==0?v:'';
+}
+const daangnPick=(v,list)=>{const t=String(v||'').trim().replace(/\s+/g,'');return t?(list.find(a=>a.replace(/\s+/g,'')===t)||''):'';};
+// 숫자 추출: 숫자 토큰이 2개 이상이면('1,2층'·'33㎡(10평)') 값을 만들지 않고 비운다 —
+// 문자만 지우면 토큰이 이어붙어(→'12'·'3310') 엉뚱한 값이 경고 없이 업로드된다.
+const daangnNum=v=>{v=String(v||'').trim().replace(/(\d),(\d{3})(?!\d)/g,'$1$2');const neg=/지하|^B\d/i.test(v);const t=v.match(/\d+(?:\.\d+)?/g)||[];if(t.length!==1||Number(t[0])===0)return'';return(neg?'-':'')+t[0];};
+// 면적 전용: '33㎡(10평)'처럼 ㎡·평 병기면 ㎡ 값을 쓰고, 평만 있으면 ㎡로 환산
+function daangnArea(v){
+  v=String(v||'').trim().replace(/(\d),(\d{3})(?!\d)/g,'$1$2');
+  let m=v.match(/(\d+(?:\.\d+)?)\s*(?:㎡|m2|m²)/i);
+  if(m)return Number(m[1])>0?m[1]:'';
+  m=v.match(/(\d+(?:\.\d+)?)\s*평/);
+  if(m)return Number(m[1])>0?String(Math.round(parseFloat(m[1])*3.3058*100)/100):'';
+  return daangnNum(v);
+}
+function daangnDir(v){v=String(v||'').trim().replace(/\s+/g,'').replace(/향$/,'');if(!v)return'';v=(DAANGN_DIR_SWAP[v]||v)+'향';return DAANGN_DIRS.includes(v)?v:'';}
+function daangnTri(v){v=String(v||'').trim();if(!v)return'';if(/확인|미정|모름/.test(v))return'확인필요';if(/불가|안됨/.test(v)||/^[xX×]$/.test(v))return'불가능';if(/가능|됨/.test(v)||/^[oO○]$/.test(v))return'가능';return'확인필요';}
+function daangnLoan(v){v=String(v||'').trim();if(!v)return'';if(/확인|미정|모름/.test(v))return'확인필요';if(/없|불가/.test(v))return'없음';if(/있|가능/.test(v))return'있음';return'확인필요';}
+// 쉼표 구분 칼럼 변환. '에어컨 없음'·'전기 별도'·'풀옵션(에어컨X)'처럼 부정 표기된 항목은
+// 빼야 한다 — 단순 포함 검사만 하면 없는 옵션을 있다고 광고하게 된다(허위매물 신고 소지).
+function daangnMulti(raw,map){
+  raw=String(raw||'');
+  if(!raw.trim())return'';
+  const NEG=/(없음|없슴|없|제외|미포함|불포함|별도|안됨|[xX×✕])\s*$/;
+  const seg=[];
+  for(const part of raw.split(/[,\/·、]/)){
+    const inner=part.match(/\(([^)]*)\)/);
+    if(inner){seg.push(part.replace(/\([^)]*\)/,''));inner[1].split(/[,\/·、]/).forEach(p=>seg.push(p));}
+    else seg.push(part);
+  }
+  const out=[],ban=new Set();
+  for(const s of seg){
+    const t=s.trim();
+    if(!t)continue;
+    const neg=NEG.test(t);
+    for(const[kw,std]of map)if(t.includes(kw)){if(neg)ban.add(std);else if(!out.includes(std))out.push(std);}
+  }
+  return out.filter(x=>!ban.has(x)).join(', ');
+}
+function daangnAvail(v){v=String(v||'').trim();if(!v)return'';if(/즉시/.test(v))return'즉시입주';const m=String(normDateStr(v)).match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:'';}
+function daangnYear(v){const m=String(v||'').match(/(19|20)\d{2}/);return m?m[0]:'';}
+// 당근 외부유도 제재 예방: 광고문 사본에서 전화번호·링크·카톡 줄만 제거 (CRM 원본은 보존)
+function daangnScrubDesc(t){
+  const phone=/(^|[^\d])0\d{1,2}[\s.\-)]?\d{3,4}[\s.\-]?\d{4}(?!\d)/;
+  const link=/(https?:\/\/|www\.|blog\.|\.com|\.co\.kr|카톡|카카오\s*ID|open\.kakao)/i;
+  // 번호를 지워도 '직통번호로 문의' 같은 유도 문구가 남으면 여전히 외부유도로 본다 —
+  // 당근이 제재하는 것은 번호 자체가 아니라 앱 밖으로 연락을 유도하는 행위다.
+  const lure=/(직통|직접\s*연락|문자\s*(주|남기|보내)|전화\s*(주|문의|연락)|연락\s*(주|바라|부탁)|톡\s*문의)/;
+  return String(t||'').split('\n').filter(ln=>!phone.test(ln)&&!link.test(ln)&&!lure.test(ln)).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
 function exportDaangnExcel(){
   if(!window.XLSX){showToast('엑셀 라이브러리 로딩 중입니다.');return;}
-  const num=s=>String(s||'').replace(/[^\d.]/g,''); // "22.5㎡"→22.5, "7층"→7
-  const money=s=>{s=String(s||'').trim();return /^[\d,\.]+$/.test(s)?s.replace(/,/g,''):s;};
   const HOME=['오픈형 원룸','분리형 원룸','빌라(투룸 이상)','아파트','오피스텔','주택'];
   const BIZ=['상가','사무실','건물','공장/창고'];
-  const rows=[],skipped=[],dups=[];
+  const rows=[],skipped=[],dups=[],optWarn=[],useWarn=[];
+  let scrubCnt=0;
   const seenNo=new Map(),seenAddr=new Map(); // 당근은 중복등록 시 계정 중지 — 같은 파일 안에 중복 매물이 들어가지 않게 차단
   for(const l of listings){
-    const kind=DAANGN_KIND_MAP[l.kind]||String(l.kind||'').trim();
-    const type=String(l.type||'').trim()==='단기임대'?'단기':String(l.type||'').trim();
+    const rawKind=String(l.kind||'').trim();
+    const kind=DAANGN_KINDS.includes(rawKind)?rawKind:(DAANGN_KIND_MAP[rawKind]||'');
+    let type=String(l.type||'').trim();if(type==='단기임대')type='단기';
+    if(!DAANGN_TYPES.includes(type))type='';
     // 거래가가 "300/39"처럼 보증금/월세 한 칸이면 자동 분리
-    let deposit=String(l.price||'').trim(),rent=String(l.rentAmt||'').trim();
-    const pm=deposit.match(/^([\d,\.]+)\s*\/\s*([\d,\.]+)$/);
-    if(pm&&!rent&&['월세','연세','단기'].includes(type)){deposit=pm[1];rent=pm[2];}
-    // 매물 설명이 비어 있으면 브리즈 광고문 자동 생성 (거래유형·가격 있는 매물만)
+    let depositRaw=String(l.price||'').trim(),rentRaw=String(l.rentAmt||'').trim();
+    if(!rentRaw&&['월세','연세','단기'].includes(type)){
+      const pm=depositRaw.match(/^\s*([^\/]+)\/\s*([^\/]+?)\s*$/);
+      if(pm&&daangnManwon(pm[1])&&daangnManwon(pm[2])){depositRaw=pm[1];rentRaw=pm[2];}
+    }
+    const deposit=daangnManwon(depositRaw);
+    // 매매·전세는 월세 칸이 없다 — 유형 변경 전 남은 rentAmt 잔값이 월세로 광고되면 안 됨
+    const rent=['월세','연세','단기'].includes(type)?daangnManwon(rentRaw):'';
+    const area=daangnArea(l.area);
+    const rooms=daangnNum(l.rooms),baths=daangnNum(l.baths),floor=daangnNum(l.floor),totalFloor=daangnNum(l.totalFloor);
+    // 매물 설명이 비어 있으면 브리즈 광고문 자동 생성 → 전화·링크 줄 제거(당근 외부유도 제재 예방)
     let desc=String(l.desc||'').trim();
-    if(!desc&&type&&deposit)desc=buildListingDesc({...l,price:deposit,rentAmt:rent})||'';
+    if(!desc&&type&&deposit)desc=buildListingDesc({...l,type:type,price:deposit,rentAmt:rent})||'';
+    desc=String(desc||'').trim();
+    const cleanDesc=daangnScrubDesc(desc);
+    const scrubbed=!!desc&&cleanDesc!==desc; // 실제로 엑셀에 담긴 행만 집계(제외된 매물은 세지 않음)
+    desc=cleanDesc;
     const miss=[];
-    if(!kind)miss.push('매물유형');
-    if(!type)miss.push('거래유형');
-    if(!deposit)miss.push('보증금/매매가');
+    if(!kind)miss.push(rawKind?'매물유형(당근 미지원: '+rawKind+')':'매물유형');
+    if(!type)miss.push(String(l.type||'').trim()?'거래유형(당근 미지원: '+String(l.type||'').trim()+')':'거래유형');
+    if(!deposit)miss.push(depositRaw?'보증금/매매가(숫자 아님: '+depositRaw+')':'보증금/매매가');
     if(!String(l.addr||'').trim())miss.push('주소');
-    if(!String(l.area||'').trim())miss.push('면적');
+    if(!area)miss.push(String(l.area||'').trim()?'면적(숫자 아님)':'면적');
     if(!desc)miss.push('매물 설명');
-    if(['월세','연세','단기'].includes(type)&&!rent)miss.push('월세');
-    if(HOME.includes(kind)){if(!l.rooms)miss.push('방 수');if(!l.baths)miss.push('욕실 수');if(!l.floor)miss.push('층');if(!l.totalFloor)miss.push('총 층');}
-    if(BIZ.includes(kind)){if(!l.rooms)miss.push('방 수');if(!l.floor)miss.push('층');if(!l.totalFloor)miss.push('총 층');}
-    if(kind==='토지'){if(!l.jimok)miss.push('토지 지목');if(!l.zone)miss.push('용도지역');}
+    if(['월세','연세','단기'].includes(type)&&!rent)miss.push(rentRaw?'월세(숫자 아님: '+rentRaw+')':'월세');
+    if(HOME.includes(kind)){if(!rooms)miss.push('방 수');if(!baths)miss.push('욕실 수');if(!floor)miss.push('층');if(!totalFloor)miss.push('총 층');}
+    if(BIZ.includes(kind)){if(!rooms)miss.push('방 수');if(!floor)miss.push('층');if(!totalFloor)miss.push('총 층');}
+    if(kind==='토지'){
+      if(!String(l.jimok||'').trim())miss.push('토지 지목');
+      const z=String(l.zone||'').trim();
+      if(!z)miss.push('용도지역');
+      else if(!DAANGN_ZONES.includes(z))miss.push('용도지역(당근 허용값 아님: '+z+')'); // 4종 고정값
+    }
     if(miss.length){skipped.push({l:l,reason:'항목부족: '+miss.join('·')});continue;}
     // 중복 체크(매물번호·주소+호수) — 먼저 나온 매물만 포함, 나머지는 제외 후 안내
     const label=`${l.id||''} ${l.apt||''} ${String(l.addr||'').trim()} ${String(l.addr2||'').trim()}`.replace(/\s+/g,' ').trim();
@@ -3606,14 +3701,46 @@ function exportDaangnExcel(){
     if(seenAddr.has(addrKey)){dups.push({l:l,reason:'주소·호수가 ['+seenAddr.get(addrKey)+']와 중복'});continue;}
     if(noKey)seenNo.set(noKey,label);
     seenAddr.set(addrKey,label);
-    rows.push([kind,type,money(deposit),money(rent),String(l.addr||'').trim(),String(l.addr2||'').trim(),
-      num(l.area),num(l.rooms),num(l.baths),num(l.floor),num(l.totalFloor),String(l.direction||''),
-      normDateStr(String(l.availDate||'').trim()),String(l.feeType||''),money(l.feeAmt),String(l.feeItems||''),
-      String(l.feeBasis||''),String(l.feeEvidence||''),String(l.feeNote||''),String(l.parking||''),
-      String(l.pets||''),String(l.loan||''),String(l.options||''),String(l.aprDate||'').slice(0,4),
+    // ── 관리비: 입력 가이드 조건부 규칙 준수 (정액·기타 부과→총 관리비 필수 / 기타 부과→실비근거 / 확인 불가→사유) ──
+    let feeType=daangnPick(l.feeType,DAANGN_FEE_TYPES),feeAmt=daangnManwon(l.feeAmt);
+    // 매핑 실패 시 '기타'로 넘기되, '전기 별도'처럼 부정 표기뿐이면 포함항목이 없다는 뜻이므로 비운다
+    let feeItems=daangnMulti(l.feeItems,DAANGN_FEE_ITEM_MAP)||
+      (String(l.feeItems||'').trim()&&!/(없음|없|제외|미포함|불포함|별도)/.test(String(l.feeItems))?'기타':'');
+    let feeBasis=daangnPick(l.feeBasis,DAANGN_FEE_BASIS),feeEvidence=daangnPick(l.feeEvidence,DAANGN_FEE_EVID),feeNote=daangnPick(l.feeNote,DAANGN_FEE_NOTE);
+    if(!feeType&&feeAmt)feeType='기타 부과'; // 유형 미지정+금액 있음 → 기타 부과 (구 당근업로드 시스템의 검증된 규칙)
+    if((feeType==='정액 관리비'||feeType==='기타 부과')&&!feeAmt)feeType='';
+    if(feeType==='기타 부과'){
+      if(!feeBasis)feeBasis=type==='월세'?'최근 3개월 평균':'최근 1년 평균';
+      if(!feeEvidence)feeEvidence=kind==='아파트'?'세대별 사용량에 따라 부과':'관리규약에 따라 부과';
+    }
+    if(feeType==='확인 불가'){
+      feeAmt='';feeItems='';feeBasis='';feeEvidence='';
+      if(!feeNote)feeNote=kind==='주택'?'단독주택':(BIZ.includes(kind)?'오피스텔 제외 상가 건물':'');
+      if(!feeNote)feeType=''; // 허용된 사유에 해당 없으면 관리비 항목 전체 생략
+    }
+    if(feeType!=='확인 불가')feeNote='';
+    if(!feeType){feeAmt='';feeItems='';feeBasis='';feeEvidence='';}
+    // 옵션: 당근이 인식하는 품목만 남는다. 원문은 있는데 하나도 안 남으면('풀옵션'만 적힌 경우 등)
+    // 임의로 채우지 않고 비운 뒤 안내한다 — 없는 가전을 광고하면 허위매물이 된다.
+    const optOut=daangnMulti(l.options,DAANGN_OPTION_MAP);
+    if(String(l.options||'').trim()&&!optOut)optWarn.push(`${label} → 입력값 "${String(l.options).trim()}"`);
+    // 건축물대장 용도가 숙박시설인데 주거용으로 광고하면 당근 등록금지·전입신고 분쟁 소지
+    if(HOME.includes(kind)&&/숙박|여관|여인숙|고시원/.test(String(l.bldgUse||'')))
+      useWarn.push(`${label} → ${kind}로 광고 / 건축물 용도 "${String(l.bldgUse).trim()}"`);
+    const arr=[kind,type,deposit,rent,String(l.addr||'').trim(),String(l.addr2||'').trim(),
+      area,rooms,baths,floor,totalFloor,daangnDir(l.direction),
+      daangnAvail(l.availDate),feeType,feeAmt,feeItems,feeBasis,feeEvidence,feeNote,
+      daangnTri(l.parking),daangnTri(l.pets),daangnLoan(l.loan),
+      optOut,daangnYear(l.aprDate),
       desc,
-      '', // 메모: 현관비번 등 내부 메모 유출 방지를 위해 의도적으로 비움
-      String(l.jimok||''),String(l.zone||''),money(l.premium),String(l.bldgUse||'')]);
+      String(l.id||'').trim(), // 메모(당근 비공개): 매물번호만 기록 — 현관비번 등 내부 메모는 넣지 않음
+      kind==='토지'?String(l.jimok||'').trim():'',kind==='토지'?String(l.zone||'').trim():'',
+      // 입력 가이드: 권리금·건물용도는 '상가'에만 입력 가능
+      kind==='상가'?daangnManwon(l.premium):'',kind==='상가'?String(l.bldgUse||'').trim():''];
+    [2,3,6,7,8,9,10,14,23,28].forEach(i=>{if(arr[i]!==''&&/^-?\d+(\.\d+)?$/.test(arr[i]))arr[i]=Number(arr[i]);}); // 숫자 칼럼은 실제 숫자로 (엑셀 텍스트 셀 오인 방지)
+    for(let i=0;i<arr.length;i++)if(arr[i]==='')arr[i]=null; // 빈칸은 셀 자체를 만들지 않음 (공식 양식과 동일한 모양)
+    if(scrubbed)scrubCnt++;
+    rows.push(arr);
   }
   const exLine=e=>`${e.l.id||''} ${e.l.apt||''} ${String(e.l.addr||'').trim()} ${String(e.l.addr2||'').trim()}`.replace(/\s+/g,' ').trim()+'\n   → '+e.reason;
   if(!rows.length){alert('당근에 내보낼 수 있는 매물이 없습니다.'+(dups.length?'\n\n[중복 제외]\n'+dups.map(exLine).join('\n'):'')+(skipped.length?'\n\n[필수항목 부족]\n'+skipped.map(exLine).join('\n'):''));return;}
@@ -3631,7 +3758,9 @@ function exportDaangnExcel(){
   });
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'매물 데이터');
-  // 2번째 시트 '제외된 매물': 중복=연한 빨강, 항목부족=연한 노랑 (1번째 시트만 당근에 업로드)
+  XLSX.writeFile(wb,`당근부동산_일괄등록_${todayStr()}.xlsx`);
+  // 제외 목록은 '별도 파일'로 뺀다 — 업로드 파일에 같이 담으면 광고에 안 나갈 매물의
+  // 매물번호·주소까지 당근 서버로 함께 전송된다. 업로드용 파일에는 '매물 데이터' 한 장만 둔다.
   if(dups.length||skipped.length){
     const exHead=['구분','매물번호','매물명','주소','상세주소','사유'];
     const exRow=e=>[null,String(e.l.id||''),String(e.l.apt||''),String(e.l.addr||'').trim(),String(e.l.addr2||'').trim(),e.reason];
@@ -3642,13 +3771,17 @@ function exportDaangnExcel(){
     exRows.forEach((row,i)=>{const rgb=i<dups.length?'F8D7DA':'FFF2CC';
       for(let c=0;c<exHead.length;c++){const cell=ws2[XLSX.utils.encode_cell({r:i+1,c:c})];if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:rgb}}};}});
     ws2['!cols']=[{wch:9},{wch:15},{wch:12},{wch:28},{wch:9},{wch:45}];
-    XLSX.utils.book_append_sheet(wb,ws2,'제외된 매물');
+    const wb2=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb2,ws2,'제외된 매물');
+    XLSX.writeFile(wb2,`제외된매물_확인용_${todayStr()}.xlsx`);
   }
-  XLSX.writeFile(wb,`당근부동산_일괄등록_${todayStr()}.xlsx`);
   showToast(`🥕 당근 엑셀 ${rows.length}건 내보내기 완료`+(dups.length?` · ⚠️ 중복 ${dups.length}건 제외`:'')+(skipped.length?` · 항목부족 ${skipped.length}건 제외`:''));
   const notes=[];
-  if(dups.length)notes.push('⚠️ 중복 매물 '+dups.length+'건을 업로드용 시트에서 제외했습니다.\n당근은 같은 매물을 중복 등록하면 계정이 중지될 수 있습니다.\n엑셀 2번째 시트 [제외된 매물](빨강)과 매물 목록의 ⚠️ 표시를 확인해 주세요.\n\n'+dups.map(exLine).join('\n'));
-  if(skipped.length)notes.push('당근 필수항목이 부족해 제외된 매물 '+skipped.length+'건 — 엑셀 2번째 시트 [제외된 매물](노랑) 참고:\n\n'+skipped.map(exLine).join('\n')+'\n\n항목을 채운 뒤 다시 내보내면 포함됩니다.');
+  if(scrubCnt)notes.push('🛡️ 당근 외부유도 제재 예방: 광고문 '+scrubCnt+'건에서 전화번호·외부링크 줄을 제거했습니다.\n(CRM에 저장된 원본 광고문은 그대로 유지됩니다 — 당근은 프로필에 사무소 연락처가 노출됩니다)');
+  if(dups.length)notes.push('⚠️ 중복 매물 '+dups.length+'건을 업로드 파일에서 제외했습니다.\n당근은 같은 매물을 중복 등록하면 계정이 중지될 수 있습니다.\n같이 받은 [제외된매물_확인용] 파일(빨강)과 매물 목록의 ⚠️ 표시를 확인해 주세요.\n\n'+dups.map(exLine).join('\n'));
+  if(skipped.length)notes.push('당근 필수항목이 부족해 제외된 매물 '+skipped.length+'건 — 같이 받은 [제외된매물_확인용] 파일(노랑) 참고:\n\n'+skipped.map(exLine).join('\n')+'\n\n항목을 채운 뒤 다시 내보내면 포함됩니다.');
+  if(optWarn.length)notes.push('🏷️ 옵션이 등록되지 않는 매물 '+optWarn.length+'건 — 당근은 정해진 품목만 인식합니다.\n\'풀옵션\'처럼 뭉뚱그린 표현은 어떤 가전이 있는지 알 수 없어 당근에 올리지 않았습니다.\n(없는 가전을 있다고 올리면 허위매물 신고 대상입니다)\n매물 수정에서 에어컨·냉장고·세탁기 등 실제 품목을 선택해 주세요:\n\n'+optWarn.join('\n'));
+  if(useWarn.length)notes.push('⚠️ 건축물 용도가 주거용이 아닌 매물 '+useWarn.length+'건입니다.\n숙박시설로 등재된 건물을 주거용으로 광고하면 전입신고·허위매물 분쟁 소지가 있고,\n당근은 숙박업소 게시글을 등록 금지로 보고 있습니다. 실제 용도를 확인해 주세요:\n\n'+useWarn.join('\n'));
   if(notes.length)setTimeout(()=>alert(notes.join('\n\n────────────────\n\n')),400);
 }
 
