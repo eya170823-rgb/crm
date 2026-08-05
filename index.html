@@ -629,7 +629,12 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <button class="btn" onclick="exportDaangnExcel()"  style="background:#FF6F0F;color:#fff;border-color:#FF6F0F">🥕 당근 엑셀</button>
         <button class="btn" onclick="syncAdLedger('daangn')" style="background:#4B5563;color:#fff;border-color:#4B5563">🥕 당근 등록목록 동기화</button>
         <button class="btn" onclick="copyAdText('naver')">N 네이버용 복사</button>
+        <button class="btn" onclick="fillBldgBulk()" style="border-color:#0F6E56;color:#0F6E56">🏢 대장 일괄보충</button>
         <button class="btn" onclick="adAuditReport()">⚠️ 광고 점검표</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#6B7280;padding:0 6px"
+               title="상가·사무실·건물·공장/창고·토지는 권리금·지목·용도지역이 엑셀로 전달되지 않아 기본 제외됩니다">
+          <input type="checkbox" id="ad-include-biz"> 상가·토지도 포함
+        </label>
       </div>
 
       <div id="ad-table"></div>
@@ -1117,6 +1122,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <input id="l-addr2" placeholder="예: 101동 801호 (호수는 대장 표기 기준)" style="flex:1" onchange="addr2Changed()">
         <button type="button" class="btn btn-sm" onclick="bldgShowUnits()" style="white-space:nowrap">📋 호수목록</button>
         <button type="button" id="bldg-fill-btn" class="btn btn-sm" onclick="bldgAutoFill()" style="white-space:nowrap">🏢 대장 자동조회</button>
+        <button type="button" class="btn btn-sm" onclick="fillBldgForOpenListing()" style="white-space:nowrap;border-color:#0F6E56;color:#0F6E56" title="총 주차대수·세대수·엘리베이터를 대장에서 가져옵니다. 당근 엑셀에는 주차대수 칸이 없어 설명문으로 전달됩니다">🅿️ 주차·세대수</button>
       </div>
       <div style="font-size:10px;color:var(--t3);margin-top:4px">상세주소 입력을 마치면 해당층·총층·전용면적·사용승인일이 자동 조회됩니다. 호수를 모르면 [호수목록]에서 선택하세요. (방수·욕실수는 공공데이터에 없어 직접 입력)</div>
       <div id="bldg-units-list" style="display:none;max-height:220px;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);margin-top:6px"></div>
@@ -3200,11 +3206,25 @@ function buildDaangnPlainDesc(o){
   }else if(ft==='확인 불가'){
     S.push(`관리비는 확인 불가입니다.${v(o.feeNote)?' 사유는 '+v(o.feeNote)+'입니다.':''}`);
   }
-  if(v(o.parking)) S.push(`주차는 ${v(o.parking)}입니다.`);
-  if(v(o.pets))    S.push(`반려동물은 ${v(o.pets)}입니다.`);
-  if(v(o.loan))    S.push(`대출은 ${v(o.loan)}입니다.`);
+  // 🔴 부정·미확인 값은 반드시 문장으로 못 박는다.
+  //    당근 AI는 옵션/필수옵션을 value:'YES' 로만 만들기 때문에 '불가능'·'없음'·'확인필요'는
+  //    폼에서 항목 자체가 사라진다. 숫자까지 적어야 AI가 0으로 인식한다.
+  const has=x=>x!==undefined&&x!==null&&String(x).trim()!=='';
+  if(v(o.parking)==='불가능'){
+    S.push('주차 불가능. 총 주차대수 0대.');
+  }else{
+    let p='주차 '+(v(o.parking)||'확인필요')+'.';
+    if(has(o.parkTotal))  p+=` 총 주차대수 ${o.parkTotal}대.`;
+    if(has(o.parkPerHh))  p+=` 세대당 주차대수 ${o.parkPerHh}대.`;
+    if(has(o.hhldCnt))    p+=` 총 ${o.hhldCnt}세대.`;
+    if(has(o.elevator))   p+=` 엘리베이터 ${o.elevator}대.`;
+    S.push(p);
+  }
+  S.push(`반려동물 ${v(o.pets)||'확인필요'}.`);
+  S.push(`대출 ${v(o.loan)||'확인필요'}.`);
   const opts=v(o.options).split(',').map(s=>s.trim()).filter(x=>DAANGN_OPTIONS.includes(x));
   if(opts.length) S.push(`옵션은 ${opts.join(', ')}입니다.`);
+  else            S.push('확인된 옵션 없음.');
   for(const k of Object.keys(LIVING_ZONES)){
     if(addr.includes(k)){ S.push(LIVING_ZONES[k].slice(0,2).join(' · ')+'입니다.'); break; }
   }
@@ -3301,6 +3321,32 @@ function saveListing(){
     showToast(`매물이 추가되었습니다 ✓ (매물번호 ${savedItem.id})`);
   }
   if(status==='계약완료'&&savedItem) syncListingToContract(savedItem);
+  // 등록대장 충돌 경고 — 같은 주소·호수가 이미 플랫폼에 올라가 있으면 알린다.
+  // 당근은 거래유형이 달라도 주소+호수가 같으면 중복으로 보고 계정을 정지시킨다.
+  if(savedItem&&typeof unitKey==='function'&&typeof adLedger==='function'){
+    try{
+      const uk=unitKey(savedItem);
+      if(uk) PLATFORMS.forEach(p=>{
+        if(p.dedup!=='unit') return;
+        const led=adLedger(p.key)[uk];
+        if(!led) return;
+        if(adOn(savedItem,p.key)) return;                       // 이미 표시돼 있으면 조용히 통과
+        if(led.brzId&&led.brzId!==savedItem.id&&confirm(
+          `⚠️ 같은 주소·호수가 ${p.label}에 이미 등록돼 있습니다.\n\n`
+          +`  ${p.label} 번호 ${led.no||'-'} / 브리즈 ${led.brzId}\n  ${led.addr||''}\n\n`
+          +`${p.label}은 주소+호수가 같으면 거래유형이 달라도 중복으로 봅니다.\n`
+          +`따로 올리지 말고 기존 게시글에서 거래유형을 함께 선택하세요.\n\n`
+          +`이 매물도 ${p.label} 광고중으로 표시할까요?`)){
+          savedItem.ads=savedItem.ads||{};
+          savedItem.ads[p.key]=Object.assign(adBlank(),{on:true,no:led.no||'',at:led.at||todayStr()});
+        }else if(!led.brzId){
+          savedItem.ads=savedItem.ads||{};
+          savedItem.ads[p.key]=Object.assign(adBlank(),{on:true,no:led.no||'',at:led.at||todayStr()});
+          showToast(`${p.label} 등록대장과 매칭 — 광고중으로 표시했습니다`);
+        }
+      });
+    }catch(e){ console.warn('[광고관리] 등록대장 대조 실패', e); }
+  }
   attachBuffer=[];
   save('listings',listings);closeModal('listing');renderListings();renderContracts();renderExpiryMini();renderDashAlerts();updateStats();
   if(typeof renderAds==='function') renderAds();
@@ -3738,7 +3784,9 @@ function daangnScrubDesc(t){
 function parseFloorNo(s){
   s=String(s||'').trim();
   if(!s) return {floor:'',basement:''};
-  if(/반지하|반지층/.test(s)) return {floor:'',basement:'반지하'};
+  // 반지하도 층 값을 비우면 안 된다 — 층은 주거형 필수라 빈 값이면 매물이 통째로 제외된다.
+  // 당근 양식에 '반지하' 칸이 없으므로 층은 -1로 보내고, 반지하 여부는 설명문·검수표로 전달한다.
+  if(/반지하|반지층/.test(s)) return {floor:'-1',basement:'반지하'};
   const b=s.match(/(?:지하|지층|[bB])\s*-?\s*(\d+)/);
   if(b) return {floor:'-'+b[1],basement:'지하'};
   const m=s.match(/-?\d+(?:\.\d+)?/);
@@ -3772,8 +3820,24 @@ function exportDaangnExcel(){
   const excluded=flt.excluded.slice();
   const rows=[],fixRows=[],outIds=[];
 
-  // ── 2) 필수항목 검사 + 행 생성 (헤더 순서는 DAANGN_HEADERS 그대로) ──
+  // ── 1-b) 비주거는 기본 제외 ──
+  //    권리금·토지 지목·용도지역은 당근 AI 응답 스키마에 필드 자체가 없어 엑셀로 전달되지 않는다.
+  //    설명문 문장으로만 넘어가므로, 등록 후 손볼 게 많아 개별등록을 권한다.
+  //    화면 체크박스로 사용자가 포함시킬 수 있다.
+  const incBiz=!!document.getElementById('ad-include-biz')?.checked;
+  const okList=[];
   for(const l of flt.ok){
+    const k0=DAANGN_KIND_MAP[l.kind]||String(l.kind||'').trim();
+    if(!incBiz&&(BIZ.includes(k0)||k0==='토지')){
+      excluded.push({o:l,why:'개별등록필요',
+        memo:`${k0} — 권리금·지목·용도지역은 엑셀로 전달되지 않습니다(설명문에만 기재). 당근에서 직접 등록하세요.`});
+      continue;
+    }
+    okList.push(l);
+  }
+
+  // ── 2) 필수항목 검사 + 행 생성 (헤더 순서는 DAANGN_HEADERS 그대로) ──
+  for(const l of okList){
     const kind=DAANGN_KIND_MAP[l.kind]||String(l.kind||'').trim();
     const type=String(l.type||'').trim()==='단기임대'?'단기':String(l.type||'').trim();
 
@@ -3818,31 +3882,37 @@ function exportDaangnExcel(){
       String(l.jimok||''),String(l.zone||''),moneyMan(l.premium),String(l.bldgUse||'')]);
     outIds.push(l.id);
 
-    // 당근 변환기가 못 옮기는 값 → 등록 전 손으로 채울 목록
-    const fix=[];
-    if(fl.basement)fix.push(`층: ${fl.basement}${fl.floor?' '+Math.abs(+fl.floor)+'층':''} 체크`);
-    if(String(l.parking||'')==='불가능')fix.push('주차: 불가능');
-    if(String(l.parking||'')==='가능')fix.push('총 주차대수 입력');
-    if(String(l.pets||'')==='불가능')fix.push('반려동물: 불가능');
-    if(String(l.loan||'')==='없음')fix.push('대출: 불가능');
-    if(l.feeBasis)fix.push('관리비 부과 기준: '+l.feeBasis);
-    if(l.feeItems)fix.push('관리비 포함항목: '+l.feeItems);
-    if(String(l.feeType||'')==='확인 불가'&&l.feeNote)fix.push('관리비 확인불가 사유: '+l.feeNote);
-    if(l.premium)fix.push('권리금: '+l.premium+'만원');
-    if(kind==='토지'){ if(l.jimok)fix.push('토지 지목: '+l.jimok); if(l.zone)fix.push('용도지역: '+l.zone); }
-    if(l.bldgUse)fix.push('건물용도 확인: '+l.bldgUse);
-    if(l.availDate)fix.push('입주가능일 확인: '+normDateStr(l.availDate));
-    fix.push('상세주소·총층·엘리베이터 대장값 확인');
-    fix.push('상세설명 CRM 광고문으로 교체');
-    fixRows.push([String(l.id||''),String(l.apt||''),String(l.addr||'').trim(),
-                  String(l.addr2||'').trim(),fix.join(' / ')]);
+    // 당근이 엑셀로 못 받는 값 → 등록 후 화면에서 손으로 고칠 목록.
+    // 원본 값을 그대로 남겨야 초안 화면과 1:1로 대조할 수 있다.
+    const neg=[];
+    if(String(l.parking||'')==='불가능')neg.push('주차 불가능');
+    if(String(l.loan||'')==='없음')neg.push('대출 없음');
+    if(String(l.pets||'')==='불가능')neg.push('반려동물 불가능');
+    if(String(l.pets||'')==='확인필요')neg.push('반려동물 확인필요');
+    if(String(l.parking||'')==='확인필요')neg.push('주차 확인필요');
+    if(String(l.loan||'')==='확인필요')neg.push('대출 확인필요');
+    fixRows.push([
+      String(l.id||''),
+      (String(l.addr||'').trim()+' '+String(l.addr2||'').trim()).trim(),
+      normDateStr(String(l.availDate||'').trim()),          // 입주가능일(원본) — 당근이 과거날짜로 바꾸는 사례 있음
+      String(l.feeType||''),                                 // 관리비 부과방식
+      String(l.feeBasis||''),                                // 관리비 부과기준
+      (l.parkTotal!==undefined&&l.parkTotal!==null&&l.parkTotal!=='')?String(l.parkTotal)
+        :(String(l.parking||'')==='불가능'?'0':''),           // 주차 총대수
+      neg.join(' / '),                                       // 부정값 항목
+      moneyMan(l.premium),                                   // 권리금
+      String(l.jimok||''),                                   // 지목
+      String(l.zone||''),                                    // 용도지역
+      String(l.bldgUse||''),                                 // 건물용도
+      fl.basement?`${fl.basement}(층 ${fl.floor})`:''         // 지하 여부
+    ]);
   }
 
   // ── 3) 100건 컷 (초과분은 검수 파일에 남긴다 — 조용히 버리지 않는다) ──
   if(rows.length>100){
     for(let i=100;i<rows.length;i++){
       const id=rows[i][25];
-      const o=flt.ok.find(x=>String(x.id||'')===id)||{id:id,addr:rows[i][4],addr2:rows[i][5]};
+      const o=okList.find(x=>String(x.id||'')===id)||{id:id,addr:rows[i][4],addr2:rows[i][5]};
       excluded.push({o:o,why:'100건초과',memo:'다음 회차에 내보내세요'});
     }
     rows.length=100; outIds.length=100; fixRows.length=100;
@@ -3877,7 +3947,8 @@ function exportDaangnExcel(){
   // ── 6) 검수용 워크북 (당근에 올리지 않는다) ──
   const wb2=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb2,
-    XLSX.utils.aoa_to_sheet([['브리즈번호','건물명','주소','상세주소','등록 전 확인·입력할 항목'],...fixRows]),
+    XLSX.utils.aoa_to_sheet([['브리즈번호','주소','입주가능일(원본)','관리비 부과방식','관리비 부과기준',
+      '주차 총대수','부정값 항목','권리금','지목','용도지역','건물용도','지하 여부'],...fixRows]),
     '등록전 보정');
   const exRows=excluded.map(e=>{
     const o=e.o||{};
@@ -5334,6 +5405,160 @@ function adAuditReport(){
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
+
+/* ============================================================
+   건축물대장 보충 모듈  (총 주차대수·세대수·엘리베이터)
+   - 당근 엑셀 30열에는 '총 주차대수' 칸이 없다. 그런데 당근 폼은 주차 '가능'이면
+     총 주차대수를 필수로 요구한다. 유일한 전달 경로는 매물 설명 문장이므로
+     여기서 받아온 값을 buildDaangnPlainDesc 가 문장으로 써 넣는다.
+   - apis.data.go.kr 은 CORS를 막고 서비스키가 노출되므로 Apps Script를 프록시로 쓴다.
+     서버 코드는 apps-script/bldg-proxy.gs 참고 (기존 스크립트에 action 2개만 추가).
+   ============================================================ */
+
+const BLDG_CACHE_KEY = 'crm_bldg_cache';
+
+/* Apps Script 공통 호출 — 기존 gsSaveAll 과 같은 규약(text/plain + token) */
+async function gsCall(action, payload){
+  const url = getGsUrl();
+  if(!url) throw new Error('구글 시트 연동(Apps Script URL)이 설정되지 않았습니다');
+  const res = await fetch(url, {
+    method : 'POST',
+    headers: { 'Content-Type':'text/plain' },
+    body   : JSON.stringify(Object.assign({ action:action, token:getGsTok() }, payload||{}))
+  });
+  const json = await res.json();
+  if(!json.ok) throw new Error(json.error || (action + ' 실패'));
+  return json.result;
+}
+
+/* 지번 단위 캐시 — 같은 건물 여러 호실은 한 번만 조회한다 */
+function bldgCacheAll(){
+  try{ return JSON.parse(localStorage.getItem(BLDG_CACHE_KEY) || '{}'); }catch(e){ return {}; }
+}
+function bldgCacheKey(addr){
+  // 호수·동을 뗀 지번까지만 키로 쓴다 (unitKey 와 달리 건물 단위)
+  const k = (typeof unitKeyFromText === 'function') ? unitKeyFromText(addr) : '';
+  return k ? k.split('|').slice(0,2).join('|') : String(addr||'').trim();
+}
+function bldgCacheGet(addr){ return bldgCacheAll()[bldgCacheKey(addr)] || null; }
+function bldgCacheSet(addr, v){
+  const all = bldgCacheAll();
+  all[bldgCacheKey(addr)] = Object.assign({}, v, { _at: todayStr() });
+  localStorage.setItem(BLDG_CACHE_KEY, JSON.stringify(all));
+}
+
+/* 주소 → 법정동코드 (브라우저 카카오 SDK — 기존 bldgAutoFill 과 같은 방식) */
+function _pad4(v){
+  let n = String(v==null?'':v).replace(/[^0-9]/g,'');
+  if(!n) return '0000';
+  while(n.length < 4) n = '0' + n;
+  return n.slice(-4);
+}
+async function geocodeForBldg(addr){
+  await loadKakaoSdk();
+  const a = await new Promise((res,rej)=>{
+    new kakao.maps.services.Geocoder().addressSearch(addr,(r,s)=>{
+      if(s===kakao.maps.services.Status.OK && r.length && r[0].address) res(r[0].address);
+      else rej(new Error('주소를 지번주소로 해석하지 못했습니다'));
+    });
+  });
+  const bcode = String(a.b_code||'');
+  if(bcode.length < 10) throw new Error('법정동코드를 찾지 못했습니다');
+  return {
+    sigunguCd: bcode.slice(0,5),
+    bjdongCd : bcode.slice(5),
+    bun      : _pad4(a.main_address_no),
+    ji       : _pad4(a.sub_address_no)
+  };
+}
+
+/* 주소 → 대장 통계 (캐시 → 카카오 지오코딩 → Apps Script bldgStat) */
+async function fetchBldgInfo(addr){
+  addr = String(addr||'').trim();
+  if(!addr) throw new Error('주소가 비어 있습니다');
+  const hit = bldgCacheGet(addr);
+  if(hit) return hit;
+  const geo = await geocodeForBldg(addr);
+  // 🔴 action 은 반드시 'bldgStat' — 'bldg' 는 매물 등록화면이 쓰는 기존 엔드포인트다.
+  const b = await gsCall('bldgStat', geo);
+  bldgCacheSet(addr, b);
+  return b;
+}
+
+/* 매물 한 건에 대장값 채우기 — 이미 사람이 넣은 값은 덮지 않는다 */
+function applyBldgToListing(o, b){
+  if(!o || !b) return false;
+  const blank = x => x === undefined || x === null || String(x).trim() === '';
+  o.parkTotal = b.parkTotal;
+  o.parkPerHh = b.parkPerHh;
+  o.hhldCnt   = b.hhldCnt;
+  o.elevator  = b.elevator;
+  o.grndFlr   = b.grndFlr;
+  o.ugrndFlr  = b.ugrndFlr;
+  // 아래 둘은 사람이 확인해 넣은 값이 우선 — 비어 있을 때만 채운다
+  if(blank(o.bldgUse) && (b.mainPurps || b.etcPurps)) o.bldgUse = b.mainPurps || b.etcPurps;
+  if(blank(o.aprDate) && b.useAprDay) o.aprDate = b.useAprDay;
+  o.bldgSyncAt = todayStr();
+  return true;
+}
+
+async function fillBldgForListing(id){
+  const list = (typeof adListings === 'function') ? adListings() : (load('listings')||[]);
+  const o = list.find(x => x.id === id);
+  if(!o){ showToast('매물을 찾지 못했습니다'); return; }
+  if(!String(o.addr||'').trim()){ showToast('소재지 주소가 없습니다'); return; }
+  showToast('🏢 대장 조회 중…');
+  try{
+    const b = await fetchBldgInfo(o.addr);
+    applyBldgToListing(o, b);
+    if(typeof adSaveList === 'function') adSaveList(list); else save('listings', list);
+    renderListings();
+    if(typeof renderAds === 'function') renderAds();
+    showToast(`🏢 ${o.apt||o.id} — 주차 ${b.parkTotal}대`
+      + (b.hhldCnt ? ` / ${b.hhldCnt}세대` : '')
+      + (b.elevator ? ` / 승강기 ${b.elevator}대` : ''));
+  }catch(e){
+    showToast('대장 조회 실패: ' + e.message);
+  }
+}
+
+/* 모달에서 열려 있는 매물에 대해 조회 (저장된 매물만) */
+function fillBldgForOpenListing(){
+  const id = (document.getElementById('l-edit-id')||{}).value || '';
+  if(!id){ showToast('먼저 매물을 저장한 뒤 조회하세요'); return; }
+  fillBldgForListing(id);
+}
+
+/* parkTotal 이 빈 매물만 순차 조회. 대장 없음(토지·무허가)은 오류로 치지 않는다 */
+async function fillBldgBulk(){
+  const list = (typeof adListings === 'function') ? adListings() : (load('listings')||[]);
+  const todo = list.filter(o => String(o.addr||'').trim()
+                             && (o.parkTotal === undefined || o.parkTotal === null || o.parkTotal === ''));
+  if(!todo.length){ showToast('보충할 매물이 없습니다 👍'); return; }
+  if(!confirm(`${todo.length}건의 건축물대장을 조회해 주차대수·세대수를 채웁니다.\n`
+            + `같은 건물은 한 번만 조회합니다. 계속할까요?`)) return;
+
+  let ok = 0, miss = 0;
+  const misses = [];
+  for(let i = 0; i < todo.length; i++){
+    const o = todo[i];
+    try{
+      const b = await fetchBldgInfo(o.addr);
+      applyBldgToListing(o, b);
+      ok++;
+    }catch(e){
+      miss++;
+      misses.push(`${o.id||''} ${o.apt||''} ${o.addr||''} → ${e.message}`);
+    }
+    if(i % 5 === 4 || i === todo.length - 1) showToast(`🏢 대장 보충 ${i+1}/${todo.length}…`);
+    await new Promise(r => setTimeout(r, 350));   // 공공 API 호출 간격
+  }
+  if(typeof adSaveList === 'function') adSaveList(list); else save('listings', list);
+  renderListings();
+  if(typeof renderAds === 'function') renderAds();
+  showToast(`🏢 대장 보충 완료 — 성공 ${ok}건 / 실패 ${miss}건`);
+  if(misses.length) console.warn('대장 조회 실패(토지·무허가·미등재일 수 있음):\n' + misses.join('\n'));
+}
 
 </script>
 </body>
