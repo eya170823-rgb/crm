@@ -5495,8 +5495,10 @@ function applyBldgToListing(o, b){
   o.elevator  = b.elevator;
   o.grndFlr   = b.grndFlr;
   o.ugrndFlr  = b.ugrndFlr;
-  // 아래 둘은 사람이 확인해 넣은 값이 우선 — 비어 있을 때만 채운다
-  if(blank(o.bldgUse) && (b.mainPurps || b.etcPurps)) o.bldgUse = b.mainPurps || b.etcPurps;
+  // 🔴 건물용도(bldgUse)는 대장 값으로 채우지 않는다 — 사장님이 입력한 값을 그대로 둔다.
+  //    대장 용도가 '숙박시설'로 나오는 건물이 있는데(연동 에코드파리 등), 자동으로 채우면
+  //    광고문(buildListingDesc)이 "건물용도는 숙박시설입니다" 문장을 그대로 실어 내보낸다.
+  //    용도는 사람이 판단해 매물 등록화면에서 직접 넣는다. (2026-08-05)
   if(blank(o.aprDate) && b.useAprDay) o.aprDate = b.useAprDay;
   o.bldgSyncAt = todayStr();
   return true;
