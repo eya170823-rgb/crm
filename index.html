@@ -439,6 +439,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <button class="sb-item" onclick="go('expiry')">⏰ 만기 관리<span class="sb-badge red" id="sb-exp">0</span></button>
     <div class="sb-section">업무관리</div>
     <button class="sb-item" onclick="go('listing')">🏠 매물 관리</button>
+    <button class="sb-item" onclick="go('ads')">📣 광고관리<span class="sb-badge red" id="sb-ad-todo" style="display:none">0</span></button>
     <button class="sb-item" onclick="go('customer')">👥 고객 관리</button>
     <button class="sb-item" onclick="go('contract')">📋 계약 완료</button>
     <button class="sb-item" onclick="go('landlord')">🤝 임대인 관리<span class="sb-badge red" id="sb-landlord" style="display:none">0</span></button>
@@ -565,6 +566,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <div class="row">
           <button class="btn btn-sm" style="background:#1D6F42;color:#fff;border-color:#1D6F42;font-weight:600" onclick="exportListingsExcel()">📊 엑셀 다운로드</button>
           <button class="btn btn-sm" style="background:#FF6F0F;color:#fff;border-color:#FF6F0F;font-weight:600" onclick="exportDaangnExcel()">🥕 당근 엑셀</button>
+        <button class="btn btn-sm" style="border-color:#FF6F0F;color:#FF6F0F;font-weight:600" title="당근에서 등록을 마친 뒤 누르세요 — 방금 내보낸 건이 다음 회차에서 자동 제외됩니다" onclick="daangnMarkLastExportPosted()">🥕 등록완료 표시</button>
           <button class="btn btn-sm" style="background:#2563EB;color:#fff;border-color:#2563EB;font-weight:600" onclick="openUploadModal('listing')">⬆️ 엑셀 업로드</button>
           <button class="btn btn-g btn-sm" onclick="openModal('listing',null)">+ 매물 추가</button>
         </div>
@@ -606,6 +608,31 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       </div>
 
       <div id="listing-cards"></div>
+    </div>
+
+    <!-- 광고 관리 -->
+    <div class="panel" id="p-ads">
+      <div class="page-head" style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <h2 style="margin:0;font-size:18px">📣 광고관리</h2>
+        <span id="ad-summary" style="font-size:12px;color:#6B7280"></span>
+      </div>
+
+      <div class="tab-bar" id="ad-tabs">
+        <div class="tab-btn on" data-f="all"    onclick="setAdFilter('all')">전체</div>
+        <div class="tab-btn"    data-f="none"   onclick="setAdFilter('none')">미광고</div>
+        <div class="tab-btn"    data-f="stale"  onclick="setAdFilter('stale')">수정필요</div>
+        <div class="tab-btn"    data-f="expire" onclick="setAdFilter('expire')">만료임박</div>
+        <div class="tab-btn"    data-f="down"   onclick="setAdFilter('down')">내려야함</div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        <button class="btn" onclick="exportDaangnExcel()"  style="background:#FF6F0F;color:#fff;border-color:#FF6F0F">🥕 당근 엑셀</button>
+        <button class="btn" onclick="syncAdLedger('daangn')" style="background:#4B5563;color:#fff;border-color:#4B5563">🥕 당근 등록목록 동기화</button>
+        <button class="btn" onclick="copyAdText('naver')">N 네이버용 복사</button>
+        <button class="btn" onclick="adAuditReport()">⚠️ 광고 점검표</button>
+      </div>
+
+      <div id="ad-table"></div>
     </div>
 
     <!-- 고객 관리 -->
@@ -1793,7 +1820,9 @@ const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contra
 const load=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||[];}catch{return [];}};
 const loadObj=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||{};}catch{return {};}};
 const loadStr=k=>localStorage.getItem(K[k])||'';
-const save=(k,v)=>{localStorage.setItem(K[k],JSON.stringify(v));gsAutoSync(k,v);};
+const save=(k,v)=>{
+  if(k==='listings'&&Array.isArray(v)&&typeof adsFlatten==='function')v.forEach(adsFlatten); // 광고정보 → 시트 미러용 평탄화
+  localStorage.setItem(K[k],JSON.stringify(v));gsAutoSync(k,v);};
 const saveStr=(k,v)=>localStorage.setItem(K[k],v);
 
 // ─── 구글 시트 연동 ───
@@ -1823,7 +1852,9 @@ function normDateStr(s){
   if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
   return s;
 }
-function normDates(type,arr){const fs=DATE_FIELDS[type]||[];(arr||[]).forEach(o=>fs.forEach(f=>{if(o&&o[f])o[f]=normDateStr(o[f]);}));if(type==='listings')healDescNos(arr);return arr;}
+function normDates(type,arr){const fs=DATE_FIELDS[type]||[];(arr||[]).forEach(o=>fs.forEach(f=>{if(o&&o[f])o[f]=normDateStr(o[f]);}));if(type==='listings')healDescNos(arr);
+  if(type==='listings'&&typeof adsRestore==='function')(arr||[]).forEach(adsRestore); // 시트 문자열 → o.ads 복원
+  return arr;}
 // 구버전 광고문에 남은 '매물번호 저장 시 자동부여' 문구를 실제 매물번호로 치유 (불러오기·저장·수정 모든 경로에서 자동)
 function healDescNos(arr){(arr||[]).forEach(o=>{if(o&&o.id&&String(o.desc||'').includes('매물번호 저장 시 자동부여'))o.desc=String(o.desc).replace(/매물번호 저장 시 자동부여/g,'매물번호 '+o.id);});}
 
@@ -1944,6 +1975,7 @@ async function gsLoadFromSheet(){
     showToast(`불러오기 완료 — 매물 ${data.listings?.length||0}건 / 고객 ${data.customers?.length||0}명 / 계약 ${data.contracts?.length||0}건`);
     renderListings(); renderCustomers(); renderContracts(); renderLandlords();
     renderCal(); renderMonthEvents(); renderExpiryMini(); renderDashAlerts(); updateStats();
+    if(typeof renderAds==='function') renderAds();
   }catch(e){
     gsShowStatus('err', e.message);
     showToast('불러오기 실패: '+e.message);
@@ -2736,7 +2768,7 @@ function renderListings(){
       <thead><tr>
         <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>거래유형</th><th>거래가</th>
         <th>입주가능일</th><th>고객명</th><th>연락처</th>
-        <th>상태</th><th>네이버</th><th>지도</th><th>첨부</th><th>수정</th><th>삭제</th>
+        <th>당근</th><th>상태</th><th>네이버</th><th>지도</th><th>첨부</th><th>수정</th><th>삭제</th>
       </tr></thead>
       <tbody>${list.map(l=>{
         const dN=dup.no.has(String(l.id||'').trim());
@@ -2751,6 +2783,9 @@ function renderListings(){
         <td style="white-space:nowrap">${l.availDate||moveBadge(l.moveDate)||`<span style="color:var(--t3);font-size:11px">${l.moveDate||'-'}</span>`}</td>
         <td style="font-weight:500">${l.cname||'-'}</td>
         <td style="color:var(--b);white-space:nowrap">${l.cphone||'-'}</td>
+        <td>${(typeof adOn==='function'&&adOn(l,'daangn'))
+          ? `<button class="btn btn-xs btn-g" title="${(ad(l,'daangn')||{}).at||''} 등록${adStale(l,'daangn')?' · 등록 후 값 변경됨(당근에서 직접 수정)':''}" onclick="adToggle('${l.id}','daangn')">🥕${adStale(l,'daangn')?'⚠️':'✓'}</button>`
+          : `<button class="btn btn-xs" title="당근 등록완료로 표시" onclick="adToggle('${l.id}','daangn')">미등록</button>`}</td>
         <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td>
         <td>${l.naverUrl?`<a href="${l.naverUrl}" target="_blank" class="naver-link-badge" style="font-size:10px;padding:2px 7px">N</a>`:'-'}</td>
         <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
@@ -3010,21 +3045,35 @@ function openListingFiles(id){
 }
 
 // ─── 옵션 선택 칩 ───
-// 앞쪽 10개는 당근 옵션 허용값 — 이걸 골라야 당근 광고의 옵션 아이콘으로 등록된다.
-// '풀옵션'만 고르면 당근에는 옵션이 하나도 안 올라간다(없는 품목을 임의로 채우지 않기 위함).
-const OPTION_LIST=['에어컨','냉장고','세탁기','가스렌지','인덕션','전자렌지','침대','엘리베이터','복층','옥탑',
-  '풀옵션','신축급','공동현관','무옵션','올수리','테라스','탑층','지정주차','급매','세안고','고층','1층'];
+// 당근 '옵션' 열에 실제 매핑되는 값 (가전/가구 + 매물 특징)
+const DAANGN_OPTIONS=['에어컨','냉장고','세탁기','전자렌지','가스렌지','인덕션','침대','복층','옥탑','엘리베이터'];
+// 광고 문구용 태그 — 당근 옵션 열에는 넣지 않고 설명에만 사용
+const MARKETING_TAGS=['풀옵션','무옵션','신축급','올수리','공동현관','테라스','탑층','지정주차','급매','세안고','고층','1층'];
+const OPTION_LIST=[...DAANGN_OPTIONS,...MARKETING_TAGS];
+
 function renderOptionChips(selectedStr){
   const box=document.getElementById('l-options-chips');
   if(!box) return;
   const sel=(selectedStr||'').split(',').map(s=>s.trim()).filter(Boolean);
-  const extra=sel.filter(o=>!OPTION_LIST.includes(o)); // 목록 밖 기존 값 보존
+  const extra=sel.filter(o=>!OPTION_LIST.includes(o));
   box.dataset.extra=extra.join(', ');
-  box.innerHTML=OPTION_LIST.map(o=>`<button type="button" class="btn btn-xs${sel.includes(o)?' btn-g':''}" data-opt="${o}" onclick="toggleOptionChip(this)">${o}</button>`).join('')
+  const group=(label,arr)=>
+    `<span style="font-size:10px;color:var(--t3);align-self:center;margin-right:4px">${label}</span>`
+    +arr.map(o=>`<button type="button" class="btn btn-xs${sel.includes(o)?' btn-g':''}" data-opt="${o}" onclick="toggleOptionChip(this)">${o}</button>`).join('');
+  box.innerHTML=group('당근 옵션',DAANGN_OPTIONS)
+    +`<span style="flex-basis:100%;height:2px"></span>`
+    +group('광고 문구',MARKETING_TAGS)
     +(extra.length?`<span style="font-size:10px;color:var(--t3);align-self:center">기타: ${extra.join(', ')}</span>`:'');
   syncOptionChips();
 }
 function toggleOptionChip(btn){
+  const box=document.getElementById('l-options-chips');
+  const opt=btn.dataset.opt;
+  const turningOn=!btn.classList.contains('btn-g');
+  const off=o=>{const b=box.querySelector(`button[data-opt="${o}"]`); if(b) b.classList.remove('btn-g');};
+  // '무옵션'과 개별 옵션·풀옵션은 동시 선택 불가
+  if(turningOn&&opt==='무옵션') [...DAANGN_OPTIONS,'풀옵션'].forEach(off);
+  if(turningOn&&(DAANGN_OPTIONS.includes(opt)||opt==='풀옵션')) off('무옵션');
   btn.classList.toggle('btn-g');
   syncOptionChips();
 }
@@ -3125,6 +3174,43 @@ function buildListingDesc(o){
   L.push('────────────────');
   return L.join('\n');
 }
+// 당근 업로드용 평문 설명 — 장식·전각공백 제거, AI가 놓치는 항목을 평서문으로 명시
+function buildDaangnPlainDesc(o){
+  const v=x=>String(x||'').trim();
+  const S=[];
+  const kind=v(o.kind), type=v(o.type), addr=v(o.addr), apt=v(o.apt);
+  const fl=parseFloorNo(v(o.floor));
+  if(addr) S.push(`${addr}${apt?' '+apt:''}에 위치한 ${type} ${kind}입니다.`);
+  if(v(o.bldgUse)) S.push(`건물용도는 ${v(o.bldgUse)}입니다.`);
+  if(kind==='토지'){
+    if(v(o.jimok)) S.push(`토지 지목은 ${v(o.jimok)}입니다.`);
+    if(v(o.zone))  S.push(`용도지역은 ${v(o.zone)}입니다.`);
+  }
+  if(v(o.premium)) S.push(`권리금은 ${v(o.premium)}만원입니다.`);
+  if(fl.basement) S.push(`${fl.basement}${fl.floor?' '+Math.abs(+fl.floor)+'층':''}입니다.`);
+  if(v(o.availDate)) S.push(`입주가능일은 ${normDateStr(v(o.availDate))}입니다.`);
+  const ft=v(o.feeType);
+  if(ft==='정액 관리비'){
+    S.push(`관리비는 정액 ${v(o.feeAmt)}만원입니다.`);
+    if(v(o.feeItems)) S.push(`관리비 포함항목은 ${v(o.feeItems)}입니다.`);
+    if(v(o.feeBasis)) S.push(`관리비 부과 기준은 ${v(o.feeBasis)}입니다.`);
+  }else if(ft==='기타 부과'){
+    S.push(`관리비는 기타 부과 ${v(o.feeAmt)}만원입니다.`);
+    if(v(o.feeEvidence)) S.push(`실비 근거는 ${v(o.feeEvidence)}입니다.`);
+  }else if(ft==='확인 불가'){
+    S.push(`관리비는 확인 불가입니다.${v(o.feeNote)?' 사유는 '+v(o.feeNote)+'입니다.':''}`);
+  }
+  if(v(o.parking)) S.push(`주차는 ${v(o.parking)}입니다.`);
+  if(v(o.pets))    S.push(`반려동물은 ${v(o.pets)}입니다.`);
+  if(v(o.loan))    S.push(`대출은 ${v(o.loan)}입니다.`);
+  const opts=v(o.options).split(',').map(s=>s.trim()).filter(x=>DAANGN_OPTIONS.includes(x));
+  if(opts.length) S.push(`옵션은 ${opts.join(', ')}입니다.`);
+  for(const k of Object.keys(LIVING_ZONES)){
+    if(addr.includes(k)){ S.push(LIVING_ZONES[k].slice(0,2).join(' · ')+'입니다.'); break; }
+  }
+  if(v(o.id)) S.push(`매물번호 ${v(o.id)}.`);
+  return S.join(' ').slice(0,1000);
+}
 function genListingDesc(){
   const g=id=>(document.getElementById(id)?.value||'').trim();
   const txt=buildListingDesc({
@@ -3217,6 +3303,7 @@ function saveListing(){
   if(status==='계약완료'&&savedItem) syncListingToContract(savedItem);
   attachBuffer=[];
   save('listings',listings);closeModal('listing');renderListings();renderContracts();renderExpiryMini();renderDashAlerts();updateStats();
+  if(typeof renderAds==='function') renderAds();
 }
 function deleteListing(id){if(!confirm('이 매물을 삭제하시겠습니까?'))return;listings=listings.filter(l=>l.id!==id);save('listings',listings);gsDeleteRow('listings',id);renderListings();updateStats();showToast('매물 삭제됨');}
 
@@ -3647,107 +3734,134 @@ function daangnScrubDesc(t){
   const lure=/(직통|직접\s*연락|문자\s*(주|남기|보내)|전화\s*(주|문의|연락)|연락\s*(주|바라|부탁)|톡\s*문의)/;
   return String(t||'').split('\n').filter(ln=>!phone.test(ln)&&!link.test(ln)&&!lure.test(ln)).join('\n').replace(/\n{3,}/g,'\n\n').trim();
 }
+// 층 파싱: 지하·반지하 보존 ("지하 1층"→-1, "B1"→-1)
+function parseFloorNo(s){
+  s=String(s||'').trim();
+  if(!s) return {floor:'',basement:''};
+  if(/반지하|반지층/.test(s)) return {floor:'',basement:'반지하'};
+  const b=s.match(/(?:지하|지층|[bB])\s*-?\s*(\d+)/);
+  if(b) return {floor:'-'+b[1],basement:'지하'};
+  const m=s.match(/-?\d+(?:\.\d+)?/);
+  return {floor:m?m[0]:'',basement:''};
+}
+// 숫자 하나만 안전하게 ("22.5㎡"→22.5, "84.9/110"→84.9)
+function num1(s){
+  const m=String(s||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
+  return m?m[0]:'';
+}
+// 만원 단위 금액. 확정 못 하면 빈값 → 필수항목 부족으로 걸러짐
+function moneyMan(s){
+  s=String(s||'').trim().replace(/,/g,'');
+  if(!s) return '';
+  if(/^\d+(\.\d+)?$/.test(s)) return s;
+  const eok=s.match(/^(\d+(?:\.\d+)?)\s*억\s*(\d+(?:\.\d+)?)?\s*(?:만원?)?$/);
+  if(eok) return String(Math.round(parseFloat(eok[1])*10000+parseFloat(eok[2]||'0')));
+  const man=s.match(/^(\d+(?:\.\d+)?)\s*만원?$/);
+  if(man) return man[1];
+  return '';
+}
+
 function exportDaangnExcel(){
   if(!window.XLSX){showToast('엑셀 라이브러리 로딩 중입니다.');return;}
   const HOME=['오픈형 원룸','분리형 원룸','빌라(투룸 이상)','아파트','오피스텔','주택'];
-  const BIZ=['상가','사무실','건물','공장/창고'];
-  const rows=[],skipped=[],dups=[],optWarn=[],useWarn=[];
-  let scrubCnt=0;
-  const seenNo=new Map(),seenAddr=new Map(); // 당근은 중복등록 시 계정 중지 — 같은 파일 안에 중복 매물이 들어가지 않게 차단
-  for(const l of listings){
-    const rawKind=String(l.kind||'').trim();
-    const kind=DAANGN_KINDS.includes(rawKind)?rawKind:(DAANGN_KIND_MAP[rawKind]||'');
-    let type=String(l.type||'').trim();if(type==='단기임대')type='단기';
-    if(!DAANGN_TYPES.includes(type))type='';
-    // 거래가가 "300/39"처럼 보증금/월세 한 칸이면 자동 분리
-    let depositRaw=String(l.price||'').trim(),rentRaw=String(l.rentAmt||'').trim();
-    if(!rentRaw&&['월세','연세','단기'].includes(type)){
-      const pm=depositRaw.match(/^\s*([^\/]+)\/\s*([^\/]+?)\s*$/);
-      if(pm&&daangnManwon(pm[1])&&daangnManwon(pm[2])){depositRaw=pm[1];rentRaw=pm[2];}
-    }
-    const deposit=daangnManwon(depositRaw);
-    // 매매·전세는 월세 칸이 없다 — 유형 변경 전 남은 rentAmt 잔값이 월세로 광고되면 안 됨
-    const rent=['월세','연세','단기'].includes(type)?daangnManwon(rentRaw):'';
-    const area=daangnArea(l.area);
-    const rooms=daangnNum(l.rooms),baths=daangnNum(l.baths),floor=daangnNum(l.floor),totalFloor=daangnNum(l.totalFloor);
-    // 매물 설명이 비어 있으면 브리즈 광고문 자동 생성 → 전화·링크 줄 제거(당근 외부유도 제재 예방)
-    let desc=String(l.desc||'').trim();
-    if(!desc&&type&&deposit)desc=buildListingDesc({...l,type:type,price:deposit,rentAmt:rent})||'';
-    desc=String(desc||'').trim();
-    const cleanDesc=daangnScrubDesc(desc);
-    const scrubbed=!!desc&&cleanDesc!==desc; // 실제로 엑셀에 담긴 행만 집계(제외된 매물은 세지 않음)
-    desc=cleanDesc;
+  const BIZ =['상가','사무실','건물','공장/창고'];
+
+  // ── 1) 중복·상태 차단이 먼저다 (유닛키 + 당근 등록대장) ──
+  //    당근은 주소+호수가 같으면 거래유형이 달라도 중복으로 보고 계정을 정지시킨다.
+  const flt=adFilterForExport('daangn');
+  const excluded=flt.excluded.slice();
+  const rows=[],fixRows=[],outIds=[];
+
+  // ── 2) 필수항목 검사 + 행 생성 (헤더 순서는 DAANGN_HEADERS 그대로) ──
+  for(const l of flt.ok){
+    const kind=DAANGN_KIND_MAP[l.kind]||String(l.kind||'').trim();
+    const type=String(l.type||'').trim()==='단기임대'?'단기':String(l.type||'').trim();
+
+    let deposit=String(l.price||'').trim(), rent=String(l.rentAmt||'').trim();
+    const pm=deposit.match(/^([\d,\.]+)\s*\/\s*([\d,\.]+)$/);
+    if(pm&&!rent&&['월세','연세','단기'].includes(type)){deposit=pm[1];rent=pm[2];}
+    const depositN=moneyMan(deposit), rentN=moneyMan(rent);
+    const fl=parseFloorNo(l.floor);
+    const optDaangn=String(l.options||'').split(',').map(s=>s.trim())
+                      .filter(o=>DAANGN_OPTIONS.includes(o)).join(', ');
+    const desc=buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent})||'';
+
     const miss=[];
-    if(!kind)miss.push(rawKind?'매물유형(당근 미지원: '+rawKind+')':'매물유형');
-    if(!type)miss.push(String(l.type||'').trim()?'거래유형(당근 미지원: '+String(l.type||'').trim()+')':'거래유형');
-    if(!deposit)miss.push(depositRaw?'보증금/매매가(숫자 아님: '+depositRaw+')':'보증금/매매가');
+    if(!kind)miss.push('매물유형');
+    if(!type)miss.push('거래유형');
+    if(!deposit)miss.push('보증금/매매가'); else if(!depositN)miss.push('보증금/매매가 형식(만원 숫자)');
     if(!String(l.addr||'').trim())miss.push('주소');
-    if(!area)miss.push(String(l.area||'').trim()?'면적(숫자 아님)':'면적');
+    if(!String(l.area||'').trim())miss.push('면적');
     if(!desc)miss.push('매물 설명');
-    if(['월세','연세','단기'].includes(type)&&!rent)miss.push(rentRaw?'월세(숫자 아님: '+rentRaw+')':'월세');
-    if(HOME.includes(kind)){if(!rooms)miss.push('방 수');if(!baths)miss.push('욕실 수');if(!floor)miss.push('층');if(!totalFloor)miss.push('총 층');}
-    if(BIZ.includes(kind)){if(!rooms)miss.push('방 수');if(!floor)miss.push('층');if(!totalFloor)miss.push('총 층');}
-    if(kind==='토지'){
-      if(!String(l.jimok||'').trim())miss.push('토지 지목');
-      const z=String(l.zone||'').trim();
-      if(!z)miss.push('용도지역');
-      else if(!DAANGN_ZONES.includes(z))miss.push('용도지역(당근 허용값 아님: '+z+')'); // 4종 고정값
+    if(['월세','연세','단기'].includes(type)){
+      if(!rent)miss.push('월세'); else if(!rentN)miss.push('월세 형식(만원 숫자)');
     }
-    if(miss.length){skipped.push({l:l,reason:'항목부족: '+miss.join('·')});continue;}
-    // 중복 체크(매물번호·주소+호수) — 먼저 나온 매물만 포함, 나머지는 제외 후 안내
-    const label=`${l.id||''} ${l.apt||''} ${String(l.addr||'').trim()} ${String(l.addr2||'').trim()}`.replace(/\s+/g,' ').trim();
-    const noKey=String(l.id||'').trim(),addrKey=listingAddrKey(l);
-    if(noKey&&seenNo.has(noKey)){dups.push({l:l,reason:'매물번호가 ['+seenNo.get(noKey)+']와 중복'});continue;}
-    if(seenAddr.has(addrKey)){dups.push({l:l,reason:'주소·호수가 ['+seenAddr.get(addrKey)+']와 중복'});continue;}
-    if(noKey)seenNo.set(noKey,label);
-    seenAddr.set(addrKey,label);
-    // ── 관리비: 입력 가이드 조건부 규칙 준수 (정액·기타 부과→총 관리비 필수 / 기타 부과→실비근거 / 확인 불가→사유) ──
-    let feeType=daangnPick(l.feeType,DAANGN_FEE_TYPES),feeAmt=daangnManwon(l.feeAmt);
-    // 매핑 실패 시 '기타'로 넘기되, '전기 별도'처럼 부정 표기뿐이면 포함항목이 없다는 뜻이므로 비운다
-    let feeItems=daangnMulti(l.feeItems,DAANGN_FEE_ITEM_MAP)||
-      (String(l.feeItems||'').trim()&&!/(없음|없|제외|미포함|불포함|별도)/.test(String(l.feeItems))?'기타':'');
-    let feeBasis=daangnPick(l.feeBasis,DAANGN_FEE_BASIS),feeEvidence=daangnPick(l.feeEvidence,DAANGN_FEE_EVID),feeNote=daangnPick(l.feeNote,DAANGN_FEE_NOTE);
-    if(!feeType&&feeAmt)feeType='기타 부과'; // 유형 미지정+금액 있음 → 기타 부과 (구 당근업로드 시스템의 검증된 규칙)
-    if((feeType==='정액 관리비'||feeType==='기타 부과')&&!feeAmt)feeType='';
-    if(feeType==='기타 부과'){
-      if(!feeBasis)feeBasis=type==='월세'?'최근 3개월 평균':'최근 1년 평균';
-      if(!feeEvidence)feeEvidence=kind==='아파트'?'세대별 사용량에 따라 부과':'관리규약에 따라 부과';
+    if(HOME.includes(kind)){
+      if(!l.rooms)miss.push('방 수'); if(!l.baths)miss.push('욕실 수');
+      if(!fl.floor&&!fl.basement)miss.push('층'); if(!l.totalFloor)miss.push('총 층');
     }
-    if(feeType==='확인 불가'){
-      feeAmt='';feeItems='';feeBasis='';feeEvidence='';
-      if(!feeNote)feeNote=kind==='주택'?'단독주택':(BIZ.includes(kind)?'오피스텔 제외 상가 건물':'');
-      if(!feeNote)feeType=''; // 허용된 사유에 해당 없으면 관리비 항목 전체 생략
+    if(BIZ.includes(kind)){
+      if(!l.rooms)miss.push('방 수');
+      if(!fl.floor&&!fl.basement)miss.push('층'); if(!l.totalFloor)miss.push('총 층');
     }
-    if(feeType!=='확인 불가')feeNote='';
-    if(!feeType){feeAmt='';feeItems='';feeBasis='';feeEvidence='';}
-    // 옵션: 당근이 인식하는 품목만 남는다. 원문은 있는데 하나도 안 남으면('풀옵션'만 적힌 경우 등)
-    // 임의로 채우지 않고 비운 뒤 안내한다 — 없는 가전을 광고하면 허위매물이 된다.
-    const optOut=daangnMulti(l.options,DAANGN_OPTION_MAP);
-    if(String(l.options||'').trim()&&!optOut)optWarn.push(`${label} → 입력값 "${String(l.options).trim()}"`);
-    // 건축물대장 용도가 숙박시설인데 주거용으로 광고하면 당근 등록금지·전입신고 분쟁 소지
-    if(HOME.includes(kind)&&/숙박|여관|여인숙|고시원/.test(String(l.bldgUse||'')))
-      useWarn.push(`${label} → ${kind}로 광고 / 건축물 용도 "${String(l.bldgUse).trim()}"`);
-    const arr=[kind,type,deposit,rent,String(l.addr||'').trim(),String(l.addr2||'').trim(),
-      area,rooms,baths,floor,totalFloor,daangnDir(l.direction),
-      daangnAvail(l.availDate),feeType,feeAmt,feeItems,feeBasis,feeEvidence,feeNote,
-      daangnTri(l.parking),daangnTri(l.pets),daangnLoan(l.loan),
-      optOut,daangnYear(l.aprDate),
+    if(kind==='토지'){ if(!l.jimok)miss.push('토지 지목'); if(!l.zone)miss.push('용도지역'); }
+    if(miss.length){excluded.push({o:l,why:'항목부족',memo:miss.join('·')});continue;}
+
+    rows.push([kind,type,depositN,rentN,String(l.addr||'').trim(),String(l.addr2||'').trim(),
+      num1(l.area),num1(l.rooms),num1(l.baths),fl.floor,num1(l.totalFloor),String(l.direction||''),
+      normDateStr(String(l.availDate||'').trim()),String(l.feeType||''),moneyMan(l.feeAmt),
+      String(l.feeItems||''),String(l.feeBasis||''),String(l.feeEvidence||''),String(l.feeNote||''),
+      String(l.parking||''),String(l.pets||''),String(l.loan||''),optDaangn,
+      String(l.aprDate||'').slice(0,4),
       desc,
-      String(l.id||'').trim(), // 메모(당근 비공개): 매물번호만 기록 — 현관비번 등 내부 메모는 넣지 않음
-      kind==='토지'?String(l.jimok||'').trim():'',kind==='토지'?String(l.zone||'').trim():'',
-      // 입력 가이드: 권리금·건물용도는 '상가'에만 입력 가능
-      kind==='상가'?daangnManwon(l.premium):'',kind==='상가'?String(l.bldgUse||'').trim():''];
-    [2,3,6,7,8,9,10,14,23,28].forEach(i=>{if(arr[i]!==''&&/^-?\d+(\.\d+)?$/.test(arr[i]))arr[i]=Number(arr[i]);}); // 숫자 칼럼은 실제 숫자로 (엑셀 텍스트 셀 오인 방지)
-    for(let i=0;i<arr.length;i++)if(arr[i]==='')arr[i]=null; // 빈칸은 셀 자체를 만들지 않음 (공식 양식과 동일한 모양)
-    if(scrubbed)scrubCnt++;
-    rows.push(arr);
+      String(l.id||''),                 // 메모: 브리즈 매물번호만 (내부 메모는 내보내지 않음)
+      String(l.jimok||''),String(l.zone||''),moneyMan(l.premium),String(l.bldgUse||'')]);
+    outIds.push(l.id);
+
+    // 당근 변환기가 못 옮기는 값 → 등록 전 손으로 채울 목록
+    const fix=[];
+    if(fl.basement)fix.push(`층: ${fl.basement}${fl.floor?' '+Math.abs(+fl.floor)+'층':''} 체크`);
+    if(String(l.parking||'')==='불가능')fix.push('주차: 불가능');
+    if(String(l.parking||'')==='가능')fix.push('총 주차대수 입력');
+    if(String(l.pets||'')==='불가능')fix.push('반려동물: 불가능');
+    if(String(l.loan||'')==='없음')fix.push('대출: 불가능');
+    if(l.feeBasis)fix.push('관리비 부과 기준: '+l.feeBasis);
+    if(l.feeItems)fix.push('관리비 포함항목: '+l.feeItems);
+    if(String(l.feeType||'')==='확인 불가'&&l.feeNote)fix.push('관리비 확인불가 사유: '+l.feeNote);
+    if(l.premium)fix.push('권리금: '+l.premium+'만원');
+    if(kind==='토지'){ if(l.jimok)fix.push('토지 지목: '+l.jimok); if(l.zone)fix.push('용도지역: '+l.zone); }
+    if(l.bldgUse)fix.push('건물용도 확인: '+l.bldgUse);
+    if(l.availDate)fix.push('입주가능일 확인: '+normDateStr(l.availDate));
+    fix.push('상세주소·총층·엘리베이터 대장값 확인');
+    fix.push('상세설명 CRM 광고문으로 교체');
+    fixRows.push([String(l.id||''),String(l.apt||''),String(l.addr||'').trim(),
+                  String(l.addr2||'').trim(),fix.join(' / ')]);
   }
-  const exLine=e=>`${e.l.id||''} ${e.l.apt||''} ${String(e.l.addr||'').trim()} ${String(e.l.addr2||'').trim()}`.replace(/\s+/g,' ').trim()+'\n   → '+e.reason;
-  if(!rows.length){alert('당근에 내보낼 수 있는 매물이 없습니다.'+(dups.length?'\n\n[중복 제외]\n'+dups.map(exLine).join('\n'):'')+(skipped.length?'\n\n[필수항목 부족]\n'+skipped.map(exLine).join('\n'):''));return;}
-  if(rows.length>100){showToast('당근은 최대 100건 — 앞 100건만 내보냅니다');rows.length=100;}
+
+  // ── 3) 100건 컷 (초과분은 검수 파일에 남긴다 — 조용히 버리지 않는다) ──
+  if(rows.length>100){
+    for(let i=100;i<rows.length;i++){
+      const id=rows[i][25];
+      const o=flt.ok.find(x=>String(x.id||'')===id)||{id:id,addr:rows[i][4],addr2:rows[i][5]};
+      excluded.push({o:o,why:'100건초과',memo:'다음 회차에 내보내세요'});
+    }
+    rows.length=100; outIds.length=100; fixRows.length=100;
+  }
+
+  // ── 4) 내보내기 전 확인 ──
+  const cnt={};
+  excluded.forEach(e=>{cnt[e.why]=(cnt[e.why]||0)+1;});
+  const brief=Object.keys(cnt).map(k=>`  · ${k} ${cnt[k]}건`).join('\n');
+  if(!rows.length){
+    alert('당근에 내보낼 수 있는 매물이 없습니다.\n\n[제외 내역]\n'+(brief||'  (없음)'));
+    return;
+  }
+  if(!confirm(`당근 업로드 파일을 만듭니다.\n\n▶ 신규 ${rows.length}건\n\n[제외 ${excluded.length}건]\n${brief||'  (없음)'}\n\n계속할까요?`)) return;
+
+  // ── 5) 업로드용 워크북: 시트를 정확히 1개만 담는다 ──
+  //    가이드·제외 시트를 같은 파일에 넣으면 당근이 그 시트도 매물로 파싱해 쓰레기 초안이 생긴다.
   const ws=XLSX.utils.aoa_to_sheet([DAANGN_HEADERS,...rows]);
-  // 필수입력 칼럼 헤더 연한 노랑 표시 — 이 파일에 실제 적용되는 조건부 필수(월세·방·층·토지)만 포함
-  const reqCols=new Set([0,1,2,4,6,24]); // 매물유형·거래유형·보증금/매매가·주소·면적·매물 설명
+  const reqCols=new Set([0,1,2,4,6,24]);
   if(rows.some(r=>['월세','연세','단기'].includes(r[1])))reqCols.add(3);
   if(rows.some(r=>HOME.includes(r[0])||BIZ.includes(r[0]))){reqCols.add(7);reqCols.add(9);reqCols.add(10);}
   if(rows.some(r=>HOME.includes(r[0])))reqCols.add(8);
@@ -3758,31 +3872,35 @@ function exportDaangnExcel(){
   });
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'매물 데이터');
-  XLSX.writeFile(wb,`당근부동산_일괄등록_${todayStr()}.xlsx`);
-  // 제외 목록은 '별도 파일'로 뺀다 — 업로드 파일에 같이 담으면 광고에 안 나갈 매물의
-  // 매물번호·주소까지 당근 서버로 함께 전송된다. 업로드용 파일에는 '매물 데이터' 한 장만 둔다.
-  if(dups.length||skipped.length){
-    const exHead=['구분','매물번호','매물명','주소','상세주소','사유'];
-    const exRow=e=>[null,String(e.l.id||''),String(e.l.apt||''),String(e.l.addr||'').trim(),String(e.l.addr2||'').trim(),e.reason];
-    const exRows=[...dups.map(e=>{const r=exRow(e);r[0]='⚠️ 중복';return r;}),
-                  ...skipped.map(e=>{const r=exRow(e);r[0]='항목부족';return r;})];
-    const ws2=XLSX.utils.aoa_to_sheet([exHead,...exRows]);
-    for(let c=0;c<exHead.length;c++){const cell=ws2[XLSX.utils.encode_cell({r:0,c:c})];if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:'E0E0E0'}},font:{bold:true}};}
-    exRows.forEach((row,i)=>{const rgb=i<dups.length?'F8D7DA':'FFF2CC';
-      for(let c=0;c<exHead.length;c++){const cell=ws2[XLSX.utils.encode_cell({r:i+1,c:c})];if(cell)cell.s={fill:{patternType:'solid',fgColor:{rgb:rgb}}};}});
-    ws2['!cols']=[{wch:9},{wch:15},{wch:12},{wch:28},{wch:9},{wch:45}];
-    const wb2=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb2,ws2,'제외된 매물');
-    XLSX.writeFile(wb2,`제외된매물_확인용_${todayStr()}.xlsx`);
-  }
-  showToast(`🥕 당근 엑셀 ${rows.length}건 내보내기 완료`+(dups.length?` · ⚠️ 중복 ${dups.length}건 제외`:'')+(skipped.length?` · 항목부족 ${skipped.length}건 제외`:''));
-  const notes=[];
-  if(scrubCnt)notes.push('🛡️ 당근 외부유도 제재 예방: 광고문 '+scrubCnt+'건에서 전화번호·외부링크 줄을 제거했습니다.\n(CRM에 저장된 원본 광고문은 그대로 유지됩니다 — 당근은 프로필에 사무소 연락처가 노출됩니다)');
-  if(dups.length)notes.push('⚠️ 중복 매물 '+dups.length+'건을 업로드 파일에서 제외했습니다.\n당근은 같은 매물을 중복 등록하면 계정이 중지될 수 있습니다.\n같이 받은 [제외된매물_확인용] 파일(빨강)과 매물 목록의 ⚠️ 표시를 확인해 주세요.\n\n'+dups.map(exLine).join('\n'));
-  if(skipped.length)notes.push('당근 필수항목이 부족해 제외된 매물 '+skipped.length+'건 — 같이 받은 [제외된매물_확인용] 파일(노랑) 참고:\n\n'+skipped.map(exLine).join('\n')+'\n\n항목을 채운 뒤 다시 내보내면 포함됩니다.');
-  if(optWarn.length)notes.push('🏷️ 옵션이 등록되지 않는 매물 '+optWarn.length+'건 — 당근은 정해진 품목만 인식합니다.\n\'풀옵션\'처럼 뭉뚱그린 표현은 어떤 가전이 있는지 알 수 없어 당근에 올리지 않았습니다.\n(없는 가전을 있다고 올리면 허위매물 신고 대상입니다)\n매물 수정에서 에어컨·냉장고·세탁기 등 실제 품목을 선택해 주세요:\n\n'+optWarn.join('\n'));
-  if(useWarn.length)notes.push('⚠️ 건축물 용도가 주거용이 아닌 매물 '+useWarn.length+'건입니다.\n숙박시설로 등재된 건물을 주거용으로 광고하면 전입신고·허위매물 분쟁 소지가 있고,\n당근은 숙박업소 게시글을 등록 금지로 보고 있습니다. 실제 용도를 확인해 주세요:\n\n'+useWarn.join('\n'));
-  if(notes.length)setTimeout(()=>alert(notes.join('\n\n────────────────\n\n')),400);
+  XLSX.writeFile(wb,`당근업로드_${todayStr()}_${rows.length}건.xlsx`);
+
+  // ── 6) 검수용 워크북 (당근에 올리지 않는다) ──
+  const wb2=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2,
+    XLSX.utils.aoa_to_sheet([['브리즈번호','건물명','주소','상세주소','등록 전 확인·입력할 항목'],...fixRows]),
+    '등록전 보정');
+  const exRows=excluded.map(e=>{
+    const o=e.o||{};
+    const dn=(typeof ad==='function'&&ad(o,'daangn')||{}).no||o.daangnNo||'';
+    const price=String(o.price||'')+(o.rentAmt?' / '+o.rentAmt:'');
+    return [e.why,String(o.id||''),dn,String(o.apt||''),
+            (String(o.addr||'').trim()+' '+String(o.addr2||'').trim()).trim(),
+            (String(o.type||'')+' '+price).trim(),e.memo||''];
+  });
+  XLSX.utils.book_append_sheet(wb2,
+    XLSX.utils.aoa_to_sheet([['구분','브리즈번호','당근번호','건물명','주소','거래','비고'],...exRows]),
+    '제외된 매물');
+  XLSX.writeFile(wb2,`당근검수_${todayStr()}.xlsx`);
+
+  window.__daangnLastExport=outIds.slice();
+  showToast(`🥕 당근 엑셀 ${rows.length}건 · 검수 파일 별도 생성 · 제외 ${excluded.length}건`);
+  setTimeout(()=>alert(
+    `당근 업로드 파일이 만들어졌습니다.\n\n`
+    +`1. 당근에는 [당근업로드_...xlsx] 만 올리세요. (검수 파일은 올리지 마세요)\n`
+    +`2. 임시저장된 각 건을 열어 [당근검수_...xlsx] 의 '등록 전 확인·입력할 항목'을 채우세요.\n`
+    +`   당근 변환기가 못 옮기는 값들입니다 — 관리비 기준·부정값·지목·권리금·총 주차대수 등.\n`
+    +`3. 등록을 마친 뒤 광고관리에서 [🥕 등록완료 표시] 를 눌러 주세요.\n`
+    +`   그래야 다음 회차에서 자동 제외되어 중복등록을 막습니다.`),400);
 }
 
 // ─── 계약 엑셀 다운/업로드 ───
@@ -4074,7 +4192,7 @@ function refreshVitoCustomerSelects(){
 
 // ═══ NAV ═══
 function go(id){
-  const ids=['dash','expiry','listing','customer','contract','landlord','sms','contract-writer','vito'];
+  const ids=['dash','expiry','listing','ads','customer','contract','landlord','sms','contract-writer','vito'];
   document.querySelectorAll('.sb-item').forEach((el,i)=>el.classList.toggle('on',ids[i]===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   // null 체크 추가 — 패널이 없으면 오류 방지
@@ -4089,6 +4207,7 @@ function go(id){
   if(id==='contract-writer') cwReset && cwReset();
   if(id==='vito')          {renderVitoNotes&&renderVitoNotes();refreshVitoCustomerSelects&&refreshVitoCustomerSelects();}
   if(id==='dash')          {renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();}
+  if(id==='ads'&&typeof renderAds==='function') renderAds();
   closeMobile();
 }
 
@@ -4830,6 +4949,392 @@ try { renderExpiryMini(); } catch(e){}
 try { renderDashAlerts(); } catch(e){}
 try { updateStats(); } catch(e){}
 try { filterType('all'); } catch(e){ console.warn('filterType error',e); }
+/* ============================================================
+   광고관리 통합 모듈 v1  (당근 중복차단 + 멀티플랫폼 + 구글시트 미러)
+   - 당근 중복 판정 기준은 가격·거래유형이 아니라 주소+호수(유닛)다.
+     매매/전세/월세가 CRM에 따로 있어도 업로드 파일에는 1건만 실어야 계정이 안전하다.
+   ============================================================ */
+
+/* ---------- 1. 플랫폼 정의 ---------- */
+const PLATFORMS = [
+  { key:'daangn',   label:'당근',   icon:'🥕', color:'#FF6F0F', bulk:true,  dedup:'unit',    validDays:0  },
+  { key:'naver',    label:'네이버', icon:'N',  color:'#03C75A', bulk:false, dedup:'listing', validDays:90 },
+  { key:'zigbang',  label:'직방',   icon:'Z',  color:'#0B63F6', bulk:false, dedup:'listing', validDays:30 },
+  { key:'dabang',   label:'다방',   icon:'D',  color:'#F35B5B', bulk:false, dedup:'listing', validDays:30 },
+  { key:'peterpan', label:'피터팬', icon:'P',  color:'#00A0B0', bulk:false, dedup:'none',    validDays:0  },
+  { key:'blog',     label:'블로그', icon:'B',  color:'#6B7280', bulk:false, dedup:'none',    validDays:0  }
+];
+const PF = {}; PLATFORMS.forEach(p => PF[p.key] = p);
+const AD_LEDGER_KEY = 'crm_ad_ledger';
+
+/* ---------- 2. 유닛 식별키 (당근 중복 기준: 주소 + 호수, 거래유형 무관) ---------- */
+function unitKeyFromText(t){
+  const raw = String(t||'').replace(/[()]/g,' ').replace(/\s+/g,' ').trim();
+  // {1,} 이어야 '연동'처럼 두 글자짜리 법정동이 잡힌다.
+  // {2,} 로 두면 한글 2자+동 = 최소 3자를 요구해 연동·오라동 같은 곳이 전부 매칭 실패하고,
+  // 그 매물은 '주소확인필요'로 걸러져 영영 업로드되지 않는다(실측으로 확인).
+  const m = raw.match(/([가-힣]{1,}[동리가])\s*(산\s*)?(\d+(?:-\d+)?)/);
+  if(!m) return '';
+  const dong  = m[1];
+  const jibun = (m[2] ? '산' : '') + m[3];
+  const bd = (raw.match(/(?:^|\s)(\d+)\s*동/) || [])[1] || '';
+  const ho = (raw.match(/(\d+)\s*호/)         || [])[1] || '';
+  return dong + '|' + jibun + '|' + bd + '|' + ho;
+}
+function unitKey(o){ return unitKeyFromText((o.addr||'') + ' ' + (o.addr2||'')); }
+
+/* ---------- 3. 광고 상태 접근자 ---------- */
+function ad(o,k){ return (o && o.ads && o.ads[k]) || null; }
+function adOn(o,k){ const a = ad(o,k); return !!(a && a.on); }
+function adBlank(){ return { on:false, no:'', url:'', at:'', chk:'', memo:'' }; }
+
+function adSnapshot(o){
+  // options 는 CRM 저장 형식이 문자열이라 배열/문자열 모두 받는다
+  const opt = Array.isArray(o.options) ? o.options.join(',') : String(o.options||'');
+  return [o.type,o.price,o.rentAmt,o.area,o.rooms,o.baths,o.floor,o.totalFloor,
+          o.feeAmt,o.availDate,opt,o.desc].join('¦');
+}
+function adHash(s){
+  let h = 0; s = String(s||'');
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) | 0;
+  return String(h);
+}
+function adStale(o,k){
+  const a = ad(o,k);
+  return !!(a && a.on && a.chk && a.chk !== adHash(adSnapshot(o)));
+}
+function adExpireDays(o,k){
+  const a = ad(o,k), d = PF[k] ? PF[k].validDays : 0;
+  if(!a || !a.on || !d || !a.at) return null;
+  const end = new Date(a.at); end.setDate(end.getDate() + d);
+  return Math.ceil((end - new Date()) / 86400000);
+}
+function adLive(o){ return o.status !== '거래완료' && o.status !== '보류'; }
+
+/* ---------- 4. 구글시트 미러 (중첩객체 → 문자열 평탄화) ---------- */
+function adsFlatten(o){
+  if(!o) return o;
+  const parts = [];
+  PLATFORMS.forEach(p => {
+    const a = ad(o,p.key);
+    if(a && a.on) parts.push([p.key, a.no||'', a.at||'', a.url||''].join('~'));
+  });
+  o.adsFlat  = parts.join('|');
+  o.adList   = PLATFORMS.filter(p => adOn(o,p.key)).map(p => p.label).join(',');
+  o.daangnNo = (ad(o,'daangn') || {}).no || '';
+  const nv = ad(o,'naver');
+  if(nv && nv.url) o.naverUrl = nv.url;      // 기존 네이버 링크 필드와 양방향 동기화
+  return o;
+}
+function adsRestore(o){
+  if(!o) return o;
+  if(o.ads && Object.keys(o.ads).length) return o;
+  o.ads = {};
+  String(o.adsFlat||'').split('|').filter(Boolean).forEach(s => {
+    const a = s.split('~'), k = a[0];
+    if(PF[k]) o.ads[k] = Object.assign(adBlank(), { on:true, no:a[1]||'', at:a[2]||'', url:a[3]||'' });
+  });
+  if(!o.ads.naver  && o.naverUrl)     o.ads.naver  = Object.assign(adBlank(), { on:true, url:o.naverUrl });
+  if(!o.ads.daangn && (o.daangnPosted || o.daangnPostedAt))
+    o.ads.daangn = Object.assign(adBlank(), { on:true, no:o.daangnNo||'', at:o.daangnPostedAt||'' });
+  return o;
+}
+
+/* ---------- 5. 저장 유틸 ---------- */
+function adListings(){ const a = load('listings') || []; a.forEach(adsRestore); return a; }
+function adSaveList(list){
+  list.forEach(adsFlatten);
+  save('listings', list);                              // save() 내부에서 구글시트 자동 동기화
+  if(typeof listings !== 'undefined' && Array.isArray(listings)) listings = list;
+}
+function adSet(id, k, patch){
+  const list = adListings();
+  const o = list.find(x => x.id === id);
+  if(!o) return;
+  o.ads = o.ads || {};
+  o.ads[k] = Object.assign(adBlank(), o.ads[k], patch);
+  adSaveList(list);
+  renderAds();
+  if(typeof renderListings === 'function') renderListings();
+}
+function adToggle(id, k){
+  const o = adListings().find(x => x.id === id);
+  if(!o) return;
+  if(adOn(o,k)){
+    if(!confirm(`${PF[k].label} 광고를 '내림' 상태로 바꿉니다.\n(실제 플랫폼에서도 직접 내려 주세요)`)) return;
+    adSet(id, k, { on:false });
+  }else{
+    adSet(id, k, { on:true, at:todayStr(), chk:adHash(adSnapshot(o)) });
+  }
+}
+function adRefresh(id, k){                              // 광고 수정 완료 → 스냅샷 갱신
+  const o = adListings().find(x => x.id === id);
+  if(o) adSet(id, k, { chk:adHash(adSnapshot(o)), at:todayStr() });
+}
+function adEditNo(id, k){
+  const o = adListings().find(x => x.id === id);
+  const a = ad(o,k) || adBlank();
+  const v = prompt(`${PF[k].label} 매물번호 / URL 입력 (번호|URL)`, (a.no||'') + '|' + (a.url||''));
+  if(v == null) return;
+  const s = v.split('|');
+  adSet(id, k, { on:true, no:(s[0]||'').trim(), url:(s[1]||'').trim() });
+}
+
+/* ---------- 6. 마이그레이션 (최초 1회, 여러 번 실행해도 안전) ---------- */
+function migrateAds(){
+  const list = load('listings') || [];
+  let n = 0;
+  list.forEach(o => {
+    const before = JSON.stringify(o.ads || null);
+    adsRestore(o);
+    if(JSON.stringify(o.ads || null) !== before) n++;
+  });
+  if(n) adSaveList(list);
+  return n;
+}
+
+/* ---------- 7. 플랫폼별 등록대장 ---------- */
+function adLedgerAll(){
+  try{ return JSON.parse(localStorage.getItem(AD_LEDGER_KEY) || '{}'); }catch(e){ return {}; }
+}
+function adLedger(k){ return adLedgerAll()[k] || {}; }
+function adLedgerSave(k, m){
+  const all = adLedgerAll();
+  all[k] = m;
+  localStorage.setItem(AD_LEDGER_KEY, JSON.stringify(all));
+}
+function parsePlatformList(text){                       // 당근 중개소 홈 목록 붙여넣기 파서
+  const lines = String(text||'').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const out = []; let no = '';
+  for(const ln of lines){
+    if(/^\d{6,9}$/.test(ln)){ no = ln; continue; }      // 플랫폼 발급 번호
+    const k = unitKeyFromText(ln);
+    if(k && /(도|시|군|구)\s/.test(ln)){ out.push({ no, addr:ln, key:k }); no = ''; }
+  }
+  return out;
+}
+function syncAdLedger(pkey){
+  const p = PF[pkey];
+  const t = prompt(`${p.label} 등록 매물 목록을 복사해 붙여넣으세요.\n(판매중 / 미노출 / 거래완료 탭 각각 반복)`);
+  if(t == null) return;
+  const parsed = parsePlatformList(t);
+  if(!parsed.length){ showToast('주소를 인식하지 못했습니다.'); return; }
+
+  const led  = adLedger(pkey);
+  const list = adListings();
+  let added = 0, marked = 0;
+
+  parsed.forEach(x => {
+    const prev = led[x.key] || {};
+    if(!led[x.key]) added++;
+    const hit = list.find(o => unitKey(o) === x.key);
+    led[x.key] = {
+      no    : x.no || prev.no || '',
+      brzId : (hit && hit.id) || prev.brzId || '',       // 브리즈 매물번호(o.id)
+      addr  : x.addr,
+      at    : prev.at || todayStr()
+    };
+    if(hit && !adOn(hit,pkey)){
+      hit.ads = hit.ads || {};
+      hit.ads[pkey] = Object.assign(adBlank(), { on:true, no:led[x.key].no, at:led[x.key].at });
+      marked++;
+    }
+  });
+
+  adLedgerSave(pkey, led);
+  if(marked) adSaveList(list);
+
+  const miss = parsed.filter(x => !led[x.key].brzId);
+  showToast(`${p.label} 등록대장 ${parsed.length}건 반영 (신규 ${added} / 매칭 ${marked} / 미매칭 ${miss.length})`);
+  if(miss.length) console.warn('CRM에 없는 ' + p.label + ' 매물:\n' + miss.map(m => m.no + '  ' + m.addr).join('\n'));
+  renderAds();
+  if(typeof renderListings === 'function') renderListings();
+}
+
+/* ---------- 8. 중복 차단 필터 (내보내기 공통) ---------- */
+function adFilterForExport(pkey, srcList){
+  const p = PF[pkey], led = adLedger(pkey);
+  const ok = [], excluded = [], seen = {};
+  (srcList || adListings()).forEach(o => {
+    if(!adLive(o)){ excluded.push({ o, why:'상태제외', memo:o.status || '' }); return; }
+    if(adOn(o,pkey)){
+      excluded.push({ o, why:'이미등록', memo:p.label + ' ' + ((ad(o,pkey).no) || '-') }); return; }
+    const k = (p.dedup === 'unit') ? unitKey(o) : o.id;
+    if(p.dedup === 'unit' && !k){
+      excluded.push({ o, why:'주소확인필요', memo:(o.addr||'') + ' ' + (o.addr2||'') }); return; }
+    if(p.dedup !== 'none' && led[k]){
+      excluded.push({ o, why:p.label + '중복',
+        memo:(led[k].no || '-') + (led[k].brzId ? ' / 브리즈 ' + led[k].brzId : '') + ' / ' + (led[k].addr||'') });
+      return; }
+    if(p.dedup !== 'none' && seen[k]){
+      excluded.push({ o, why:'배치내중복',
+        memo:`브리즈 ${seen[k].id} 와 동일 유닛 — 플랫폼에서 거래유형을 함께 선택해 1건으로 등록` });
+      return; }
+    seen[k] = o;
+    ok.push(o);
+  });
+  return { ok, excluded };
+}
+/* 내보내기 성공 후 호출 → 광고중으로 일괄 표시 */
+function adMarkExported(pkey, ids){
+  const list = adListings();
+  let n = 0;
+  (ids||[]).forEach(id => {
+    const o = list.find(x => x.id === id);
+    if(o && !adOn(o,pkey)){
+      o.ads = o.ads || {};
+      o.ads[pkey] = Object.assign(adBlank(), { on:true, at:todayStr(), chk:adHash(adSnapshot(o)) });
+      n++;
+    }
+  });
+  if(n) adSaveList(list);
+  showToast(`${PF[pkey].label} 등록완료 ${n}건 표시`);
+  renderAds();
+}
+function daangnMarkLastExportPosted(){
+  if(!window.__daangnLastExport || !window.__daangnLastExport.length){
+    showToast('먼저 당근 엑셀을 내보내세요.'); return;
+  }
+  if(!confirm(`직전 내보낸 ${window.__daangnLastExport.length}건을 '당근 광고중'으로 표시합니다.\n당근에 실제로 등록을 완료했나요?`)) return;
+  adMarkExported('daangn', window.__daangnLastExport);
+}
+
+/* ---------- 9. 광고관리 화면 ---------- */
+let AD_FILTER = 'all';
+function setAdFilter(f){
+  AD_FILTER = f;
+  document.querySelectorAll('#ad-tabs .tab-btn')
+    .forEach(b => b.classList.toggle('on', b.getAttribute('data-f') === f));
+  renderAds();
+}
+function adMatch(o){
+  const live = adLive(o), anyOn = PLATFORMS.some(p => adOn(o,p.key));
+  if(AD_FILTER === 'none')   return live && !anyOn;
+  if(AD_FILTER === 'stale')  return live && PLATFORMS.some(p => adStale(o,p.key));
+  if(AD_FILTER === 'expire') return live && PLATFORMS.some(p => { const d = adExpireDays(o,p.key); return d !== null && d <= 7; });
+  if(AD_FILTER === 'down')   return !live && anyOn;
+  return true;
+}
+function adTodoCount(){
+  let n = 0;
+  adListings().forEach(o => {
+    if(!adLive(o)){ if(PLATFORMS.some(p => adOn(o,p.key))) n++; return; }
+    PLATFORMS.forEach(p => {
+      if(adStale(o,p.key)) n++;
+      const d = adExpireDays(o,p.key);
+      if(d !== null && d <= 7) n++;
+    });
+  });
+  return n;
+}
+function renderAds(){
+  const el = document.getElementById('ad-table');
+  if(!el) return;
+  const all  = adListings();
+  const list = all.filter(adMatch);
+
+  const head = PLATFORMS.map(p =>
+    `<th style="text-align:center;color:${p.color};font-size:11px">${p.icon} ${p.label}</th>`).join('');
+
+  const body = list.map(o => {
+    const cells = PLATFORMS.map(p => {
+      const a = ad(o,p.key) || adBlank(), on = a.on;
+      const d = adExpireDays(o,p.key);
+      let tag = '';
+      if(on && adStale(o,p.key))
+        tag = `<div style="font-size:9px;color:#DC2626;cursor:pointer"
+                 onclick="event.stopPropagation();adRefresh('${o.id}','${p.key}')">수정필요✓</div>`;
+      else if(d !== null && d <= 7)
+        tag = `<div style="font-size:9px;color:#D97706">D${d>=0 ? '-'+d : '+'+(-d)}</div>`;
+      return `<td style="text-align:center;cursor:pointer;padding:6px 4px"
+                  onclick="adToggle('${o.id}','${p.key}')" title="${a.memo||''}">
+        <div style="font-size:11px;font-weight:700;color:${on ? p.color : '#D1D5DB'}">${on ? '광고중' : '＋'}</div>
+        ${on ? `<div style="font-size:9px;color:#6B7280;cursor:pointer"
+                  onclick="event.stopPropagation();adEditNo('${o.id}','${p.key}')">${a.no || '번호'}</div>` : ''}
+        ${on && a.url ? `<a href="${a.url}" target="_blank" style="font-size:9px"
+                  onclick="event.stopPropagation()">열기</a>` : ''}
+        ${tag}
+      </td>`;
+    }).join('');
+
+    const warn = (!adLive(o) && PLATFORMS.some(p => adOn(o,p.key)))
+      ? `<span style="font-size:10px;color:#fff;background:#DC2626;padding:1px 6px;border-radius:8px">내리기</span>` : '';
+
+    return `<tr style="border-top:1px solid #F1F2F4">
+      <td style="font-size:11px;color:#6B7280">${o.id || ''}</td>
+      <td style="font-size:12px">${o.apt || ''}
+        <div style="font-size:10px;color:#9CA3AF">${o.addr || ''} ${o.addr2 || ''}</div></td>
+      <td style="font-size:11px">${o.kind || ''}<div style="color:#6B7280">${o.type || ''}</div></td>
+      <td style="font-size:11px">${o.price || ''}${o.rentAmt ? ' / ' + o.rentAmt : ''}</td>
+      <td style="font-size:11px">${o.status || ''} ${warn}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = list.length
+    ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px">
+         <thead><tr style="background:#F9FAFB">
+           <th style="font-size:11px">매물번호</th><th style="font-size:11px">건물·주소</th>
+           <th style="font-size:11px">종류/거래</th><th style="font-size:11px">가격</th>
+           <th style="font-size:11px">상태</th>${head}
+         </tr></thead><tbody>${body}</tbody></table></div>`
+    : `<div style="padding:40px;text-align:center;color:#9CA3AF">해당하는 매물이 없습니다.</div>`;
+
+  const sum = document.getElementById('ad-summary');
+  if(sum){
+    const cnt = PLATFORMS.map(p => p.label + ' ' + all.filter(o => adOn(o,p.key)).length).join(' · ');
+    sum.textContent = `총 ${all.length}건 / ${cnt}`;
+  }
+  const b = document.getElementById('sb-ad-todo');
+  if(b){ const n = adTodoCount(); b.textContent = n; b.style.display = n ? '' : 'none'; }
+}
+
+/* ---------- 10. 부가 기능 ---------- */
+function copyAdText(pkey){
+  const { ok } = adFilterForExport(pkey);
+  if(!ok.length){ showToast('신규 대상이 없습니다.'); return; }
+  const txt = ok.map(o => [
+    o.id, o.kind, o.type,
+    (o.price||'') + (o.rentAmt ? '/' + o.rentAmt : ''),
+    (o.addr||'') + ' ' + (o.addr2||''),
+    (o.area||'') + 'm²', (o.floor||'') + '/' + (o.totalFloor||'') + '층',
+    (o.rooms||'') + '방' + (o.baths||'') + '욕'
+  ].join(' | ')).join('\n');
+  navigator.clipboard.writeText(txt)
+    .then(() => showToast(`${PF[pkey].label}용 ${ok.length}건 복사 완료`))
+    .catch(() => { console.log(txt); showToast('복사 실패 — 콘솔에서 확인하세요'); });
+}
+function adAuditReport(){
+  const all = adListings(), rows = [];
+  all.forEach(o => {
+    if(!adLive(o)) PLATFORMS.forEach(p => { if(adOn(o,p.key))
+      rows.push([o.id, p.label, '즉시 내리기', o.status, (ad(o,p.key).no)||'']); });
+    else PLATFORMS.forEach(p => {
+      if(adStale(o,p.key)) rows.push([o.id, p.label, '내용 변경됨 — 광고 수정', '', (ad(o,p.key).no)||'']);
+      const d = adExpireDays(o,p.key);
+      if(d !== null && d <= 7) rows.push([o.id, p.label, '만료 임박 D' + (d>=0?'-'+d:'+'+(-d)), '', (ad(o,p.key).no)||'']);
+    });
+  });
+  if(!rows.length){ showToast('점검할 광고가 없습니다. 👍'); return; }
+  rows.unshift(['브리즈번호','플랫폼','조치','상태','플랫폼번호']);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '광고점검');
+  XLSX.writeFile(wb, `광고점검_${todayStr()}.xlsx`);
+}
+
+/* ---------- 11. 초기화 ---------- */
+(function initAds(){
+  const boot = () => {
+    try{
+      const n = migrateAds();
+      if(n) console.log('[광고관리] 기존 광고정보 ' + n + '건 이관 완료');
+      renderAds();
+    }catch(e){ console.error('[광고관리] 초기화 실패', e); }
+  };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+
 </script>
 </body>
 </html>
