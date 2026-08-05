@@ -16,14 +16,23 @@
  *
  * 설치 (딱 두 가지)
  *   1. 이 파일 내용을 Apps Script 프로젝트에 새 파일로 붙여넣는다.
- *   2. doPost 의 action 분기에서, 이미 있는  if (action === 'bldg') { ... }  블록 **바로 아래**에
- *      아래 3줄을 추가한다.  (기존 'bldg' 분기는 건드리지 말 것 — 매물 등록화면이 쓰고 있다)
+ *   2. 🔴 doPost 안에 한 줄을 추가한다. doGet 이 아니다.
+ *      이 스크립트에는 비슷한 함수가 둘 있고 action 분기도 양쪽에 있다.
+ *        doGet  (85~118행)  e.parameter 사용. 여기 있는 action==='bldg' 는 매물 등록화면용이라
+ *                           절대 건드리지 말 것. 여기 넣으면 body 미정의로 터진다.
+ *        doPost (123~140행) body 사용.  ← 여기다. CRM 이 POST 로 부르기 때문이다.
  *
- *        if (action === 'bldgStat') {
- *          return ok({ data: bldgStat(body || e.parameter) });
- *        }
+ *      doPost 의  return err('알 수 없는 action: ' + action);  바로 위에 한 줄:
  *
- *   3. 배포 → 배포 관리 → 수정 → 새 버전.   🔴 '새 배포'는 URL이 바뀌므로 절대 금지.
+ *        if (action === 'bldgStat') return ok({ data: bldgStat(body) });
+ *
+ *      결과:
+ *        if (action === 'syncAll')  return ok({ result: syncAll(body.payload) });
+ *        if (action === 'bldgStat') return ok({ data: bldgStat(body) });
+ *        return err('알 수 없는 action: ' + action);
+ *
+ *   3. 배포 → 배포 관리 → 연필(수정) → 새 버전 → 배포.
+ *      🔴 '새 배포'는 URL이 바뀌어 모든 기기 연결이 끊긴다. 절대 금지.
  *
  * 반환값
  *   { bldgName, mainPurps, etcPurps, useAprDay, grndFlr, ugrndFlr,
