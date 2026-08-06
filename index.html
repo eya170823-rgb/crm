@@ -3887,6 +3887,25 @@ function exportDaangnExcel(){
     const areaN=daangnArea(l.area), roomsN=daangnNum(l.rooms),
           bathsN=daangnNum(l.baths), totFlN=daangnNum(l.totalFloor);
     const optDaangn=daangnMulti(l.options,DAANGN_OPTION_MAP);
+
+    // 🔴 2026-08-06: 관리비 칸은 '입력 가이드' + 당근이 양식에 넣어둔 예시행에 맞춘다.
+    //    가이드 조건부 표는 실비근거를 '기타 부과' 전용처럼 적어놨지만, 당근 예시행은
+    //      정액 관리비 | 10 | 수도료, 인터넷비, 난방비 | 직전 월 | 세대별 사용량에 따라 부과
+    //    처럼 정액에도 실비근거를 채운다. 예시 쪽(실제 파서가 받는 형태)에 맞춘다.
+    //    다만 '확인 불가'일 때 금액·실비근거를 채우는 건 어느 쪽으로도 말이 안 되므로 비운다.
+    //    🔴 정액·기타인데 총 관리비가 없으면 가이드상 필수 위반이다. 반쪽으로 보내면
+    //       등록화면에 "관리비 산정 기준은 필수" 같은 오류가 뜨므로, 차라리 관리비 블록을
+    //       통째로 비워 보내고 그 사실을 검수 파일에 남긴다.
+    const feeType0 = daangnPick(l.feeType, DAANGN_FEE_TYPES);
+    const feeAmt0  = daangnManwon(l.feeAmt);
+    const feeBad   = (feeType0==='정액 관리비'||feeType0==='기타 부과') && !feeAmt0;
+    const feeType  = feeBad ? '' : feeType0;
+    const feeAmt   = (feeType==='정액 관리비'||feeType==='기타 부과') ? feeAmt0 : '';
+    const feeItems = feeType ? daangnMulti(l.feeItems, DAANGN_FEE_ITEM_MAP) : '';
+    const feeBasis = feeType ? daangnPick(l.feeBasis, DAANGN_FEE_BASIS) : '';
+    const feeEvid  = (feeType==='정액 관리비'||feeType==='기타 부과')
+                       ? daangnPick(l.feeEvidence, DAANGN_FEE_EVID) : '';
+    const feeNote  = (feeType==='확인 불가') ? daangnPick(l.feeNote, DAANGN_FEE_NOTE) : '';
     const desc=buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent})||'';
 
     const miss=[];
@@ -3915,11 +3934,7 @@ function exportDaangnExcel(){
     rows.push([kind,type,depositN,rentN,String(l.addr||'').trim(),String(l.addr2||'').trim(),
       areaN,roomsN,bathsN,fl.floor,totFlN,daangnDir(l.direction),
       normDateStr(String(l.availDate||'').trim()),
-      daangnPick(l.feeType,DAANGN_FEE_TYPES),daangnManwon(l.feeAmt),
-      daangnMulti(l.feeItems,DAANGN_FEE_ITEM_MAP),
-      daangnPick(l.feeBasis,DAANGN_FEE_BASIS),
-      daangnPick(l.feeEvidence,DAANGN_FEE_EVID),
-      daangnPick(l.feeNote,DAANGN_FEE_NOTE),
+      feeType, feeAmt, feeItems, feeBasis, feeEvid, feeNote,
       // 주차·반려동물·대출은 비면 '확인필요'로 채운다. 셋 다 당근 허용값이고,
       // 광고문(buildDaangnPlainDesc)도 빈 값을 '확인필요'로 쓰고 있어 표기가 어긋나지 않는다.
       // 빈 칸으로 두면 당근 등록화면이 매번 되물어 10건이 전부 멈춘다.
@@ -3968,6 +3983,13 @@ function exportDaangnExcel(){
     if(!optDaangn) neg.push(String(l.options||'').trim()
       ? '옵션 미지정 — CRM값 "' + String(l.options).trim() + '"은 당근 허용 10종이 아님'
       : '옵션 미지정');
+    // 🔴 아래 둘은 당근 등록화면에서 실제로 빨간 "잘못된 형식이에요" 오류가 뜨는 것을 확인했다.
+    //    비워 보내면 매물마다 사람이 화면에서 채워야 하므로 검수 파일에 미리 알린다.
+    if(!daangnDir(l.direction)) neg.push('향 미입력 → 당근 화면에 형식 오류 표시됨');
+    if(!String(l.availDate||'').trim())
+      neg.push('입주가능일 미입력 → 당근 화면에 형식 오류 표시됨 (CRM에 날짜 또는 "즉시입주" 입력)');
+    if(feeBad) neg.push('관리비 유형은 "'+feeType0+'"인데 총 관리비가 비어 필수 위반 → '
+      + '관리비 칸을 통째로 비워 내보냄. CRM에 금액을 넣으세요');
     fixRows.push([
       String(l.id||''),
       (String(l.addr||'').trim()+' '+String(l.addr2||'').trim()).trim(),
