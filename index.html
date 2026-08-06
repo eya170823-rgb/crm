@@ -3844,10 +3844,17 @@ function exportDaangnExcel(){
     let deposit=String(l.price||'').trim(), rent=String(l.rentAmt||'').trim();
     const pm=deposit.match(/^([\d,\.]+)\s*\/\s*([\d,\.]+)$/);
     if(pm&&!rent&&['월세','연세','단기'].includes(type)){deposit=pm[1];rent=pm[2];}
-    const depositN=moneyMan(deposit), rentN=moneyMan(rent);
+    // 🔴 2026-08-06 복구 — 당근 '입력 가이드' 허용값으로 정규화한다.
+    //    08-04에 만든 정규화(daangnManwon/Area/Num/Dir/Pick/Tri/Loan/Multi)가 08-05 광고관리 개편 때
+    //    원시값·num1 로 되돌아가 있었다(헬퍼는 남아 있는데 호출부가 0개였다).
+    //    그 결과 관리비 포함항목이 "인터넷, 케이블방송 및 공용관리비등" 처럼 규격 위반인 채
+    //    업로드되고 있었다 → 표준 단어 "인터넷비, TV, 공용" 로 변환한다.
+    //    num1 은 '1,2층'을 '12'로 만드는 문제도 있어 daangnNum(토큰 2개면 비움)으로 되돌린다.
+    const depositN=daangnManwon(deposit), rentN=daangnManwon(rent);
     const fl=parseFloorNo(l.floor);
-    const optDaangn=String(l.options||'').split(',').map(s=>s.trim())
-                      .filter(o=>DAANGN_OPTIONS.includes(o)).join(', ');
+    const areaN=daangnArea(l.area), roomsN=daangnNum(l.rooms),
+          bathsN=daangnNum(l.baths), totFlN=daangnNum(l.totalFloor);
+    const optDaangn=daangnMulti(l.options,DAANGN_OPTION_MAP);
     const desc=buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent})||'';
 
     const miss=[];
@@ -3855,31 +3862,43 @@ function exportDaangnExcel(){
     if(!type)miss.push('거래유형');
     if(!deposit)miss.push('보증금/매매가'); else if(!depositN)miss.push('보증금/매매가 형식(만원 숫자)');
     if(!String(l.addr||'').trim())miss.push('주소');
-    if(!String(l.area||'').trim())miss.push('면적');
+    if(!String(l.area||'').trim())miss.push('면적'); else if(!areaN)miss.push('면적 형식(㎡ 숫자)');
     if(!desc)miss.push('매물 설명');
     if(['월세','연세','단기'].includes(type)){
       if(!rent)miss.push('월세'); else if(!rentN)miss.push('월세 형식(만원 숫자)');
     }
+    // 🔴 정규화된 값으로 검사한다. 원본에 값이 있어도 변환이 안 되면(예: '1,2층') 빈 칸이
+    //    올라가므로, 그냥 통과시키면 필수 칸이 빈 채로 당근에 접수된다.
     if(HOME.includes(kind)){
-      if(!l.rooms)miss.push('방 수'); if(!l.baths)miss.push('욕실 수');
-      if(!fl.floor&&!fl.basement)miss.push('층'); if(!l.totalFloor)miss.push('총 층');
+      if(!roomsN)miss.push('방 수'); if(!bathsN)miss.push('욕실 수');
+      if(!fl.floor&&!fl.basement)miss.push('층'); if(!totFlN)miss.push('총 층');
     }
     if(BIZ.includes(kind)){
-      if(!l.rooms)miss.push('방 수');
-      if(!fl.floor&&!fl.basement)miss.push('층'); if(!l.totalFloor)miss.push('총 층');
+      if(!roomsN)miss.push('방 수');
+      if(!fl.floor&&!fl.basement)miss.push('층'); if(!totFlN)miss.push('총 층');
     }
     if(kind==='토지'){ if(!l.jimok)miss.push('토지 지목'); if(!l.zone)miss.push('용도지역'); }
     if(miss.length){excluded.push({o:l,why:'항목부족',memo:miss.join('·')});continue;}
 
     rows.push([kind,type,depositN,rentN,String(l.addr||'').trim(),String(l.addr2||'').trim(),
-      num1(l.area),num1(l.rooms),num1(l.baths),fl.floor,num1(l.totalFloor),String(l.direction||''),
-      normDateStr(String(l.availDate||'').trim()),String(l.feeType||''),moneyMan(l.feeAmt),
-      String(l.feeItems||''),String(l.feeBasis||''),String(l.feeEvidence||''),String(l.feeNote||''),
-      String(l.parking||''),String(l.pets||''),String(l.loan||''),optDaangn,
+      areaN,roomsN,bathsN,fl.floor,totFlN,daangnDir(l.direction),
+      normDateStr(String(l.availDate||'').trim()),
+      daangnPick(l.feeType,DAANGN_FEE_TYPES),daangnManwon(l.feeAmt),
+      daangnMulti(l.feeItems,DAANGN_FEE_ITEM_MAP),
+      daangnPick(l.feeBasis,DAANGN_FEE_BASIS),
+      daangnPick(l.feeEvidence,DAANGN_FEE_EVID),
+      daangnPick(l.feeNote,DAANGN_FEE_NOTE),
+      // 주차·반려동물·대출은 비면 '확인필요'로 채운다. 셋 다 당근 허용값이고,
+      // 광고문(buildDaangnPlainDesc)도 빈 값을 '확인필요'로 쓰고 있어 표기가 어긋나지 않는다.
+      // 빈 칸으로 두면 당근 등록화면이 매번 되물어 10건이 전부 멈춘다.
+      daangnTri(l.parking)||'확인필요',
+      daangnTri(l.pets)||'확인필요',
+      daangnLoan(l.loan)||'확인필요',
+      optDaangn,
       String(l.aprDate||'').slice(0,4),
       desc,
       String(l.id||''),                 // 메모: 브리즈 매물번호만 (내부 메모는 내보내지 않음)
-      String(l.jimok||''),String(l.zone||''),moneyMan(l.premium),String(l.bldgUse||'')]);
+      String(l.jimok||''),daangnPick(l.zone,DAANGN_ZONES),daangnManwon(l.premium),String(l.bldgUse||'')]);
     outIds.push(l.id);
 
     // 당근이 엑셀로 못 받는 값 → 등록 후 화면에서 손으로 고칠 목록.
@@ -3891,6 +3910,14 @@ function exportDaangnExcel(){
     if(String(l.pets||'')==='확인필요')neg.push('반려동물 확인필요');
     if(String(l.parking||'')==='확인필요')neg.push('주차 확인필요');
     if(String(l.loan||'')==='확인필요')neg.push('대출 확인필요');
+    if(!String(l.loan||'').trim())neg.push('대출 미입력→확인필요로 나감');
+    if(!String(l.parking||'').trim())neg.push('주차 미입력→확인필요로 나감');
+    if(!String(l.pets||'').trim())neg.push('반려동물 미입력→확인필요로 나감');
+    // 옵션은 당근 허용 10종만 나간다. CRM에 '풀옵션'처럼 목록에 없는 값만 있으면 빈 칸이 되므로
+    // 등록화면에서 직접 골라야 한다는 것을 검수 파일에 남긴다(조용히 빠지면 눈치채기 어렵다).
+    if(!optDaangn) neg.push(String(l.options||'').trim()
+      ? '옵션 미지정 — CRM값 "' + String(l.options).trim() + '"은 당근 허용 10종이 아님'
+      : '옵션 미지정');
     fixRows.push([
       String(l.id||''),
       (String(l.addr||'').trim()+' '+String(l.addr2||'').trim()).trim(),
