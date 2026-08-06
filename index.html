@@ -4064,7 +4064,12 @@ function exportDaangnExcel(){
   XLSX.utils.book_append_sheet(wb2,
     XLSX.utils.aoa_to_sheet([['구분','브리즈번호','당근번호','건물명','주소','거래','비고'],...exRows]),
     '제외된 매물');
-  XLSX.writeFile(wb2,`당근검수_${todayStr()}.xlsx`);
+  // 🔴 2026-08-06: 두 파일을 연달아 내려받으면 저장 창이 겹쳐 서로 뒤바뀌는 사고가 있었다
+  //    (업로드 파일 이름에 검수 내용이 저장됨). 간격을 두고, 어느 쪽인지 안내도 띄운다.
+  setTimeout(()=>{
+    XLSX.writeFile(wb2,`당근검수_${todayStr()}.xlsx`);
+    showToast('①당근업로드=올릴 파일(시트1개) ②당근검수=확인용(시트2개). 저장창이 두 번 뜹니다');
+  }, 1200);
 
   window.__daangnLastExport=outIds.slice();
   showToast(`🥕 당근 엑셀 ${rows.length}건 · 검수 파일 별도 생성 · 제외 ${excluded.length}건`);
