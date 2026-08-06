@@ -3915,9 +3915,22 @@ function exportDaangnExcel(){
     if(String(l.pets||'')==='확인필요')neg.push('반려동물 확인필요');
     if(String(l.parking||'')==='확인필요')neg.push('주차 확인필요');
     if(String(l.loan||'')==='확인필요')neg.push('대출 확인필요');
-    if(!String(l.loan||'').trim())neg.push('대출 미입력→확인필요로 나감');
-    if(!String(l.parking||'').trim())neg.push('주차 미입력→확인필요로 나감');
-    if(!String(l.pets||'').trim())neg.push('반려동물 미입력→확인필요로 나감');
+    // 🔴 2026-08-06 실측: 당근 등록화면의 주차·반려동물·대출은 라디오 2개(가능/불가능,
+    //    있음/없음)뿐이라 '확인필요'를 보내면 아무것도 선택되지 않은 상태가 된다.
+    //    (공식 '입력 가이드'에는 확인필요가 허용값으로 적혀 있지만 화면이 표현하지 못한다)
+    //    그래서 '확인필요'는 사실상 빈 칸이며, 등록화면에서 사람이 직접 골라야 한다.
+    if(String(l.loan||'').trim()==='확인필요'||!String(l.loan||'').trim())
+      neg.push('대출 → 당근 화면에서 직접 선택 필요(엑셀의 확인필요는 반영 안 됨)');
+    if(String(l.parking||'').trim()==='확인필요'||!String(l.parking||'').trim())
+      neg.push('주차 → 당근 화면에서 직접 선택 필요');
+    if(String(l.pets||'').trim()==='확인필요'||!String(l.pets||'').trim())
+      neg.push('반려동물 → 당근 화면에서 직접 선택 필요');
+    // 당근 엑셀 30칸에는 '총 주차대수' 칸이 없다. 주차를 '가능'으로 고르면 화면에서 필수로
+    //    요구하므로, 대장에서 받아둔 숫자를 여기 찍어 손으로 옮겨 넣을 수 있게 한다.
+    if(String(l.parking||'')==='가능')
+      neg.push('총 주차대수 화면 입력 필수 → ' + ((l.parkTotal!==undefined&&l.parkTotal!==null&&String(l.parkTotal).trim())
+        ? String(l.parkTotal)+'대'+(l.parkPerHh?' / 세대당 '+l.parkPerHh+'대':'')
+        : '🏢 대장 일괄보충을 먼저 돌리세요'));
     // 옵션은 당근 허용 10종만 나간다. CRM에 '풀옵션'처럼 목록에 없는 값만 있으면 빈 칸이 되므로
     // 등록화면에서 직접 골라야 한다는 것을 검수 파일에 남긴다(조용히 빠지면 눈치채기 어렵다).
     if(!optDaangn) neg.push(String(l.options||'').trim()
