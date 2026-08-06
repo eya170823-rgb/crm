@@ -635,6 +635,10 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
                title="상가·사무실·건물·공장/창고·토지는 권리금·지목·용도지역이 엑셀로 전달되지 않아 기본 제외됩니다">
           <input type="checkbox" id="ad-include-biz"> 상가·토지도 포함
         </label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#B45309;padding:0 6px"
+               title="당근 공식 양식 30칸에는 총 주차대수 칸이 없는데 등록화면에서는 필수로 요구합니다. 31·32번째 칼럼으로 붙여 당근이 읽어주는지 시험하는 기능입니다. 인식 못 하면 파일이 거부될 수 있으니 1~2건짜리로만 시험하세요.">
+          <input type="checkbox" id="ad-park-col"> 🧪 주차대수 칼럼 추가(시험)
+        </label>
       </div>
 
       <div id="ad-table"></div>
@@ -3842,6 +3846,11 @@ function exportDaangnExcel(){
   const flt=adFilterForExport('daangn');
   const excluded=flt.excluded.slice();
   const rows=[],fixRows=[],outIds=[];
+  // 🧪 2026-08-06 시험: 당근 공식 양식 30칸에 '총 주차대수'가 없는데 등록화면은 필수로 요구한다.
+  //    31·32번째 칼럼으로 붙여 당근 파서가 읽어주는지 본다. 체크박스로 켤 때만 붙는다.
+  //    (가이드에 "첫 행(헤더)은 수정하지 마세요"라고 되어 있어 거부될 수도 있다 → 소량으로 시험)
+  const parkCol=!!document.getElementById('ad-park-col')?.checked;
+  const parkCells=[];
 
   // ── 1-b) 비주거는 기본 제외 ──
   //    권리금·토지 지목·용도지역은 당근 AI 응답 스키마에 필드 자체가 없어 엑셀로 전달되지 않는다.
@@ -3923,6 +3932,11 @@ function exportDaangnExcel(){
       String(l.id||''),                 // 메모: 브리즈 매물번호만 (내부 메모는 내보내지 않음)
       String(l.jimok||''),daangnPick(l.zone,DAANGN_ZONES),daangnManwon(l.premium),String(l.bldgUse||'')]);
     outIds.push(l.id);
+    // 시험 칼럼용 값 (행과 같은 순서로 쌓아둔다)
+    parkCells.push([
+      (l.parkTotal!==undefined&&l.parkTotal!==null&&String(l.parkTotal).trim())?String(l.parkTotal):'',
+      (l.parkPerHh!==undefined&&l.parkPerHh!==null&&String(l.parkPerHh).trim())?String(l.parkPerHh):''
+    ]);
 
     // 당근이 엑셀로 못 받는 값 → 등록 후 화면에서 손으로 고칠 목록.
     // 원본 값을 그대로 남겨야 초안 화면과 1:1로 대조할 수 있다.
@@ -3978,7 +3992,7 @@ function exportDaangnExcel(){
       const o=okList.find(x=>String(x.id||'')===id)||{id:id,addr:rows[i][4],addr2:rows[i][5]};
       excluded.push({o:o,why:'100건초과',memo:'다음 회차에 내보내세요'});
     }
-    rows.length=100; outIds.length=100; fixRows.length=100;
+    rows.length=100; outIds.length=100; fixRows.length=100; parkCells.length=100;
   }
 
   // ── 4) 내보내기 전 확인 ──
@@ -3993,7 +4007,10 @@ function exportDaangnExcel(){
 
   // ── 5) 업로드용 워크북: 시트를 정확히 1개만 담는다 ──
   //    가이드·제외 시트를 같은 파일에 넣으면 당근이 그 시트도 매물로 파싱해 쓰레기 초안이 생긴다.
-  const ws=XLSX.utils.aoa_to_sheet([DAANGN_HEADERS,...rows]);
+  // 시험 칼럼을 켰으면 헤더 31·32번째와 각 행 끝에 값을 덧붙인다. 껐으면 30칸 그대로.
+  const outHeaders = parkCol ? DAANGN_HEADERS.concat(['총 주차대수','세대당 주차대수']) : DAANGN_HEADERS;
+  const outRows    = parkCol ? rows.map((r,i)=>r.concat(parkCells[i]||['',''])) : rows;
+  const ws=XLSX.utils.aoa_to_sheet([outHeaders,...outRows]);
   const reqCols=new Set([0,1,2,4,6,24]);
   if(rows.some(r=>['월세','연세','단기'].includes(r[1])))reqCols.add(3);
   if(rows.some(r=>HOME.includes(r[0])||BIZ.includes(r[0]))){reqCols.add(7);reqCols.add(9);reqCols.add(10);}
@@ -4005,7 +4022,8 @@ function exportDaangnExcel(){
   });
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'매물 데이터');
-  XLSX.writeFile(wb,`당근업로드_${todayStr()}_${rows.length}건.xlsx`);
+  // 시험 파일은 이름으로 구분한다 — 평소 파일과 섞이면 어느 쪽을 올렸는지 알 수 없다
+  XLSX.writeFile(wb,`당근업로드_${todayStr()}_${rows.length}건${parkCol?'_주차칼럼시험':''}.xlsx`);
 
   // ── 6) 검수용 워크북 (당근에 올리지 않는다) ──
   const wb2=XLSX.utils.book_new();
