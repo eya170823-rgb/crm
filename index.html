@@ -3915,9 +3915,14 @@ function exportDaangnExcel(){
     const hasPark=l.parkTotal!==undefined&&l.parkTotal!==null&&String(l.parkTotal).trim()!=='';
     const parkN=hasPark?Number(String(l.parkTotal).trim()):NaN;
     let parking=daangnTri(l.parking), parkAuto='';
-    if((!parking||parking==='확인필요')&&hasPark&&isFinite(parkN)){
-      parking=parkN>0?'가능':'불가능';
-      parkAuto=`주차 ${parking} — 대장 총 주차대수 ${parkN}대로 자동 판정`;
+    //    ⚠ 0대는 자동으로 '불가능' 처리하지 않는다 — 대단지 아파트는 주차가 동별 표제부가
+    //    아니라 총괄표제부에 실려 0으로 조회되는 사례가 있다(노형뜨란채·아라KCC, 2026-08-07 실측).
+    //    0을 믿고 '불가능'으로 광고하면 허위가 된다 → 사람이 화면에서 직접 고른다.
+    if((!parking||parking==='확인필요')&&hasPark&&isFinite(parkN)&&parkN>0){
+      parking='가능';
+      parkAuto=`주차 가능 — 대장 총 주차대수 ${parkN}대로 자동 판정`;
+    }else if((!parking||parking==='확인필요')&&hasPark&&isFinite(parkN)&&parkN===0){
+      parkAuto='대장 주차 0대 — 실제 불가능인지 확인 후 당근 화면에서 직접 선택';
     }
     const desc=buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'';
 
