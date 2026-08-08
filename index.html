@@ -4021,9 +4021,13 @@ async function exportDaangnExcel(){
     // 원본 값을 그대로 남겨야 초안 화면과 1:1로 대조할 수 있다.
     const neg=[];
     if(parkAuto)neg.push(parkAuto);
-    if(parking==='불가능')neg.push('주차 불가능');
-    if(String(l.loan||'')==='없음')neg.push('대출 없음');
-    if(String(l.pets||'')==='불가능')neg.push('반려동물 불가능');
+    // 🔴 2026-08-07 당근 변환기 역분석 확정: 엑셀 행은 텍스트로 서버 AI(generateAutoFillFormByPlainText)에
+    //    보내지고, 주차·대출·반려동물 같은 옵션은 값이 '가능/있음(YES)'인 것만 응답에 실린다.
+    //    '불가능·없음(NO)'과 '확인필요(DONT_KNOW)'는 응답에 없어 라디오가 미선택으로 남는다
+    //    → 아래 항목들은 전부 등록화면에서 사람이 직접 클릭해야 한다.
+    if(parking==='불가능')neg.push('주차 불가능 → 화면에서 직접 선택(변환기는 가능/있음만 자동 반영)');
+    if(String(l.loan||'')==='없음')neg.push('대출 없음 → 화면에서 직접 선택');
+    if(String(l.pets||'')==='불가능')neg.push('반려동물 불가능 → 화면에서 직접 선택');
     if(String(l.pets||'')==='확인필요')neg.push('반려동물 확인필요');
     if(String(l.loan||'')==='확인필요')neg.push('대출 확인필요');
     // 🔴 2026-08-06 실측: 당근 등록화면의 주차·반려동물·대출은 라디오 2개(가능/불가능,
