@@ -1127,6 +1127,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <button type="button" class="btn btn-sm" onclick="bldgShowUnits()" style="white-space:nowrap">📋 호수목록</button>
         <button type="button" id="bldg-fill-btn" class="btn btn-sm" onclick="bldgAutoFill()" style="white-space:nowrap">🏢 대장 자동조회</button>
         <button type="button" class="btn btn-sm" onclick="fillBldgForOpenListing()" style="white-space:nowrap;border-color:#0F6E56;color:#0F6E56" title="총 주차대수·세대수·엘리베이터를 대장에서 가져옵니다. 당근 엑셀에는 주차 가능/불가능 자동 판정과 31·32열(총 주차대수·세대당) 및 설명문으로 전달됩니다">🅿️ 주차·세대수</button>
+        <button type="button" class="btn btn-sm" onclick="requestDocsForOpenListing()" style="white-space:nowrap;border-color:#1E88E5;color:#1E88E5" title="이 매물의 등기부·건축물대장·토지대장 발급을 '발급요청' 목록에 올립니다. 사무실 PC 발급기가 그 목록을 읽어 자동으로 발급합니다">📄 공부발급</button>
       </div>
       <div style="font-size:10px;color:var(--t3);margin-top:4px">상세주소 입력을 마치면 해당층·총층·전용면적·사용승인일이 자동 조회됩니다. 호수를 모르면 [호수목록]에서 선택하세요. (방수·욕실수는 공공데이터에 없어 직접 입력)</div>
       <div id="bldg-units-list" style="display:none;max-height:220px;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);margin-top:6px"></div>
@@ -5708,6 +5709,42 @@ function fillBldgForOpenListing(){
   const id = (document.getElementById('l-edit-id')||{}).value || '';
   if(!id){ showToast('먼저 매물을 저장한 뒤 조회하세요'); return; }
   fillBldgForListing(id);
+}
+
+/* 공부발급 요청 — 이 매물의 등기부·건축물대장·토지대장 발급을 '발급요청' 시트에 올린다.
+   사무실 PC 발급기가 그 목록을 읽어 자동 발급한다 (2026-08-09 추가) */
+async function requestDocsForOpenListing(){
+  const id = (document.getElementById('l-edit-id')||{}).value || '';
+  if(!id){ showToast('먼저 매물을 저장한 뒤 요청하세요'); return; }
+  const list = (typeof adListings === 'function') ? adListings() : (load('listings')||[]);
+  const o = list.find(x => x.id === id);
+  if(!o){ showToast('매물을 찾지 못했습니다'); return; }
+  const addr = String(o.addr||'').trim();
+  if(!addr){ showToast('소재지 주소가 없습니다'); return; }
+  if(!confirm('이 매물의 공부발급을 요청할까요?\n\n'
+      + (o.apt||o.id) + '\n' + addr + ' ' + String(o.addr2||'')
+      + '\n\n등기부 · 건축물대장 · 토지대장 3종')) return;
+  showToast('📄 공부발급 요청 등록 중…');
+  try{
+    const d = new Date();
+    const p2 = n => ('0'+n).slice(-2);
+    const reqId = 'REQ' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate())
+                + '-' + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds());
+    await gsCall('docReq', { data: {
+      id: reqId,
+      listingId: o.id,
+      addr: addr,
+      addr2: String(o.addr2||''),
+      apt: String(o.apt||''),
+      docTypes: '등기부,건축물대장,토지대장',
+      status: '대기',
+      requestedAt: d.toISOString(),
+      note: ''
+    }});
+    showToast('📄 공부발급 요청 완료 — 사무실 PC 발급기에서 발급됩니다');
+  }catch(e){
+    showToast('공부발급 요청 실패: ' + e.message);
+  }
 }
 
 /* parkTotal 이 빈 매물만 순차 조회. 대장 없음(토지·무허가)은 오류로 치지 않는다 */
