@@ -78,7 +78,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans
 .card-title{font-size:14px;font-weight:600;color:var(--t1)}
 .card-sub{font-size:11px;color:var(--t3);margin-top:2px}
 .badge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:600;white-space:nowrap}
-.bg{background:var(--gl);color:var(--g)}.bb{background:var(--bl);color:var(--b)}.ba{background:var(--al);color:var(--a)}.br{background:var(--rl);color:var(--r)}.bp{background:var(--pl);color:var(--p)}.bgr{background:var(--bg3);color:var(--t2)}
+.bg{background:var(--gl);color:var(--g)}.bb{background:var(--bl);color:var(--b)}.ba{background:var(--al);color:var(--a)}.br{background:var(--rl);color:var(--r)}.bp{background:var(--pl);color:var(--p)}.bgr{background:var(--bg3);color:var(--t2)}.bd{background:#DEE2E7;color:#39424E}
 .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
 .stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 12px;text-align:center;box-shadow:var(--sh)}
 .stat-num{font-size:24px;font-weight:700;margin-bottom:3px}
@@ -592,6 +592,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="접수">접수</option>
           <option value="상담중">상담중</option>
           <option value="계약완료">계약완료</option>
+          <option value="임대중">임대중</option>
+          <option value="거래완료">거래완료</option>
+          <option value="보류">보류</option>
           <option value="공실">공실</option>
         </select>
         <select id="l-sort" onchange="renderListings()">
@@ -1264,20 +1267,24 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div class="form-group"><label>진행 상태</label>
         <select id="l-status" onchange="toggleListingContractSection()">
           <option value="접수">접수</option><option value="상담중">상담중</option>
-          <option value="계약완료">계약완료</option><option value="공실">공실</option>
+          <option value="계약완료">계약완료</option>
+          <option value="임대중">임대중</option>
+          <option value="거래완료">거래완료</option>
+          <option value="보류">보류</option>
+          <option value="공실">공실</option>
         </select>
       </div>
       <div class="form-group"></div>
     </div>
 
-    <!-- 계약 완료 날짜 (계약완료 선택 시 노출) -->
+    <!-- 계약 날짜 (계약완료·임대중 선택 시 노출) -->
     <div id="l-contract-date-section" style="display:none">
-      <div class="form-section">✍️ 계약 정보</div>
+      <div class="form-section" id="l-contract-section-title">✍️ 계약 정보</div>
       <div class="form-row">
-        <div class="form-group"><label>계약 완료 일자</label><input id="l-contract-date" type="date"></div>
-        <div class="form-group"><label>계약 만료일</label><input id="l-contract-end" type="date"></div>
+        <div class="form-group"><label id="l-contract-date-label">계약 완료 일자</label><input id="l-contract-date" type="date"></div>
+        <div class="form-group"><label id="l-contract-end-label">계약 만료일</label><input id="l-contract-end" type="date"></div>
       </div>
-      <div style="background:var(--gl);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--g);margin-bottom:4px">
+      <div id="l-contract-note" style="background:var(--gl);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--g);margin-bottom:4px">
         ✅ 저장 시 <strong>계약 완료 탭</strong>에 자동으로 연동됩니다.
       </div>
     </div>
@@ -1833,6 +1840,7 @@ const loadObj=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||{};}catch{r
 const loadStr=k=>localStorage.getItem(K[k])||'';
 const save=(k,v)=>{
   if(k==='listings'&&Array.isArray(v)&&typeof adsFlatten==='function')v.forEach(adsFlatten); // 광고정보 → 시트 미러용 평탄화
+  if(k==='contracts'&&Array.isArray(v))v.forEach(contractFlatten);                            // 임대인·임차인 → 시트 칼럼용 평탄화
   localStorage.setItem(K[k],JSON.stringify(v));gsAutoSync(k,v);};
 const saveStr=(k,v)=>localStorage.setItem(K[k],v);
 
@@ -1865,9 +1873,37 @@ function normDateStr(s){
 }
 function normDates(type,arr){const fs=DATE_FIELDS[type]||[];(arr||[]).forEach(o=>fs.forEach(f=>{if(o&&o[f])o[f]=normDateStr(o[f]);}));if(type==='listings')healDescNos(arr);
   if(type==='listings'&&typeof adsRestore==='function')(arr||[]).forEach(adsRestore); // 시트 문자열 → o.ads 복원
+  if(type==='contracts')(arr||[]).forEach(contractRestore);                           // 시트 칼럼 → landlord/tenant 복원
   return arr;}
 // 구버전 광고문에 남은 '매물번호 저장 시 자동부여' 문구를 실제 매물번호로 치유 (불러오기·저장·수정 모든 경로에서 자동)
 function healDescNos(arr){(arr||[]).forEach(o=>{if(o&&o.id&&String(o.desc||'').includes('매물번호 저장 시 자동부여'))o.desc=String(o.desc).replace(/매물번호 저장 시 자동부여/g,'매물번호 '+o.id);});}
+
+/* 계약 ↔ 시트 형태 맞추기 (2026-08-10)
+   CRM은 landlord/tenant 를 {name,phone} 중첩 객체로 들고 있는데 시트 칼럼은
+   landlordName/landlordPhone/tenantName/tenantPhone 로 평탄하다. 평탄화하지 않고 보내면
+   시트 저장 코드가 그 이름을 못 찾아 빈칸을 쓰고, 다른 기기에서 불러오면 임차인 이름·전화가
+   통째로 사라진다(만기 문자가 "안녕하세요 님"으로 나가던 원인).
+   addr2·rentAmt·listingId 는 계약 시트만 봐도 어느 호실인지 알 수 있게 같이 보낸다.
+   시트에 아직 그 칼럼이 없으면 저장 단계에서 그냥 무시된다. */
+function contractFlatten(c){
+  if(!c) return c;
+  c.landlordName  = (c.landlord&&c.landlord.name )||c.landlordName ||'';
+  c.landlordPhone = (c.landlord&&c.landlord.phone)||c.landlordPhone||'';
+  c.tenantName    = (c.tenant  &&c.tenant.name   )||c.tenantName   ||'';
+  c.tenantPhone   = (c.tenant  &&c.tenant.phone  )||c.tenantPhone  ||'';
+  c.listingId     = c.listingId||'';
+  c.addr2         = c.addr2||'';
+  c.rentAmt       = c.rentAmt||'';
+  return c;
+}
+function contractRestore(c){
+  if(!c) return c;
+  c.landlord={ name:(c.landlord&&c.landlord.name )||c.landlordName ||'',
+               phone:(c.landlord&&c.landlord.phone)||c.landlordPhone||'' };
+  c.tenant  ={ name:(c.tenant  &&c.tenant.name   )||c.tenantName   ||'',
+               phone:(c.tenant  &&c.tenant.phone  )||c.tenantPhone  ||'' };
+  return c;
+}
 
 // 저장 시 2초 후 자동 구글 시트 동기화 (디바운스)
 function gsAutoSync(key, val){
@@ -1920,6 +1956,8 @@ async function gsSaveAll(type, data){
   const url=getGsUrl();
   if(!url) return;
   data=normDates(type,data);
+  // 시트에서 불러온 뒤 곧바로 저장하는 경로에서도 평탄화가 빠지지 않도록 한 번 더
+  if(type==='contracts'&&Array.isArray(data))data.forEach(contractFlatten);
   const json=await gsFetchJson(url,{
     method:'POST',
     headers:{'Content-Type':'text/plain'},
@@ -2687,8 +2725,11 @@ function markContacted(){if(!activeContactId)return;contacted[activeContactId]=t
 function closeContact(){document.getElementById('contact-panel').classList.remove('open');}
 
 // ═══ LISTINGS ═══
-const STATUS_ORDER={접수:0,상담중:1,계약완료:2,공실:3};
-const STATUS_CLS={상담중:'bb',계약완료:'bg',접수:'ba',공실:'br'};
+const STATUS_ORDER={접수:0,상담중:1,계약완료:2,임대중:3,거래완료:4,보류:5,공실:6};
+const STATUS_CLS={상담중:'bb',계약완료:'bg',접수:'ba',임대중:'bp',거래완료:'bd',보류:'bgr',공실:'br'};
+/* 광고를 내려야 하는 상태 — adLive()가 이 목록을 쓴다.
+   계약완료(우리 계약) · 임대중(타처 계약, 만료 후 돌아옴) · 거래완료(타사 계약, 안 돌아옴) · 보류(임대인 요청) */
+const STATUS_OFF_MARKET=['계약완료','임대중','거래완료','보류'];
 const STEP_MAP={전세:['접수','네이버','방문','계약','입주'],월세:['접수','네이버','방문','계약','입주'],연세:['접수','네이버','방문','계약','입주'],매매:['접수','네이버','방문','계약','잔금'],단기:['등록','플랫폼','예약','체크인','정산'],단기임대:['등록','플랫폼','예약','체크인','정산']};
 const RECV_ICON={전화:'📞',방문:'🚶',온라인:'💻'};
 
@@ -2836,13 +2877,15 @@ function renderListings(){
     const dN=dup.no.has(String(l.id||'').trim());
     const dA=!!String(l.addr||'').trim()&&dup.addr.has(listingAddrKey(l));
     const steps=STEP_MAP[l.type]||STEP_MAP['전세'];
-    const cur={접수:0,상담중:1,계약완료:5,공실:0}[l.status]||0;
+    const cur={접수:0,상담중:1,계약완료:5,임대중:5,거래완료:5,보류:0,공실:0}[l.status]||0;
     const sh=steps.map((s,i)=>{const c=i<cur?'done':i===cur?'cur':'';return`<div class="step ${c}"><div class="step-line"></div><div class="step-dot">${i<cur?'✓':i+1}</div><div class="step-txt">${s}</div></div>`;}).join('');
     const infos=[
       l.addr?`<div class="l-info-item">📍 ${l.addr}${l.addr2?' '+l.addr2:''} <button class="btn btn-xs" style="margin-left:4px" onclick="event.stopPropagation();showListingMap('${l.id}')">지도</button></div>`:'',
       l.recvDate?`<div class="l-info-item"><span class="li-label">접수일</span> ${l.recvDate}</div>`:'',
       l.availDate?`<div class="l-info-item"><span class="li-label">입주가능</span> ${l.availDate}</div>`:'',
       l.moveDate?`<div class="l-info-item">${moveBadge(l.moveDate)}</div>`:'',
+      // 임대중(다른 곳 계약)은 만료일이 곧 다시 나오는 시점 — 놓치지 않도록 D-day로 보여준다
+      (l.status==='임대중'&&l.contractEnd)?`<div class="l-info-item"><span class="li-label">다시 나옴</span> ${l.contractEnd} <span class="dday ${ddCls(daysLeft(l.contractEnd))}">${ddLabel(daysLeft(l.contractEnd))}</span></div>`:'',
       l.cname?`<div class="l-info-item">👤 <strong>${l.cname}</strong>${l.cphone?` · <span style="color:var(--b)">${l.cphone}</span>`:''}</div>`:'',
       l.naverUrl?`<a class="naver-link-badge" href="${l.naverUrl}" target="_blank" onclick="event.stopPropagation()">N 네이버 매물 바로가기</a>`:'',
       (l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="event.stopPropagation();openListingFiles('${l.id}')">📎 첨부파일 ${l.attachments.length}개</span>`:'',
@@ -2913,6 +2956,10 @@ function openModal(type, editId){
       document.getElementById('l-premium').value=item.premium||'';
       document.getElementById('l-desc').value=item.desc||'';
       document.getElementById('l-status').value=item.status;
+      // 저장된 계약일·만료일을 되돌려 놓는다. 예전에는 불러오지 않아서, 계약완료 매물을
+      // 다시 열어 저장하면 두 날짜가 빈 값으로 덮어써졌다.
+      document.getElementById('l-contract-date').value=item.contractDate||'';
+      document.getElementById('l-contract-end').value=item.contractEnd||'';
       document.getElementById('l-recv-date').value=item.recvDate||'';
       document.getElementById('l-move-date').value=item.moveDate||'';
       document.getElementById('l-recv-method').value=item.recvMethod||'전화';
@@ -2926,7 +2973,7 @@ function openModal(type, editId){
       renderExistingAttachments(item.attachments||[]);
     } else {
       document.getElementById('listing-modal-title').textContent='🏠 매물 추가';
-      ['l-addr','l-addr2','l-apt','l-price','l-rent','l-area','l-floor','l-total-floor','l-apr-date','l-rooms','l-baths','l-direction','l-avail-date','l-fee-type','l-fee-amt','l-fee-items','l-fee-basis','l-fee-evidence','l-fee-note','l-parking','l-pets','l-loan','l-options','l-bldg-use','l-jimok','l-zone','l-premium','l-desc','l-move-date','l-cname','l-cphone','l-note','l-naver-url'].forEach(id=>document.getElementById(id).value='');
+      ['l-addr','l-addr2','l-apt','l-price','l-rent','l-area','l-floor','l-total-floor','l-apr-date','l-rooms','l-baths','l-direction','l-avail-date','l-fee-type','l-fee-amt','l-fee-items','l-fee-basis','l-fee-evidence','l-fee-note','l-parking','l-pets','l-loan','l-options','l-bldg-use','l-jimok','l-zone','l-premium','l-desc','l-move-date','l-cname','l-cphone','l-note','l-naver-url','l-contract-date','l-contract-end'].forEach(id=>document.getElementById(id).value='');
       document.getElementById('l-type').value='전세';
       document.getElementById('l-kind').value='아파트';
       renderOptionChips('');
@@ -2938,6 +2985,9 @@ function openModal(type, editId){
       renderExistingAttachments([]);
     }
     renderAttachPreview();
+    // 상태에 맞춰 계약/임대 날짜 칸을 열어둔다 — 예전에는 상태를 직접 바꿀 때만 열려서
+    // 저장된 계약완료 매물을 다시 열면 계약일·만료일이 보이지 않았다
+    toggleListingContractSection();
     document.getElementById('modal-listing').style.display='flex';
   } else if(type==='customer'){
     document.getElementById('c-edit-id').value=editId||'';
@@ -3556,13 +3606,13 @@ function renderContracts(){
   tb.innerHTML=list.map(c=>{
     const d=daysLeft(c.end||'9999-01-01');
     return`<tr>
-      <td style="font-weight:700;white-space:nowrap">${hl(c.apt)}</td>
+      <td style="font-weight:700;white-space:nowrap">${hl(c.apt)}${c.addr2?` <span style="font-weight:500;color:var(--t2)">${hl(c.addr2)}</span>`:''}</td>
       <td>${typeBadge(c.type)}</td>
       <td>${hl(c.landlord?.name)||'-'}</td>
       <td style="color:var(--b);white-space:nowrap">${hl(c.landlord?.phone)||'-'}</td>
       <td>${hl(c.tenant?.name)||'-'}</td>
       <td style="color:var(--b);white-space:nowrap">${hl(c.tenant?.phone)||'-'}</td>
-      <td style="white-space:nowrap">${c.price}</td>
+      <td style="white-space:nowrap">${c.price}${c.rentAmt?` <span style="color:var(--t2)">/ 월 ${c.rentAmt}</span>`:''}</td>
       <td style="font-size:11px;white-space:nowrap">${c.start||'-'}</td>
       <td style="font-size:11px;white-space:nowrap;font-weight:600;color:var(--r)">${c.end||'-'}</td>
       <td><span class="dday ${c.end?ddCls(d):'dday-gray'}">${c.end?ddLabel(d):'-'}</span></td>
@@ -3595,22 +3645,49 @@ function saveContract(){
 function deleteContract(id){if(!confirm('이 계약을 삭제하시겠습니까?'))return;contracts=contracts.filter(c=>c.id!==id);save('contracts',contracts);gsDeleteRow('contracts',id);delete expStatus[id];delete contacted[id];save('expStatus',expStatus);save('contacted',contacted);renderContracts();renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();showToast('계약 삭제됨');}
 
 // ─── 매물 계약완료 → 계약탭 자동 연동 ───
+/* 계약완료(우리 계약)와 임대중(다른 곳에서 계약 — 만료되면 다시 나옴)만 날짜를 받는다.
+   임대중은 계약 시트로 넘기지 않으므로 안내 문구와 라벨을 바꿔 오해를 막는다. */
 function toggleListingContractSection(){
   const s=document.getElementById('l-status')?.value;
   const sec=document.getElementById('l-contract-date-section');
-  if(sec) sec.style.display=s==='계약완료'?'block':'none';
+  if(!sec) return;
+  const show=(s==='계약완료'||s==='임대중');
+  sec.style.display=show?'block':'none';
+  if(!show) return;
+  const t=document.getElementById('l-contract-section-title');
+  const d=document.getElementById('l-contract-date-label');
+  const e=document.getElementById('l-contract-end-label');
+  const n=document.getElementById('l-contract-note');
+  if(s==='임대중'){
+    if(t) t.textContent='🔒 임대 정보 (다른 곳에서 계약됨)';
+    if(d) d.textContent='임대 시작일 (아는 경우만)';
+    if(e) e.textContent='임대 만료일 — 다시 나오는 시점';
+    if(n) n.innerHTML='🔒 우리 계약이 아니므로 <strong>계약 완료 탭에 올라가지 않습니다.</strong> 만료일을 넣으면 매물 목록에 다시 나오는 시점이 표시됩니다.';
+  } else {
+    if(t) t.textContent='✍️ 계약 정보';
+    if(d) d.textContent='계약 완료 일자';
+    if(e) e.textContent='계약 만료일';
+    if(n) n.innerHTML='✅ 저장 시 <strong>계약 완료 탭</strong>에 자동으로 연동됩니다.';
+  }
 }
 
 function syncListingToContract(listing){
-  // 이미 동일 매물명+임차인 계약이 있으면 스킵
-  const exists=contracts.find(c=>c.apt===listing.apt&&c.tenant?.name===listing.cname);
+  // 같은 매물의 계약이 이미 있으면 스킵. 매물번호로 먼저 보는 이유 —
+  // apt 는 건물명이라 에코드파리처럼 한 건물에 여러 호실이 있으면 호수까지 봐야 구분된다.
+  const exists=contracts.find(c=>
+    (c.listingId&&c.listingId===listing.id) ||
+    (c.apt===listing.apt && (c.addr2||'')===(listing.addr2||'') && (c.tenant?.name||'')===(listing.cname||''))
+  );
   if(exists) return;
   if(!listing.cname) return; // 고객명 없으면 연동 안 함
   const newContract={
     id:uid(),
+    listingId:listing.id||'',
     apt:listing.apt,
+    addr2:listing.addr2||'',
     type:listing.type,
     price:listing.price,
+    rentAmt:listing.rentAmt||'',
     landlord:{name:'',phone:''},
     tenant:{name:listing.cname||'',phone:listing.cphone||''},
     start:listing.contractDate||listing.recvDate||'',
@@ -4651,7 +4728,7 @@ function confirmUpload(){
       if(!apt){errors.push(`${rn}행: 매물명 누락`);return;}
       if(!price){errors.push(`${rn}행: 거래가 누락`);return;}
       const tv=['매매','전세','월세','연세','단기','단기임대'].includes(type)?type:'전세';
-      const sv=['접수','상담중','계약완료','공실'].includes(getCV(row,'status',cols))?getCV(row,'status',cols):'접수';
+      const sv=['접수','상담중','계약완료','임대중','거래완료','보류','공실'].includes(getCV(row,'status',cols))?getCV(row,'status',cols):'접수';
       const mv=['전화','방문','온라인'].includes(getCV(row,'recvMethod',cols))?getCV(row,'recvMethod',cols):'전화';
       const jv=['단독','공동'].includes(getCV(row,'joint',cols))?getCV(row,'joint',cols):'단독';
       newItems.push({id:uid(),apt,type:tv,price,area:getCV(row,'area',cols),floor:getCV(row,'floor',cols),status:sv,recvDate:getCV(row,'recvDate',cols),moveDate:getCV(row,'moveDate',cols),recvMethod:mv,joint:jv,cname:getCV(row,'cname',cols),cphone:getCV(row,'cphone',cols),naverUrl:getCV(row,'naverUrl',cols),note:getCV(row,'note',cols),attachments:[]});
@@ -5260,7 +5337,7 @@ function adExpireDays(o,k){
   const end = new Date(a.at); end.setDate(end.getDate() + d);
   return Math.ceil((end - new Date()) / 86400000);
 }
-function adLive(o){ return o.status !== '거래완료' && o.status !== '보류'; }
+function adLive(o){ return !STATUS_OFF_MARKET.includes(o.status); }
 
 /* ---------- 4. 구글시트 미러 (중첩객체 → 문자열 평탄화) ---------- */
 function adsFlatten(o){
@@ -5364,39 +5441,61 @@ function parsePlatformList(text){                       // 당근 중개소 홈 
   }
   return out;
 }
-function syncAdLedger(pkey){
+/* 당근 등록대장 동기화 — 탭마다 뜻이 다르다.
+     판매중   지금 광고가 살아 있음
+     미노출   등록은 되어 있으나 화면에 안 보임
+     거래완료 그 광고는 끝남 → 다시 올릴 수 있어야 한다
+   예전에는 세 탭을 한 덩어리로 받아 전부 '광고 중'으로 기록했다. 그래서 당근에서 이미 끝난
+   매물이 CRM에서는 광고 중으로 남아 '이미등록'으로 걸러졌고, 다시 올라가지 않았다. */
+const AD_TABS = ['판매중','미노출','거래완료'];
+function syncAdLedger(pkey, tab){
   const p = PF[pkey];
-  const t = prompt(`${p.label} 등록 매물 목록을 복사해 붙여넣으세요.\n(판매중 / 미노출 / 거래완료 탭 각각 반복)`);
+  if(!tab){
+    const pick = prompt(`${p.label} — 어느 탭의 목록인가요?\n\n  1  판매중\n  2  미노출\n  3  거래완료\n\n번호를 입력하세요. 탭마다 따로 실행해야 상태가 정확히 기록됩니다.`, '1');
+    if(pick === null) return;
+    tab = AD_TABS[(parseInt(pick,10)||0) - 1];
+    if(!tab){ showToast('1 · 2 · 3 중에서 골라주세요'); return; }
+  }
+  const t = prompt(`${p.label} [${tab}] 탭의 매물 목록을 복사해 붙여넣으세요.`);
   if(t == null) return;
   const parsed = parsePlatformList(t);
   if(!parsed.length){ showToast('주소를 인식하지 못했습니다.'); return; }
 
   const led  = adLedger(pkey);
   const list = adListings();
-  let added = 0, marked = 0;
+  const liveTab = (tab !== '거래완료');
+  let added = 0, marked = 0, cleared = 0;
 
   parsed.forEach(x => {
     const prev = led[x.key] || {};
     if(!led[x.key]) added++;
     const hit = list.find(o => unitKey(o) === x.key);
     led[x.key] = {
-      no    : x.no || prev.no || '',
-      brzId : (hit && hit.id) || prev.brzId || '',       // 브리즈 매물번호(o.id)
-      addr  : x.addr,
-      at    : prev.at || todayStr()
+      no      : x.no || prev.no || '',
+      brzId   : (hit && hit.id) || prev.brzId || '',     // 브리즈 매물번호(o.id)
+      addr    : x.addr,
+      at      : prev.at || todayStr(),
+      state   : tab,                                     // 판매중 / 미노출 / 거래완료
+      stateAt : todayStr()
     };
-    if(hit && !adOn(hit,pkey)){
-      hit.ads = hit.ads || {};
-      hit.ads[pkey] = Object.assign(adBlank(), { on:true, no:led[x.key].no, at:led[x.key].at });
-      marked++;
+    if(!hit) return;
+    hit.ads = hit.ads || {};
+    if(liveTab){
+      if(!adOn(hit,pkey)){
+        hit.ads[pkey] = Object.assign(adBlank(), { on:true, no:led[x.key].no, at:led[x.key].at });
+        marked++;
+      }
+    } else if(adOn(hit,pkey)){
+      hit.ads[pkey].on = false;      // 끝난 광고는 내려간 것으로 — 다시 올릴 대상이 된다
+      cleared++;
     }
   });
 
   adLedgerSave(pkey, led);
-  if(marked) adSaveList(list);
+  if(marked || cleared) adSaveList(list);
 
   const miss = parsed.filter(x => !led[x.key].brzId);
-  showToast(`${p.label} 등록대장 ${parsed.length}건 반영 (신규 ${added} / 매칭 ${marked} / 미매칭 ${miss.length})`);
+  showToast(`${p.label} [${tab}] ${parsed.length}건 반영 — 신규 ${added} / 광고중 표시 ${marked} / 종료 처리 ${cleared} / 미매칭 ${miss.length}`);
   if(miss.length) console.warn('CRM에 없는 ' + p.label + ' 매물:\n' + miss.map(m => m.no + '  ' + m.addr).join('\n'));
   renderAds();
   if(typeof renderListings === 'function') renderListings();
@@ -5413,7 +5512,8 @@ function adFilterForExport(pkey, srcList){
     const k = (p.dedup === 'unit') ? unitKey(o) : o.id;
     if(p.dedup === 'unit' && !k){
       excluded.push({ o, why:'주소확인필요', memo:(o.addr||'') + ' ' + (o.addr2||'') }); return; }
-    if(p.dedup !== 'none' && led[k]){
+    // 거래완료로 기록된 대장 항목은 그 광고가 끝난 것이므로 재등록을 막지 않는다
+    if(p.dedup !== 'none' && led[k] && led[k].state !== '거래완료'){
       excluded.push({ o, why:p.label + '중복',
         memo:(led[k].no || '-') + (led[k].brzId ? ' / 브리즈 ' + led[k].brzId : '') + ' / ' + (led[k].addr||'') });
       return; }
