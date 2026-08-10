@@ -1,0 +1,74 @@
+// ══════════════════════════════════════════
+// 시트 편집 즉시 반영: 상세주소 표기 정규화 (2026-08-08 추가)
+//   "101-304"→"101동 304호", "1601"→"1601호" 로 셀 편집 즉시 정리.
+//   🔴 API 호출 없음(즉시 처리). 면적·매물번호·대장조회는 무거운 작업이라 여기서 안 한다
+//     — 그건 CRM '🛠 시트 보강+불러오기'(enrichListings)가 담당. 여기선 표기만 손본다.
+//   onEdit 단순 트리거는 권한이 제한되지만 같은 스프레드시트 셀 쓰기는 허용된다.
+// ══════════════════════════════════════════
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+    var sh = e.range.getSheet();
+    if (sh.getName() !== SHEETS.listings) return;       // 매물관리 시트만
+    if (e.range.getNumColumns() !== 1 || e.range.getNumRows() !== 1) return; // 단일 셀만
+    var row = e.range.getRow();
+    if (row === 1) return;                                // 헤더 제외
+
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+    var cAddr2 = headers.indexOf('addr2') + 1;
+    var cApt   = headers.indexOf('apt') + 1;
+    var cAddr  = headers.indexOf('addr') + 1;
+    var editedCol = e.range.getColumn();
+    var raw = String(e.value == null ? '' : e.value).trim();
+    if (!raw) return;
+
+    // (1) 상세주소 칸 편집 → 표기 정규화 ("101-304"→"101동 304호")
+    if (cAddr2 && editedCol === cAddr2) {
+      var norm = normalizeAddr2Text_(raw);
+      if (norm && norm !== raw) e.range.setValue(norm);
+      return;
+    }
+
+    // (2) 건물명(apt) 칸 편집 → 같은 건물명이 시트에 이미 있으면 그 주소를 즉시 물려받는다.
+    //     🔴 API 호출 없음(onEdit은 외부 통신이 막혀 있음) — 시트 안에서만 찾는다.
+    //     시트에 없는 새 건물명은 여기서 못 채운다 → CRM '🛠 시트 보강+불러오기'가 juso·카카오로 조회.
+    if (cApt && cAddr && editedCol === cApt) {
+      var curAddr = sh.getRange(row, cAddr).getValue();
+      if (String(curAddr == null ? '' : curAddr).trim()) return; // 이미 주소가 있으면 덮지 않는다
+      var data = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), sh.getLastColumn()).getValues();
+      var wantApt = raw.replace(/\s+/g, '');
+      for (var i = 0; i < data.length; i++) {
+        if (i + 2 === row) continue;
+        var ap = String(data[i][cApt - 1] || '').replace(/\s+/g, '');
+        var ad = String(data[i][cAddr - 1] || '').trim();
+        if (ap && ad && ap === wantApt) {
+          sh.getRange(row, cAddr).setValue(ad);   // 같은 건물의 기존 주소를 넣는다
+          break;
+        }
+      }
+      return;
+    }
+  } catch (err) { /* onEdit은 조용히 실패해야 시트 편집을 막지 않는다 */ }
+}
+
+// "101-304"→"101동 304호", "1601"→"1601호". 이미 정리됐거나 판단 불가면 원본 반환.
+// (enrichListings 안의 정규화 규칙과 동일하게 유지할 것)
+function normalizeAddr2Text_(addr2) {
+  addr2 = String(addr2 || '').trim();
+  if (!addr2) return addr2;
+  // "호"가 이미 있으면(304호·101동 304호) 건드리지 않는다 — 이미 정리된 표기
+  if (/\d+\s*호/.test(addr2)) return addr2;
+  var dongM = addr2.match(/(\d+)\s*동/);
+  var dongVal = dongM ? dongM[1] : '';
+  var hoVal = '';
+  var dh = addr2.match(/^(\d+)\s*-\s*(\d+)\s*$/);   // "101-304" = 101동 304호
+  if (dh) {
+    dongVal = dh[1]; hoVal = dh[2];
+    return dongVal + '동 ' + hoVal + '호';
+  }
+  // 순수 숫자만("1601"→"1601호"). 동 표기가 섞였거나 지하·영문 등은 건드리지 않는다.
+  if (/^\d+$/.test(addr2)) {
+    return addr2 + '호';
+  }
+  return addr2;
+}
