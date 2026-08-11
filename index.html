@@ -3732,7 +3732,7 @@ function renderLandlords(){
     const d=l.nextContact?daysLeft(l.nextContact):null;
     const badge=d===null?'':` <span class="dday ${ddCls(d)}">${d<=0?(d===0?'오늘':Math.abs(d)+'일 지남'):'D-'+d}</span>`;
     return `<tr>
-      <td style="font-weight:600">${l.name||''}${l.ownerName?` <span class="badge bgr" style="font-size:9px">${l.ownerName}</span>`:''}</td>
+      <td style="font-weight:600">${l.name||''}</td>
       <td style="white-space:nowrap">${l.masked?'<span style="color:var(--t3)">비공개</span>':(l.phone||'')}</td>
       <td>${l.addr||''}</td>
       <td>${l.apt||''}</td>
