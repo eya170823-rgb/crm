@@ -2851,7 +2851,7 @@ function renderListings(){
       <thead><tr>
         <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>거래유형</th><th>거래가</th>
         <th>입주가능일</th><th>고객명</th><th>연락처</th>
-        <th>당근</th><th>상태</th><th>네이버</th><th>지도</th><th>첨부</th><th>수정</th><th>삭제</th>
+        <th>상태</th><th>지도</th><th>첨부</th><th>수정</th><th>삭제</th>
       </tr></thead>
       <tbody>${list.map(l=>{
         const dN=dup.no.has(String(l.id||'').trim());
@@ -2866,11 +2866,7 @@ function renderListings(){
         <td style="white-space:nowrap">${l.availDate||moveBadge(l.moveDate)||`<span style="color:var(--t3);font-size:11px">${l.moveDate||'-'}</span>`}</td>
         <td style="font-weight:500">${l.cname||'-'}</td>
         <td style="color:var(--b);white-space:nowrap">${l.cphone||'-'}</td>
-        <td>${(typeof adOn==='function'&&adOn(l,'daangn'))
-          ? `<button class="btn btn-xs btn-g" title="${(ad(l,'daangn')||{}).at||''} 등록${adStale(l,'daangn')?' · 등록 후 값 변경됨(당근에서 직접 수정)':''}" onclick="adToggle('${l.id}','daangn')">🥕${adStale(l,'daangn')?'⚠️':'✓'}</button>`
-          : `<button class="btn btn-xs" title="당근 등록완료로 표시" onclick="adToggle('${l.id}','daangn')">미등록</button>`}</td>
         <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td>
-        <td>${l.naverUrl?`<a href="${l.naverUrl}" target="_blank" class="naver-link-badge" style="font-size:10px;padding:2px 7px">N</a>`:'-'}</td>
         <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
         <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}</td>
         <td><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td>
