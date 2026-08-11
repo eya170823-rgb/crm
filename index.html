@@ -790,8 +790,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       </div>
       <div class="filter-bar">
         <select id="sms-month"></select>
+        <input type="date" id="sms-date" title="공실 감지 날짜 (당근 수집일)">
         <select id="sms-role"><option value="all">임대인 + 임차인</option><option value="임대인">임대인만</option><option value="임차인">임차인만</option></select>
-        <select id="sms-theme"><option value="general">일반 정보성</option><option value="expiry">만기 사전 안내</option><option value="spring">봄 이사철</option><option value="tax">연말 세금 정보</option></select>
+        <select id="sms-theme"><option value="vacancy">공실확인 (매일)</option><option value="general">일반 정보성</option><option value="expiry">만기 사전 안내</option><option value="spring">봄 이사철</option><option value="tax">연말 세금 정보</option></select>
         <button class="btn btn-b" onclick="renderSms()">미리보기 생성</button>
         <button class="btn btn-g" onclick="sendSmsAll()">📨 전체 자동 발송</button>
       </div>
@@ -2445,6 +2446,13 @@ document.getElementById('dash-date-sub').textContent=`${TODAY.getFullYear()}년 
 // SMS month options
 const smsSel=document.getElementById('sms-month');
 for(let i=1;i<=12;i++){const o=document.createElement('option');o.value=i;o.textContent=i+'월';if(i===TODAY.getMonth()+1)o.selected=true;smsSel.appendChild(o);}
+// 공실확인(매일) 유형: 월 대신 날짜(기본 오늘)를 고른다 — 2026-08-08 사장님 요청
+(function(){
+  const th=document.getElementById('sms-theme'),dt=document.getElementById('sms-date');
+  dt.value=`${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}-${String(TODAY.getDate()).padStart(2,'0')}`;
+  const sync=()=>{const v=th.value==='vacancy';smsSel.style.display=v?'none':'';dt.style.display=v?'':'none';};
+  th.addEventListener('change',sync);sync();
+})();
 
 // ═══ HELPERS ═══
 const typeBadge=t=>{const m={전세:'bb',월세:'ba',매매:'br',연세:'bg',단기:'bp',단기임대:'bp'};return`<span class="badge ${m[t]||'bgr'}">${t}</span>`;};
@@ -4318,6 +4326,8 @@ function addLockButton(){
 
 // ═══ SMS ═══
 const smsTpl={
+  // 공실확인(매일): 당근 수집이 임대인관리에 기록한 '공실감지 날짜'를 기준으로 발송
+  vacancy:{임대인:b=>`안녕하세요, 브리즈부동산중개입니다.\n${b} 공실이 있는지 확인차 연락드렸습니다.\n임대 놓으실 물건이 있으시면 저희가 세입자 모집을 도와드리겠습니다.\n감사합니다. 브리즈부동산중개 | 010-2601-0110`},
   general:{임대인:m=>`안녕하세요, 브리즈부동산중개입니다 :)\n${m}월 임대인 안내 말씀드립니다.\n\n✅ 임대료 입금 현황 확인해 주세요.\n✅ 계약 만기 6개월 전부터 갱신 준비 시작하세요.\n\n감사합니다 🏡 브리즈부동산중개 | 010-2601-0110`,임차인:m=>`안녕하세요, 브리즈부동산중개입니다 :)\n${m}월 임차인 안내 말씀드립니다.\n\n✅ 전입신고·확정일자 꼭 챙기세요!\n✅ 계약 만기 6개월 전, 갱신 의사를 집주인에게 알려야 합니다.\n\n감사합니다 🌿 브리즈부동산중개 | 010-2601-0110`},
   expiry:{임대인:_=>`안녕하세요, 브리즈부동산중개입니다.\n계약 만기 사전 안내입니다.\n\n✅ 갱신 또는 신규 임차인 모집 의사를 알려주세요.\n✅ 보증금·임대료 조정 상담 드립니다.\n\n감사합니다! 브리즈부동산중개 | 010-2601-0110`,임차인:_=>`안녕하세요, 브리즈부동산중개입니다.\n계약 만기 사전 안내입니다.\n\n✅ 재계약 의사가 있으시면 만기 6개월 전에 집주인께 통보하세요.\n✅ 이사 계획이 있으시면 새 매물 탐색을 즉시 도와드립니다.\n\n감사합니다! 브리즈부동산중개 | 010-2601-0110`},
   spring:{임대인:_=>`안녕하세요, 브리즈부동산중개입니다 🌸\n봄 이사철 임대인 안내입니다.\n\n✅ 3~5월은 연간 거래량 최성수기입니다.\n✅ 지금 매물 등록하시면 빠른 계약이 가능합니다.\n\n연락 주세요! 브리즈부동산중개 | 010-2601-0110`,임차인:_=>`안녕하세요, 브리즈부동산중개입니다 🌸\n봄 이사철 특별 안내입니다.\n\n✅ 3~5월 매물 경쟁이 치열합니다. 서두르세요!\n✅ 제주시 연동 일대 신규 매물 업데이트 중\n\n브리즈부동산중개 | 010-2601-0110`},
@@ -4327,14 +4337,24 @@ function renderSms(){
   const month=document.getElementById('sms-month').value,role=document.getElementById('sms-role').value,theme=document.getElementById('sms-theme').value;
   const tpl=smsTpl[theme]||smsTpl.general;
   let list=[];
-  contracts.forEach((c,i)=>{
+  if(theme==='vacancy'){
+    // 공실확인: 임대인관리에서 선택 날짜에 '당근 공실감지'가 기록된 임대인만 (매도인 제외)
+    const d=document.getElementById('sms-date').value;
+    (landlords||[]).forEach(l=>{
+      if(role==='임차인')return;
+      if(!String(l.name||'').includes('임대인'))return;
+      if(!String(l.note||'').includes('공실감지 '+d))return;
+      const bld=String(l.apt||'').trim()||String(l.addr||'').replace('제주특별자치도 제주시','').trim()||'보유하신';
+      list.push({name:l.name||'임대인',phone:l.phone||'-',role:'임대인',apt:bld,msg:smsTpl.vacancy.임대인(bld)});
+    });
+  }else contracts.forEach((c,i)=>{
     if((role==='all'||role==='임대인')&&tpl.임대인) list.push({name:c.landlord?.name||'-',phone:c.landlord?.phone||'-',role:'임대인',apt:c.apt,msg:tpl.임대인(month)});
     if((role==='all'||role==='임차인')&&tpl.임차인) list.push({name:c.tenant?.name||'-',phone:c.tenant?.phone||'-',role:'임차인',apt:c.apt,msg:tpl.임차인(month)});
   });
   const seen=new Set();list=list.filter(s=>{if(seen.has(s.phone))return false;seen.add(s.phone);return true;});
   smsPreviewList=list;
   const el=document.getElementById('sms-list');
-  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>계약 완료 탭에 계약 정보를 먼저 등록하세요</div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?'선택한 날짜에 공실 감지된 임대인이 없습니다 — 당근 수집을 돌리면 자동으로 등록됩니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
   el.innerHTML=list.map((s,i)=>{
     const okPhone=/\d{9,11}/.test(String(s.phone).replace(/\D/g,''));
     return`<div class="card"><div class="card-hd"><div><div class="card-title">${s.name} <span class="badge ${s.role==='임대인'?'bg':'bb'}">${s.role}</span></div><div class="card-sub">${s.phone} · ${s.apt}</div></div><div class="row">
