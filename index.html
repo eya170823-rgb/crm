@@ -5640,8 +5640,8 @@ function renderAds(){
 
     return `<tr style="border-top:1px solid #F1F2F4">
       <td style="font-size:11px;color:#6B7280">${o.id || ''}</td>
-      <td style="font-size:12px">${o.apt || ''}
-        <div style="font-size:10px;color:#9CA3AF">${o.addr || ''} ${o.addr2 || ''}</div></td>
+      <td style="font-size:12px;font-weight:600">${o.apt || ''}${o.addr2 ? ` <span style="font-size:13px;font-weight:700;color:#0F6E56">${o.addr2}</span>` : ''}
+        <div style="font-size:10px;color:#9CA3AF;font-weight:400">${o.addr || ''}</div></td>
       <td style="font-size:11px">${o.kind || ''}<div style="color:#6B7280">${o.type || ''}</div></td>
       <td style="font-size:11px">${o.price || ''}${o.rentAmt ? ' / ' + o.rentAmt : ''}</td>
       <td style="font-size:11px">${o.status || ''} ${warn}</td>
