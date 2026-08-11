@@ -1365,8 +1365,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <input type="hidden" id="l-edit-id">
     <input type="hidden" id="l-customer-id">
     <div class="modal-footer">
+      <button class="btn btn-r" id="listing-del-btn" style="margin-right:auto" onclick="deleteListingFromModal()">🗑 삭제</button>
       <button class="btn" onclick="closeModal('listing')">취소</button>
-      <button class="btn btn-g" onclick="saveListing()">✓ 저장</button>
+      <button class="btn btn-g" id="listing-save-btn" onclick="saveListing()">✓ 저장</button>
     </div>
   </div>
 </div>
@@ -2851,7 +2852,7 @@ function renderListings(){
       <thead><tr>
         <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>거래유형</th><th>거래가</th>
         <th>입주가능일</th><th>고객명</th><th>연락처</th>
-        <th>상태</th><th>지도</th><th>첨부</th><th>수정</th><th>삭제</th>
+        <th>상태</th><th>지도</th><th>첨부</th><th>수정</th>
       </tr></thead>
       <tbody>${list.map(l=>{
         const dN=dup.no.has(String(l.id||'').trim());
@@ -2870,7 +2871,6 @@ function renderListings(){
         <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
         <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}</td>
         <td><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td>
-        <td><button class="btn btn-r btn-xs" onclick="deleteListing('${l.id}')">🗑</button></td>
       </tr>`;}).join('')}</tbody>
     </table></div>`;
     return;
@@ -2920,6 +2920,10 @@ function openModal(type, editId){
     refreshListingCustomerSel();
     attachBuffer=[];
     document.getElementById('l-edit-id').value=editId||'';
+    // 삭제는 수정 모달 안에서만 (표의 삭제 열 제거, 2026-08-11) — 신규 등록 땐 숨김
+    const _db=document.getElementById('listing-del-btn'),_sb=document.getElementById('listing-save-btn');
+    if(_db)_db.style.display=editId?'':'none';
+    if(_sb)_sb.textContent=editId?'✓ 수정':'✓ 저장';
     document.getElementById('l-customer-id').value='';
     document.getElementById('addr-search-results').style.display='none';
     document.getElementById('addr-map-preview').style.display='none';
@@ -3434,6 +3438,13 @@ function saveListing(){
   if(typeof renderAds==='function') renderAds();
 }
 function deleteListing(id){if(!confirm('이 매물을 삭제하시겠습니까?'))return;listings=listings.filter(l=>l.id!==id);save('listings',listings);gsDeleteRow('listings',id);renderListings();updateStats();showToast('매물 삭제됨');}
+function deleteListingFromModal(){
+  const id=document.getElementById('l-edit-id').value;
+  if(!id)return;
+  if(!confirm('이 매물을 삭제하시겠습니까?'))return;
+  listings=listings.filter(l=>l.id!==id);save('listings',listings);gsDeleteRow('listings',id);
+  closeModal('listing');renderListings();updateStats();showToast('매물 삭제됨');
+}
 
 // ─── 매물 유형 필터 ───
 let curTypeFilter='all';
