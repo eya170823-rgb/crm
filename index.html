@@ -4562,7 +4562,8 @@ function renderSms(){
       // 만기 안내는 만기관리 탭과 같은 창(경과 30일~앞으로 180일, 매매 제외)만 —
       // 필터가 없어 5년 남은 계약자에게도 "만기 사전 안내"가 나가던 문제 수정 (2026-08-12)
       const d=c.end?daysLeft(c.end):null;
-      if(d===null||d<-30||d>180||c.type==='매매')return;
+      // 포함형 조건이라 만기일이 '미정' 같은 텍스트(NaN)면 자동 탈락 — 배제형(d<-30||d>180)은 NaN이 뚫는다
+      if(!(d>=-30&&d<=180)||c.type==='매매')return;
     }
     if((role==='all'||role==='임대인')&&tpl.임대인) list.push({name:c.landlord?.name||'-',phone:c.landlord?.phone||'-',role:'임대인',apt:c.apt,msg:tpl.임대인(month)});
     if((role==='all'||role==='임차인')&&tpl.임차인) list.push({name:c.tenant?.name||'-',phone:c.tenant?.phone||'-',role:'임차인',apt:c.apt,msg:tpl.임차인(month)});
