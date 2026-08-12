@@ -3317,6 +3317,208 @@ function buildDaangnPlainDesc(o){
   if(v(o.id)) S.push(`매물번호 ${v(o.id)}.`);
   return S.join(' ').slice(0,1000);
 }
+
+// ─── 광고 검수·문구 4종 (2026-08-12 데스크톱 광고작성 도구 이식) ───
+// 상호·법정 명시사항 — 광고 꼬리말 고정용. 등록번호·대표 누락은 건당 과태료 대상.
+const AGENCY={
+  slogan:'바른 기준, 가치 있는 동행',
+  cta:'원하시는 조건을 말씀해 주시면 맞춤 매물을 찾아드립니다.',
+  url:'https://eya170823-rgb.github.io/breeze/',
+  blog:'https://blog.naver.com/eya81',
+  regNo:'50110-2026-00057',
+  officeAddr:'제주특별자치도 제주시 삼무로1길 13, 1층',
+  ceo:'박정희',
+};
+// 금지표현 검사 (공인중개사법 표시·광고 위반 — 위반 표현당 과태료 300만원 위험)
+const AD_BLACKLIST=[
+  ['절대표현',/최고(?!\s*층)|유일한|유일무이|No\.?\s*1|넘버\s*원|완벽한|제일\s*좋/g,'사실 수치로 (예: ○○ 도보 5분)'],
+  ['근거없는 시세',/시세\s*대비|시세\s*이하|급매|파격가|초특가|반값|떨이/g,'가격만 적거나 실거래가 출처를 함께'],
+  ['모호한 풀옵션',/풀옵션(?!\s*[:\(（])/g,"'풀옵션' 대신 옵션 나열 (에어컨·냉장고…)"],
+  ['과장 인프라',/초역세권|황금입지|최적입지|숲세권|명당/g,'사실 거리로 (○○ 도보 N분)'],
+  ['재고 압박',/마지막\s*\d*\s*개|마지막\s*하나|곧\s*마감|마감\s*임박|품절\s*임박|즉시\s*결정|서두르|지금\s*아니면/g,'압박 표현 금지'],
+  ['수익률 단정',/수익률\s*연?\s*\d|공실률\s*\d|확정\s*수익|수익\s*보장|원금\s*보장|\d\s*년\s*회수/g,'보증금·월세 사실만 제시'],
+  ['차별 배제',/내국인\s*만|외국인\s*불가|특정\s*종교|무자녀\s*우대|남성\s*만|여성\s*만/g,'우대/배제 표현 금지 (별도 법령 위반)'],
+  ['허위 과장',/무조건|100%\s*보장|절대\s*후회\s*없|평생/g,'단정·보장 표현 금지'],
+];
+function adComplianceScan(text){
+  const hits=[];
+  for(const [cat,re,fix] of AD_BLACKLIST){
+    re.lastIndex=0; let m;
+    while((m=re.exec(String(text||'')))!==null){
+      hits.push({cat,hit:m[0].trim(),fix});
+      if(m.index===re.lastIndex) re.lastIndex++;
+    }
+  }
+  return hits;
+}
+// 당근 제재 방지 — 전화번호·이메일·외부링크·타채널 유도 제거.
+// 부분만 지우고 한글 15자 이상 남으면 그 줄은 살린다 (한 줄짜리 설명 통삭제 방지).
+const _SCRUB_SEP='[\\s.\\-_·•/()]{0,3}';
+const RE_AD_PHONE=new RegExp('(?<![0-9０-９])(?:\\+?82'+_SCRUB_SEP+'1?[0-9]{1,2}'+_SCRUB_SEP+'[0-9]{3,4}'+_SCRUB_SEP+'[0-9]{4}|0[0-9]{1,2}'+_SCRUB_SEP+'[0-9]{3,4}'+_SCRUB_SEP+'[0-9]{4})(?![0-9０-９])','g');
+const RE_AD_TEL_CUE=/(☎|📞|✆|전화|연락|문의|직통|대표번호|상담|콜|call)/i;
+const RE_AD_PHONE_CUE=new RegExp('(?<![0-9０-９])1[5-9][0-9]{2}'+_SCRUB_SEP+'[0-9]{4}(?![0-9０-９])','g');
+const RE_AD_EMAIL=/[\w.+-]+@[\w-]+\.[\w.]+/g;
+const RE_AD_URL=/(https?:\/\/\S+|www\.\S+|[\w-]+\.(?:com|net|kr|co\.kr|io|me|be)(?:\/\S*)?)/gi;
+const RE_AD_CHANNEL=/(카\s*카\s*오\s*톡|카\s*톡|오픈\s*채팅|오픈\s*카톡|톡\s*아이디|인스타|instagram|블로그|blog|네이버\s*톡톡|밴드|텔레그램|telegram|@[A-Za-z0-9_]{3,})/i;
+function _adDigitsOnlyPhone(line){
+  // 숫자 덩어리 하나하나만 본다 — 등록번호(50110-2026-00057)가 이어붙어 전화번호로
+  // 오탐되면 법정 명시사항 줄이 지워진다 (2026-07-27 데스크톱판 실측 교훈)
+  const tr=s=>s.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  for(const run of String(line).match(/[0-9０-９]+/g)||[]){
+    if(/^(01[0-9]\d{7,8}|0[2-6]\d{7,9}|1[5-9]\d{6})$/.test(tr(run))) return true;
+  }
+  return false;
+}
+function adScrub(text){
+  if(!text) return {text:'',removed:[]};
+  const test=(re,s)=>{re.lastIndex=0;return re.test(s);};
+  const kept=[],removed=[];
+  for(const line of String(text).split('\n')){
+    const hits=[]; let masked=line;
+    const cue=RE_AD_TEL_CUE.test(line);
+    if(test(RE_AD_PHONE,line)||_adDigitsOnlyPhone(line)||(cue&&test(RE_AD_PHONE_CUE,line))){
+      hits.push('전화번호');
+      masked=masked.replace(RE_AD_PHONE,' ');
+      if(cue) masked=masked.replace(RE_AD_PHONE_CUE,' ');
+      if(_adDigitsOnlyPhone(masked)) masked='';
+    }
+    if(test(RE_AD_EMAIL,masked)){ hits.push('이메일'); masked=masked.replace(RE_AD_EMAIL,' '); }
+    if(test(RE_AD_URL,masked)){ hits.push('외부링크'); masked=masked.replace(RE_AD_URL,' '); }
+    if(RE_AD_CHANNEL.test(masked)){ hits.push('외부채널 유도'); masked=''; }
+    if(!hits.length){ kept.push(line); continue; }
+    removed.push(hits.join('/'));
+    const rest=masked.trim();
+    if((rest.match(/[가-힣]/g)||[]).length>=15) kept.push(rest);
+  }
+  return {text:kept.join('\n').replace(/\n{3,}/g,'\n\n').trim(),removed};
+}
+// 문구 4종 공용 재료
+function _adCtx(o){
+  const v=x=>String(x||'').trim();
+  const type=v(o.type),kind=v(o.kind),addr=v(o.addr),apt=v(o.apt);
+  const priceLabel={매매:'매매가',전세:'전세금',월세:'보증금',연세:'보증금',단기:'보증금'}[type]||'가격';
+  const p=v(o.price);
+  const priceDisp=p?(/^[\d,.]+$/.test(p)?p+'만원':p):'문의';
+  const rent=v(o.rentAmt);
+  const priceLine=(priceLabel+' '+priceDisp+(rent&&['월세','연세','단기'].includes(type)?' / 월세 '+rent+'만원':'')).trim();
+  // 상가·토지·매매는 지번 미노출 (buildListingDesc와 동일 원칙)
+  const hideJibun=(type==='매매'||['상가','토지'].includes(kind))&&addr;
+  const addrDisp=hideJibun?addr.replace(/\s+\d[\d-]*.*$/,''):addr;
+  const feeType=v(o.feeType); let fee='';
+  if(feeType==='정액 관리비') fee=(v(o.feeAmt)?v(o.feeAmt)+'만원':'정액')+(v(o.feeItems)?' ('+v(o.feeItems)+' 포함)':'');
+  else if(feeType==='기타 부과') fee='실비 부과';
+  else if(feeType==='확인 불가') fee='확인 불가';
+  const cur=v(o.desc);
+  const feats=[];
+  if(cur&&cur.indexOf(DESC_CONFIG.brand)===-1) feats.push(cur);
+  for(const k of Object.keys(LIVING_ZONES)){
+    if(addr.includes(k)){ feats.push(LIVING_ZONES[k].slice(0,2).join(' · ')); break; }
+  }
+  return {type,kind,addr,apt,addrDisp,priceLine,fee,feats,
+          premium:v(o.premium),options:v(o.options),movein:normDateStr(v(o.availDate)),
+          parking:v(o.parking),pets:v(o.pets),num:v(o.id)};
+}
+// 정보형 — 제주오일장·교차로·네이버 게시용
+function buildInfoDesc(o){
+  const c=_adCtx(o);
+  const LINE='─'.repeat(25);
+  const L=[LINE,'　　　　　　☆ BREEZE ☆','　　　　'+AGENCY.slogan,LINE,
+    '▶ 담당자 직통 : '+DESC_CONFIG.phone+' ◀','▶ 직통번호로 문의 / 빠른상담 가능합니다 ◀','',
+    '【 매 / 물 / 정 / 보 】',''];
+  L.push('✅ 위치 : '+((c.addrDisp+(c.apt?' '+c.apt:'')).trim()||'-'));
+  if(c.type) L.push('✅ 거래형태 : '+c.type);
+  if(c.kind) L.push('✅ 종류 : '+c.kind);
+  L.push('✅ 금액 : '+c.priceLine);
+  if(c.fee) L.push('✅ 관리비 : '+c.fee);
+  if(c.premium) L.push('✅ 권리금 : '+c.premium+'만원');
+  if(c.options) L.push('✅ 옵션 : '+c.options);
+  if(c.movein) L.push('✅ 입주가능일 : '+c.movein);
+  const confirm=[c.parking?'주차 '+c.parking:'',c.pets?'반려동물 '+c.pets:''].filter(Boolean).join(' · ');
+  if(confirm) L.push('','✅ 확인사항 : '+confirm);
+  if(c.feats.length){ L.push('','【 매 / 물 / 특 / 징 】',''); c.feats.forEach(f=>L.push('✔ '+f)); }
+  if(c.num) L.push('','▶ 매물번호 : '+c.num+' ◀');
+  L.push('','　'+AGENCY.cta,'',LINE,'　　　　　★ '+DESC_CONFIG.brand+' ★',
+    '　　　　　소재지 : '+AGENCY.officeAddr,'　　　　　대표 : '+AGENCY.ceo,
+    '　　　　　등록번호 : '+AGENCY.regNo,'　　　　　☎ '+DESC_CONFIG.phone,
+    '　　　　　🌐 '+AGENCY.url,LINE);
+  return L.join('\n');
+}
+// 짧은형 — 직방·다방 (사진 중심, 핵심만 + 법정 명시 한 줄)
+function buildShortDesc(o){
+  const c=_adCtx(o);
+  const locShort=c.addrDisp.split('(')[0].trim();
+  const L=[[locShort,c.kind].filter(Boolean).join(' '),c.priceLine];
+  if(c.options) L.push(c.options);
+  const top2=c.feats.slice(0,2);
+  if(top2.length) L.push(top2.join(' / '));
+  L.push('☎ '+DESC_CONFIG.phone+' '+DESC_CONFIG.brand);
+  L.push([DESC_CONFIG.brand,'대표 '+AGENCY.ceo,'등록번호 '+AGENCY.regNo,AGENCY.officeAddr,DESC_CONFIG.phone].join(' | '));
+  L.push(AGENCY.url);
+  return L.join('\n');
+}
+// 문구 모달 — 광고관리 [📋 문구]로 진입: 4종 선택→복사, 금지표현 즉시 검사
+function openAdCopyModal(id){
+  const o=adListings().find(x=>String(x.id)===String(id));
+  if(!o){ showToast('매물을 찾을 수 없습니다'); return; }
+  const daangn=adScrub(buildDaangnPlainDesc(o)||'');
+  const texts={
+    '브리즈 양식 (매물설명)': buildListingDesc(o)||'',
+    '당근용 평문 (연락처·링크 자동제거)': daangn.text,
+    '정보형 (오일장·교차로·네이버)': buildInfoDesc(o),
+    '직방·다방 (짧은형)': buildShortDesc(o),
+  };
+  const old=document.getElementById('adcopy-modal'); if(old) old.remove();
+  const wrap=document.createElement('div');
+  wrap.id='adcopy-modal';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.addEventListener('click',e=>{ if(e.target===wrap) wrap.remove(); });
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:86vh;display:flex;flex-direction:column;padding:16px;gap:8px';
+  const title=document.createElement('div');
+  title.style.cssText='font-weight:700;font-size:15px';
+  title.textContent='📋 광고문구 — '+(o.apt||o.addr||'')+(o.addr2?' '+o.addr2:'')+' ('+(o.id||'')+')';
+  const sel=document.createElement('select');
+  sel.style.cssText='padding:8px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px';
+  Object.keys(texts).forEach(k=>{ const op=document.createElement('option'); op.value=k; op.textContent=k; sel.appendChild(op); });
+  const ta=document.createElement('textarea');
+  ta.style.cssText='width:100%;flex:1;min-height:280px;border:1px solid #D1D5DB;border-radius:8px;padding:10px;font-size:12px;line-height:1.5;resize:vertical';
+  const audit=document.createElement('div');
+  audit.style.cssText='font-size:11px;line-height:1.6;max-height:110px;overflow-y:auto';
+  const render=()=>{
+    ta.value=texts[sel.value]||'';
+    const hits=adComplianceScan(ta.value);
+    let html='';
+    if(hits.length){
+      html+='<div style="color:#DC2626;font-weight:700">⚠ 금지표현 '+hits.length+'건 — 과태료 위험, 게재 전 수정하세요</div>';
+      hits.slice(0,8).forEach(h=>{ html+='<div>· <b>'+h.hit+'</b> ('+h.cat+') → '+h.fix+'</div>'; });
+    }else{
+      html+='<div style="color:#0F6E56">✓ 금지표현 없음 (표시·광고 검사 통과)</div>';
+    }
+    if(sel.value.indexOf('당근')===0&&daangn.removed.length){
+      html+='<div style="color:#B45309;margin-top:4px">당근 정책상 자동 제거: '+daangn.removed.join(', ')+'</div>';
+    }
+    audit.innerHTML=html;
+  };
+  sel.addEventListener('change',render);
+  const btns=document.createElement('div');
+  btns.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  const bCopy=document.createElement('button');
+  bCopy.className='btn'; bCopy.style.cssText='background:#0F6E56;color:#fff;border-color:#0F6E56';
+  bCopy.textContent='📋 복사';
+  bCopy.addEventListener('click',()=>{
+    ta.select();
+    navigator.clipboard.writeText(ta.value).then(()=>showToast('복사되었습니다'),()=>{ document.execCommand('copy'); showToast('복사되었습니다'); });
+  });
+  const bClose=document.createElement('button');
+  bClose.className='btn'; bClose.textContent='닫기';
+  bClose.addEventListener('click',()=>wrap.remove());
+  btns.appendChild(bCopy); btns.appendChild(bClose);
+  box.appendChild(title); box.appendChild(sel); box.appendChild(ta); box.appendChild(audit); box.appendChild(btns);
+  wrap.appendChild(box);
+  document.body.appendChild(wrap);
+  render();
+}
+
 function genListingDesc(){
   const g=id=>(document.getElementById(id)?.value||'').trim();
   const txt=buildListingDesc({
@@ -4062,7 +4264,8 @@ async function exportDaangnExcel(){
     }else if((!parking||parking==='확인필요')&&hasPark&&isFinite(parkN)&&parkN===0){
       parkAuto='대장 주차 0대 — 실제 불가능인지 확인 후 당근 화면에서 직접 선택';
     }
-    const desc=buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'';
+    // 매물 설명은 연락처·외부링크 자동 제거(adScrub) 후 싣는다 — 당근 제재 방지
+    const desc=adScrub(buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'').text;
 
     const miss=[];
     if(!kind)miss.push('매물유형');
@@ -5640,7 +5843,9 @@ function renderAds(){
       ? `<span style="font-size:10px;color:#fff;background:#DC2626;padding:1px 6px;border-radius:8px">내리기</span>` : '';
 
     return `<tr style="border-top:1px solid #F1F2F4">
-      <td style="font-size:11px;color:#6B7280">${o.id || ''}</td>
+      <td style="font-size:11px;color:#6B7280">${o.id || ''}
+        <div><a href="javascript:void(0)" style="font-size:10px;color:#0F6E56;text-decoration:none"
+          onclick="openAdCopyModal('${o.id}')" title="사이트별 광고문구 생성·복사 + 금지표현 검사">📋 문구</a></div></td>
       <td style="font-size:12px;font-weight:600">${o.apt || ''}${o.addr2 ? ` <span style="font-size:13px;font-weight:700;color:#0F6E56">${o.addr2}</span>` : ''}
         <div style="font-size:10px;color:#9CA3AF;font-weight:400">${o.addr || ''}</div></td>
       <td style="font-size:11px">${o.kind || ''}<div style="color:#6B7280">${o.type || ''}</div></td>
