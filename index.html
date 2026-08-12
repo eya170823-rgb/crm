@@ -4558,13 +4558,19 @@ function renderSms(){
       list.push({name:l.name||'임대인',phone:l.phone||'-',role:'임대인',apt:bld,msg:smsTpl.vacancy.임대인(bld)});
     });
   }else contracts.forEach((c,i)=>{
+    if(theme==='expiry'){
+      // 만기 안내는 만기관리 탭과 같은 창(경과 30일~앞으로 180일, 매매 제외)만 —
+      // 필터가 없어 5년 남은 계약자에게도 "만기 사전 안내"가 나가던 문제 수정 (2026-08-12)
+      const d=c.end?daysLeft(c.end):null;
+      if(d===null||d<-30||d>180||c.type==='매매')return;
+    }
     if((role==='all'||role==='임대인')&&tpl.임대인) list.push({name:c.landlord?.name||'-',phone:c.landlord?.phone||'-',role:'임대인',apt:c.apt,msg:tpl.임대인(month)});
     if((role==='all'||role==='임차인')&&tpl.임차인) list.push({name:c.tenant?.name||'-',phone:c.tenant?.phone||'-',role:'임차인',apt:c.apt,msg:tpl.임차인(month)});
   });
   const seen=new Set();list=list.filter(s=>{if(seen.has(s.phone))return false;seen.add(s.phone);return true;});
   smsPreviewList=list;
   const el=document.getElementById('sms-list');
-  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?'선택한 날짜에 공실 감지된 임대인이 없습니다 — 당근 수집을 돌리면 자동으로 등록됩니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?'선택한 날짜에 공실 감지된 임대인이 없습니다 — 당근 수집을 돌리면 자동으로 등록됩니다':theme==='expiry'?'만기 6개월(180일) 이내 계약이 없습니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
   el.innerHTML=list.map((s,i)=>{
     const okPhone=/\d{9,11}/.test(String(s.phone).replace(/\D/g,''));
     return`<div class="card"><div class="card-hd"><div><div class="card-title">${s.name} <span class="badge ${s.role==='임대인'?'bg':'bb'}">${s.role}</span></div><div class="card-sub">${s.phone} · ${s.apt}</div></div><div class="row">
