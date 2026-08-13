@@ -203,6 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <thead><tr><th>항목</th><th>내용</th></tr></thead>
                     <tbody>
                         <tr><td>대상</td><td>본인·배우자 모두 무주택 + 본인 거주 목적</td></tr>
+                        <tr><td class="bztax-warn">제외</td><td class="bztax-warn">취득자가 <b>미성년자</b>이면 감면 대상이 아님</td></tr>
+                        <tr><td>공동취득</td><td>취득자 수와 무관하게 <b>해당 주택 기준 총 감면액</b> 200만원(300만원) 한도 — 부부 공동명의라도 400만원이 아님</td></tr>
                         <tr><td>가액 한도</td><td class="bztax-hl">12억 이하</td></tr>
                         <tr><td>거래 형태</td><td>유상거래만 (부담부증여 제외)</td></tr>
                         <tr><td>감면액</td><td>산출세액 <b>200만원</b>(요건 충족 시 300만원) 한도로 면제</td></tr>

@@ -677,7 +677,8 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="전세">전세</option>
           <option value="월세">월세</option>
           <option value="매매">매매</option>
-          <option value="단기임대">단기임대</option>
+          <option value="연세">연세</option>
+          <option value="단기">단기</option>
         </select>
         <select id="cust-progress" onchange="renderCustomers()">
           <option value="all">전체 상태</option>
@@ -722,7 +723,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <select id="ct-filter-type" onchange="renderContracts()">
           <option value="all">전체 유형</option>
           <option value="전세">전세</option><option value="월세">월세</option>
-          <option value="매매">매매</option><option value="단기임대">단기임대</option>
+          <option value="매매">매매</option><option value="연세">연세</option><option value="단기">단기</option>
         </select>
         <select id="ct-sort" onchange="renderContracts()">
           <option value="만기_빠른">만기일 빠른순</option>
@@ -791,10 +792,10 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <button class="btn btn-xs" style="margin-left:6px" onclick="smsCheckBalance()">💰 잔액 확인</button>
       </div>
       <div class="filter-bar">
-        <select id="sms-month"></select>
-        <input type="date" id="sms-date" title="공실 감지 날짜 (당근 수집일)">
-        <select id="sms-role"><option value="all">임대인 + 임차인</option><option value="임대인">임대인만</option><option value="임차인">임차인만</option></select>
-        <select id="sms-theme"><option value="vacancy">공실확인 (매일)</option><option value="general">일반 정보성</option><option value="expiry">만기 사전 안내</option><option value="spring">봄 이사철</option><option value="tax">연말 세금 정보</option></select>
+        <select id="sms-month" onchange="renderSms()"></select>
+        <input type="date" id="sms-date" title="공실 감지 날짜 (당근 수집일)" onchange="renderSms()">
+        <select id="sms-role" onchange="renderSms()"><option value="all">임대인 + 임차인</option><option value="임대인">임대인만</option><option value="임차인">임차인만</option></select>
+        <select id="sms-theme" onchange="renderSms()"><option value="vacancy">공실확인 (매일)</option><option value="general">일반 정보성</option><option value="expiry">만기 사전 안내</option><option value="spring">봄 이사철</option><option value="tax">연말 세금 정보</option></select>
         <button class="btn btn-b" onclick="renderSms()">미리보기 생성</button>
         <button class="btn btn-g" onclick="sendSmsAll()">📨 전체 자동 발송</button>
       </div>
@@ -2479,11 +2480,13 @@ const fmtDate=()=>`${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(
 
 function updateStats(){
   document.getElementById('stat-listing').textContent=listings.length;
-  document.getElementById('stat-customer').textContent=customers.length;
+  // 라벨이 '진행중 상담'인데 종료 처리한 고객까지 세고 있었다 → 고객관리 탭 필터와 같은 기준 (2026-08-14)
+  document.getElementById('stat-customer').textContent=customers.filter(c=>(c.progressStatus||'진행중')!=='종료').length;
   document.getElementById('stat-contract').textContent=contracts.length;
   const s=get6m();
   document.getElementById('stat-exp-cnt').textContent=s.length;
-  document.getElementById('stat-short').textContent=listings.filter(l=>l.type==='단기임대').length;
+  // 등록 폼은 '단기'로 저장하는데 여기서 '단기임대'만 세어 항상 0이었다 (엑셀 임포트는 두 표기 모두 허용)
+  document.getElementById('stat-short').textContent=listings.filter(l=>l.type==='단기'||l.type==='단기임대').length;
   document.getElementById('sb-warn').textContent=s.filter(c=>!expStatus[c.id]||expStatus[c.id]==='미확인').length;
   document.getElementById('sb-exp').textContent=s.length;
 }
@@ -3298,14 +3301,18 @@ function buildDaangnPlainDesc(o){
   //    당근 AI는 옵션/필수옵션을 value:'YES' 로만 만들기 때문에 '불가능'·'없음'·'확인필요'는
   //    폼에서 항목 자체가 사라진다. 숫자까지 적어야 AI가 0으로 인식한다.
   const has=x=>x!==undefined&&x!==null&&String(x).trim()!=='';
+  // 🔴 대장 숫자는 0도 '값 있음'이라 그대로 실리면 "총 주차대수 0대 / 총 0세대 / 엘리베이터 0대"가
+  //    사실처럼 광고에 나간다. 주차대수는 광고 명시사항이라 사실과 다르면 부당한 표시·광고가 된다
+  //    (공인중개사법 §18의2④). → 0 이하는 아예 문장을 만들지 않는다 (2026-08-14)
+  const hasNum=x=>has(x)&&Number(x)>0;
   if(v(o.parking)==='불가능'){
-    S.push('주차 불가능. 총 주차대수 0대.');
+    S.push('주차 불가능. 총 주차대수 0대.');  // 사람이 직접 '불가능'을 고른 경우라 0이 의도된 값이다
   }else{
     let p='주차 '+(v(o.parking)||'확인필요')+'.';
-    if(has(o.parkTotal))  p+=` 총 주차대수 ${o.parkTotal}대.`;
-    if(has(o.parkPerHh))  p+=` 세대당 주차대수 ${o.parkPerHh}대.`;
-    if(has(o.hhldCnt))    p+=` 총 ${o.hhldCnt}세대.`;
-    if(has(o.elevator))   p+=` 엘리베이터 ${o.elevator}대.`;
+    if(hasNum(o.parkTotal))  p+=` 총 주차대수 ${o.parkTotal}대.`;
+    if(hasNum(o.parkPerHh))  p+=` 세대당 주차대수 ${o.parkPerHh}대.`;
+    if(hasNum(o.hhldCnt))    p+=` 총 ${o.hhldCnt}세대.`;
+    if(hasNum(o.elevator))   p+=` 엘리베이터 ${o.elevator}대.`;
     S.push(p);
   }
   S.push(`반려동물 ${v(o.pets)||'확인필요'}.`);
@@ -3923,9 +3930,16 @@ function llCalcNext(lastContact,cycle){
   if(!lastContact) return '';
   const d=new Date(lastContact);
   if(isNaN(d)) return '';
-  d.setMonth(d.getMonth()+(parseInt(cycle,10)||3));
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // 🔴 setMonth 는 일(day)을 고정한 채 월만 더해서, 목표 달에 그 날짜가 없으면 다음 달로 넘어간다.
+  //    8월 31일 + 6개월 → 2027-03-03 처럼 한 달을 통째로 건너뛰었다 → 목표 달 말일로 clamp (2026-08-14)
+  const n=parseInt(cycle,10)||3, y=d.getFullYear(), m=d.getMonth(), day=d.getDate();
+  const lastDay=new Date(y,m+n+1,0).getDate();
+  const nd=new Date(y,m+n,Math.min(day,lastDay));
+  return `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,'0')}-${String(nd.getDate()).padStart(2,'0')}`;
 }
+// 임대인 연락 예정일 배지는 만기용 ddCls(90/180일 기준)를 쓰면 3개월 주기가 거의 항상 빨강이 된다
+// → 연락 주기용 별도 기준: 지났으면 빨강, 7일 이내 주황, 그 밖은 초록 (2026-08-14)
+const llCls=d=>d<=0?'dday-r':d<=7?'dday-a':'dday-g';
 function renderLandlords(){
   const tb=document.getElementById('ll-tbody');
   if(!tb) return;
@@ -3941,7 +3955,7 @@ function renderLandlords(){
   if(sub) sub.textContent=`전체 ${landlords.length}명 중 ${list.length}명 표시`;
   tb.innerHTML=list.map(l=>{
     const d=l.nextContact?daysLeft(l.nextContact):null;
-    const badge=d===null?'':` <span class="dday ${ddCls(d)}">${d<=0?(d===0?'오늘':Math.abs(d)+'일 지남'):'D-'+d}</span>`;
+    const badge=d===null?'':` <span class="dday ${llCls(d)}">${d<=0?(d===0?'오늘':Math.abs(d)+'일 지남'):'D-'+d}</span>`;
     return `<tr>
       <td style="font-weight:600">${l.name||''}</td>
       <td style="white-space:nowrap">${l.masked?'<span style="color:var(--t3)">비공개</span>':(l.phone||'')}</td>
@@ -4560,17 +4574,26 @@ function renderSms(){
       list.push({name:l.name||'임대인',phone:l.phone||'-',role:'임대인',apt:bld,msg:smsTpl.vacancy.임대인(bld)});
     });
   }else contracts.forEach((c,i)=>{
+    // 🔴 매매 계약은 어떤 테마에서도 제외 — 매도인·매수인에게 "임대료 입금 확인해 주세요"가
+    //    나가고 있었다. 종전에는 이 조건이 expiry 테마 안에만 있었다 (2026-08-14 수정)
+    if(c.type==='매매')return;
+    const d=c.end?daysLeft(c.end):NaN;
     if(theme==='expiry'){
-      // 만기 안내는 만기관리 탭과 같은 창(경과 30일~앞으로 180일, 매매 제외)만 —
-      // 필터가 없어 5년 남은 계약자에게도 "만기 사전 안내"가 나가던 문제 수정 (2026-08-12)
-      const d=c.end?daysLeft(c.end):null;
-      // 포함형 조건이라 만기일이 '미정' 같은 텍스트(NaN)면 자동 탈락 — 배제형(d<-30||d>180)은 NaN이 뚫는다
-      if(!(d>=-30&&d<=180)||c.type==='매매')return;
+      // 만기 안내는 만기관리 탭(get6m)과 같은 창 = 경과 30일 ~ 앞으로 180일.
+      // 🔴 만기일이 빈칸이면 종전 코드의 d는 null이었고 null>=-30 이 true라 필터를 그대로
+      //    통과했다 → 만기일을 모르는 계약자에게 유료 문자가 나갔다 (2026-08-14 수정)
+      if(!c.end||!Number.isFinite(d)||d<-30||d>180)return;
+    }else{
+      // 일반/봄/세금 테마도 만기가 30일 넘게 지난 옛 계약은 제외
+      if(Number.isFinite(d)&&d<-30)return;
     }
     if((role==='all'||role==='임대인')&&tpl.임대인) list.push({name:c.landlord?.name||'-',phone:c.landlord?.phone||'-',role:'임대인',apt:c.apt,msg:tpl.임대인(month)});
     if((role==='all'||role==='임차인')&&tpl.임차인) list.push({name:c.tenant?.name||'-',phone:c.tenant?.phone||'-',role:'임차인',apt:c.apt,msg:tpl.임차인(month)});
   });
-  const seen=new Set();list=list.filter(s=>{if(seen.has(s.phone))return false;seen.add(s.phone);return true;});
+  // 중복 제거 키는 숫자만 남겨 비교한다 — '010-1234-5678'과 '01012345678'이 다른 사람으로
+  // 잡혀 같은 임대인에게 두 통이 나가고 요금도 두 번 나갔다 (2026-08-14 수정)
+  const seen=new Set();
+  list=list.filter(s=>{const k=String(s.phone||'').replace(/\D/g,'').replace(/^82/,'0');if(!k)return true;if(seen.has(k))return false;seen.add(k);return true;});
   smsPreviewList=list;
   const el=document.getElementById('sms-list');
   if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?'선택한 날짜에 공실 감지된 임대인이 없습니다 — 당근 수집을 돌리면 자동으로 등록됩니다':theme==='expiry'?'만기 6개월(180일) 이내 계약이 없습니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
@@ -4600,9 +4623,14 @@ async function sendSmsOne(i){
   }catch(e){alert('발송 실패: '+e.message+'\n(GAS v10 배포와 스크립트 속성 설정이 필요할 수 있습니다)');}
 }
 async function sendSmsAll(){
-  const targets=smsPreviewList.filter(s=>/\d{9,11}/.test(String(s.phone).replace(/\D/g,'')));
-  if(!targets.length){showToast('먼저 [미리보기 생성]을 누르세요 (발송 가능한 번호가 있어야 합니다)');return;}
-  if(!confirm(`${targets.length}명에게 문자를 자동 발송할까요?\n(발신번호 010-2601-0110, 건당 요금이 차감됩니다)`))return;
+  // 🔴 발송 직전에 화면 조건으로 목록을 다시 만든다 — 드롭다운을 바꾸고 [미리보기 생성] 없이
+  //    누르면 이전 조건(탭 진입 기본값 '공실확인')의 목록이 그대로 나갔다 (2026-08-14 수정)
+  renderSms();
+  const targets=smsPreviewList.filter(s=>/^\d{9,11}$/.test(String(s.phone).replace(/\D/g,'')));
+  if(!targets.length){showToast('발송 가능한 번호가 없습니다 (조건을 확인하세요)');return;}
+  const themeLbl=document.getElementById('sms-theme').options[document.getElementById('sms-theme').selectedIndex].text;
+  const roleLbl=document.getElementById('sms-role').options[document.getElementById('sms-role').selectedIndex].text;
+  if(!confirm(`[${themeLbl}] / [${roleLbl}]\n${targets.length}명에게 문자를 자동 발송할까요?\n(발신번호 010-2601-0110, 건당 요금이 차감됩니다)`))return;
   showToast(`📨 ${targets.length}건 발송 중...`);
   try{
     const j=await smsPost(targets.map(s=>({to:s.phone,text:s.msg})));
@@ -4611,7 +4639,11 @@ async function sendSmsAll(){
     if(j.result.failed.length)msg+=` / 실패 ${j.result.failed.length}건`;
     showToast(msg);
     if(j.result.failed.length)alert('실패 내역:\n'+j.result.failed.join('\n'));
-  }catch(e){alert('발송 실패: '+e.message+'\n(GAS v10 배포와 스크립트 속성 설정이 필요할 수 있습니다)');}
+  }catch(e){
+    // 🔴 여기 오는 것은 "발송 실패"가 아니라 "결과를 못 받았다"이다. 솔라피 호출은 GAS 안에서
+    //    이미 끝난 뒤라 문자는 나갔을 수 있다. 다시 누르면 전원에게 두 번 과금된다 (2026-08-14)
+    alert('발송 결과를 확인하지 못했습니다: '+e.message+'\n\n⚠️ 문자는 이미 발송됐을 수 있습니다.\n다시 누르기 전에 [💰 잔액 확인] 또는 solapi.com 발송내역을 먼저 확인하세요.');
+  }
 }
 async function smsCheckBalance(){
   const url=getGsUrl(); if(!url){showToast('⚙️ 구글 시트 설정을 먼저 해주세요');return;}
