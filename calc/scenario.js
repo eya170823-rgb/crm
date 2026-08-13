@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <select id="scenario-house-type">
                         <option value="resident_1">거주 1주택</option>
                         <option value="non_resident_1">비거주 1주택</option>
-                        <option value="joint_1_individual">1주택 공동명의 (지분 5:5, 각자 공제 - 그 외 기준)</option>
+                        <option value="joint_1_individual">1주택 공동명의 (각자 공제 · 지분 5:5 인별 계산)</option>
                         <option value="joint_1_special">1주택 공동명의 (1세대 1주택 특례 신청)</option>
                         <option value="multi_2_general">2주택 (일반)</option>
                         <option value="multi_2_provincial">2주택 (지방 2주택)</option>
@@ -62,13 +62,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div id="joint-special-notice" style="display: none; margin-top: 15px; padding: 10px; background-color: #e7f5ff; border-left: 4px solid #339af0; font-size: 0.85em; color: #1864ab; line-height: 1.5; border-radius: 4px;">
                     <strong>💡 1세대 1주택 공동명의 특례 신청 안내</strong><br/>
-                    특례를 적용받기 위해서는 <strong>매년 9월 16일부터 9월 30일까지</strong> 관할 세무서 또는 홈택스를 통해 개별적으로 신청해야 합니다. (기한 내 미신청 시 각자 9억 공제로 자동 계산됩니다)
+                    특례를 적용받기 위해서는 <strong>매년 9월 16일부터 9월 30일까지</strong> 관할 세무서 또는 홈택스를 통해 개별적으로 신청해야 합니다. (기한 내 미신청 시 각자 9억 공제로 자동 계산됩니다)<br/>
+                    특례를 신청하면 지분자 중 1인이 납세의무자가 되어 <strong>1세대1주택자로 보아 12억(2027년 이후 개편안 14억)</strong>을 공제받고, 고령자·장기보유 세액공제도 받을 수 있습니다.
                 </div>
-                
+
+                <div id="joint-individual-notice" style="display: none; margin-top: 15px; padding: 10px; background-color: #fff4e6; border-left: 4px solid #f76707; font-size: 0.85em; color: #d9480f; line-height: 1.5; border-radius: 4px;">
+                    <strong>💡 공동명의(각자 공제) 계산 방식</strong><br/>
+                    종부세는 사람별로 매기는 세금입니다. 이 항목은 <strong>지분 5:5를 가정</strong>해 총 공시가격을 절반으로 나눈 뒤,
+                    각자에게 공제와 누진세율을 적용하고 합산합니다. 지분 비율이 5:5가 아니면 실제 세액과 달라집니다.
+                </div>
+
                 <div class="scenario-note" style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-left: 4px solid #adb5bd; font-size: 0.85em; color: #495057; line-height: 1.5; border-radius: 4px;">
                     <strong>※ 참고 메모 (안내사항)</strong><br/>
-                    본 계산기는 개편안 표를 바탕으로 과세표준과 산출세액(추정치)을 즉각적으로 시뮬레이션 해볼 수 있도록 만들어졌습니다.<br/>
-                    세부담 상한(개편 200%)이나 연령/보유기간에 따른 세액공제(1세대1주택 등), 농어촌특별세(20%) 등 추가 항목은 별도 적용이 필요합니다.
+                    <strong>2026년은 현행 세법</strong>, 2027·2028년은 <strong>개편안(국회 통과 전 — 확정 아님)</strong> 기준으로 계산합니다.
+                    과세표준과 산출세액을 즉시 시뮬레이션해 보기 위한 <strong>추정치</strong>입니다.<br/>
+                    세부담 상한(현행 150% → 개편 200%), 연령·보유기간에 따른 세액공제(1세대1주택 최대 80%)는 <strong>반영되지 않았습니다</strong>
+                    — 고령 1주택자는 실제 세액이 이보다 크게 줄 수 있으므로 이 숫자를 그대로 안내하지 마십시오.<br/>
+                    <span style="color:#868e96;">세율·공제 기준일 2026-08-13</span>
                 </div>
             </div>
 
@@ -107,8 +117,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="scenario-note" style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-left: 4px solid #adb5bd; font-size: 0.85em; color: #495057; line-height: 1.5; border-radius: 4px;">
                     <strong>※ 참고 메모 (안내사항)</strong><br/>
                     - 공정시장가액비율: 1주택(43~45%), 다주택(60%), 건축물 및 토지(70%) 적용<br/>
+                    - 1세대1주택 특례세율(지방세법 §111의2)은 <strong>시가표준액 9억 이하</strong>에만 적용됩니다. 9억을 넘으면 일반세율로 자동 전환됩니다.<br/>
                     - 토지 및 상가(건축물)는 도시지역분(0.14%)이 포함되어 계산됩니다. (도시지역 내로 가정)<br/>
-                    - 본 계산은 추정치이며 세부담 상한선 등은 반영되지 않았습니다.
+                    - 본 계산은 추정치이며 세부담 상한선 등은 반영되지 않았습니다.<br/>
+                    <span style="color:#868e96;">세율 기준일 2026-08-13 (지방세법 §111·§111의2·§112·§151)</span>
                 </div>
             </div>
         </div>
@@ -135,15 +147,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const residentGroupEl = document.getElementById('resident-value-group');
 
     // UI Updates
-    typeEl.addEventListener('change', () => {
+    const jointNoticeEl = document.getElementById('joint-special-notice');
+    const jointIndivNoticeEl = document.getElementById('joint-individual-notice');
+
+    function syncTypeUI() {
         const val = typeEl.value;
-        if (val.startsWith('multi_')) {
-            residentGroupEl.style.display = 'block';
-        } else {
-            residentGroupEl.style.display = 'none';
-        }
+        residentGroupEl.style.display = val.startsWith('multi_') ? 'block' : 'none';
+        // 종전에는 이 두 안내문을 표시하는 코드가 없어 화면에 영영 안 떴다 (2026-08-13 수정)
+        if (jointNoticeEl) jointNoticeEl.style.display = (val === 'joint_1_special') ? 'block' : 'none';
+        if (jointIndivNoticeEl) jointIndivNoticeEl.style.display = (val === 'joint_1_individual') ? 'block' : 'none';
+    }
+
+    typeEl.addEventListener('change', () => {
+        syncTypeUI();
         calculateTax();
     });
+    syncTypeUI();
 
     // Formatting inputs
     function formatNumber(input) {
@@ -176,20 +195,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 1. 기본공제
+        // 0. 지분 안분 (2026-08-13 수정)
+        //    종부세는 인별 과세다. 1주택 공동명의(각자 공제)는 총액이 아니라
+        //    각자 지분(5:5 가정)에 각자 공제·각자 누진세율을 적용한 뒤 합산해야 한다.
+        const shares = (type === 'joint_1_individual') ? 2 : 1;
+        const perVal = totalVal / shares;
+
+        // 1. 기본공제 (1인당)
         let basicDeduction = 0;
         if (year === 2026) {
-            // 현행 (2026년)
-            if (type === 'resident_1' || type === 'non_resident_1') {
+            // 현행 (2026년) — 종부세법 §8①
+            if (type === 'resident_1' || type === 'non_resident_1' || type === 'joint_1_special') {
+                // 공동명의 특례를 신청하면 1세대1주택자로 보아 12억 공제 (종부세법 §10의2)
                 basicDeduction = 1200000000;
             } else {
-                basicDeduction = 900000000; // 다주택 (일반 개인)
+                basicDeduction = 900000000; // 다주택·공동명의 각자 공제 (1인당 9억)
             }
         } else {
             // 개편안 (2027년 이후)
-            if (type === 'resident_1') {
+            if (type === 'resident_1' || type === 'joint_1_special') {
                 basicDeduction = 1400000000;
             } else if (type === 'non_resident_1') {
+                basicDeduction = 900000000;
+            } else if (type === 'joint_1_individual') {
+                // 1주택 공동명의는 본인 지분이 곧 거주주택 → 거주비율 1 → 4억 + 5억 = 9억
                 basicDeduction = 900000000;
             } else {
                 // 다주택 그 외
@@ -208,20 +237,47 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (year === 2027) {
             fmvRatio = 0.7;
         } else if (year === 2028) {
-            if (type === 'resident_1' || type === 'non_resident_1' || type === 'multi_2_provincial') {
+            // 1주택(공동명의 포함)·지방 2주택 70% / 3주택 이상·조정지역 80%
+            if (type === 'resident_1' || type === 'non_resident_1' ||
+                type === 'joint_1_individual' || type === 'joint_1_special' ||
+                type === 'multi_2_provincial') {
                 fmvRatio = 0.7;
             } else {
                 fmvRatio = 0.8;
             }
         }
 
-        // 3. 과세표준
-        let taxBase = Math.max(0, totalVal - basicDeduction);
+        // 3. 과세표준 (1인당 — 단독명의면 shares=1이라 종전과 동일)
+        let taxBase = Math.max(0, perVal - basicDeduction);
         taxBase = Math.floor(taxBase * fmvRatio);
 
         // 4. 세율 적용 (누진 계산)
         let brackets = [];
-        if (year === 2028 || type === 'multi_3_plus') {
+        if (year === 2026) {
+            // 🔴 2026-08-13 수정: 종전에는 2026년에도 아래 '개편안' 표를 써서 과대 산출됐다.
+            //    현행 종부세법 §9 세율 (6~12억 구간이 1.0%)
+            if (type === 'multi_3_plus') {
+                brackets = [
+                    { limit: 300000000, rate: 0.005 },
+                    { limit: 600000000, rate: 0.007 },
+                    { limit: 1200000000, rate: 0.010 },
+                    { limit: 2500000000, rate: 0.020 },
+                    { limit: 5000000000, rate: 0.030 },
+                    { limit: 9400000000, rate: 0.040 },
+                    { limit: Infinity, rate: 0.050 },
+                ];
+            } else {
+                brackets = [
+                    { limit: 300000000, rate: 0.005 },
+                    { limit: 600000000, rate: 0.007 },
+                    { limit: 1200000000, rate: 0.010 },
+                    { limit: 2500000000, rate: 0.013 },
+                    { limit: 5000000000, rate: 0.015 },
+                    { limit: 9400000000, rate: 0.020 },
+                    { limit: Infinity, rate: 0.027 },
+                ];
+            }
+        } else if (year === 2028 || type === 'multi_3_plus') {
             // 2028년 모든 주택, 2027년 3주택 이상
             brackets = [
                 { limit: 300000000, rate: 0.005 },
@@ -233,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { limit: Infinity, rate: 0.050 },
             ];
         } else {
-            // 2026년, 2027년 2주택 이하
+            // 2027년 2주택 이하 (개편안)
             brackets = [
                 { limit: 300000000, rate: 0.005 },
                 { limit: 600000000, rate: 0.007 },
@@ -273,28 +329,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // 세액공제(1세대1주택 연령/장기보유 등) 및 농어촌특별세 등은 생략된 기본 산출세액
-        tax = Math.floor(tax);
+        const perTax = Math.floor(tax);
+        tax = perTax * shares;   // 공동명의는 1인분 × 인원수
         let taxDetails = taxDetailsArr.length > 0 ? taxDetailsArr.join(' + ') : '';
 
-        updateResult(totalVal, basicDeduction, fmvRatio, taxBase, tax, taxDetails);
+        updateResult(totalVal, basicDeduction, fmvRatio, taxBase, tax, taxDetails, shares, perTax);
     }
 
-    function updateResult(total, deduction, fmv, taxBase, tax, taxDetails) {
-        document.getElementById('res-basic-deduction').innerText = Math.floor(deduction).toLocaleString('ko-KR') + '원';
+    function updateResult(total, deduction, fmv, taxBase, tax, taxDetails, shares, perTax) {
+        shares = shares || 1;
+        const per = shares > 1 ? ' (1인당)' : '';
+        const perVal = total / shares;
+
+        document.getElementById('res-basic-deduction').innerText = Math.floor(deduction).toLocaleString('ko-KR') + '원' + per;
         document.getElementById('res-fmv-ratio').innerText = (fmv * 100).toFixed(0) + '%';
-        document.getElementById('res-tax-base').innerText = taxBase.toLocaleString('ko-KR') + '원';
-        
-        let formulaBase = `계산식: (총주택 ${total.toLocaleString('ko-KR')}원 - 공제 ${Math.floor(deduction).toLocaleString('ko-KR')}원) × ${fmv*100}%`;
-        if (total <= deduction && total > 0) {
-            formulaBase = `계산식: 주택가액이 공제액 이하로 과세표준 0원`;
+        document.getElementById('res-tax-base').innerText = taxBase.toLocaleString('ko-KR') + '원' + per;
+
+        let formulaBase = shares > 1
+            ? `계산식: (1인 지분 ${Math.floor(perVal).toLocaleString('ko-KR')}원 - 공제 ${Math.floor(deduction).toLocaleString('ko-KR')}원) × ${fmv*100}%  ※ 총 ${total.toLocaleString('ko-KR')}원 ÷ ${shares}명`
+            : `계산식: (총주택 ${total.toLocaleString('ko-KR')}원 - 공제 ${Math.floor(deduction).toLocaleString('ko-KR')}원) × ${fmv*100}%`;
+        if (perVal <= deduction && total > 0) {
+            formulaBase = shares > 1
+                ? `계산식: 1인 지분(${Math.floor(perVal).toLocaleString('ko-KR')}원)이 공제액 이하로 과세표준 0원`
+                : `계산식: 주택가액이 공제액 이하로 과세표준 0원`;
         } else if (total === 0) {
             formulaBase = '';
         }
         document.getElementById('res-formula-base').innerText = formulaBase;
 
         document.getElementById('res-calculated-tax').innerText = tax.toLocaleString('ko-KR') + '원';
-        
+
         let formulaTax = taxDetails ? `구간별 누진: [ ${taxDetails} ]` : '';
+        if (formulaTax && shares > 1) {
+            formulaTax += ` → 1인 ${(perTax || 0).toLocaleString('ko-KR')}원 × ${shares}명`;
+        }
         document.getElementById('res-formula-tax').innerText = formulaTax;
         
         const ruralTax = Math.floor(tax * 0.2);
@@ -352,11 +420,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let brackets = [];
         
         if (type === '1' && totalVal <= 900000000) {
+            // 🔴 2026-08-13 수정: 3·4구간 세율과 4구간 정액이 법정값보다 낮아 과소 산출됐다.
+            //    지방세법 §111의2 (1세대1주택 특례세율, 시가표준액 9억 이하)
+            //    3억 초과분은 42만원 + 0.35% 가 정답 (종전 코드는 34.5만원 + 0.2%)
             brackets = [
                 { limit: 60000000, rate: 0.0005, base: 0 },
                 { limit: 150000000, rate: 0.0010, base: 30000 },
-                { limit: 300000000, rate: 0.0015, base: 120000 },
-                { limit: Infinity, rate: 0.0020, base: 345000 }
+                { limit: 300000000, rate: 0.0020, base: 120000 },
+                { limit: Infinity, rate: 0.0035, base: 420000 }
             ];
         } else if (type === 'multi' || (type === '1' && totalVal > 900000000)) {
             brackets = [
