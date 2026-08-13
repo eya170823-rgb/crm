@@ -2033,7 +2033,17 @@ async function gsLoadFromSheet(){
     const data=await gsLoadAll();
     if(!data) throw new Error('데이터 없음');
     if(data.listings?.length){
-      listings=normDates('listings',data.listings);
+      // 🔴 첨부파일(사진·등기부·대장)과 광고 스냅샷은 시트에 칼럼이 없어 서버에서 안 온다.
+      //    종전에는 통째 교체라 [⬇️ 불러오기] 한 번에 그 기기의 첨부가 전부 사라졌다(복구 불가).
+      //    → 같은 매물번호의 로컬 값을 살려서 병합한다 (2026-08-14)
+      const keep={}; (load('listings')||[]).forEach(o=>{ if(o&&o.id) keep[o.id]=o; });
+      listings=normDates('listings',data.listings).map(o=>{
+        const k=keep[o.id]; if(!k) return o;
+        const m=Object.assign({},o);
+        if(!m.attachments?.length && k.attachments?.length) m.attachments=k.attachments;
+        if(k.ads){ m.ads=Object.assign({},k.ads,m.ads||{}); }   // chk·memo 등 시트에 없는 항목 보존
+        return m;
+      });
       localStorage.setItem(K.listings,JSON.stringify(listings));
     }
     if(data.customers?.length){
@@ -2075,18 +2085,29 @@ async function gsEnrichAndLoad(){
     if(r.notes&&r.notes.length) msg+=` (실패: ${r.notes.join(', ')})`;
     showToast(msg);
     await gsLoadFromSheet();
-    // 광고문구 자동 생성: 거래유형·가격이 있는 매물은 항상 최신 정보로 다시 생성(덮어쓰기)
-    let gen=0;
+    // 광고문구 자동 생성: 거래유형·가격이 있는 매물은 최신 정보로 다시 생성(덮어쓰기)
+    // 🔴 덮어쓰기라 사장님이 직접 적어 둔 문구가 예고 없이 사라졌다. save() 가 그 상태를
+    //    localStorage 와 시트에 확정해 되돌릴 수 없었다 → 실제로 바꾸기 전에 물어본다 (2026-08-14)
+    const plan=[];
     listings.forEach(l=>{
       if((l.addr||l.apt)&&String(l.type||'').trim()&&String(l.price||'').trim()){
         const t=buildListingDesc(l);
-        if(t&&t!==l.desc){ l.desc=t; gen++; }
+        if(t&&t!==l.desc) plan.push({l,t,had:String(l.desc||'').trim().length>0});
       }
     });
-    if(gen){
-      save('listings',listings);
-      renderListings();
-      showToast(`✨ 광고문구 ${gen}건 자동 생성 (잠시 후 시트에도 반영됩니다)`);
+    if(plan.length){
+      const overwrite=plan.filter(p=>p.had).length;
+      const msg=overwrite
+        ? `광고문구 ${plan.length}건을 다시 생성합니다.\n그중 ${overwrite}건은 이미 문구가 있어 덮어쓰게 됩니다.\n직접 적어 두신 문구가 바뀔 수 있습니다.\n\n계속할까요?`
+        : `광고문구 ${plan.length}건을 새로 생성합니다. 계속할까요?`;
+      if(confirm(msg)){
+        plan.forEach(p=>{ p.l.desc=p.t; });
+        save('listings',listings);
+        renderListings();
+        showToast(`✨ 광고문구 ${plan.length}건 생성 (잠시 후 시트에도 반영됩니다)`);
+      }else{
+        showToast('광고문구는 그대로 두었습니다');
+      }
     }
   }catch(e){
     gsShowStatus('err', e.message);
@@ -4454,6 +4475,10 @@ async function exportDaangnExcel(){
   }, 1200);
 
   window.__daangnLastExport=outIds.slice();
+  // 🔴 메모리 변수만 두면 새로고침·앱 종료 후 [당근 등록완료 표시]를 누를 수 없어 중복 차단
+  //    신호(ads.daangn.on)가 안 남는다 → 다음 회차에 같은 매물이 다시 실려 당근 중복등록
+  //    제재 위험. 사장님은 엑셀을 받아 당근에 올린 뒤 나중에 누르므로 그 사이 앱이 닫힌다 (2026-08-14)
+  try{ localStorage.setItem('crm_daangn_last_export',JSON.stringify({at:todayStr(),ids:outIds})); }catch(e){}
   showToast(`🥕 당근 엑셀 ${rows.length}건 · 검수 파일 별도 생성 · 제외 ${excluded.length}건`);
   setTimeout(()=>alert(
     `당근 업로드 파일이 만들어졌습니다.\n\n`
@@ -5815,11 +5840,20 @@ function adMarkExported(pkey, ids){
   renderAds();
 }
 function daangnMarkLastExportPosted(){
-  if(!window.__daangnLastExport || !window.__daangnLastExport.length){
-    showToast('먼저 당근 엑셀을 내보내세요.'); return;
+  // 메모리 → localStorage 순으로 찾는다. 엑셀을 내보내고 당근에 올린 뒤 다음 날 누르는 경우가
+  // 실제 사용 흐름이라, 앱을 닫았다 열어도 표시할 수 있어야 한다 (2026-08-14)
+  let ids=window.__daangnLastExport, when='';
+  if(!ids || !ids.length){
+    try{
+      const s=JSON.parse(localStorage.getItem('crm_daangn_last_export')||'null');
+      if(s&&s.ids&&s.ids.length){ ids=s.ids; when=s.at?` (${s.at} 내보낸 건)`:''; }
+    }catch(e){}
   }
-  if(!confirm(`직전 내보낸 ${window.__daangnLastExport.length}건을 '당근 광고중'으로 표시합니다.\n당근에 실제로 등록을 완료했나요?`)) return;
-  adMarkExported('daangn', window.__daangnLastExport);
+  if(!ids || !ids.length){ showToast('먼저 당근 엑셀을 내보내세요.'); return; }
+  if(!confirm(`직전 내보낸 ${ids.length}건${when}을 '당근 광고중'으로 표시합니다.\n당근에 실제로 등록을 완료했나요?`)) return;
+  adMarkExported('daangn', ids);
+  try{ localStorage.removeItem('crm_daangn_last_export'); }catch(e){}
+  window.__daangnLastExport=[];
 }
 
 /* ---------- 9. 광고관리 화면 ---------- */
