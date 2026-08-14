@@ -3182,6 +3182,15 @@ function testNaverLink(){
 
 // ─── 파일 뷰어 ───
 function openFileViewer(title,files){
+  // 🔴 2026-08-14: 뷰어 마크업이 파일에 없어(리팩터링 중 소실 추정) 호출 5곳이 전부
+  //    조용히 죽어 있었다 — 코드 무게 점검의 호출 그래프 분석에서 적발. 없으면 만든다.
+  if(!document.getElementById('file-viewer')){
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="file-viewer" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:none;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)closeFileViewer()">'
+      +'<div style="background:var(--card,#fff);border-radius:14px;max-width:720px;width:100%;max-height:85vh;overflow:auto;padding:16px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b id="fv-title"></b>'
+      +'<button class="btn btn-sm" onclick="closeFileViewer()">닫기</button></div><div id="fv-body"></div></div></div>');
+  }
   document.getElementById('fv-title').textContent='📎 '+title;
   const body=document.getElementById('fv-body');
   body.innerHTML=files.map(f=>{
@@ -4175,14 +4184,14 @@ function daangnMulti(raw,map){
 function daangnAvail(v){v=String(v||'').trim();if(!v)return'';if(/즉시/.test(v))return'즉시입주';const m=String(normDateStr(v)).match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:'';}
 function daangnYear(v){const m=String(v||'').match(/(19|20)\d{2}/);return m?m[0]:'';}
 // 당근 외부유도 제재 예방: 광고문 사본에서 전화번호·링크·카톡 줄만 제거 (CRM 원본은 보존)
-function daangnScrubDesc(t){
-  const phone=/(^|[^\d])0\d{1,2}[\s.\-)]?\d{3,4}[\s.\-]?\d{4}(?!\d)/;
-  const link=/(https?:\/\/|www\.|blog\.|\.com|\.co\.kr|카톡|카카오\s*ID|open\.kakao)/i;
-  // 번호를 지워도 '직통번호로 문의' 같은 유도 문구가 남으면 여전히 외부유도로 본다 —
-  // 당근이 제재하는 것은 번호 자체가 아니라 앱 밖으로 연락을 유도하는 행위다.
-  const lure=/(직통|직접\s*연락|문자\s*(주|남기|보내)|전화\s*(주|문의|연락)|연락\s*(주|바라|부탁)|톡\s*문의)/;
-  return String(t||'').split('\n').filter(ln=>!phone.test(ln)&&!link.test(ln)&&!lure.test(ln)).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+function daangnLure(t){
+  // 번호·링크는 adScrub 이 지운다. 여기서는 '직통으로 문의'·'문자주세요'처럼 번호 없이도
+  // 앱 밖 연락을 유도하는 줄만 걸러낸다 — 당근이 제재하는 건 번호가 아니라 유도 행위다.
+  // (08-05 화면 개편 때 이 필터의 호출부가 유실돼 있었음 — 2026-08-14 복원)
+  const lure=/(직통|직접\s*연락|문자\s*(주|남기|보내)|전화\s*(주|문의|연락)|연락\s*(주|바라|부탁)|톡\s*주|틱톡|디엠|DM\s*주)/i;
+  return String(t||'').split('\n').filter(ln=>!lure.test(ln)).join('\n').replace(/\n{3,}/g,'\n\n').trim();
 }
+
 // 층 파싱: 지하·반지하 보존 ("지하 1층"→-1, "B1"→-1)
 function parseFloorNo(s){
   s=String(s||'').trim();
@@ -4346,7 +4355,7 @@ async function exportDaangnExcel(){
       parkAuto='대장 주차 0대 — 실제 불가능인지 확인 후 당근 화면에서 직접 선택';
     }
     // 매물 설명은 연락처·외부링크 자동 제거(adScrub) 후 싣는다 — 당근 제재 방지
-    const desc=adScrub(buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'').text;
+    const desc=daangnLure(adScrub(buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'').text);
 
     const miss=[];
     if(!kind)miss.push('매물유형');
@@ -4374,7 +4383,7 @@ async function exportDaangnExcel(){
 
     rows.push([kind,type,depositN,rentN,String(l.addr||'').trim(),String(l.addr2||'').trim(),
       areaN,roomsN,bathsN,fl.floor,totFlN,daangnDir(l.direction),
-      normDateStr(String(l.availDate||'').trim()),
+      daangnAvail(l.availDate),                             // '즉시'→즉시입주, 날짜 정규화 (2026-08-14 연결)
       feeType, feeAmt, feeItems, feeBasis, feeEvid, feeNote,
       // 주차는 위에서 대장 주차대수로 자동 판정한 값. 반려동물·대출은 비면 '확인필요'로 채운다.
       // ('확인필요'도 당근 허용값이지만 화면 라디오에는 반영되지 않는다 — 검수 파일에 안내)
@@ -4383,7 +4392,7 @@ async function exportDaangnExcel(){
       daangnTri(l.pets)||'확인필요',
       daangnLoan(l.loan)||'확인필요',
       optDaangn,
-      String(l.aprDate||'').slice(0,4),
+      daangnYear(l.aprDate),                               // '2017년'·날짜셀 등 어떤 표기든 연도만 (2026-08-14 연결)
       desc,
       String(l.id||''),                 // 메모: 브리즈 매물번호만 (내부 메모는 내보내지 않음)
       String(l.jimok||''),daangnPick(l.zone,DAANGN_ZONES),daangnManwon(l.premium),String(l.bldgUse||'')]);
@@ -4599,13 +4608,7 @@ function saveMasterPassword(){
   setTimeout(()=>closeMasterModal(),1500);
 }
 
-function initLockScreen(){
-  // 세션 유지: 8시간
-  const session=localStorage.getItem('crm_session');
-  if(session&&Date.now()-parseInt(session)<8*60*60*1000){
-    document.getElementById('lock-screen').style.display='none';
-  }
-}
+// (initLockScreen 은 상단 잠금화면 스크립트로 대체되어 제거 — 2026-08-14 정리)
 
 // 사이드바에 잠금 버튼 추가
 function addLockButton(){
