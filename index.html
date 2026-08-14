@@ -456,8 +456,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div id="gs-sync-status" style="font-size:10px;margin-top:6px;color:var(--t3)">⚪ 구글 시트 미연동</div>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
         <button onclick="gsSyncAll()" style="width:100%;padding:6px;background:#1D6F42;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">☁️ 시트에 저장</button>
-        <button onclick="gsLoadFromSheet()" style="width:100%;padding:6px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⬇️ 시트에서 불러오기</button>
-        <button onclick="gsEnrichAndLoad()" style="width:100%;padding:6px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">🛠 시트 보강+불러오기</button>
+        <button onclick="gsEnrichAndLoad()" title="구글 시트에 적어 넣은 매물을 건축물대장 기준으로 채운 뒤 CRM으로 가져옵니다" style="width:100%;padding:6px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⬇️ 시트에서 불러오기 (대장 자동채움)</button>
         <a href="https://docs.google.com/spreadsheets/d/1B69qGMsO6BPZvGVPxTnVzYmgRCqDB4UkrJjOluFqsBA/edit" target="_blank" rel="noopener" style="display:block;width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t2);cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box">📊 구글 시트 바로 열기</a>
         <button onclick="openGsSetup()" style="width:100%;padding:6px;background:none;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t3);cursor:pointer">⚙️ 구글 시트 설정</button>
       </div>
@@ -2053,6 +2052,7 @@ async function gsLoadFromSheet(){
     if(data.contracts?.length){
       contracts=normDates('contracts',data.contracts);
       localStorage.setItem(K.contracts,JSON.stringify(contracts));
+      hydrateExpMaps();   // 시트에 저장된 만기 확정·연락 완료를 이 기기에도 반영 (2026-08-14)
     }
     if(data.landlords?.length){
       landlords=normDates('landlords',data.landlords);
@@ -2074,17 +2074,36 @@ async function gsEnrichAndLoad(){
   const url=getGsUrl();
   if(!url){ showToast('구글 시트 URL을 먼저 설정해주세요'); openGsSetup(); return; }
   gsShowStatus('sync');
-  showToast('🛠 시트 자동보강 중... 잠시 기다려주세요');
+  showToast('⬇️ 대장 자동채움 중... 잠시 기다려주세요');
   try{
-    const res=await fetch(`${url}?action=enrich&t=${Date.now()}${tokQ()}`);
-    const json=await res.json();
-    if(!json.ok) throw new Error(json.error||'보강 실패');
-    const r=json.result||{};
-    let msg=`✅ ${r.enriched||0}행 보강 완료`;
-    if(r.removed) msg+=` · 중복 ${r.removed}건 제거`;
-    if(r.notes&&r.notes.length) msg+=` (실패: ${r.notes.join(', ')})`;
-    showToast(msg);
+    // 🔴 2026-08-14: 버튼을 하나로 합쳤다.
+    //    종전에는 [⬇️ 불러오기]와 [🛠 보강+불러오기]가 따로 있었는데, ⬇️ 는 **채우지 않고
+    //    받아오기만** 했다. 이름이 비슷해 ⬇️ 만 눌러온 경우 대장이 한 번도 안 채워진다.
+    //    이제 이 버튼 하나가 [대장 채움 → 시트에서 받아오기]를 순서대로 한다.
+    //
+    // 🔴 그리고 보강이 실패해도 **불러오기는 반드시 한다.** 종전에는 여기서 예외가 나면
+    //    받아오기까지 통째로 건너뛰어, 다른 기기에서 저장한 내용조차 못 받았다.
+    //    (GAS 가 간헐적으로 JSON 대신 HTML 을 주므로 gsFetchJson 의 재시도를 쓴다)
+    let enrichNote='';
+    try{
+      // ⚠ 여기서는 gsFetchJson(4회 재시도)을 쓰면 안 된다. 보강은 서버에서 오래 도는 작업이라,
+      //   실패했을 때 재시도하면 그만큼 몇 분씩 더 기다리게 된다(최악 24분). 한 번만 시도한다.
+      const res=await fetch(`${url}?action=enrich&t=${Date.now()}${tokQ()}`);
+      const txt=await res.text();
+      if(!txt.trim().startsWith('{')) throw new Error(`서버가 JSON 대신 HTML을 보냈습니다(HTTP ${res.status}). 시간이 오래 걸려 중단됐을 수 있습니다`);
+      const json=JSON.parse(txt);
+      if(!json.ok) throw new Error(json.error||'보강 실패');
+      const r=json.result||{};
+      let msg=`✅ ${r.enriched||0}행 대장 채움 완료`;
+      if(r.removed) msg+=` · 중복 ${r.removed}건 제거`;
+      showToast(msg);
+      // 대장 기준으로 정정된 내역·실패 사유는 토스트로 흘리지 말고 창으로 보여준다
+      if(r.notes&&r.notes.length) enrichNote=r.notes.join('\n');
+    }catch(e){
+      enrichNote='⚠️ 대장 자동채움에 실패했습니다: '+e.message+'\n\n시트 내용은 그대로 불러옵니다.';
+    }
     await gsLoadFromSheet();
+    if(enrichNote) alert(enrichNote);
     // 광고문구 자동 생성: 거래유형·가격이 있는 매물은 최신 정보로 다시 생성(덮어쓰기)
     // 🔴 덮어쓰기라 사장님이 직접 적어 둔 문구가 예고 없이 사라졌다. save() 가 그 상태를
     //    localStorage 와 시트에 확정해 되돌릴 수 없었다 → 실제로 바꾸기 전에 물어본다 (2026-08-14)
@@ -2736,7 +2755,30 @@ function renderExpiry(){
   if(!list.length){tb.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="es-icon">✅</div>해당 만기 건 없음</div></td></tr>`;return;}
   tb.innerHTML=list.map(c=>`<tr><td><span class="dday ${ddCls(c.diff)}">${ddLabel(c.diff)}</span></td><td style="font-weight:600;font-size:12px;white-space:nowrap">${c.apt}</td><td>${typeBadge(c.type)}</td><td>${c.landlord?.name||'-'}<br><span style="font-size:10px;color:var(--b)">${c.landlord?.phone||''}</span></td><td>${c.tenant?.name||'-'}<br><span style="font-size:10px;color:var(--b)">${c.tenant?.phone||''}</span></td><td style="font-size:11px;white-space:nowrap">${c.end}</td><td style="white-space:nowrap">${c.price}</td><td><select class="action-sel" onchange="setStatus('${c.id}',this.value)"><option value="미확인" ${(expStatus[c.id]||'미확인')==='미확인'?'selected':''}>❓ 미확인</option><option value="연장" ${expStatus[c.id]==='연장'?'selected':''}>✅ 연장</option><option value="종료" ${expStatus[c.id]==='종료'?'selected':''}>🔴 종료</option><option value="협의중" ${expStatus[c.id]==='협의중'?'selected':''}>🟡 협의중</option></select></td><td><span class="chip chip-${contacted[c.id]?'연장':'미확인'}">${contacted[c.id]?'✓ 완료':'미연락'}</span></td><td><button class="btn btn-sm btn-g" onclick="openContact('${c.id}')">연락하기</button></td></tr>`).join('');
 }
-function setStatus(id,val){expStatus[id]=val;save('expStatus',expStatus);renderExpiryMini();renderExpirySummary();updateStats();showToast(`'${val}'으로 변경`);}
+// 만기 확정·연락 완료를 계약 원본에도 함께 적어 구글 시트로 올린다 (2026-08-14)
+//   종전에는 localStorage 에만 있어 폰과 PC가 다르게 보였고(이미 합의한 임대인에게 만기 문자를
+//   또 보내게 됐다), 브라우저 데이터를 지우면 그동안 정리한 내역이 통째로 사라졌다.
+//   ⚠ GAS HEADERS.contracts 에 expStatus·contacted 가 배포돼 있어야 시트에 실제로 남는다.
+//     배포 전에도 localStorage 는 그대로 동작하므로 이 코드가 먼저 나가도 문제 없다.
+// 시트에서 받은 계약의 expStatus·contacted 를 이 기기 맵에 채운다.
+// 로컬에 이미 값이 있으면 건드리지 않는다 — 방금 이 기기에서 바꾼 것을 되돌리지 않기 위함.
+function hydrateExpMaps(){
+  let n=0;
+  (contracts||[]).forEach(c=>{
+    if(!c||!c.id) return;
+    if(c.expStatus && !expStatus[c.id]){ expStatus[c.id]=c.expStatus; n++; }
+    if(c.contacted && contacted[c.id]===undefined){ contacted[c.id]=(String(c.contacted)!=='N'&&String(c.contacted)!=='false'); n++; }
+  });
+  if(n){ save('expStatus',expStatus); save('contacted',contacted); }
+}
+function expWriteThrough(id,patch){
+  const c=(contracts||[]).find(x=>x&&x.id===id);
+  if(!c) return false;
+  Object.assign(c,patch);
+  save('contracts',contracts);
+  return true;
+}
+function setStatus(id,val){expStatus[id]=val;save('expStatus',expStatus);expWriteThrough(id,{expStatus:val});renderExpiryMini();renderExpirySummary();updateStats();showToast(`'${val}'으로 변경`);}
 const expiryMsg={
   임대인:c=>`안녕하세요 ${c.landlord?.name||''}님, 브리즈부동산중개입니다 :)\n\n${c.apt} 계약 만기(${c.end}) 안내 드립니다.\n만기까지 ${ddLabel(daysLeft(c.end))} 남았습니다.\n\n✅ 재계약 / ✅ 신규 임차인 모집 / ✅ 공실 유지\n\n의향을 알려주시면 빠르게 처리해 드리겠습니다.\n감사합니다 🏡 브리즈부동산중개 | 010-2601-0110`,
   임차인:c=>`안녕하세요 ${c.tenant?.name||''}님, 브리즈부동산중개입니다 :)\n\n${c.apt} 계약 만기(${c.end}) 안내 드립니다.\n만기까지 ${ddLabel(daysLeft(c.end))} 남았습니다.\n\n✅ 재계약 희망 / ✅ 이사 예정 / ✅ 보증금 반환 협의\n\n편하게 연락 주세요. 감사합니다 🌿\n브리즈부동산중개 | 010-2601-0110`,
@@ -2756,7 +2798,7 @@ function updateContactMsg(c,role){
 }
 function contactTab(role,el){activeContactRole=role;document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('on'));el.classList.add('on');const c=contracts.find(x=>x.id===activeContactId);if(c)updateContactMsg(c,role);}
 function copyContact(){navigator.clipboard.writeText(document.getElementById('contact-msg').textContent).then(()=>showToast('복사했습니다!'));}
-function markContacted(){if(!activeContactId)return;contacted[activeContactId]=true;save('contacted',contacted);closeContact();renderExpiry();renderExpiryMini();showToast('연락 완료 처리');}
+function markContacted(){if(!activeContactId)return;contacted[activeContactId]=true;save('contacted',contacted);expWriteThrough(activeContactId,{contacted:'Y'});closeContact();renderExpiry();renderExpiryMini();showToast('연락 완료 처리');}
 function closeContact(){document.getElementById('contact-panel').classList.remove('open');}
 
 // ═══ LISTINGS ═══
