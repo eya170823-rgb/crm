@@ -1307,12 +1307,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
            숨은 input 으로 기존 저장값은 보존 — 문자수집 서버(server.py)가 '전화'를 넣는 것도 그대로 동작 -->
       <input type="hidden" id="l-recv-method" value="">
 
-      <div class="form-group"><label>공동명의 여부</label>
-        <select id="l-joint">
-          <option value="단독">단독 명의</option>
-          <option value="공동">공동 명의</option>
-        </select>
-      </div>
+      <!-- 공동명의: 매물 단계에서는 쓰는 곳이 없어 화면에서 제거 (2026-08-14 사장님 지시).
+           명의는 계약서 작성 때 등기부로 확인하는 값 — 숨은 input 으로 기존 저장값은 보존 -->
+      <input type="hidden" id="l-joint" value="단독">
     </div>
 
     <!-- 고객 연동 -->
@@ -2501,6 +2498,12 @@ const typeBadge=t=>{const m={전세:'bb',월세:'ba',매매:'br',연세:'bg',단
 const daysLeft=s=>Math.floor((new Date(s)-TODAY)/86400000);
 const ddCls=d=>d<0?'dday-r':d<=90?'dday-r':d<=180?'dday-a':'dday-g';
 const ddLabel=d=>d<0?`초과 ${Math.abs(d)}일`:`D-${d}`;
+// 전화번호를 누르면 바로 전화, ✉️ 를 누르면 문자 — PC·휴대폰 공통 (2026-08-14 사장님 지시)
+const telA=(p)=>{
+  const t=String(p||'').trim(); if(!t) return '';
+  const d=t.replace(/\D/g,''); if(d.length<9) return t;
+  return `<a href="tel:${d}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline dotted">${t}</a> <a href="sms:${d}" onclick="event.stopPropagation()" title="문자 보내기" style="text-decoration:none">✉️</a>`;
+};
 const uid=()=>Date.now()+'_'+Math.random().toString(36).slice(2,7);
 // ─── 매물번호 자동 생성: [유형코드][YYMMDD]-[순번] (예: A260731-01) ───
 const KIND_CODE={'오픈형 원룸':'R','분리형 원룸':'R','빌라(투룸 이상)':'B','아파트':'A','오피스텔':'R','주택':'D','상가':'S','사무실':'F','건물':'G','공장/창고':'C',
@@ -2751,7 +2754,7 @@ function renderExpiry(){
   renderExpirySummary();
   const tb=document.getElementById('expiry-tbody');
   if(!list.length){tb.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="es-icon">✅</div>해당 만기 건 없음</div></td></tr>`;return;}
-  tb.innerHTML=list.map(c=>`<tr><td><span class="dday ${ddCls(c.diff)}">${ddLabel(c.diff)}</span></td><td style="font-weight:600;font-size:12px;white-space:nowrap">${c.apt}</td><td>${typeBadge(c.type)}</td><td>${c.landlord?.name||'-'}<br><span style="font-size:10px;color:var(--b)">${c.landlord?.phone||''}</span></td><td>${c.tenant?.name||'-'}<br><span style="font-size:10px;color:var(--b)">${c.tenant?.phone||''}</span></td><td style="font-size:11px;white-space:nowrap">${c.end}</td><td style="white-space:nowrap">${c.price}</td><td><select class="action-sel" onchange="setStatus('${c.id}',this.value)"><option value="미확인" ${(expStatus[c.id]||'미확인')==='미확인'?'selected':''}>❓ 미확인</option><option value="연장" ${expStatus[c.id]==='연장'?'selected':''}>✅ 연장</option><option value="종료" ${expStatus[c.id]==='종료'?'selected':''}>🔴 종료</option><option value="협의중" ${expStatus[c.id]==='협의중'?'selected':''}>🟡 협의중</option></select></td><td><span class="chip chip-${contacted[c.id]?'연장':'미확인'}">${contacted[c.id]?'✓ 완료':'미연락'}</span></td><td><button class="btn btn-sm btn-g" onclick="openContact('${c.id}')">연락하기</button></td></tr>`).join('');
+  tb.innerHTML=list.map(c=>`<tr><td><span class="dday ${ddCls(c.diff)}">${ddLabel(c.diff)}</span></td><td style="font-weight:600;font-size:12px;white-space:nowrap">${c.apt}</td><td>${typeBadge(c.type)}</td><td>${c.landlord?.name||'-'}<br><span style="font-size:10px;color:var(--b)">${telA(c.landlord?.phone)||''}</span></td><td>${c.tenant?.name||'-'}<br><span style="font-size:10px;color:var(--b)">${telA(c.tenant?.phone)||''}</span></td><td style="font-size:11px;white-space:nowrap">${c.end}</td><td style="white-space:nowrap">${c.price}</td><td><select class="action-sel" onchange="setStatus('${c.id}',this.value)"><option value="미확인" ${(expStatus[c.id]||'미확인')==='미확인'?'selected':''}>❓ 미확인</option><option value="연장" ${expStatus[c.id]==='연장'?'selected':''}>✅ 연장</option><option value="종료" ${expStatus[c.id]==='종료'?'selected':''}>🔴 종료</option><option value="협의중" ${expStatus[c.id]==='협의중'?'selected':''}>🟡 협의중</option></select></td><td><span class="chip chip-${contacted[c.id]?'연장':'미확인'}">${contacted[c.id]?'✓ 완료':'미연락'}</span></td><td><button class="btn btn-sm btn-g" onclick="openContact('${c.id}')">연락하기</button></td></tr>`).join('');
 }
 // 만기 확정·연락 완료를 계약 원본에도 함께 적어 구글 시트로 올린다 (2026-08-14)
 //   종전에는 localStorage 에만 있어 폰과 PC가 다르게 보였고(이미 합의한 임대인에게 만기 문자를
@@ -3792,7 +3795,7 @@ function renderCustomers(){
       <td style="font-weight:700">${hl(c.name)}</td>
       <td><span class="badge ${c.role==='임대인'?'bg':'bb'}">${c.role}</span></td>
       <td>${typeBadge(c.type)}</td>
-      <td style="color:var(--b);white-space:nowrap">${hl(c.phone)}</td>
+      <td style="color:var(--b);white-space:nowrap">${telA(c.phone)||hl(c.phone)}</td>
       <td style="font-size:11px;white-space:nowrap">${c.recvDate||'-'}${deadline}</td>
       <td style="font-size:11px">${hl(c.budget)||'-'}</td>
       <td>
@@ -3897,9 +3900,9 @@ function renderContracts(){
       <td style="font-weight:700;white-space:nowrap">${hl(c.apt)}${c.addr2?` <span style="font-weight:500;color:var(--t2)">${hl(c.addr2)}</span>`:''}</td>
       <td>${typeBadge(c.type)}</td>
       <td>${hl(c.landlord?.name)||'-'}</td>
-      <td style="color:var(--b);white-space:nowrap">${hl(c.landlord?.phone)||'-'}</td>
+      <td style="color:var(--b);white-space:nowrap">${telA(c.landlord?.phone)||'-'}</td>
       <td>${hl(c.tenant?.name)||'-'}</td>
-      <td style="color:var(--b);white-space:nowrap">${hl(c.tenant?.phone)||'-'}</td>
+      <td style="color:var(--b);white-space:nowrap">${telA(c.tenant?.phone)||'-'}</td>
       <td style="white-space:nowrap">${c.price}${c.rentAmt?` <span style="color:var(--t2)">/ 월 ${c.rentAmt}</span>`:''}</td>
       <td style="font-size:11px;white-space:nowrap">${c.start||'-'}</td>
       <td style="font-size:11px;white-space:nowrap;font-weight:600;color:var(--r)">${c.end||'-'}</td>
@@ -4020,7 +4023,7 @@ function renderLandlords(){
     const badge=d===null?'':` <span class="dday ${llCls(d)}">${d<=0?(d===0?'오늘':Math.abs(d)+'일 지남'):'D-'+d}</span>`;
     return `<tr>
       <td style="font-weight:600">${l.name||''}</td>
-      <td style="white-space:nowrap">${l.masked?'<span style="color:var(--t3)">비공개</span>':(l.phone||'')}</td>
+      <td style="white-space:nowrap">${l.masked?'<span style="color:var(--t3)">비공개</span>':(telA(l.phone)||'')}</td>
       <td>${l.addr||''}</td>
       <td>${l.apt||''}</td>
       <td>${l.masked?'':(LL_CYCLE_LABEL[String(l.cycle)]||'')}</td>
