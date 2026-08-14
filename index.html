@@ -4355,7 +4355,11 @@ async function exportDaangnExcel(){
       parkAuto='대장 주차 0대 — 실제 불가능인지 확인 후 당근 화면에서 직접 선택';
     }
     // 매물 설명은 연락처·외부링크 자동 제거(adScrub) 후 싣는다 — 당근 제재 방지
-    const desc=daangnLure(adScrub(buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'').text);
+    // 🔴 2026-08-14 사장님 지시: 시트 '매물설명'에 적은 양식이 있으면 **그대로** 쓴다
+    //    (연락처·외부유도만 제거). 종전에는 항상 자동 생성문으로 갈아치워 사장님 양식이
+    //    당근에 안 들어갔다. 시트 설명이 비어 있을 때만 자동 생성.
+    const sheetDesc=String(l.desc||'').trim();
+    const desc=daangnLure(adScrub(sheetDesc||buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'').text);
 
     const miss=[];
     if(!kind)miss.push('매물유형');
@@ -4442,6 +4446,8 @@ async function exportDaangnExcel(){
     if(!daangnDir(l.direction)) neg.push('향 미입력 → 당근 화면에 형식 오류 표시됨');
     if(!String(l.availDate||'').trim())
       neg.push('입주가능일 미입력 → 당근 화면에 형식 오류 표시됨 (CRM에 날짜 또는 "즉시입주" 입력)');
+    if(feeType0==='정액 관리비'||feeType0==='기타 부과')
+      neg.push('관리비 → 당근 화면에서 부과기준 라디오와 공용 금액을 직접 입력(엑셀의 관리비 칸은 당근이 무시함 — 옆의 관리비 금액·포함항목 열 참고)');
     if(feeBad) neg.push('관리비 유형은 "'+feeType0+'"인데 총 관리비가 비어 필수 위반 → '
       + '관리비 칸을 통째로 비워 내보냄. CRM에 금액을 넣으세요');
     fixRows.push([
@@ -4450,6 +4456,8 @@ async function exportDaangnExcel(){
       normDateStr(String(l.availDate||'').trim()),          // 입주가능일(원본) — 당근이 과거날짜로 바꾸는 사례 있음
       String(l.feeType||''),                                 // 관리비 부과방식
       String(l.feeBasis||''),                                // 관리비 부과기준
+      daangnManwon(l.feeAmt)||String(l.feeAmt||''),          // 관리비 금액 — 당근이 엑셀 관리비를 무시하므로 화면 손입력용
+      String(l.feeItems||''),                                // 관리비 포함항목 — 〃
       hasPark?String(l.parkTotal)
         :(parking==='불가능'?'0':''),                          // 주차 총대수
       neg.join(' / '),                                       // 부정값 항목
@@ -4507,6 +4515,7 @@ async function exportDaangnExcel(){
   const wb2=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb2,
     XLSX.utils.aoa_to_sheet([['브리즈번호','주소','입주가능일(원본)','관리비 부과방식','관리비 부과기준',
+      '관리비 금액(만원)','관리비 포함항목',
       '주차 총대수','부정값 항목','권리금','지목','용도지역','건물용도','지하 여부'],...fixRows]),
     '등록전 보정');
   const exRows=excluded.map(e=>{
