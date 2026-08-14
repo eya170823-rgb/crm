@@ -1303,13 +1303,10 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <!-- 접수 정보 -->
     <div class="form-section">📞 접수 정보</div>
     <div class="form-row">
-      <div class="form-group"><label>접수 방법</label>
-        <select id="l-recv-method">
-          <option value="전화">📞 전화</option>
-          <option value="방문">🚶 방문</option>
-          <option value="온라인">💻 온라인</option>
-        </select>
-      </div>
+      <!-- 접수 방법: 다른 어떤 메뉴·필터·광고에도 안 쓰여 화면에서 제거 (2026-08-14 사장님 지시).
+           숨은 input 으로 기존 저장값은 보존 — 문자수집 서버(server.py)가 '전화'를 넣는 것도 그대로 동작 -->
+      <input type="hidden" id="l-recv-method" value="">
+
       <div class="form-group"><label>공동명의 여부</label>
         <select id="l-joint">
           <option value="단독">단독 명의</option>
@@ -2506,9 +2503,9 @@ const ddCls=d=>d<0?'dday-r':d<=90?'dday-r':d<=180?'dday-a':'dday-g';
 const ddLabel=d=>d<0?`초과 ${Math.abs(d)}일`:`D-${d}`;
 const uid=()=>Date.now()+'_'+Math.random().toString(36).slice(2,7);
 // ─── 매물번호 자동 생성: [유형코드][YYMMDD]-[순번] (예: A260731-01) ───
-const KIND_CODE={'오픈형 원룸':'H','분리형 원룸':'H','빌라(투룸 이상)':'B','아파트':'A','오피스텔':'O','주택':'D','상가':'S','사무실':'F','건물':'G','공장/창고':'C',
+const KIND_CODE={'오픈형 원룸':'R','분리형 원룸':'R','빌라(투룸 이상)':'B','아파트':'A','오피스텔':'R','주택':'D','상가':'S','사무실':'F','건물':'G','공장/창고':'C',
   // 구버전 표기 호환
-  '빌라·연립':'B','단독주택':'D','오픈형원룸':'H','분리형원룸':'H','토지':'T','기타':'X'};
+  '빌라·연립':'B','단독주택':'D','오픈형원룸':'R','분리형원룸':'R','토지':'T','기타':'X'};
 function genListingNo(kind){
   const p=KIND_CODE[kind]||'X';
   const d=new Date();
@@ -3342,7 +3339,8 @@ function buildDaangnPlainDesc(o){
   const kind=v(o.kind), type=v(o.type), addr=v(o.addr), apt=v(o.apt);
   const fl=parseFloorNo(v(o.floor));
   if(addr) S.push(`${addr}${apt?' '+apt:''}에 위치한 ${type} ${kind}입니다.`);
-  if(v(o.bldgUse)) S.push(`건물용도는 ${v(o.bldgUse)}입니다.`);
+  // 숙박 계열 용도는 광고문에 싣지 않는다 — 주거 광고에 '숙박시설'이 실리면 허위·오해 소지 (2026-08-14)
+  if(v(o.bldgUse)&&!/숙박|여관|여인숙|고시원/.test(v(o.bldgUse))) S.push(`건물용도는 ${v(o.bldgUse)}입니다.`);
   if(kind==='토지'){
     if(v(o.jimok)) S.push(`토지 지목은 ${v(o.jimok)}입니다.`);
     if(v(o.zone))  S.push(`용도지역은 ${v(o.zone)}입니다.`);
