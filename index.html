@@ -4696,6 +4696,9 @@ function vacancyReconcile(key,hos){
   rows.forEach(l=>{ const h=vacHoKey(l.addr2); if(h) (byHo[h]=byHo[h]||[]).push(l); });
   const inSet=new Set(hos);
   const added=[],revived=[],kept=[],rented=[],attention=[],ops=[];
+  // 시트 입력 방식(GAS vacancySheetReconcile_)과 같은 도장 — 두 방식이 같은 날 겹쳐도 충돌 없음
+  const vacStamp='[공실확인 '+fmtDate()+']';
+  const stampOp=l=>{ if(!String(l.note||'').includes(vacStamp)) l.note=(l.note?l.note+' ':'')+vacStamp; };
   // 새 매물의 조건 원본: 가격이 있는 진행중 매물 → 없으면 아무 진행중 → 없으면 첫 행
   const tpl=rows.find(l=>VAC_ON_MARKET.includes(String(l.status||''))&&String(l.price||'').trim())
          || rows.find(l=>VAC_ON_MARKET.includes(String(l.status||'')))||rows[0];
@@ -4712,16 +4715,16 @@ function vacancyReconcile(key,hos){
           feeType:tpl&&tpl.feeType||'', feeAmt:tpl&&tpl.feeAmt||'', feeItems:tpl&&tpl.feeItems||'',
           parking:tpl&&tpl.parking||'', options:tpl&&tpl.options||'',
           status:'공실', recvDate:fmtDate(),
-          note:'공실대조 '+fmtDate()+' 자동추가'+(tpl&&(String(tpl.price||'').trim()||String(tpl.rentAmt||'').trim())?' — 가격·조건은 '+(tpl.addr2||'기존 매물')+'에서 복사함, 확인 필요':'') };
+          note:'공실대조 '+fmtDate()+' 자동추가'+(tpl&&(String(tpl.price||'').trim()||String(tpl.rentAmt||'').trim())?' — 가격·조건은 '+(tpl.addr2||'기존 매물')+'에서 복사함, 확인 필요':'')+' '+vacStamp };
         listings.unshift(nl);
       });
       return;
     }
     if(ex.length>1) attention.push(ho+'호: 같은 호수 행이 '+ex.length+'개 있습니다 — 시트에서 남길 행 하나만 두고 직접 삭제하세요');
     const l=ex[0], st=String(l.status||'');
-    if(st==='임대중'){ revived.push(ho); ops.push(()=>{ l.status='공실'; }); }
+    if(st==='임대중'){ revived.push(ho); ops.push(()=>{ l.status='공실'; stampOp(l); }); }
     else if(st==='계약완료'||st==='거래완료'||st==='보류') attention.push(ho+'호: '+st+' 상태인데 공실 목록에 있습니다 — 상태를 직접 확인하세요');
-    else kept.push(ho);
+    else { kept.push(ho); ops.push(()=>stampOp(l)); }
   });
   rows.forEach(l=>{
     const h=vacHoKey(l.addr2);
