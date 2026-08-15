@@ -4359,7 +4359,10 @@ async function exportDaangnExcel(){
     //    (연락처·외부유도만 제거). 종전에는 항상 자동 생성문으로 갈아치워 사장님 양식이
     //    당근에 안 들어갔다. 시트 설명이 비어 있을 때만 자동 생성.
     const sheetDesc=String(l.desc||'').trim();
-    const desc=daangnLure(adScrub(sheetDesc||buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'').text);
+    // 자동 생성문은 항상 따로 계산한다 — 상세설명(시트 원문 우선)과 별개로,
+    // 비공개 메모 칸에 실어 등록화면 손입력(관리비·주차 등)의 참고자료로 쓴다 (2026-08-15 사장님 지시)
+    const genDesc=daangnLure(adScrub(buildDaangnPlainDesc({...l,price:deposit,rentAmt:rent,parking:parking||l.parking})||'').text);
+    const desc=sheetDesc?daangnLure(adScrub(sheetDesc).text):genDesc;
 
     const miss=[];
     if(!kind)miss.push('매물유형');
@@ -4398,7 +4401,10 @@ async function exportDaangnExcel(){
       optDaangn,
       daangnYear(l.aprDate),                               // '2017년'·날짜셀 등 어떤 표기든 연도만 (2026-08-14 연결)
       desc,
-      String(l.id||''),                 // 메모: 브리즈 매물번호만 (내부 메모는 내보내지 않음)
+      // 메모(비공개): 매물번호 + 자동 생성 광고문 — 관리비·주차 등 수치가 담겨 있어 등록화면
+      //   손입력 참고용으로 쓴다 (2026-08-15 사장님 지시로 복원. CRM 내부 메모(note)는
+      //   현관비번 등 개인정보가 적힌 사례가 있어 여전히 안 보냄)
+      (String(l.id||'')+(genDesc?'\n'+genDesc:'')),
       String(l.jimok||''),daangnPick(l.zone,DAANGN_ZONES),daangnManwon(l.premium),String(l.bldgUse||'')]);
     outIds.push(l.id);
     // 시험 칼럼용 값 (행과 같은 순서로 쌓아둔다)
