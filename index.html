@@ -236,6 +236,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
 .cw-type-btn{padding:7px 10px;border-radius:7px;font-size:12px;cursor:pointer;background:#fff;border:1px solid var(--border);color:var(--t1);margin-bottom:5px;transition:all .15s;text-align:center;display:block;width:100%}
 .cw-type-btn:hover{border-color:#7C3AED;color:#7C3AED;background:#EDE9FE}
 .cw-type-btn.on{background:#7C3AED;color:#fff;border-color:#7C3AED;font-weight:600}
+.cw-sp-chip{padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;border:1px solid var(--border);color:var(--t1);transition:all .15s}
+.cw-sp-chip:hover{border-color:#7C3AED;color:#7C3AED;background:#EDE9FE}
+.cw-sp-chip.on{background:#7C3AED;color:#fff;border-color:#7C3AED;font-weight:600}
 .cw-doc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
 .cw-doc-item{background:var(--bg3);border:1.5px dashed var(--border2);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all .2s}
 .cw-doc-item:hover{border-color:#7C3AED;background:#EDE9FE}
@@ -977,7 +980,28 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <div class="form-group"><label>중개보수 요율</label><input id="cw-fee-rate" placeholder="예: 0.4% (협의)"></div>
           <div class="form-group"><label>중개보수 금액</label><input id="cw-fee-amt" placeholder="자동계산 또는 직접입력"></div>
         </div>
-        <div class="form-group"><label>특약사항</label><textarea id="cw-special" placeholder="예: 잔금일 전까지 근저당 말소, 현 시설 상태로 인도 등" style="min-height:80px"></textarea></div>
+        <div class="form-group" style="margin-bottom:8px"><label>⚡ 특약 자동완성 <span style="font-weight:400;color:var(--t3)">— 계약에 해당하는 것만 누르면 아래에 번호 매겨 조합됩니다 (직접 쓴 문장·채워 넣은 금액은 유지)</span></label>
+          <div style="font-size:11px;color:var(--t3);margin:4px 0 6px">권리관계·금전</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+            <button type="button" class="cw-sp-chip on" data-sp="기본" onclick="cwSpToggle(this)">✅ 기본 조항</button>
+            <button type="button" class="cw-sp-chip" data-sp="전월세안전" onclick="cwSpToggle(this)">🛡️ 전월세 사기 방어</button>
+            <button type="button" class="cw-sp-chip" data-sp="대출특약" onclick="cwSpToggle(this)">💰 대출 불가시 반환</button>
+            <button type="button" class="cw-sp-chip" data-sp="근저당말소" onclick="cwSpToggle(this)">🏦 근저당권 말소</button>
+            <button type="button" class="cw-sp-chip" data-sp="다가구" onclick="cwSpToggle(this)">🏠 다가구 보증금 고지</button>
+            <button type="button" class="cw-sp-chip" data-sp="장기수선" onclick="cwSpToggle(this)">🏢 장기수선충당금</button>
+            <button type="button" class="cw-sp-chip" data-sp="관리비" onclick="cwSpToggle(this)">🧾 관리비·공과금 정산</button>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin:4px 0 6px">시설·생활</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <button type="button" class="cw-sp-chip" data-sp="누수하자" onclick="cwSpToggle(this)">💧 누수·하자 책임</button>
+            <button type="button" class="cw-sp-chip" data-sp="반려동물" onclick="cwSpToggle(this)">🐶 반려동물 금지</button>
+            <button type="button" class="cw-sp-chip" data-sp="실내흡연" onclick="cwSpToggle(this)">🚬 실내 흡연 금지</button>
+            <button type="button" class="cw-sp-chip" data-sp="원상복구" onclick="cwSpToggle(this)">🔨 못박기·원상복구</button>
+            <button type="button" class="cw-sp-chip" data-sp="옵션파손" onclick="cwSpToggle(this)">📺 옵션물품 파손</button>
+            <button type="button" class="cw-sp-chip" data-sp="청소비" onclick="cwSpToggle(this)">🧹 퇴거 청소비</button>
+          </div>
+        </div>
+        <div class="form-group"><label>특약사항 <button type="button" class="btn" style="font-size:11px;padding:3px 10px;margin-left:8px" onclick="cwSpCopy()">📋 특약만 복사</button></label><textarea id="cw-special" placeholder="위 버튼으로 조합하거나 직접 입력 — 예: 잔금일 전까지 근저당 말소, 현 시설 상태로 인도 등" style="min-height:120px"></textarea></div>
 
         <div style="margin-top:16px">
           <button class="btn" style="background:#7C3AED;color:#fff;border-color:#7C3AED;font-size:13px;padding:10px 24px" onclick="cwGenerate()">📝 계약서 + 확인설명서 생성</button>
@@ -5260,6 +5284,7 @@ function selectContractType(type, btype){
   document.getElementById('cw-step2').style.display='block';
   document.getElementById('cw-step3').style.display='block';
   cwRenderPriceSection();
+  if(!cwGetV('cw-special')){ cwSpRecommend(); cwSpRebuild(); }
   document.getElementById('cw-step2').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
@@ -5440,6 +5465,85 @@ function cwShowManualGuide(){
 }
 
 function cwGetV(id){return document.getElementById(id)?.value?.trim()||'';}
+
+// ⚡ 특약 자동완성 — 07_자동화프롬테크\특약생성기(특약_복사기.html)의 실무 특약 문고 이식 (2026-08-17 사장님 지시)
+const CW_SP_ORDER=['기본','전월세안전','대출특약','근저당말소','다가구','장기수선','관리비','누수하자','반려동물','실내흡연','원상복구','옵션파손','청소비'];
+const CW_SP_CLAUSES={
+  '기본':[
+    '현 시설물 상태에서의 임대차(또는 매매) 계약이며, 면적은 공부상 면적을 기준으로 한다.',
+    '임차인은 선량한 관리자의 주의 의무를 다하여 목적물을 유지/관리해야 한다.'],
+  '전월세안전':[
+    '임대인은 잔금 지급일 익일 자정까지 현재의 권리관계를 유지해야 하며, 이를 위반하거나 국세/지방세 체납 사실이 발견될 경우 임차인은 본 계약을 무효로 할 수 있고, 이때 임대인은 수령한 금액 전액을 즉시 반환한다.'],
+  '대출특약':[
+    '본 계약은 임차인의 전세자금대출을 전제로 하며, 임대인 또는 목적물의 하자로 인하여 대출이 승인되지 않을 경우 본 계약은 조건 없이 해제되며, 임대인은 수령한 계약금을 즉시 반환한다. (단, 임차인의 단순 변심이나 개인 신용 사유로 인한 거절은 제외한다.)'],
+  '근저당말소':[
+    '임대인은 잔금 수령과 동시에 현재 설정된 근저당권(접수번호 제_____호)을 전액 상환하고 말소하기로 하며, 말소 비용은 임대인이 부담한다.'],
+  '다가구':[
+    '본 목적물의 전체 선순위 보증금 총액은 금 ____________원이며, 선순위 근저당권 채권최고액은 금 ____________원 임을 임대인이 고지하였고 임차인은 이를 확인 후 계약함.'],
+  '장기수선':[
+    '임차인이 거주 기간 동안 대납한 장기수선충당금은 퇴거 시 임대인이 임차인에게 전액 반환하기로 한다.'],
+  '관리비':[
+    '잔금일 기준으로 공과금(전기, 수도, 가스 등) 및 관리비는 임대인이 정산하기로 한다.'],
+  '누수하자':[
+    '입주 전 발생한 중대한 구조적 하자(누수, 보일러 고장 등)는 임대인이 수리해주기로 하며, 입주 후 임차인의 고의 또는 부주의로 인한 소모품 파손(전등, 방충망 등)은 임차인의 비용으로 수리한다.'],
+  '반려동물':[
+    '임차인은 실내에서 반려동물(개, 고양이 등)을 사육하지 않기로 약정한다. 위반 시 임대인은 계약을 해지할 수 있으며, 임차인은 즉시 퇴거 및 훼손 복구(특수 청소비, 도배 등) 비용 전액을 배상한다.'],
+  '실내흡연':[
+    '본 목적물 내(베란다, 화장실 포함)에서는 절대 금연하기로 하며, 위반으로 인해 냄새가 배거나 벽지가 변색될 경우 임차인이 도배 및 특수 청소 비용을 전액 부담한다.'],
+  '원상복구':[
+    '임차인은 임대인의 동의 없이 목적물의 구조 변경이나 벽면 못 박기, 벽걸이 TV 설치 등을 할 수 없으며, 퇴거 시 원상복구 해야 한다.'],
+  '옵션파손':[
+    '임차인은 옵션물품(에어컨, 세탁기, 냉장고 등)을 주의하여 사용해야 하며, 임차인의 과실로 인한 파손 및 고장 시 임차인의 비용으로 수리 또는 변상한다.'],
+  '청소비':[
+    '퇴거 시 임차인은 목적물을 입주 당시와 같은 청결 상태로 반환하며, 전문 청소업체를 통한 퇴거 청소비 금 ____________원을 임대인에게 지급하기로 한다.']
+};
+// 매매 계약이면 문고의 당사자 호칭을 치환한다 (임대인→매도인, 임차인→매수인)
+function cwSpEff(s){
+  if(typeof cwType!=='undefined' && cwType==='매매'){
+    return s.replace(/임대차\(또는 매매\)/g,'매매').replace(/임대인/g,'매도인').replace(/임차인/g,'매수인');
+  }
+  return s;
+}
+// 조합 규칙: 켜진 버튼의 문고 문장 + 직접 쓴 문장을 번호 매겨 다시 쓴다.
+// 문고 문장은 앞 15자로 알아보므로, 빈칸(금액·접수번호)을 채워 넣은 문장은 그 채운 상태 그대로 유지된다.
+function cwSpRebuild(){
+  const ta=document.getElementById('cw-special'); if(!ta) return;
+  const heads=[];
+  CW_SP_ORDER.forEach(k=>CW_SP_CLAUSES[k].forEach(s=>{
+    heads.push(s.slice(0,15));
+    const e=cwSpEff(s); if(e!==s) heads.push(e.slice(0,15));
+  }));
+  const cur=ta.value.split(/\n+/).map(l=>l.replace(/^\s*\d+[.)]\s*/,'').trim()).filter(Boolean);
+  const custom=cur.filter(l=>!heads.some(h=>l.startsWith(h)));
+  const on=Array.from(document.querySelectorAll('.cw-sp-chip.on')).map(b=>b.dataset.sp);
+  const picked=[];
+  CW_SP_ORDER.forEach(k=>{ if(on.indexOf(k)<0) return;
+    CW_SP_CLAUSES[k].forEach(s=>{
+      const e=cwSpEff(s);
+      const edited=cur.find(l=>l.startsWith(e.slice(0,15)))||cur.find(l=>l.startsWith(s.slice(0,15)));
+      picked.push(edited||e);
+    });
+  });
+  ta.value=picked.concat(custom).map((s,i)=>(i+1)+'. '+s).join('\n\n');
+}
+function cwSpToggle(btn){ btn.classList.toggle('on'); cwSpRebuild(); }
+// 계약 유형에 맞는 추천 특약을 미리 켠다 (특약칸이 비어 있을 때만 호출됨 — 고른 것을 덮지 않음)
+function cwSpRecommend(){
+  const rec=['기본'];
+  if(cwType==='전세') rec.push('전월세안전','대출특약','근저당말소');
+  else if(cwType==='월세') rec.push('관리비','누수하자','원상복구','옵션파손');
+  if(cwType!=='매매' && /다가구|단독/.test(cwBuildingType||'')) rec.push('다가구');
+  document.querySelectorAll('.cw-sp-chip').forEach(b=>b.classList.toggle('on', rec.indexOf(b.dataset.sp)>=0));
+}
+function cwSpReset(){
+  document.querySelectorAll('.cw-sp-chip').forEach(b=>b.classList.toggle('on', b.dataset.sp==='기본'));
+}
+async function cwSpCopy(){
+  const v=cwGetV('cw-special'); if(!v){showToast('복사할 특약이 없습니다');return;}
+  try{ await navigator.clipboard.writeText(v); }
+  catch(e){ const ta=document.getElementById('cw-special'); ta.select(); document.execCommand('copy'); }
+  showToast('특약사항 복사됨 — 한방 등 계약서 프로그램에 붙여넣으세요');
+}
 
 async function cwGenerate(){
   const addr=cwGetV('cw-addr');
@@ -5733,6 +5837,7 @@ function cwReset(){
   document.getElementById('cw-step3').style.display='none';
   document.getElementById('cw-step4').style.display='none';
   document.getElementById('cw-extract-status').style.display='none';
+  cwSpReset();
 }
 
 function showPwaGuide() {
