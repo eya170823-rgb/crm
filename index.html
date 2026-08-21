@@ -4263,7 +4263,12 @@ async function daangnPreSyncFromSheet(){
   list.forEach(o=>{
     const s=byId[String(o.id||'')];
     if(!s) return;
-    ['parkTotal','parkPerHh','hhldCnt','elevator','bldgSyncAt','aprDate'].forEach(f=>{
+    // 🔴 2026-08-22 확장: 매물설명(desc)·관리비 3종도 빈 칸이면 시트 값으로 채운다.
+    //    사장님이 시트에 설명·관리비를 적고 [⬇️ 불러오기] 없이 바로 내보내면
+    //    옛/빈 값이 나가 "광고문구가 그대로 안 실린다"가 되던 구멍.
+    //    로컬에 값이 있으면 절대 덮지 않는다(빈 칸만 채움 — 손입력 보존 원칙 유지).
+    ['parkTotal','parkPerHh','hhldCnt','elevator','bldgSyncAt','aprDate',
+     'desc','feeType','feeAmt','feeItems'].forEach(f=>{
       if(blank(o[f])&&!blank(s[f])){ o[f]=s[f]; filled++; }
     });
     // 당근 등록표시: 시트에 있고 로컬에 없으면 복원 — 이미 게시된 매물의 중복 후보 방지
@@ -4279,7 +4284,7 @@ async function daangnPreSyncFromSheet(){
     adSaveList(list);
     if(typeof renderAds==='function')renderAds();
   }
-  return (filled||marked)?`대장값 ${filled}칸 · 당근 등록표시 ${marked}건 반영`:'이미 최신';
+  return (filled||marked)?`시트값 ${filled}칸(대장·설명·관리비) · 당근 등록표시 ${marked}건 반영`:'이미 최신';
 }
 async function exportDaangnExcel(){
   if(!window.XLSX){showToast('엑셀 라이브러리 로딩 중입니다.');return;}
