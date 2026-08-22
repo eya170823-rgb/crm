@@ -4488,6 +4488,12 @@ async function exportDaangnExcel(){
     if(!daangnDir(l.direction)) neg.push('향 미입력 → 당근 화면에 형식 오류 표시됨');
     if(!String(l.availDate||'').trim())
       neg.push('입주가능일 미입력 → 당근 화면에 형식 오류 표시됨 (CRM에 날짜 또는 "즉시입주" 입력)');
+    // 08-22 적대검증 지적 2건 — 설명 원문은 사장님 양식이라 건드리지 않고 검수에서만 알린다
+    const avNorm=normDateStr(String(l.availDate||'').trim());
+    if(/^\d{4}-\d{2}-\d{2}$/.test(avNorm)&&avNorm<todayStr())
+      neg.push('입주가능일('+avNorm+')이 이미 지남 — CRM에서 즉시입주로 바꾸거나 날짜 갱신');
+    if(!optDaangn&&/풀\s*옵션/.test(desc))
+      neg.push('설명에 "풀옵션" 표현이 있는데 옵션 칸은 비어 있음 — CRM 옵션에 실제 품목을 채우거나 설명 확인(허위·과장 시비 예방)');
     if(feeType0==='정액 관리비'||feeType0==='기타 부과')
       neg.push('관리비 → 초안에서 자동으로 채워졌는지 확인(당근이 2026-08부터 엑셀 관리비를 AI로 읽음 — 08-22 실물 확인). 비어 있으면 옆의 관리비 금액·포함항목 열 값으로 손입력');
     if(feeBad) neg.push('관리비 유형은 "'+feeType0+'"인데 총 관리비가 비어 필수 위반 → '
