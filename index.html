@@ -3924,13 +3924,26 @@ function inboxRender(){
   if(!inboxRows.length){ el.innerHTML='인입함이 비어 있습니다.'; return; }
   const ec=s=>String(s===undefined||s===null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const custKeys=new Set(customers.map(c=>inboxPhoneKey(c.phone)).filter(k=>k.length>=7));
+  const llKeys=new Set(landlords.map(l=>inboxPhoneKey(l.phone)).filter(k=>k.length>=7));
   el.innerHTML='<div style="max-height:340px;overflow-y:auto">'+inboxRows.map((r,i)=>{
     const key=inboxPhoneKey(r.phone);
     const done=!!String(r.reg||'').trim();
-    const isCust=!done&&key.length>=7&&custKeys.has(key);
-    const act=done?`<span style="color:#0F6E56;font-weight:600;font-size:11px">✓ ${ec(r.reg)}</span>`
-      :isCust?`<span style="color:var(--b);font-weight:600;font-size:11px">이미 고객 <button class="btn btn-xs" onclick="inboxPromote(${i})">메모 추가</button></span>`
-      :`<button class="btn btn-xs btn-g" onclick="inboxPromote(${i})">👤 고객 등록</button>`;
+    const isCust=key.length>=7&&custKeys.has(key);
+    const isLl=key.length>=7&&llKeys.has(key);
+    // 상태가 '임대인'이면 임대인 등록이 기본 버튼 — 손님 문의면 고객 등록이 기본
+    const ownerish=r.status==='임대인';
+    let act;
+    if(done){
+      act=`<span style="color:#0F6E56;font-weight:600;font-size:11px">✓ ${ec(r.reg)}</span>`;
+    }else{
+      const bCust=isCust
+        ?`<button class="btn btn-xs" onclick="inboxPromote(${i})" title="이미 고객 — 메모에 추가">👤 메모+</button>`
+        :`<button class="btn btn-xs ${ownerish?'':'btn-g'}" onclick="inboxPromote(${i})">👤 고객</button>`;
+      const bLl=isLl
+        ?`<button class="btn btn-xs" onclick="inboxPromoteLandlord(${i})" title="이미 임대인 — 메모에 추가">🏠 메모+</button>`
+        :`<button class="btn btn-xs ${ownerish?'btn-g':''}" onclick="inboxPromoteLandlord(${i})">🏠 임대인</button>`;
+      act=ownerish?(bLl+' '+bCust):(bCust+' '+bLl);
+    }
     const preview=ec(String(r.text||'').replace(/\s+/g,' ').slice(0,90));
     return`<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid var(--border)">
       <div style="flex:1;min-width:0">
@@ -3964,6 +3977,32 @@ async function inboxPromote(i){
   if(typeof refreshVitoCustomerSelects==='function')refreshVitoCustomerSelects();
   showToast(`👤 고객 등록됨: ${c.name} — 고객 목록에서 상담을 이어가세요`);
   inboxMarkRemote(r,'고객등록'); r.reg='고객등록 방금'; inboxRender();
+}
+// 🏠 임대인으로 승격 (2026-08-22): 임대인 통화·문자를 임대인관리 DB로 — 명부가 저절로 자란다.
+//   등록 즉시 연락주기 6개월이 걸려 '다음 연락' 관리 대상이 된다(관계 관리 활성화).
+async function inboxPromoteLandlord(i){
+  const r=inboxRows[i]; if(!r) return;
+  const key=inboxPhoneKey(r.phone);
+  const exist=landlords.find(l=>key.length>=7&&inboxPhoneKey(l.phone)===key);
+  if(exist){
+    if(!confirm(`이미 등록된 임대인(${exist.name||exist.apt||'이름없음'})입니다.\n이 내용을 임대인 메모에 추가할까요?`))return;
+    exist.note=((exist.note||'')+(exist.note?'\n':'')+`[인입함 ${r.when} ${r.kind}] ${r.text}`).slice(0,1500);
+    save('landlords',landlords);
+    if(typeof renderLandlords==='function')renderLandlords();
+    showToast('📝 임대인 메모에 추가되었습니다 ✓');
+    inboxMarkRemote(r,'임대인메모'); r.reg='임대인메모 방금'; inboxRender();
+    return;
+  }
+  const today=todayStr();
+  const l={ id:uid(), name:r.name||('미상 '+(r.phone||'')), phone:r.phone||'', addr:'', apt:r.bld||'',
+    cycle:'6', lastContact:today,
+    nextContact:(typeof llCalcNext==='function'?llCalcNext(today,'6'):''),
+    note:(`[인입함 ${r.when} ${r.kind}]\n`+String(r.text||'')).slice(0,1500) };
+  landlords.push(l); save('landlords',landlords);
+  if(typeof renderLandlords==='function')renderLandlords();
+  if(typeof updateStats==='function')updateStats();
+  showToast(`🏠 임대인 등록됨: ${l.name} — 연락주기 6개월로 관리 시작`);
+  inboxMarkRemote(r,'임대인등록'); r.reg='임대인등록 방금'; inboxRender();
 }
 function inboxMarkRemote(r,val){
   const url=getGsUrl(); if(!url||!r.row) return;
