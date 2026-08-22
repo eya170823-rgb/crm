@@ -2974,7 +2974,7 @@ function renderListings(){
         <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td>
         <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
         <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}</td>
-        <td><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td>
+        <td><button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈</button><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td>
       </tr>`;}).join('')}</tbody>
     </table></div>`;
     return;
@@ -3008,6 +3008,7 @@ function renderListings(){
           ${typeBadge(l.type)}
           <span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span>
           <button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button>
+          <button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈 시세</button>
           <button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️ 수정</button>
           <button class="btn btn-r btn-xs" onclick="deleteListing('${l.id}')">🗑 삭제</button>
         </div>
@@ -3895,6 +3896,38 @@ function saveCustomer(){
   refreshVitoCustomerSelects();
 }
 function deleteCustomer(id){if(!confirm('이 고객을 삭제하시겠습니까?'))return;customers=customers.filter(c=>c.id!==id);save('customers',customers);gsDeleteRow('customers',id);renderCustomers();updateStats();refreshVitoCustomerSelects();showToast('고객 삭제됨');}
+
+// ═══ 📈 실거래 시세 대조 (2026-08-22) ═══
+// 국토부 실거래가로 내 매물이 싼지 비싼지 판정 — 임대인 설득("옆 단지 실거래 이렇습니다")과
+// 손님 브리핑("시세보다 5% 저렴한 물건입니다")의 근거 자료. GAS priceCheck 필요(배포 대기 시 안내).
+async function priceCheckOpen(id){
+  const l=listings.find(x=>x.id===id); if(!l){showToast('매물을 찾을 수 없습니다');return;}
+  const url=getGsUrl(); if(!url){showToast('⚙️ 구글 시트 연동이 필요합니다');return;}
+  showToast('📈 실거래 대조 중... (최근 6개월)');
+  try{
+    const q=new URLSearchParams({action:'priceCheck',kind:l.kind||'',type:l.type||'',apt:l.apt||'',
+      area:String(parseFloat(l.area)||''),price:l.price||'',rentAmt:l.rentAmt||'',addr:l.addr||''});
+    const j=await gsFetchJson(`${url}?${q.toString()}&t=${Date.now()}${tokQ()}`,null,'실거래 대조');
+    if(!j.ok){
+      showToast(/알 수 없는 action/.test(j.error||'')?'GAS 새 버전 배포 후 사용할 수 있습니다':'대조 실패: '+(j.error||''));
+      return;
+    }
+    const r=j.result;
+    const head=`📈 실거래 대조 — ${l.apt||l.addr||''} ${l.addr2||''} (${l.type||''})`;
+    if(!r.supported){ alert(head+'\n\n'+(r.why||'지원하지 않는 유형입니다')); return; }
+    if(!r.n){
+      alert(head+`\n\n최근 6개월 '${r.scope}' 실거래가 없습니다.`+(r.err?`\n\n⚠ ${r.err}`:'')
+        +'\n\n※ 단지명(건물명)이 실거래 공부상 명칭과 다르면 못 찾을 수 있습니다.');
+      return;
+    }
+    const lines=(r.samples||[]).map(s=>` · ${s.ym} ${s.name} ${s.area}㎡ ${s.floor}층 — ${s.label}`).join('\n');
+    alert(head+'\n\n'
+      +`내 매물: ${r.myLabel}\n시세(${r.scope} ${r.n}건 중간값): ${r.medLabel}\n`
+      +`판정: ${r.verdict} (${r.diffPct>0?'+':''}${r.diffPct}%)\n\n[근거 실거래]\n${lines}`
+      +(r.err?`\n\n⚠ 일부 조회 실패: ${r.err}`:'')
+      +'\n\n※ 월세는 보증금 연 6% 환산 비교 · 신고 실거래 기준(호가와 다를 수 있음)');
+  }catch(e){ showToast('대조 실패: '+e.message); }
+}
 
 // ═══ 📥 문의 인입함 → 고객 승격 (2026-08-22) ═══
 // 문자·통화 수집(server.py·smsQueueSweep)이 쌓는 시트 '인입함'을 CRM에서 바로 보고
