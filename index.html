@@ -6169,6 +6169,10 @@ function adsFlatten(o){
     const a = ad(o,p.key);
     if(a && a.on) parts.push([p.key, a.no||'', a.at||'', a.url||''].join('~'));
   });
+  // 📝 블로그 발행요청 플래그 (2026-08-23, 설계서 ④-2): 아직 발행 전(on 아님)일 때만 실어 나른다.
+  //   시트를 타고 블로그 발행기까지 전달되는 통로. 발행되어 blog~가 생기면 자연 소멸.
+  const bq = ad(o,'blog');
+  if(bq && bq.req && !adOn(o,'blog')) parts.push(['blogreq', bq.req].join('~'));
   o.adsFlat  = parts.join('|');
   o.adList   = PLATFORMS.filter(p => adOn(o,p.key)).map(p => p.label).join(',');
   o.daangnNo = (ad(o,'daangn') || {}).no || '';
@@ -6183,7 +6187,9 @@ function adsRestore(o){
   String(o.adsFlat||'').split('|').filter(Boolean).forEach(s => {
     const a = s.split('~'), k = a[0];
     if(PF[k]) o.ads[k] = Object.assign(adBlank(), { on:true, no:a[1]||'', at:a[2]||'', url:a[3]||'' });
+    else if(k === 'blogreq'){ o.ads.blog = o.ads.blog || adBlank(); o.ads.blog.req = a[1]||''; }
   });
+  if(o.ads.blog && o.ads.blog.on) o.ads.blog.req = '';   // 발행됐으면 요청 플래그는 무의미
   if(!o.ads.naver  && o.naverUrl)     o.ads.naver  = Object.assign(adBlank(), { on:true, url:o.naverUrl });
   if(!o.ads.daangn && (o.daangnPosted || o.daangnPostedAt))
     o.ads.daangn = Object.assign(adBlank(), { on:true, no:o.daangnNo||'', at:o.daangnPostedAt||'' });
@@ -6349,6 +6355,21 @@ function adFilterForExport(pkey, srcList){
   return { ok, excluded };
 }
 /* 내보내기 성공 후 호출 → 광고중으로 일괄 표시 */
+// 📝 블로그 발행요청 토글 (2026-08-23, 설계서 ④-2) — 요청 표시는 시트를 타고 발행기로 전달된다
+function blogReqToggle(id){
+  const list = adListings();
+  const o = list.find(x => x.id === id);
+  if(!o) return;
+  o.ads = o.ads || {};
+  o.ads.blog = o.ads.blog || adBlank();
+  if(o.ads.blog.on){ showToast('이미 발행된 매물입니다'); return; }
+  o.ads.blog.req = o.ads.blog.req ? '' : todayStr();
+  adSaveList(list);
+  renderAds();
+  showToast(o.ads.blog.req ? '📝 블로그 발행요청 표시됨 — 발행기에서 이 매물이 우선 표시됩니다'
+                           : '발행요청 취소됨');
+}
+
 function adMarkExported(pkey, ids){
   const list = adListings();
   let n = 0;
@@ -6428,9 +6449,18 @@ function renderAds(){
                  onclick="event.stopPropagation();adRefresh('${o.id}','${p.key}')">수정필요✓</div>`;
       else if(d !== null && d <= 7)
         tag = `<div style="font-size:9px;color:#D97706">D${d>=0 ? '-'+d : '+'+(-d)}</div>`;
+      // 📝 블로그 칸: 발행 전에는 [요청] 버튼 — 발행기가 시트에서 요청 표시를 읽어간다 (2026-08-23)
+      const blogReq = (p.key === 'blog' && !on)
+        ? (a.req
+            ? `<div style="font-size:9px;color:#D97706;cursor:pointer" title="발행요청 ${a.req} — 누르면 취소"
+                 onclick="event.stopPropagation();blogReqToggle('${o.id}')">📝요청됨</div>`
+            : `<div style="font-size:9px;color:#9CA3AF;cursor:pointer" title="블로그 발행요청 표시"
+                 onclick="event.stopPropagation();blogReqToggle('${o.id}')">📝요청</div>`)
+        : '';
       return `<td style="text-align:center;cursor:pointer;padding:6px 4px"
                   onclick="adToggle('${o.id}','${p.key}')" title="${a.memo||''}">
         <div style="font-size:11px;font-weight:700;color:${on ? p.color : '#D1D5DB'}">${on ? '광고중' : '＋'}</div>
+        ${blogReq}
         ${on ? `<div style="font-size:9px;color:#6B7280;cursor:pointer"
                   onclick="event.stopPropagation();adEditNo('${o.id}','${p.key}')">${a.no || '번호'}</div>` : ''}
         ${on && a.url ? `<a href="${a.url}" target="_blank" style="font-size:9px"
