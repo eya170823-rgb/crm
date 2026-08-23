@@ -816,6 +816,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div style="background:var(--gl);border:1px solid var(--g);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--g);margin-bottom:16px;line-height:1.8">
         📨 <strong>솔라피 자동 발송 연동됨</strong> — 미리보기 생성 후 [📨 발송]을 누르면 실제 문자가 발송됩니다 (발신번호 010-2601-0110, 건당 요금 차감).
         복사해서 카톡으로 보내는 기존 방식도 그대로 쓸 수 있습니다.
+        ✂️ <strong>모든 문구는 단문(90바이트, 18원)으로 설계</strong> — 카드의 요금 배지가 빨간색(장문 45원)이면 문구를 줄이세요. [Web발신] 표시는 통신사가 붙이는 것이라 문자로는 뺄 수 없고, 알림톡 전환 시 사라집니다.
         <button class="btn btn-xs" style="margin-left:6px" onclick="smsCheckBalance()">💰 잔액 확인</button>
       </div>
       <div class="filter-bar">
@@ -2829,9 +2830,10 @@ function expWriteThrough(id,patch){
   return true;
 }
 function setStatus(id,val){expStatus[id]=val;save('expStatus',expStatus);expWriteThrough(id,{expStatus:val});renderExpiryMini();renderExpirySummary();updateStats();showToast(`'${val}'으로 변경`);}
+// 08-23 단문화: 90바이트(18원) 이내 설계 — smsShort가 초과분을 잘라 장문 과금을 막는다
 const expiryMsg={
-  임대인:c=>`안녕하세요 ${c.landlord?.name||''}님, 브리즈부동산중개입니다 :)\n\n${c.apt} 계약 만기(${c.end}) 안내 드립니다.\n만기까지 ${ddLabel(daysLeft(c.end))} 남았습니다.\n\n✅ 재계약 / ✅ 신규 임차인 모집 / ✅ 공실 유지\n\n의향을 알려주시면 빠르게 처리해 드리겠습니다.\n감사합니다 🏡 브리즈부동산중개 | 010-2601-0110`,
-  임차인:c=>`안녕하세요 ${c.tenant?.name||''}님, 브리즈부동산중개입니다 :)\n\n${c.apt} 계약 만기(${c.end}) 안내 드립니다.\n만기까지 ${ddLabel(daysLeft(c.end))} 남았습니다.\n\n✅ 재계약 희망 / ✅ 이사 예정 / ✅ 보증금 반환 협의\n\n편하게 연락 주세요. 감사합니다 🌿\n브리즈부동산중개 | 010-2601-0110`,
+  임대인:c=>smsShort(`${c.landlord?.name||''}님, ${c.apt} 만기 ${c.end} 안내드립니다. 재계약 여부 연락주세요. 브리즈부동산`),
+  임차인:c=>smsShort(`${c.tenant?.name||''}님, ${c.apt} 만기 ${c.end} 안내드립니다. 재계약·이사 계획 알려주세요. 브리즈부동산`),
 };
 function openContact(id){
   activeContactId=id;activeContactRole='임대인';
@@ -4999,13 +5001,17 @@ function vacancyReconcile(key,hos){
 }
 
 // ═══ SMS ═══
+// 🔴 2026-08-23 사장님 지시: 발송 문구는 전부 단문(90바이트=한글 45자, 18원)으로.
+//   90바이트를 넘는 순간 장문(LMS, 45원)으로 과금된다 — 요금 단위는 EUC-KR: 한글 2바이트.
+function smsBytes(s){s=String(s||'');let b=0;for(let i=0;i<s.length;i++)b+=s.charCodeAt(i)>127?2:1;return b;}
+function smsShort(s){s=String(s||'');while(s.length&&smsBytes(s)>90)s=s.slice(0,-1);return s;}
 const smsTpl={
   // 공실확인(매일): 당근 수집이 임대인관리에 기록한 '공실감지 날짜'를 기준으로 발송
-  vacancy:{임대인:b=>`안녕하세요, 브리즈부동산중개입니다.\n${b} 공실이 있는지 확인차 연락드렸습니다.\n임대 놓으실 물건이 있으시면 저희가 세입자 모집을 도와드리겠습니다.\n감사합니다. 브리즈부동산중개 | 010-2601-0110`},
-  general:{임대인:m=>`안녕하세요, 브리즈부동산중개입니다 :)\n${m}월 임대인 안내 말씀드립니다.\n\n✅ 임대료 입금 현황 확인해 주세요.\n✅ 계약 만기 6개월 전부터 갱신 준비 시작하세요.\n\n감사합니다 🏡 브리즈부동산중개 | 010-2601-0110`,임차인:m=>`안녕하세요, 브리즈부동산중개입니다 :)\n${m}월 임차인 안내 말씀드립니다.\n\n✅ 전입신고·확정일자 꼭 챙기세요!\n✅ 계약 만기 6개월 전, 갱신 의사를 집주인에게 알려야 합니다.\n\n감사합니다 🌿 브리즈부동산중개 | 010-2601-0110`},
-  expiry:{임대인:_=>`안녕하세요, 브리즈부동산중개입니다.\n계약 만기 사전 안내입니다.\n\n✅ 갱신 또는 신규 임차인 모집 의사를 알려주세요.\n✅ 보증금·임대료 조정 상담 드립니다.\n\n감사합니다! 브리즈부동산중개 | 010-2601-0110`,임차인:_=>`안녕하세요, 브리즈부동산중개입니다.\n계약 만기 사전 안내입니다.\n\n✅ 재계약 의사가 있으시면 만기 6개월 전에 집주인께 통보하세요.\n✅ 이사 계획이 있으시면 새 매물 탐색을 즉시 도와드립니다.\n\n감사합니다! 브리즈부동산중개 | 010-2601-0110`},
-  spring:{임대인:_=>`안녕하세요, 브리즈부동산중개입니다 🌸\n봄 이사철 임대인 안내입니다.\n\n✅ 3~5월은 연간 거래량 최성수기입니다.\n✅ 지금 매물 등록하시면 빠른 계약이 가능합니다.\n\n연락 주세요! 브리즈부동산중개 | 010-2601-0110`,임차인:_=>`안녕하세요, 브리즈부동산중개입니다 🌸\n봄 이사철 특별 안내입니다.\n\n✅ 3~5월 매물 경쟁이 치열합니다. 서두르세요!\n✅ 제주시 연동 일대 신규 매물 업데이트 중\n\n브리즈부동산중개 | 010-2601-0110`},
-  tax:{임대인:_=>`안녕하세요, 브리즈부동산중개입니다.\n연말 세금 정보 안내드립니다.\n\n✅ 임대소득세: 연 2천만원 초과 시 종합소득세 신고\n✅ 분리과세(14%) vs 종합과세 비교 필요\n\n브리즈부동산중개 | 010-2601-0110`,임차인:_=>`안녕하세요, 브리즈부동산중개입니다.\n연말 세금 환급 정보 안내드립니다.\n\n✅ 월세 세액공제: 연 최대 90만원 환급 가능\n✅ 전세자금대출 이자 소득공제 챙기세요!\n\n브리즈부동산중개 | 010-2601-0110`},
+  vacancy:{임대인:b=>smsShort(`${b} 공실 있으신지 확인차 연락드립니다. 브리즈부동산 010-2601-0110`)},
+  general:{임대인:m=>smsShort(`브리즈부동산입니다. ${m}월 안내: 임대료 입금 확인과 만기 6개월 전 갱신 준비 부탁드립니다.`),임차인:_=>smsShort(`브리즈부동산입니다. 전입신고·확정일자 확인, 갱신 의사는 만기 6개월 전 통보하세요.`)},
+  expiry:{임대인:_=>smsShort(`브리즈부동산입니다. 계약 만기 안내드립니다. 갱신 또는 새 임차인 모집 의사를 알려주세요.`),임차인:_=>smsShort(`브리즈부동산입니다. 만기 안내: 재계약은 6개월 전 통보하세요. 이사 예정이면 연락주세요.`)},
+  spring:{임대인:_=>smsShort(`브리즈부동산입니다. 3~5월 이사철 성수기입니다. 지금 내놓으시면 빠른 계약 가능합니다.`),임차인:_=>smsShort(`브리즈부동산입니다. 이사철 매물 경쟁이 치열합니다. 연동 신규 매물 안내드립니다.`)},
+  tax:{임대인:_=>smsShort(`브리즈부동산입니다. 임대소득 연 2천만원 초과 시 종합소득세 신고 대상입니다.`),임차인:_=>smsShort(`브리즈부동산입니다. 월세 세액공제로 연 최대 90만원 환급 가능합니다. 연락주세요.`)},
 };
 function renderSms(){
   const month=document.getElementById('sms-month').value,role=document.getElementById('sms-role').value,theme=document.getElementById('sms-theme').value;
@@ -5047,7 +5053,10 @@ function renderSms(){
   if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?'선택한 날짜에 공실 감지된 임대인이 없습니다 — 당근 수집을 돌리면 자동으로 등록됩니다':theme==='expiry'?'만기 6개월(180일) 이내 계약이 없습니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
   el.innerHTML=list.map((s,i)=>{
     const okPhone=/\d{9,11}/.test(String(s.phone).replace(/\D/g,''));
-    return`<div class="card"><div class="card-hd"><div><div class="card-title">${s.name} <span class="badge ${s.role==='임대인'?'bg':'bb'}">${s.role}</span></div><div class="card-sub">${s.phone} · ${s.apt}</div></div><div class="row">
+    // 08-23 단문화: 요금 계량 배지 — 90바이트 이하 단문 18원, 넘으면 장문 45원(빨강 경고)
+    const bts=smsBytes(s.msg);
+    const feeBadge=bts<=90?`<span class="badge bg" style="font-size:10px">단문 ${bts}B·18원</span>`:`<span class="badge br" style="font-size:10px">⚠ 장문 ${bts}B·45원</span>`;
+    return`<div class="card"><div class="card-hd"><div><div class="card-title">${s.name} <span class="badge ${s.role==='임대인'?'bg':'bb'}">${s.role}</span> ${feeBadge}</div><div class="card-sub">${s.phone} · ${s.apt}</div></div><div class="row">
       ${okPhone?`<button class="btn btn-g btn-sm" onclick="sendSmsOne(${i})">📨 발송</button>`:`<span class="badge br" style="font-size:10px">번호 없음</span>`}
       <button class="btn btn-sm" onclick="(()=>{navigator.clipboard.writeText(document.getElementById('smsg-${i}').textContent).then(()=>showToast('복사했습니다!'))})()">📋 복사</button>
     </div></div><div class="sms-box" id="smsg-${i}">${s.msg}</div></div>`;}).join('');
