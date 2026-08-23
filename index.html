@@ -488,6 +488,20 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <div class="stat"><div class="stat-icon">⏰</div><div class="stat-num" style="color:var(--r)" id="stat-exp-cnt">0</div><div class="stat-lbl">6개월내 만기</div></div>
         <div class="stat"><div class="stat-icon">🗝️</div><div class="stat-num" style="color:var(--p)" id="stat-short">0</div><div class="stat-lbl">단기임대</div></div>
       </div>
+      <!-- 📈 이번 주 영업 지표 (2026-08-23): 계약률 = 인입→응답→고객→계약 네 숫자의 관리 -->
+      <div id="week-metrics" style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px">
+        <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="font-weight:700;font-size:13.5px">📈 이번 주 영업 지표 <span id="wm-range" style="font-weight:500;color:var(--t2);font-size:11.5px"></span></div>
+          <button class="btn btn-xs btn-b" onclick="weekMetricsLoad()">🔄 새로 계산</button>
+        </div>
+        <div class="row" style="gap:20px;margin-top:8px;flex-wrap:wrap;font-size:13px">
+          <div>📥 인입(문의·통화) <b id="wm-inq" style="font-size:16px">-</b>건</div>
+          <div>🤖 자동응답 발송 <b id="wm-reply" style="font-size:16px">-</b>건</div>
+          <div>👥 신규 고객 <b id="wm-cust" style="font-size:16px">-</b>명</div>
+          <div>📋 새 계약 <b id="wm-ct" style="font-size:16px">-</b>건</div>
+        </div>
+        <div id="wm-note" style="font-size:11.5px;color:var(--t3);margin-top:6px"></div>
+      </div>
       <div class="grid2" style="margin-bottom:12px">
         <div class="cal-wrap">
           <div class="cal-nav">
@@ -3896,6 +3910,33 @@ function saveCustomer(){
   refreshVitoCustomerSelects();
 }
 function deleteCustomer(id){if(!confirm('이 고객을 삭제하시겠습니까?'))return;customers=customers.filter(c=>c.id!==id);save('customers',customers);gsDeleteRow('customers',id);renderCustomers();updateStats();refreshVitoCustomerSelects();showToast('고객 삭제됨');}
+
+// ═══ 📈 이번 주 영업 지표 (2026-08-23) ═══
+// 계약률 관리의 핵심 네 숫자: 인입(인입함) → 자동응답(로그) → 신규 고객(recvDate) → 새 계약(start).
+// 인입·자동응답은 서버(GAS) 집계라 새 버전 배포가 전제 — 미배포면 로컬 두 개만 채워진다.
+function weekMonday(){ const d=new Date(); const off=(d.getDay()+6)%7; const m=new Date(d.getFullYear(),d.getMonth(),d.getDate()-off); return `${m.getFullYear()}-${String(m.getMonth()+1).padStart(2,'0')}-${String(m.getDate()).padStart(2,'0')}`; }
+async function weekMetricsLoad(){
+  const monStr=weekMonday();
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v);};
+  const note=t=>{const el=document.getElementById('wm-note');if(el)el.textContent=t;};
+  const rng=document.getElementById('wm-range'); if(rng)rng.textContent=`(${monStr} 월요일부터)`;
+  set('wm-cust', customers.filter(c=>String(c.recvDate||'').slice(0,10)>=monStr).length);
+  set('wm-ct', contracts.filter(c=>String(c.start||'').slice(0,10)>=monStr).length);
+  const url=getGsUrl();
+  if(!url){ note('⚙️ 시트 연동 후 인입·자동응답도 집계됩니다'); return; }
+  note('서버 집계 중...');
+  try{
+    const [ib,ar]=await Promise.all([
+      gsFetchJson(`${url}?action=inboxList&limit=200&t=${Date.now()}${tokQ()}`,null,'주간 인입 집계'),
+      gsFetchJson(`${url}?action=autoReplyLog&limit=200&t=${Date.now()}${tokQ()}`,null,'자동응답 집계')
+    ]);
+    if(ib&&ib.ok){ set('wm-inq',(ib.result&&ib.result.rows||[]).filter(r=>String(r.when||'').slice(0,10)>=monStr).length); }
+    if(ar&&ar.ok){ set('wm-reply',(ar.result&&ar.result.rows||[]).filter(r=>String(r.when||'').slice(0,10)>=monStr&&String(r.result||'').indexOf('발송')===0).length); }
+    note((ib&&ib.ok)?'':'인입·자동응답 집계는 GAS 새 버전 배포 후 가능합니다');
+  }catch(e){ note('서버 집계 실패: '+e.message+' — 로컬 수치(고객·계약)만 표시'); }
+}
+// 앱 시작 3초 뒤 1회 자동 집계 (실패해도 조용히 — 버튼으로 언제든 재계산)
+setTimeout(()=>{ try{ weekMetricsLoad(); }catch(e){} }, 3000);
 
 // ═══ 📈 실거래 시세 대조 (2026-08-22) ═══
 // 국토부 실거래가로 내 매물이 싼지 비싼지 판정 — 임대인 설득("옆 단지 실거래 이렇습니다")과
