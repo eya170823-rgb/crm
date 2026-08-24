@@ -1729,6 +1729,11 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <div class="form-group"><label>일정 제목 *</label><input id="sched-title" placeholder="예: 김지수 고객 브리핑 — 연동 OO 801호"></div>
     <div class="form-group"><label>장소</label><input id="sched-place" placeholder="예: 중개사무소 / 현장 / 화상"></div>
     <div class="form-group"><label>메모</label><textarea id="sched-note" placeholder="준비사항, 특이사항 등" style="min-height:60px"></textarea></div>
+    <!-- 📨 일정 리마인더 (2026-08-24 사장님 지시): 확정 즉시 + 1일 전 + 당일 아침 발송, 구글캘린더에도 등록 -->
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:4px 0 8px;cursor:pointer">
+      <input type="checkbox" id="sched-remind" checked style="width:16px;height:16px">
+      📨 고객 확정 문자 + 리마인더(1일 전·당일) + 구글캘린더 등록 <span style="color:var(--t3)">(고객 연동 시에만 문자 발송)</span>
+    </label>
     <input type="hidden" id="sched-edit-id">
     <div class="modal-footer">
       <button class="btn" onclick="closeSchedModal()">취소</button>
@@ -2643,15 +2648,19 @@ function saveSched(){
     title,place:document.getElementById('sched-place').value.trim(),
     note:document.getElementById('sched-note').value.trim(),
   };
+  let newId=null;
   if(editId){
     const idx=schedules.findIndex(s=>s.id===editId);
     if(idx>=0) schedules[idx]={...schedules[idx],...data};
     showToast('일정이 수정되었습니다 ✓');
   } else {
-    schedules.push({id:uid(),...data});
+    newId=uid();
+    schedules.push({id:newId,...data});
     showToast('일정이 추가되었습니다 ✓');
   }
   save('schedules',schedules);
+  // 📨 2026-08-24: 새 일정이면 서버 리마인더(확정 즉시·1일 전·당일) + 구글캘린더 등록
+  if(newId&&document.getElementById('sched-remind')?.checked) schedRemindRegister(newId,data);
   closeSchedModal();
   renderCal();renderMonthEvents();
   if(popupDate&&document.getElementById('sched-popup').style.display!=='none'){
@@ -2659,10 +2668,31 @@ function saveSched(){
   }
 }
 
+// 📨 서버 리마인더 등록 (2026-08-24): GAS '일정알림' 시트 + 확정 문자 + 구글캘린더.
+//   고객 전화가 없으면 문자 없이 캘린더·리마인더 기록만. 실패해도 CRM 일정 자체는 유지.
+async function schedRemindRegister(schedId,d){
+  const url=getGsUrl(); if(!url) return;
+  try{
+    const q=new URLSearchParams({action:'scheduleAdd',token:getGsTok(),date:d.date,time:d.time||'',
+      kind:d.type||'미팅',name:d.customerName||'',phone:d.customerPhone||'',
+      memo:[d.title,d.place].filter(Boolean).join(' · '),confirm:d.customerPhone?'1':'0'});
+    const r=await fetch(url+'?'+q.toString());
+    const j=await r.json();
+    const remId=j?.result?.id;
+    if(remId){
+      const s=schedules.find(x=>x.id===schedId);
+      if(s){s.remId=remId;save('schedules',schedules);}
+      showToast(j.result.confirmSent?`📨 확정 문자 발송(${j.result.confirmSent}) + 리마인더 등록 ✓`:'📅 리마인더·캘린더 등록 ✓');
+    } else if(j?.result?.error){ showToast('⚠ 리마인더 등록 실패: '+j.result.error); }
+  }catch(e){ showToast('⚠ 리마인더 서버 연결 실패(일정은 저장됨)'); }
+}
 function deleteSched(id){
   if(!confirm('이 일정을 삭제하시겠습니까?'))return;
+  const victim=schedules.find(s=>s.id===id);
   schedules=schedules.filter(s=>s.id!==id);
   save('schedules',schedules);
+  // 서버 리마인더도 중단(취소 표시) — 이미 나간 문자는 어쩔 수 없지만 남은 발송은 멈춘다
+  if(victim?.remId){ try{ fetch(getGsUrl()+'?'+new URLSearchParams({action:'scheduleDone',token:getGsTok(),id:victim.remId,mode:'cancel'})); }catch(e){} }
   renderCal();renderMonthEvents();closeSchedPopup();
   showToast('일정이 삭제되었습니다');
 }
