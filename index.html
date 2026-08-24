@@ -1563,6 +1563,11 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div class="form-group"><label>계약 시작일 *</label><input id="ct-start" type="date"></div>
       <div class="form-group"><label>계약 만료일 *</label><input id="ct-end" type="date"></div>
     </div>
+    <!-- ✍️ 계약 문자 (2026-08-24 사장님 지시): 저장 시 양측 안내 + 잔금·입주일 리마인더 + 캘린더 -->
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:6px 0 8px;cursor:pointer">
+      <input type="checkbox" id="ct-notify" checked style="width:16px;height:16px">
+      📨 임대인·임차인에게 계약 완료 문자 + 잔금·입주일 리마인더(1일 전·당일) + 구글캘린더 등록
+    </label>
     <input type="hidden" id="ct-edit-id">
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('contract')">취소</button>
@@ -4200,8 +4205,23 @@ function saveContract(){
   } else {
     contracts.push({id:uid(),...data});
     showToast('계약이 추가되었습니다 ✓');
+    // ✍️ 2026-08-24: 새 계약이면 양측 계약 완료 문자 + 잔금·입주일 리마인더 + 캘린더 (체크 시)
+    if(document.getElementById('ct-notify')?.checked) ctNotifyRegister(data);
   }
   save('contracts',contracts);closeModal('contract');renderContracts();renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();
+}
+// 계약 문자 서버 호출 — 실패해도 계약 저장 자체는 유지
+async function ctNotifyRegister(d){
+  const url=getGsUrl(); if(!url) return;
+  try{
+    const q=new URLSearchParams({action:'contractSms',token:getGsTok(),apt:d.apt,type:d.type||'',price:d.price||'',start:d.start||'',
+      lname:d.landlord?.name||'',lphone:d.landlord?.phone||'',tname:d.tenant?.name||'',tphone:d.tenant?.phone||''});
+    const r=await fetch(url+'?'+q.toString());
+    const j=await r.json();
+    const s=j?.result?.sent||[];
+    if(s.length) showToast(`📨 계약 문자 ${s.map(x=>x.role+'('+x.via+')').join('·')} + 리마인더 ${j.result.reminders}건 ✓`);
+    else showToast('⚠ 계약 문자: 발송 가능한 연락처 없음');
+  }catch(e){ showToast('⚠ 계약 문자 서버 연결 실패(계약은 저장됨)'); }
 }
 function deleteContract(id){if(!confirm('이 계약을 삭제하시겠습니까?'))return;contracts=contracts.filter(c=>c.id!==id);save('contracts',contracts);gsDeleteRow('contracts',id);delete expStatus[id];delete contacted[id];save('expStatus',expStatus);save('contacted',contacted);renderContracts();renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();showToast('계약 삭제됨');}
 
