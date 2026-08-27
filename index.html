@@ -711,6 +711,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <button class="btn btn-xs" onclick="inboxBulkPromoteLandlord()">🏠 임대인 일괄등록</button>
           <button class="btn btn-xs btn-r" onclick="inboxBulkDismiss()">🚫 무시 처리</button>
         </div>
+        <!-- 📡 2026-08-27 신설 — 문자·통화 수집이 살아 있는지 한 줄로. 수집이 끊겨도 며칠 뒤에야
+             "문자가 안 들어오네" 하고 알아채던 구조를 막는다(08-13~17 실제 공백 있었음). -->
+        <div id="collect-status" style="margin-top:8px;font-size:12px;padding:6px 9px;border-radius:6px;background:var(--bg,#EEF3F2);border:1px solid var(--border);color:var(--t2)">📡 수집 상태 확인 중…</div>
         <div id="inbox-list" style="margin-top:10px;font-size:12.5px;color:var(--t2)">[🔄 인입함 불러오기]를 누르면 최근 문의가 표시됩니다.</div>
       </div>
 
@@ -4547,6 +4550,33 @@ function updateInboxToolbar(){
     all.checked = selectable>0 && n===selectable;
   }
 }
+/* 📡 문자·통화 수집 상태 (2026-08-27 신설)
+   사슬: 폰(MacroDroid) → GAS smsIn → '문자수신함' 시트 → 메인컴 server.py → 인입함.
+   어디가 끊겨도 겉으로는 조용해서, 마지막 수신이 얼마나 됐는지를 화면에 상시 띄운다.
+   ⚠ 서버를 CRM에서 켤 수는 없다(웹은 PC 프로그램을 실행하지 못한다). 지금은 윈도우
+     작업 스케줄러 '문자접수 웹훅 서버'가 10분마다 살려 두므로, 여기서는 알려 주기만 한다. */
+async function renderCollectStatus(){
+  const el=document.getElementById('collect-status'); if(!el) return;
+  const url=getGsUrl(); if(!url){ el.textContent='📡 구글 시트 설정 후 표시됩니다'; return; }
+  try{
+    const r=await fetch(`${url}?action=collectStatus&t=${Date.now()}${tokQ()}`);
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'조회 실패');
+    const s=j.result||{};
+    const t=v=>{ const d=new Date(String(v||'').replace(' ','T')); return isNaN(d)?null:d; };
+    const last=t(s.lastSms), now=t(s.now)||new Date();
+    if(!last){ el.style.background='#FFF4E5'; el.textContent='📡 수집 기록이 아직 없습니다 — 폰 MacroDroid 설정을 확인하세요'; return; }
+    const min=Math.max(0,Math.round((now-last)/60000));
+    const ago = min<60 ? min+'분 전' : min<1440 ? Math.round(min/60)+'시간 전' : Math.round(min/1440)+'일 전';
+    // 6시간 넘게 조용하면 경고 — 실제 공백 사고(08-13~17)의 기준
+    const bad = min>=360;
+    el.style.background = bad ? '#FDECEA' : 'var(--bg,#EEF3F2)';
+    el.style.borderColor = bad ? '#E5A5A0' : 'var(--border)';
+    el.innerHTML = bad
+      ? `📡 <b>문자·통화 수집이 ${ago}부터 조용합니다</b> — 메인컴 전원·인터넷과 폰 MacroDroid를 확인하세요`
+      : `📡 문자·통화 수집 정상 · 마지막 수신 <b>${ago}</b>${s.inboxRows?` · 인입함 ${Number(s.inboxRows).toLocaleString()}건`:''}`;
+  }catch(e){ el.style.background='#FFF4E5'; el.textContent='📡 수집 상태를 읽지 못했습니다: '+e.message; }
+}
 function inboxRender(){
   const el=document.getElementById('inbox-list');
   updateInboxToolbar();
@@ -5950,7 +5980,7 @@ function go(id){
   const panel=document.getElementById('p-'+id);
   if(panel) panel.classList.add('on');
   if(id==='listing')       {refreshListingCustomerSel();filterType(curTypeFilter);}
-  if(id==='customer')      renderCustomers();
+  if(id==='customer')      { renderCustomers(); renderCollectStatus(); }   // 📡 수집 상태 상시 확인
   if(id==='contract')      renderContracts();
   if(id==='landlord')      renderLandlords();
   if(id==='expiry')        renderExpiry();
