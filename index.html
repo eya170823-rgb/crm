@@ -613,7 +613,6 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="임대중">임대중</option>
           <option value="거래완료">거래완료</option>
           <option value="보류">보류</option>
-          <option value="공실">공실</option>
         </select>
         <select id="l-sort" onchange="renderListings()">
           <option value="접수일_최신">접수일 최신순</option>
@@ -1355,7 +1354,6 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="임대중">임대중</option>
           <option value="거래완료">거래완료</option>
           <option value="보류">보류</option>
-          <option value="공실">공실</option>
         </select>
       </div>
       <div class="form-group"></div>
@@ -2919,7 +2917,13 @@ function markContacted(){if(!activeContactId)return;contacted[activeContactId]=t
 function closeContact(){document.getElementById('contact-panel').classList.remove('open');}
 
 // ═══ LISTINGS ═══
-const STATUS_ORDER={접수:0,상담중:1,계약완료:2,임대중:3,거래완료:4,보류:5,공실:6};
+// 🔴 2026-08-27 사장님 지시로 '공실'을 없애고 '접수'로 통일했다.
+//   두 상태는 홈페이지 노출·광고 대상·공실대조 취급이 완전히 같았고, 차이는 뱃지 색과 정렬뿐이었다.
+//   '접수'를 남긴 이유: 매매·전세 매물(사람이 살고 있는 집)에도 맞는 말이고, 신규 등록·인입함
+//   승격·엑셀 가져오기의 기본값이 이미 '접수'였다. 임대 나간 것은 '임대중'으로 따로 구분된다.
+//   아래 두 표에 공실이 남아 있는 것은 **옛 데이터가 그려질 때 깨지지 않게 하는 안전망**이다
+//   (선택·입력 경로에서는 전부 제거됨 — 드롭다운·시트 유효성검사·엑셀 가져오기).
+const STATUS_ORDER={접수:0,상담중:1,계약완료:2,임대중:3,거래완료:4,보류:5,공실:0};
 const STATUS_CLS={상담중:'bb',계약완료:'bg',접수:'ba',임대중:'bp',거래완료:'bd',보류:'bgr',공실:'br'};
 /* 광고를 내려야 하는 상태 — adLive()가 이 목록을 쓴다.
    계약완료(우리 계약) · 임대중(타처 계약, 만료 후 돌아옴) · 거래완료(타사 계약, 안 돌아옴) · 보류(임대인 요청) */
@@ -5069,11 +5073,11 @@ function addLockButton(){
 // ═══ 공실 대조 (2026-08-14 신설) ═══
 // 관리사무소가 보내주는 공실 목록(사진)을 보고 호수만 붙여넣으면:
 //   ① 목록에 있는데 매물장에 없는 호수 → 오늘 날짜로 새 매물 추가 (조건은 같은 건물 매물에서 복사)
-//   ② 목록에 있고 매물장에도 있는 호수 → 유지. 임대중이었다면 다시 '공실'로
+//   ② 목록에 있고 매물장에도 있는 호수 → 유지. 임대중이었다면 다시 '접수'로(=지금 내놓을 수 있음)
 //   ③ 매물장에 있는데 목록에 없는 호수 → '임대중'으로 전환 (광고·홈페이지에서 자동 제외)
 // 시트에 같은 호수를 다시 적어 넣을 필요가 없어져 중복(빨간 행)이 생기지 않는다.
 // ⚠ 계약완료·거래완료·보류는 자동으로 건드리지 않고 '확인 필요'로만 보고한다.
-const VAC_ON_MARKET=['접수','상담중','공실',''];
+const VAC_ON_MARKET=['접수','상담중','공실','']; // '공실'은 폐지됐지만 옛 행 대비 그대로 인정
 const vacAptKey=s=>String(s||'').replace(/\s+/g,'');
 const vacHoKey=s=>{
   const t=String(s||'').trim();
@@ -5162,7 +5166,7 @@ function vacancyReconcile(key,hos){
           totalFloor:tpl&&tpl.totalFloor||'', aprDate:tpl&&tpl.aprDate||'',
           feeType:tpl&&tpl.feeType||'', feeAmt:tpl&&tpl.feeAmt||'', feeItems:tpl&&tpl.feeItems||'',
           parking:tpl&&tpl.parking||'', options:tpl&&tpl.options||'',
-          status:'공실', recvDate:fmtDate(),
+          status:'접수', recvDate:fmtDate(),
           note:'공실대조 '+fmtDate()+' 자동추가'+(tpl&&(String(tpl.price||'').trim()||String(tpl.rentAmt||'').trim())?' — 가격·조건은 '+(tpl.addr2||'기존 매물')+'에서 복사함, 확인 필요':'')+' '+vacStamp };
         listings.unshift(nl);
       });
@@ -5180,7 +5184,7 @@ function vacancyReconcile(key,hos){
       (act.some(l=>String(l.status||'')==='임대중')?revived:kept).push(ho);
       act.forEach(l=>ops.push(()=>{
         const st=String(l.status||'');
-        if(st==='임대중'||!st.trim()) l.status='공실';
+        if(st==='임대중'||!st.trim()) l.status='접수';
         stampOp(l);
       }));
     }
@@ -5661,7 +5665,9 @@ function confirmUpload(){
       if(!apt){errors.push(`${rn}행: 매물명 누락`);return;}
       if(!price){errors.push(`${rn}행: 거래가 누락`);return;}
       const tv=['매매','전세','월세','연세','단기','단기임대'].includes(type)?type:'전세';
-      const sv=['접수','상담중','계약완료','임대중','거래완료','보류','공실'].includes(getCV(row,'status',cols))?getCV(row,'status',cols):'접수';
+      // '공실'은 폐지된 상태 — 옛 파일에 있으면 '접수'로 받는다 (2026-08-27)
+      const sv0=getCV(row,'status',cols);
+      const sv=['접수','상담중','계약완료','임대중','거래완료','보류'].includes(sv0)?sv0:'접수';
       newItems.push({id:uid(),apt,type:tv,price,area:getCV(row,'area',cols),floor:getCV(row,'floor',cols),status:sv,recvDate:getCV(row,'recvDate',cols),moveDate:getCV(row,'moveDate',cols),cname:getCV(row,'cname',cols),cphone:getCV(row,'cphone',cols),naverUrl:getCV(row,'naverUrl',cols),note:getCV(row,'note',cols),attachments:[]});
     } else {
       const name=getCV(row,'name',cols),phone=getCV(row,'phone',cols);
