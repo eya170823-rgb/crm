@@ -1531,6 +1531,33 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <input id="c-budget" placeholder="예: 전세 3억 이내 / 월세 보증 1천·월 60만 이내">
     </div>
 
+    <!-- 매물 조건 (매칭용) -->
+    <div class="form-section">🔍 찾는 조건 <span style="font-size:11px;font-weight:normal;opacity:.65">(매칭에 사용)</span></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>희망 지역/동</label>
+        <input id="c-region" placeholder="예: 노형동, 연동, 이도동 (쉼표 구분)">
+      </div>
+      <div class="form-group">
+        <label>물건 종류</label>
+        <select id="c-prop-type">
+          <option value="">선택 안함</option>
+          <option value="원룸">원룸</option>
+          <option value="투룸">투룸</option>
+          <option value="오피스텔">오피스텔</option>
+          <option value="아파트">아파트</option>
+          <option value="빌라">빌라</option>
+          <option value="상가">상가</option>
+          <option value="사무실">사무실</option>
+          <option value="주택">주택</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>희망 면적</label>
+      <input id="c-area-size" placeholder="예: 25㎡ 이상, 30~50㎡">
+    </div>
+
     <!-- 진행 단계 -->
     <div class="form-section">📊 진행 단계</div>
     <div class="form-row">
@@ -2921,13 +2948,13 @@ function setStatus(id,val){expStatus[id]=val;save('expStatus',expStatus);expWrit
 // 08-24: 이름·건물명이 길어도 문장이 안 잘리게 — 긴 판부터 시도(smsFit 사다리)
 const expiryMsg={
   임대인:c=>{const n=c.landlord?.name||'',a=c.apt||'',e=c.end||'';return smsFit(
-    `${n}님, 브리즈부동산입니다. ${a} 만기(${e}) 재계약 여부 연락 부탁드립니다.`,
-    `${n}님, 브리즈부동산입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`,
-    `브리즈부동산입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`);},
+    `${n}님, 브리즈부동산중개입니다. ${a} 만기(${e}) 재계약 여부 연락 부탁드립니다.`,
+    `${n}님, 브리즈부동산중개입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`,
+    `브리즈부동산중개입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`);},
   임차인:c=>{const n=c.tenant?.name||'',a=c.apt||'',e=c.end||'';return smsFit(
-    `${n}님, 브리즈부동산입니다. ${a} 만기(${e}) 재계약·이사 계획 연락 부탁드립니다.`,
-    `${n}님, 브리즈부동산입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`,
-    `브리즈부동산입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`);},
+    `${n}님, 브리즈부동산중개입니다. ${a} 만기(${e}) 재계약·이사 계획 연락 부탁드립니다.`,
+    `${n}님, 브리즈부동산중개입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`,
+    `브리즈부동산중개입니다. ${a} 만기(${e}) 재계약 여부 연락주세요.`);},
 };
 function openContact(id){
   activeContactId=id;activeContactRole='임대인';
@@ -3235,6 +3262,9 @@ function openModal(type, editId){
       document.getElementById('c-recv-date').value=item.recvDate||'';
       document.getElementById('c-deadline').value=item.deadline||'';
       document.getElementById('c-budget').value=item.budget||'';
+      document.getElementById('c-region').value=item.region||'';
+      document.getElementById('c-prop-type').value=item.propType||'';
+      document.getElementById('c-area-size').value=item.areaSize||'';
       document.getElementById('c-step').value=item.step||0;
       document.getElementById('c-progress-status').value=item.progressStatus||'진행중';
       document.getElementById('c-con-apt').value=item.conApt||'';
@@ -3247,7 +3277,8 @@ function openModal(type, editId){
       toggleContractSection();
     } else {
       document.getElementById('customer-modal-title').textContent='👥 고객 추가';
-      ['c-name','c-phone','c-recv-date','c-deadline','c-budget','c-note',
+      ['c-name','c-phone','c-recv-date','c-deadline','c-budget',
+       'c-region','c-area-size','c-note',
        'c-con-apt','c-con-move-in','c-con-floor','c-con-unit','c-con-price'].forEach(id=>{
         const el=document.getElementById(id); if(el) el.value='';
       });
@@ -3256,6 +3287,7 @@ function openModal(type, editId){
       document.getElementById('c-step').value='0';
       document.getElementById('c-progress-status').value='진행중';
       document.getElementById('c-con-renewal').value='미신청';
+      document.getElementById('c-prop-type').value='';
       document.getElementById('c-recv-date').value=todayStr();
       toggleContractSection();
     }
@@ -4412,6 +4444,9 @@ function saveCustomer(){
     recvDate:document.getElementById('c-recv-date').value,
     deadline:document.getElementById('c-deadline').value,
     budget:document.getElementById('c-budget').value.trim(),
+    region:document.getElementById('c-region').value.trim(),
+    propType:document.getElementById('c-prop-type').value,
+    areaSize:document.getElementById('c-area-size').value.trim(),
     step:parseInt(document.getElementById('c-step').value)||0,
     progressStatus:document.getElementById('c-progress-status').value,
     conApt:document.getElementById('c-con-apt').value.trim(),
@@ -5732,11 +5767,33 @@ function smsShort(s){
 function smsFit(...cands){for(const c of cands){if(smsBytes(c)<=90)return c;}return smsShort(cands[cands.length-1]);}
 const smsTpl={
   // 공실확인(매일): 당근 수집이 임대인관리에 기록한 '공실감지 날짜'를 기준으로 발송
-  vacancy:{임대인:b=>smsFit(`브리즈부동산입니다. ${b} 공실 여부 확인차 연락드립니다. 감사합니다.`,`브리즈부동산입니다. ${b} 공실 확인차 연락드립니다.`,`브리즈부동산입니다. 공실 확인차 연락드립니다.`)},
-  general:{임대인:m=>smsShort(`브리즈부동산입니다. ${m}월 안내드립니다. 임대료 입금 확인과 만기 6개월 전 갱신 준비 부탁드립니다.`),임차인:_=>smsShort(`브리즈부동산입니다. 전입신고·확정일자 확인과 갱신 의사의 만기 6개월 전 통보를 부탁드립니다.`)},
-  expiry:{임대인:_=>smsShort(`브리즈부동산입니다. 계약 만기 안내드립니다. 갱신 또는 새 임차인 모집 의사를 알려주시기 바랍니다.`),임차인:_=>smsShort(`브리즈부동산입니다. 계약 만기 안내드립니다. 재계약은 6개월 전 통보, 이사 예정 시 연락 부탁드립니다.`)},
-  spring:{임대인:_=>smsShort(`브리즈부동산입니다. 3~5월 이사철 성수기 안내드립니다. 지금 내놓으시면 빠른 계약이 가능합니다.`),임차인:_=>smsShort(`브리즈부동산입니다. 이사철 신규 매물 안내드립니다. 편하신 시간에 연락 부탁드립니다.`)},
-  tax:{임대인:_=>smsShort(`브리즈부동산입니다. 임대소득 연 2천만원 초과 시 종합소득세 신고 대상임을 안내드립니다.`),임차인:_=>smsShort(`브리즈부동산입니다. 월세 세액공제로 연 최대 90만원 환급이 가능합니다. 안내 원하시면 연락주세요.`)},
+  // 🔴 2026-08-27 사장님 확정 — 처음 연락하는 임대인에게 보내는 문자라 톤을 다시 잡았다.
+  //   · 08-23 단문화 때 "브리즈부동산중개입니다. ○○ 공실 여부 확인차 연락드립니다"로 줄었는데,
+  //     무엇을 해줄 수 있는지가 빠져 답이 오지 않았다(사장님 지적).
+  //   · '광고 중'·'맡기신 매물' 같은 표현은 쓸 수 없다 — 직거래·타 중개사 담당이던 임대인이
+  //     섞여 있어 사실이 아니다. '공실 있는지 확인차'가 모두에게 참이다.
+  //   · 상호를 맨 앞에 두면 광고 문자로 보여 열지 않는다 → 인사로 시작하고 서명은 끝에.
+  //   · 소재지를 넣는다 — 모르는 번호로 온 문자에서 실체 있는 사무소임을 보여 주는 장치.
+  //   ⚠ 장문(45원)이다. 대상이 소수(당근 공실감지 임대인)라 단문으로 줄여 답을 못 받는 것보다 낫다.
+  vacancy:{임대인:b=>smsFit(
+    `안녕하세요. ${b} 공실 있는지 확인차 연락드렸습니다.
+공실이 있으시다면 세입자를 빠르게 맞춰보겠습니다.
+감사합니다.
+
+브리즈부동산중개 대표 박정희
+제주시 삼무로1길 13, 1층`,
+    `안녕하세요. ${b} 공실 있는지 확인차 연락드렸습니다.
+공실이 있으시다면 세입자를 빠르게 맞춰보겠습니다.
+
+브리즈부동산중개 대표 박정희`,
+    `안녕하세요. 공실 있는지 확인차 연락드렸습니다.
+공실이 있으시다면 세입자를 빠르게 맞춰보겠습니다.
+
+브리즈부동산중개 대표 박정희`)},
+  general:{임대인:m=>smsShort(`브리즈부동산중개입니다. ${m}월 안내드립니다. 임대료 입금 확인과 만기 6개월 전 갱신 준비 부탁드립니다.`),임차인:_=>smsShort(`브리즈부동산중개입니다. 전입신고·확정일자 확인과 갱신 의사의 만기 6개월 전 통보를 부탁드립니다.`)},
+  expiry:{임대인:_=>smsShort(`브리즈부동산중개입니다. 계약 만기 안내드립니다. 갱신 또는 새 임차인 모집 의사를 알려주시기 바랍니다.`),임차인:_=>smsShort(`브리즈부동산중개입니다. 계약 만기 안내드립니다. 재계약은 6개월 전 통보, 이사 예정 시 연락 부탁드립니다.`)},
+  spring:{임대인:_=>smsShort(`브리즈부동산중개입니다. 3~5월 이사철 성수기 안내드립니다. 지금 내놓으시면 빠른 계약이 가능합니다.`),임차인:_=>smsShort(`브리즈부동산중개입니다. 이사철 신규 매물 안내드립니다. 편하신 시간에 연락 부탁드립니다.`)},
+  tax:{임대인:_=>smsShort(`브리즈부동산중개입니다. 임대소득 연 2천만원 초과 시 종합소득세 신고 대상임을 안내드립니다.`),임차인:_=>smsShort(`브리즈부동산중개입니다. 월세 세액공제로 연 최대 90만원 환급이 가능합니다. 안내 원하시면 연락주세요.`)},
 };
 function renderSms(){
   const month=document.getElementById('sms-month').value,role=document.getElementById('sms-role').value,theme=document.getElementById('sms-theme').value;
@@ -5749,7 +5806,11 @@ function renderSms(){
       if(role==='임차인')return;
       if(!String(l.name||'').includes('임대인'))return;
       if(!String(l.note||'').includes('공실감지 '+d))return;
-      const bld=String(l.apt||'').trim()||String(l.addr||'').replace('제주특별자치도 제주시','').trim()||'보유하신';
+      // 2026-08-27: 주소(읍면동)+건물명으로 넘긴다 — 건물명만으로는 어느 동네인지 안 드러난다
+      const dong=(String(l.addr||'').match(/([가-힣0-9]+(?:동|읍|면|리))(?=\s|$)/)||[])[1]||'';
+      const aptNm=String(l.apt||'').trim();
+      const bld=[dong,aptNm].filter(Boolean).join(' ')
+        || String(l.addr||'').replace('제주특별자치도 제주시','').trim() || '보유하신 건물';
       list.push({name:l.name||'임대인',phone:l.phone||'-',role:'임대인',apt:bld,msg:smsTpl.vacancy.임대인(bld)});
     });
   }else contracts.forEach((c,i)=>{
