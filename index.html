@@ -681,8 +681,36 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
            "수집은 되는데 고객 탭과 안 이어짐"이라 여기서 원클릭으로 잇는다 -->
       <div id="inbox-card" style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;background:var(--bg2,#FAFAF8)">
         <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <div style="font-weight:700">📥 문의 인입함 <span style="font-weight:500;color:var(--t2);font-size:12px">문자·통화가 자동 수집됩니다 — 손님이면 [고객 등록] 한 번</span></div>
+          <div style="font-weight:700">📥 문의 인입함 <span style="font-weight:500;color:var(--t2);font-size:12px">문자·통화가 자동 수집됩니다 — 여러 건을 골라 한 번에 등록/정리하세요</span></div>
           <button class="btn btn-sm btn-b" onclick="inboxLoad()">🔄 인입함 불러오기</button>
+        </div>
+        <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+          <select id="inbox-status" onchange="inboxLoad()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)">
+            <option value="미확인">미확인만</option>
+            <option value="all">전체</option>
+            <option value="임대인">임대인만</option>
+            <option value="광고확인">광고확인만</option>
+            <option value="기타">기타만</option>
+          </select>
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+            <input type="checkbox" id="inbox-unreg" checked onchange="inboxLoad()"> 미등록만
+          </label>
+          <select id="inbox-limit" onchange="inboxLoad()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)">
+            <option value="50">50건</option>
+            <option value="100">100건</option>
+            <option value="200" selected>200건</option>
+            <option value="500">500건</option>
+          </select>
+          <span id="inbox-summary" style="font-size:11.5px;color:var(--t3)"></span>
+        </div>
+        <div id="inbox-bulkbar" style="display:none;gap:6px;align-items:center;margin-top:8px;padding:6px 8px;background:var(--bg,#EEF3F2);border:1px solid var(--border);border-radius:6px;flex-wrap:wrap">
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+            <input type="checkbox" id="inbox-selall" onchange="inboxToggleAll(this.checked)"> 전체선택
+          </label>
+          <span style="font-size:12px">선택 <b id="inbox-sel-count">0</b>건</span>
+          <button class="btn btn-xs btn-g" onclick="inboxBulkPromoteCustomer()">👤 고객 일괄등록</button>
+          <button class="btn btn-xs" onclick="inboxBulkPromoteLandlord()">🏠 임대인 일괄등록</button>
+          <button class="btn btn-xs btn-r" onclick="inboxBulkDismiss()">🚫 무시 처리</button>
         </div>
         <div id="inbox-list" style="margin-top:10px;font-size:12.5px;color:var(--t2)">[🔄 인입함 불러오기]를 누르면 최근 문의가 표시됩니다.</div>
       </div>
@@ -4026,8 +4054,11 @@ async function inboxLoad(){
   const url=getGsUrl(); if(!url){showToast('⚙️ 구글 시트 연동이 필요합니다');return;}
   const el=document.getElementById('inbox-list');
   el.innerHTML='불러오는 중...';
+  const status=document.getElementById('inbox-status')?.value||'미확인';
+  const unreg=document.getElementById('inbox-unreg')?.checked?1:0;
+  const limit=document.getElementById('inbox-limit')?.value||200;
   try{
-    const j=await gsFetchJson(`${url}?action=inboxList&limit=60&t=${Date.now()}${tokQ()}`,null,'인입함 조회');
+    const j=await gsFetchJson(`${url}?action=inboxList&limit=${limit}&status=${encodeURIComponent(status)}&unreg=${unreg}&t=${Date.now()}${tokQ()}`,null,'인입함 조회');
     if(!j.ok){
       el.innerHTML='[🔄 인입함 불러오기]를 누르면 최근 문의가 표시됩니다.';
       showToast(/알 수 없는 action/.test(j.error||'')
@@ -4036,16 +4067,44 @@ async function inboxLoad(){
       return;
     }
     inboxRows=(j.result&&j.result.rows)||[];
+    inboxSelected.clear();
+    const total=(j.result&&j.result.total)||0, matched=(j.result&&j.result.matched)||0;
+    const sum=document.getElementById('inbox-summary');
+    if(sum) sum.textContent = matched>inboxRows.length
+      ? `조건에 맞는 ${matched}건 중 최신 ${inboxRows.length}건 표시 (전체 ${total}건)`
+      : `${matched}건 표시 (전체 ${total}건)`;
     inboxRender();
   }catch(e){ el.innerHTML='[🔄 인입함 불러오기]를 누르면 최근 문의가 표시됩니다.'; showToast('인입함 조회 실패: '+e.message); }
 }
+let inboxSelected=new Set();
+function inboxToggleAll(checked){
+  inboxSelected.clear();
+  if(checked) inboxRows.forEach((r,i)=>{ if(!String(r.reg||'').trim()) inboxSelected.add(i); });
+  inboxRender();
+}
+function inboxToggleOne(i,checked){
+  if(checked) inboxSelected.add(i); else inboxSelected.delete(i);
+  updateInboxToolbar();
+}
+function updateInboxToolbar(){
+  const bar=document.getElementById('inbox-bulkbar'); if(!bar) return;
+  const n=inboxSelected.size;
+  bar.style.display=n?'flex':'none';
+  const cnt=document.getElementById('inbox-sel-count'); if(cnt) cnt.textContent=n;
+  const all=document.getElementById('inbox-selall');
+  if(all){
+    const selectable=inboxRows.filter(r=>!String(r.reg||'').trim()).length;
+    all.checked = selectable>0 && n===selectable;
+  }
+}
 function inboxRender(){
   const el=document.getElementById('inbox-list');
-  if(!inboxRows.length){ el.innerHTML='인입함이 비어 있습니다.'; return; }
+  updateInboxToolbar();
+  if(!inboxRows.length){ el.innerHTML='조건에 맞는 인입함 항목이 없습니다.'; return; }
   const ec=s=>String(s===undefined||s===null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const custKeys=new Set(customers.map(c=>inboxPhoneKey(c.phone)).filter(k=>k.length>=7));
   const llKeys=new Set(landlords.map(l=>inboxPhoneKey(l.phone)).filter(k=>k.length>=7));
-  el.innerHTML='<div style="max-height:340px;overflow-y:auto">'+inboxRows.map((r,i)=>{
+  el.innerHTML='<div style="max-height:420px;overflow-y:auto">'+inboxRows.map((r,i)=>{
     const key=inboxPhoneKey(r.phone);
     const done=!!String(r.reg||'').trim();
     const isCust=key.length>=7&&custKeys.has(key);
@@ -4064,8 +4123,11 @@ function inboxRender(){
         :`<button class="btn btn-xs ${ownerish?'btn-g':''}" onclick="inboxPromoteLandlord(${i})">🏠 임대인</button>`;
       act=ownerish?(bLl+' '+bCust):(bCust+' '+bLl);
     }
+    const cb=done?'<span style="display:inline-block;width:16px"></span>'
+      :`<input type="checkbox" ${inboxSelected.has(i)?'checked':''} onchange="inboxToggleOne(${i},this.checked)" style="margin-top:3px">`;
     const preview=ec(String(r.text||'').replace(/\s+/g,' ').slice(0,90));
-    return`<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid var(--border)">
+    return`<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid var(--border)">
+      <div style="flex-shrink:0;padding-top:3px">${cb}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:11px;color:var(--t3)">${ec(r.when)} · ${ec(r.kind)} · ${ec(r.status)}${r.bld?` · <b>${ec(r.bld)}</b>`:''}</div>
         <div style="font-weight:600;font-size:12.5px;color:var(--t1,#222)">${ec(r.name)||'(이름 없음)'} ${r.phone?`<span style="font-weight:500;color:var(--b)">${ec(r.phone)}</span>`:''}</div>
@@ -4074,6 +4136,84 @@ function inboxRender(){
       <div style="flex-shrink:0;padding-top:4px">${act}</div>
     </div>`;
   }).join('')+'</div>';
+}
+function inboxMarkBulkRemote(rows,val){
+  const url=getGsUrl(); if(!url||!rows||!rows.length) return;
+  gsFetchJson(`${url}?action=inboxMarkBulk&rows=${rows.join(',')}&val=${encodeURIComponent(val)}&t=${Date.now()}${tokQ()}`,null,'인입함 일괄 표시').catch(()=>{});
+}
+// 2026-08-26 신설: 체크박스로 고른 여러 건을 한 번에 고객 등록. 확인창은 1번만(건별 confirm은
+//   30건씩 고르는 실사용에서 30번 눌러야 해 무의미) — 이미 등록된 번호는 메모로만 조용히 합쳐진다.
+async function inboxBulkPromoteCustomer(){
+  const idxs=[...inboxSelected].filter(i=>inboxRows[i]&&!String(inboxRows[i].reg||'').trim());
+  if(!idxs.length){ showToast('선택된 항목이 없습니다'); return; }
+  if(!confirm(`선택한 ${idxs.length}건을 고객으로 일괄 등록할까요?\n이미 등록된 번호는 메모로만 추가됩니다.`)) return;
+  const addedRows=[], notedRows=[]; let added=0, noted=0;
+  idxs.forEach(i=>{
+    const r=inboxRows[i];
+    const key=inboxPhoneKey(r.phone);
+    const exist=customers.find(c=>key.length>=7&&inboxPhoneKey(c.phone)===key);
+    if(exist){
+      exist.note=((exist.note||'')+(exist.note?'\n':'')+`[인입함 ${r.when} ${r.kind}] ${r.text}`).slice(0,1500);
+      noted++; r.reg='메모추가 방금'; if(r.row) notedRows.push(r.row);
+    }else{
+      customers.push({ id:uid(), name:r.name||('미상 '+(r.phone||'')), phone:r.phone||'',
+        role:'임차인', type:'', recvDate:String(r.when||'').slice(0,10), deadline:'', budget:'',
+        step:0, progressStatus:'',
+        conApt:r.bld||'', conMoveIn:'', conFloor:'', conUnit:'', conPrice:'', conRenewal:'',
+        note:(`[인입함 ${r.when} ${r.kind}]\n`+String(r.text||'')).slice(0,1500) });
+      added++; r.reg='고객등록 방금'; if(r.row) addedRows.push(r.row);
+    }
+  });
+  save('customers',customers); renderCustomers(); updateStats();
+  if(typeof refreshVitoCustomerSelects==='function')refreshVitoCustomerSelects();
+  inboxSelected.clear();
+  showToast(`👤 일괄등록 완료 — 신규 ${added}건, 메모추가 ${noted}건`);
+  if(addedRows.length) inboxMarkBulkRemote(addedRows,'고객등록');
+  if(notedRows.length) inboxMarkBulkRemote(notedRows,'메모추가');
+  inboxRender();
+}
+async function inboxBulkPromoteLandlord(){
+  const idxs=[...inboxSelected].filter(i=>inboxRows[i]&&!String(inboxRows[i].reg||'').trim());
+  if(!idxs.length){ showToast('선택된 항목이 없습니다'); return; }
+  if(!confirm(`선택한 ${idxs.length}건을 임대인으로 일괄 등록할까요?\n이미 등록된 번호는 메모로만 추가됩니다.`)) return;
+  const addedRows=[], notedRows=[]; let added=0, noted=0;
+  const today=todayStr();
+  idxs.forEach(i=>{
+    const r=inboxRows[i];
+    const key=inboxPhoneKey(r.phone);
+    const exist=landlords.find(l=>key.length>=7&&inboxPhoneKey(l.phone)===key);
+    if(exist){
+      exist.note=((exist.note||'')+(exist.note?'\n':'')+`[인입함 ${r.when} ${r.kind}] ${r.text}`).slice(0,1500);
+      noted++; r.reg='임대인메모 방금'; if(r.row) notedRows.push(r.row);
+    }else{
+      landlords.push({ id:uid(), name:r.name||('미상 '+(r.phone||'')), phone:r.phone||'', addr:'', apt:r.bld||'',
+        cycle:'6', lastContact:today,
+        nextContact:(typeof llCalcNext==='function'?llCalcNext(today,'6'):''),
+        note:(`[인입함 ${r.when} ${r.kind}]\n`+String(r.text||'')).slice(0,1500) });
+      added++; r.reg='임대인등록 방금'; if(r.row) addedRows.push(r.row);
+    }
+  });
+  save('landlords',landlords);
+  if(typeof renderLandlords==='function')renderLandlords();
+  if(typeof updateStats==='function')updateStats();
+  inboxSelected.clear();
+  showToast(`🏠 일괄등록 완료 — 신규 ${added}건, 메모추가 ${noted}건 (연락주기 6개월로 관리 시작)`);
+  if(addedRows.length) inboxMarkBulkRemote(addedRows,'임대인등록');
+  if(notedRows.length) inboxMarkBulkRemote(notedRows,'임대인메모');
+  inboxRender();
+}
+// 2026-08-26 신설: 광고성 문의·관련없는 통화 등 등록할 필요 없는 건을 인입함에서만 정리.
+//   고객/임대인 시트에는 아무것도 남기지 않고 인입함 도장만 찍어 목록에서 사라지게 한다.
+async function inboxBulkDismiss(){
+  const idxs=[...inboxSelected].filter(i=>inboxRows[i]&&!String(inboxRows[i].reg||'').trim());
+  if(!idxs.length){ showToast('선택된 항목이 없습니다'); return; }
+  if(!confirm(`선택한 ${idxs.length}건을 처리 완료로 표시할까요?\n고객/임대인 등록 없이 인입함에서만 정리됩니다.`)) return;
+  const rows=[];
+  idxs.forEach(i=>{ const r=inboxRows[i]; r.reg='무시 방금'; if(r.row) rows.push(r.row); });
+  inboxSelected.clear();
+  showToast(`🚫 ${rows.length}건 무시 처리 완료`);
+  inboxMarkBulkRemote(rows,'무시');
+  inboxRender();
 }
 async function inboxPromote(i){
   const r=inboxRows[i]; if(!r) return;
@@ -5041,11 +5181,22 @@ function vacancyReconcile(key,hos){
       });
       return;
     }
-    if(ex.length>1) attention.push(ho+'호: 같은 호수 행이 '+ex.length+'개 있습니다 — 시트에서 남길 행 하나만 두고 직접 삭제하세요');
-    const l=ex[0], st=String(l.status||'');
-    if(st==='임대중'){ revived.push(ho); ops.push(()=>{ l.status='공실'; stampOp(l); }); }
-    else if(st==='계약완료'||st==='거래완료'||st==='보류') attention.push(ho+'호: '+st+' 상태인데 공실 목록에 있습니다 — 상태를 직접 확인하세요');
-    else { kept.push(ho); ops.push(()=>stampOp(l)); }
+    if(ex.length>1) attention.push(ho+'호: 같은 호수 행이 '+ex.length+'개 있습니다 — 함께 처리했으니 시트에서 한 줄만 남기고 지워 주세요');
+    // 🔴 2026-08-27: 종전에는 ex[0] 한 행만 처리해, 같은 호수가 두 줄이면 한 줄만 상태가 바뀌어
+    //   '접수'와 '임대중'으로 갈렸다. 나간 방이 남은 줄 때문에 계속 광고에 노출되던 원인(실측 9건).
+    //   이제 공실 목록에 있는 호수에는 '임대중'이 한 줄도 남지 않는다.
+    const BLOCKED=['계약완료','거래완료','보류'];
+    ex.filter(l=>BLOCKED.includes(String(l.status||''))).forEach(l=>
+      attention.push(ho+'호: '+l.status+' 상태인데 공실 목록에 있습니다 — 상태를 직접 확인하세요'));
+    const act=ex.filter(l=>!BLOCKED.includes(String(l.status||'')));
+    if(act.length){
+      (act.some(l=>String(l.status||'')==='임대중')?revived:kept).push(ho);
+      act.forEach(l=>ops.push(()=>{
+        const st=String(l.status||'');
+        if(st==='임대중'||!st.trim()) l.status='공실';
+        stampOp(l);
+      }));
+    }
   });
   rows.forEach(l=>{
     const h=vacHoKey(l.addr2);
