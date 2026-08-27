@@ -4601,6 +4601,23 @@ function daangnMulti(raw,map){
   }
   return out.filter(x=>!ban.has(x)).join(', ');
 }
+// 🔴 2026-08-27 신설 — 당근 표준 단어로 못 바꾼 말을 돌려준다.
+//   daangnMulti 는 모르는 단어를 **아무 말 없이 버린다.** 실제로 관리비 '인테넛' 오타 하나로
+//   인터넷비가 14건에서 통째로 빠진 채 올라가고 있었고, 사장님이 눈으로 발견하기 전까지
+//   아무도 몰랐다. 오타 관용을 늘리는 것만으로는 다음 오타를 못 막으므로,
+//   **버려진 단어를 검수 파일에 그대로 적어** 사람이 볼 수 있게 한다.
+//   ⚠ '풀옵션'처럼 일부러 안 펼치는 말은 예외로 둔다(허위광고 방지 규칙이 우선).
+const DAANGN_DROP_OK=/^(풀\s*옵션|신축급|기타|등|해당없음|없음)$/;
+function daangnDropped(raw,map){
+  const NEG=/(없음|없슴|없|제외|미포함|불포함|별도|안됨|[xX×✕])\s*$/;
+  const out=[];
+  for(const part of String(raw||'').split(/[,\/·、]/)){
+    const t=part.replace(/\([^)]*\)/,'').trim();
+    if(!t||NEG.test(t)||DAANGN_DROP_OK.test(t))continue;
+    if(!map.some(([kw])=>t.toLowerCase().includes(String(kw).toLowerCase())))out.push(t);
+  }
+  return out;
+}
 function daangnAvail(v){v=String(v||'').trim();if(!v)return'';if(/즉시/.test(v))return'즉시입주';const m=String(normDateStr(v)).match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:'';}
 function daangnYear(v){const m=String(v||'').match(/(19|20)\d{2}/);return m?m[0]:'';}
 // 당근 외부유도 제재 예방: 광고문 사본에서 전화번호·링크·카톡 줄만 제거 (CRM 원본은 보존)
@@ -4894,6 +4911,14 @@ async function exportDaangnExcel(){
       neg.push('관리비 → 초안에서 자동으로 채워졌는지 확인(당근이 2026-08부터 엑셀 관리비를 AI로 읽음 — 08-22 실물 확인). 비어 있으면 옆의 관리비 금액·포함항목 열 값으로 손입력');
     if(feeBad) neg.push('관리비 유형은 "'+feeType0+'"인데 총 관리비가 비어 필수 위반 → '
       + '관리비 칸을 통째로 비워 내보냄. CRM에 금액을 넣으세요');
+    // 🔴 2026-08-27: 당근이 못 알아듣는 단어는 조용히 버려진다 — 무엇이 빠졌는지 지목한다
+    //   (관리비 '인테넛' 오타로 인터넷비가 14건에서 말없이 빠져 있던 것을 사장님이 발견)
+    const feeDrop=daangnDropped(l.feeItems,DAANGN_FEE_ITEM_MAP);
+    if(feeDrop.length) neg.push('관리비 포함항목에서 "'+feeDrop.join('", "')+'" 는 당근이 못 읽어 빠집니다'
+      + ' — 오타인지 확인하고 공용/전기료/수도료/가스비/난방비/인터넷비/TV 중 맞는 말로 고치세요');
+    const optDrop=daangnDropped(l.options,DAANGN_OPTION_MAP);
+    if(optDrop.length) neg.push('옵션에서 "'+optDrop.join('", "')+'" 는 당근이 못 읽어 빠집니다'
+      + ' — 에어컨/냉장고/세탁기/가스렌지/인덕션/전자렌지/침대/엘리베이터/복층/옥탑 중 실제 있는 품목으로 적으세요');
     fixRows.push([
       String(l.id||''),
       (String(l.addr||'').trim()+' '+String(l.addr2||'').trim()).trim(),
