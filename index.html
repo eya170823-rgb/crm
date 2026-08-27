@@ -1410,6 +1410,12 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div style="font-size:11px;color:var(--t3);margin-top:4px">네이버 부동산에서 매물 URL을 복사해 붙여넣으세요</div>
     </div>
 
+    <!-- 매물사진 (2026-08-27) — 올리면 구글드라이브 '원본'으로 가고, 사진보정 프로그램이 워터마크를 찍습니다 -->
+    <div class="form-section">📷 매물사진</div>
+    <div class="form-group">
+      <div id="photo-panel" style="font-size:12px">불러오는 중…</div>
+    </div>
+
     <!-- 첨부파일 -->
     <div class="form-section">📎 첨부파일 (등기사항전부증명서 등)</div>
     <div class="form-group">
@@ -2186,7 +2192,7 @@ async function gsEnrichAndLoad(){
     const plan=[];
     listings.forEach(l=>{
       if((l.addr||l.apt)&&String(l.type||'').trim()&&String(l.price||'').trim()){
-        const t=buildListingDesc(l);
+        const t=buildListingDesc(l,listings);
         if(t&&t!==l.desc) plan.push({l,t,had:String(l.desc||'').trim().length>0});
       }
     });
@@ -3173,6 +3179,7 @@ function openModal(type, editId){
       document.getElementById('l-note').value=item.note||'';
       if(item.customerId) document.getElementById('l-customer-sel').value=item.customerId;
       renderExistingAttachments(item.attachments||[]);
+      photoPanelOpen(item.id);
     } else {
       document.getElementById('listing-modal-title').textContent='🏠 매물 추가';
       ['l-addr','l-addr2','l-apt','l-price','l-rent','l-area','l-floor','l-total-floor','l-apr-date','l-rooms','l-baths','l-direction','l-avail-date','l-fee-type','l-fee-amt','l-fee-items','l-fee-basis','l-fee-evidence','l-fee-note','l-parking','l-pets','l-loan','l-options','l-bldg-use','l-jimok','l-zone','l-premium','l-desc','l-move-date','l-cname','l-cphone','l-note','l-naver-url','l-contract-date','l-contract-end'].forEach(id=>document.getElementById(id).value='');
@@ -3183,6 +3190,7 @@ function openModal(type, editId){
       document.getElementById('l-customer-sel').value='';
       document.getElementById('l-recv-date').value=todayStr();
       renderExistingAttachments([]);
+      photoPanelOpen('');
     }
     renderAttachPreview();
     // 상태에 맞춰 계약/임대 날짜 칸을 열어둔다 — 예전에는 상태를 직접 바꿀 때만 열려서
@@ -3296,6 +3304,146 @@ function renderExistingAttachments(files){
     </div>`).join('');
 }
 
+/* ─── 📷 매물사진 (2026-08-27 사장님 지시 "반드시 사진보정 프로그램을 거치게 — 워터마크") ───
+   여기서 올린 사진은 구글드라이브의 '원본' 폴더로만 갑니다. 광고에 쓰는 '보정완료' 폴더는
+   바탕화면 [브리즈부동산 사진보정] 프로그램만 만듭니다 — 그래서 워터마크를 건너뛸 수가 없습니다.
+   폴더는 매물의 동·건물명·호수를 보고 GAS가 알아서 정합니다 (사장님이 폴더를 찾을 일 없음).
+   🔴 사진을 localStorage 에 담지 않습니다. 첨부파일 방식(base64 저장)으로 사진을 넣으면
+      브라우저 저장 한도(5~10MB)를 넘겨 매물장 저장이 통째로 조용히 실패합니다. */
+const PHOTO_MAX_PX=1600, PHOTO_QUALITY=0.85;
+let photoPanelId='';
+
+function photoPanelOpen(id){
+  photoPanelId=id||'';
+  const el=document.getElementById('photo-panel'); if(!el)return;
+  if(!photoPanelId){
+    el.innerHTML='<div style="background:var(--gl);border-radius:10px;padding:12px 14px;line-height:1.6;color:var(--t2)">'+
+      '매물을 <strong>먼저 저장</strong>하시면 사진을 올릴 수 있습니다.<br>'+
+      '<span style="color:var(--t3)">사진 폴더는 매물번호가 생겨야 정해집니다.</span></div>';
+    return;
+  }
+  photoPanelRefresh();
+}
+
+function photoPanelBox(inner){
+  const el=document.getElementById('photo-panel'); if(el)el.innerHTML=inner;
+}
+
+async function photoPanelRefresh(){
+  const url=getGsUrl();
+  if(!url){ photoPanelBox('<div style="color:var(--t3)">구글 시트 연동을 먼저 설정하세요.</div>'); return; }
+  photoPanelBox('<div style="color:var(--t3)">사진 현황을 보는 중…</div>');
+  let r;
+  try{
+    r=await gsFetchJson(url,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'drivePhotos',token:getGsTok(),listingId:photoPanelId})},'사진 현황');
+  }catch(e){ photoPanelBox('<div style="color:var(--r)">사진 현황을 못 읽었습니다 — '+e.message+'</div>'); return; }
+  const d=(r&&r.result)||{};
+  if(d.error){ photoPanelBox('<div style="color:var(--r)">'+d.error+'</div>'); return; }
+  photoPanelDraw(d);
+  // 시트에도 링크·장수를 남겨 다른 기기·홈페이지에서 보이게 한다
+  const l=listings.find(x=>x.id===photoPanelId);
+  if(l){ l.photoUrl=d.folderUrl||''; l.photoCnt='원본'+(d.raw||0)+'·보정완료'+(d.done||0); }
+}
+
+function photoPanelDraw(d){
+  const pending=d.pending||0, done=d.done||0, raw=d.raw||0;
+  const shots=(d.photos||[]).map(p=>
+    '<a href="'+p.url+'" target="_blank" rel="noopener" title="'+p.name+'" '+
+      'style="display:block;width:78px;flex:0 0 auto"><img src="'+p.thumb+'" alt="'+p.name+'" '+
+      'style="width:78px;height:78px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">'+
+      '<div style="font-size:10px;color:var(--t3);text-align:center;margin-top:2px;overflow:hidden;'+
+      'text-overflow:ellipsis;white-space:nowrap">'+p.name+'</div></a>').join('');
+
+  /* 🔴 보정은 '광고 올릴 때 그 매물 하나만' 합니다 (2026-08-27 사장님 지시).
+     사진이 있다고 그 매물이 지금도 살아 있는 건 아니라, 공실이 확인되고 광고를 올리기로
+     정한 뒤에 그 호수 폴더만 보정합니다. 미리 통째로 돌리면 안 쓸 사진에 돈을 씁니다.
+     그래서 아래 문구는 재촉이 아니라 '원본을 보관 중'이라는 상태 표시로 적습니다. */
+  let status;
+  if(raw===0&&done===0) status='<span style="color:var(--t3)">아직 올린 사진이 없습니다.</span>';
+  else if(pending>0) status='<span style="color:var(--o,#d97706);font-weight:600">📷 원본 '+pending+'장 보관 중</span>'+
+    ' <span style="color:var(--t3)">— 광고를 올리기로 정하시면 그때 [브리즈부동산 사진보정]에서 '+
+    '아래 폴더를 골라 [시작]하세요. 워터마크가 찍혀 광고용이 됩니다</span>';
+  else status='<span style="color:var(--g)">✅ '+done+'장 워터마크 완료 — 광고에 바로 쓸 수 있습니다</span>';
+
+  photoPanelBox(
+    '<div style="background:var(--gl);border-radius:10px;padding:10px 12px;line-height:1.6;margin-bottom:8px">'+
+      status+
+      '<div style="font-size:11px;color:var(--t3);margin-top:4px">원본 '+raw+'장 · 보정완료 '+done+'장'+
+      (d.path?'<br>📁 '+d.path:'')+'</div>'+
+    '</div>'+
+    (shots?'<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px">'+shots+'</div>':'')+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      '<input type="file" id="l-photo-input" accept="image/jpeg,image/png,image/webp" multiple '+
+        'style="display:none" onchange="photoFilesSelected(this)">'+
+      '<button type="button" class="btn btn-sm" style="background:var(--p,#7C3AED);color:#fff;border-color:var(--p,#7C3AED);font-weight:600" '+
+        'onclick="document.getElementById(\'l-photo-input\').click()">📷 사진 올리기</button>'+
+      (d.folderUrl?'<button type="button" class="btn btn-sm" onclick="window.open(\''+d.folderUrl+'\',\'_blank\')">📁 폴더 열기</button>':'')+
+      '<button type="button" class="btn btn-sm" onclick="photoPanelRefresh()">🔄 새로고침</button>'+
+    '</div>'+
+    '<div id="l-photo-progress" style="font-size:11px;color:var(--t3);margin-top:6px"></div>'
+  );
+}
+
+function photoFilesSelected(input){
+  const files=Array.from(input.files||[]);
+  input.value='';
+  if(files.length) photoUpload(files);
+}
+
+/* 사진을 긴 변 1600px·JPEG로 줄여서 보냅니다.
+   원본 그대로 보내면 한 장에 5~10MB라 앱스스크립트 요청이 자주 실패하고, 드라이브 용량도 빨리 찹니다.
+   1600px는 당근·직방·다방이 쓰는 크기보다 크므로 광고 화질에는 손해가 없습니다. */
+function photoShrink(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const scale=Math.min(1,PHOTO_MAX_PX/Math.max(img.width,img.height));
+      const cv=document.createElement('canvas');
+      cv.width=Math.round(img.width*scale); cv.height=Math.round(img.height*scale);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      const dataUrl=cv.toDataURL('image/jpeg',PHOTO_QUALITY);
+      const b64=dataUrl.slice(dataUrl.indexOf(',')+1);
+      const base=file.name.replace(/\.[^.]+$/,'').replace(/[\\\/:*?"<>|]/g,'_');
+      resolve({name:base+'.jpg',b64,bytes:Math.round(b64.length*0.75)});
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('이 파일은 브라우저가 못 엽니다')); };
+    img.src=url;
+  });
+}
+
+async function photoUpload(files){
+  if(!photoPanelId){ showToast('매물을 먼저 저장해주세요'); return; }
+  const url=getGsUrl();
+  if(!url){ showToast('구글 시트 연동을 먼저 설정해주세요'); return; }
+  const prog=document.getElementById('l-photo-progress');
+  const say=t=>{ if(prog)prog.textContent=t; };
+
+  const heic=files.filter(f=>/\.(heic|heif)$/i.test(f.name));
+  if(heic.length) showToast('아이폰 HEIC 사진 '+heic.length+'장은 브라우저가 못 엽니다 — 드라이브 원본 폴더에 직접 넣어주세요');
+  const usable=files.filter(f=>!/\.(heic|heif)$/i.test(f.name));
+  if(!usable.length){ say(''); return; }
+
+  let done=0, failed=0;
+  for(let i=0;i<usable.length;i++){
+    const f=usable[i];
+    say(`올리는 중… ${i+1}/${usable.length}  (${f.name})`);
+    try{
+      const shrunk=await photoShrink(f);
+      const r=await gsFetchJson(url,{method:'POST',headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'drivePut',token:getGsTok(),listingId:photoPanelId,
+                             name:shrunk.name,b64:shrunk.b64})},'사진 업로드');
+      if(r&&r.result&&r.result.error) throw new Error(r.result.error);
+      done++;
+    }catch(e){ failed++; say(`${f.name} 실패 — ${e.message}`); }
+  }
+  say(`올리기 끝 — 성공 ${done}장${failed?' / 실패 '+failed+'장':''}`);
+  showToast(done+'장을 원본 폴더에 올렸습니다. 사진보정 프로그램을 돌리면 워터마크가 찍힙니다');
+  await photoPanelRefresh();
+  if(typeof gsAutoSync==='function') gsAutoSync('listings',listings);
+}
+
 // ─── 네이버 링크 ───
 function testNaverLink(){
   const url=document.getElementById('l-naver-url').value.trim();
@@ -3379,28 +3527,248 @@ function syncOptionChips(){
 
 // ─── 매물설명 자동생성 (통합매물장 브리즈 광고 양식) ───
 const DESC_CONFIG={
-  brand:'브리즈부동산중개', brandEn:'BREEZE Real Estate',
+  brand:'브리즈부동산중개', brandEn:'BREEZE REAL ESTATE',
+  slogan:'바른 기준, 가치 있는 동행',          // 홈페이지 실제 태그라인 (01_광고자동화_당근\config.py)
   phone:'010-2601-0110', // 담당자 직통 — 바뀌면 이 줄만 수정
+  // 🔴 공인중개사법 인터넷 표시·광고 법정 명시사항 — 미기재 시 과태료 대상.
+  //    2026-08-27 이식: 당근 폴더(config.py)에는 있었는데 CRM 광고문에는 통째로 빠져 있었다.
+  ceo:'박정희',
+  regNo:'50110-2026-00057',                  // 중개사무소 개설등록번호 (제주시장, 2026-07-02)
+  office:'제주특별자치도 제주시 삼무로1길 13, 1층',
+  // 상호를 감싸는 괄호 — 「 」·『 』·《 》 로 바꾸려면 이 두 줄만 고치면 된다 (전부 CP949 안전)
+  br1:'【', br2:'】',
 };
-// 읍면동별 생활권 문구 (기존 config.py LIVING_ZONES 이식)
+// 읍면동별 생활권 문구 — 2026-08-27 당근 폴더(config.py) 최신 풀로 교체.
+//   종전에는 동네당 3개였고 그중 **앞 2개를 고정**으로 써서 같은 동 매물이 전부 같은 두 줄을
+//   받았다(사장님 지적). 이제 19개 동네 × 4~8개 풀에서 매물별 시드로 회전한다.
+//   🔴 여기 넣는 문장은 전부 '그 동네에 대해 사실인 것'이어야 한다. '도보 3분'처럼 매물마다
+//      달라지는 수치는 넣지 말 것 — 지어내면 그대로 과장광고다.
 const LIVING_ZONES={
-  '연동':['제주공항 차량 약 10분 거리','한라병원 생활권','누웨마루·제원사거리 상권 인근'],
-  '노형':['이마트·드림타워 인근 대형 상권','한라수목원 인근 쾌적한 환경','학군 우수'],
-  '외도':['외도부영아파트 생활권','이호테우해변 인근','신제주 접근 양호'],
-  '이호':['이호테우해변 인근','신제주·공항 접근 양호','조용한 주거환경'],
-  '도남':['제주시청·중심지 생활권','교통 편리','생활 인프라 우수'],
-  '이도':['제주시청·동문시장 인근 중심 생활권','교통 편리'],
-  '일도':['탑동·동문시장 인근 중심 상권','교통 편리'],
-  '삼양':['삼양해변 인근','동부권 생활권','조용한 주거환경'],
-  '화북':['동부권 생활권','제주시 접근 양호','생활 인프라 양호'],
-  '애월':['바다 접근성 우수','전원생활 가능','관광지 인근 한적한 환경'],
-  '하귀':['제주시 출퇴근 양호','하귀초 인근','신축 주거단지 형성'],
-  '조천':['동부권 생활권','함덕해변 접근 양호','조용한 전원 환경'],
-  '한림':['서부권 생활권','협재·금능해변 인근','관광·상권 발달'],
-  '서귀포':['서귀포 중심 생활권','관광·상권 발달','온화한 기후'],
+  '연동':['제주공항 차량 약 10분 거리','한라병원 생활권','누웨마루·제원사거리 상권 인근','제주시 중심 생활권으로 편의시설 풍부','신제주 중심 상권 이용 편리','관공서·금융기관 밀집 지역','버스 노선 다양한 구간'],
+  '노형':['이마트·드림타워 인근 대형 상권','한라수목원 인근 쾌적한 환경','학군 우수','병원·생활 인프라 우수','신제주 주요 상권 생활권','대형마트·백화점 이용 편리','정주 여건 안정적인 주거지'],
+  '외도':['외도부영아파트 생활권','이호테우해변 인근','신제주 접근 양호','조용한 주거환경','제주시 서부권 생활권','생활편의시설 갖춘 주거지'],
+  '이호':['이호테우해변 인근','신제주·공항 접근 양호','조용한 주거환경','해안 인접 주거지','제주시 서부권 생활권'],
+  '도남':['제주시청·중심지 생활권','교통 편리','생활 인프라 우수','시내 중심가 인접','관공서 접근 양호','버스 노선 다양한 구간'],
+  '이도':['제주시청·동문시장 인근 중심 생활권','교통 편리','제주시청 생활권','동문시장 접근 양호','시내 중심가 인접','관공서·학교 인접 주거지','버스 노선 다양한 구간','생활편의시설 밀집 지역'],
+  '일도':['탑동·동문시장 인근 중심 상권','교통 편리','구도심 중심 생활권','동문시장 접근 양호','탑동 해안 상권 인근','버스 노선 다양한 구간','생활편의시설 밀집 지역'],
+  '삼도':['제주시 구도심 중심 생활권','관덕정·중앙로 상권 인근','교통 편리','관공서·학교 인접 주거지','버스 노선 다양한 구간'],
+  '용담':['제주공항 인접 생활권','용두암·해안도로 인근','신제주 접근 양호','제주시 서부권 생활권','생활편의시설 갖춘 주거지'],
+  '아라':['제주대학교 인근 생활권','한라산 방면 쾌적한 환경','제주시 남부권 주거지','학군 우수','정주 여건 안정적인 주거지'],
+  '오라':['제주시 중심부 접근 양호','한라산 방면 쾌적한 환경','조용한 주거환경','생활편의시설 갖춘 주거지'],
+  '삼양':['삼양해변 인근','동부권 생활권','조용한 주거환경','해안 인접 주거지','제주시 접근 양호'],
+  '화북':['동부권 생활권','제주시 접근 양호','생활 인프라 양호','조용한 주거환경','해안 인접 주거지'],
+  '도련':['제주시 동부권 생활권','조용한 주거환경','제주시 접근 양호','정주 여건 안정적인 주거지'],
+  '애월':['바다 접근성 우수','전원생활 가능','관광지 인근 한적한 환경','제주시 서부권 생활권','조용한 전원 환경'],
+  '하귀':['제주시 출퇴근 양호','하귀초 인근','신축 주거단지 형성','제주시 서부권 생활권','조용한 주거환경'],
+  '조천':['동부권 생활권','함덕해변 접근 양호','조용한 전원 환경','제주시 접근 양호','관광지 인근 한적한 환경'],
+  '한림':['서부권 생활권','협재·금능해변 인근','관광·상권 발달','조용한 전원 환경','해안 인접 주거지'],
+  '서귀포':['서귀포 중심 생활권','관광·상권 발달','온화한 기후','생활편의시설 갖춘 주거지','관공서 접근 양호'],
 };
+// 메모·옵션에서 잡아 쓰는 광고 문구 (당근 폴더 adgen.KEYWORD_BULLETS 이식).
+//   위 매물정보를 되풀이하지 않고 '이점'을 말하는 줄이라 광고문다워진다.
+//   ⚠ '풀옵션' 단독 표기는 표시·광고 위반이라 '옵션 구비로 바로 생활 가능'으로 순화해 쓴다.
+const DESC_KEYWORDS=[
+  [/엘베|엘리베이터/,'엘리베이터 완비로 편리한 건물'],
+  [/즉시/,'즉시입주 가능'],
+  [/풀옵션/,'옵션 구비로 바로 생활 가능'],
+  [/반려|애견|애완/,'반려동물 협의 가능'],
+  [/신축/,'신축급 컨디션으로 깨끗하고 쾌적'],
+  [/리모델링|올수리|수리/,'리모델링 완료되어 깔끔한 내부'],
+  [/오션뷰|바다뷰|바다/,'탁 트인 오션뷰로 개방감 우수'],
+  [/역세권|버스|정류장/,'대중교통 접근 편리한 입지'],
+  [/대출/,'대출 가능 매물'],
+  [/분리형/,'분리형 구조로 공간 활용도 우수'],
+  [/복층/,'복층 구조로 넓은 활용 공간'],
+  [/테라스|마당/,'테라스·마당 있는 여유 공간'],
+  [/주차/,'주차 가능'],
+];
+// 하단 문의유도 멘트도 매물별로 회전 — 고정 문장이 많을수록 블로그 유사문서 위험이 커진다.
+//   전부 '사실 주장이 없는' 안내 문장이라 광고 규제와 무관하다.
+const DESC_CTA_POOL=['원하시는 조건을 말씀해 주시면 맞춤 매물을 찾아드립니다.','조건을 알려주시면 비슷한 매물도 함께 안내해 드립니다.','궁금하신 점은 편하게 문의해 주세요.','방문 상담 및 현장 확인 예약 도와드립니다.','찾으시는 조건이 있으시면 말씀해 주세요.','매물 확인이나 상담이 필요하시면 연락 주세요.'];
+// 페르소나별 강조 순서 — 사실은 그대로 두고 '어떤 줄을 앞에 둘지'만 바꾼다(위법 0).
+const DESC_PERSONA={
+  '1인가구':['옵션','관리비','즉시','입주','채광','향','주차','엘리','보안','교통','버스'],
+  '신혼부부':['방','채광','향','신축','승인','교통','주차','관리비'],
+  '가족':['방','면적','학교','학군','채광','향','주차','단지','관리비','층'],
+  '사업자':['유동','상권','주차','층','면적','관리비','업종'],
+};
+/* ── 광고문구 개인화 (2026-08-27) — 01_광고자동화_당근\adgen.py 방식 이식 ──
+   사장님 지적: "매물설명 특징이 거의 모두 같게 나온다".
+   원인: 매물특징이 LIVING_ZONES[동네] 의 **앞 2개 고정**이라, 연동 매물이면 전부 같은 두 줄.
+   해결(adgen.py 2026-07-27 과 동일한 방식):
+     ① 매물번호로 만든 **고정 시드**로 문구를 회전 — 같은 매물은 늘 같은 문구(광고가 매번
+        바뀌면 안 된다), 다른 매물은 다른 문구.
+     ② 같은 사실도 표현을 돌려 쓴다(주차 가능 / 주차 공간 확보된 건물 / 차량 주차 가능).
+     ③ 🔴 시트에 **실제로 있는 값만** 문장으로 만든다. 없는 값은 절대 지어내지 않는다
+        (지어내면 그대로 허위·과장광고 = 공인중개사법 위반).                              */
+function descSeed(o){
+  const base=String(o.id||'').trim()||String(o.apt||'')+String(o.addr2||'')+String(o.addr||'');
+  let h=2166136261>>>0;                                   // FNV-1a — 같은 입력이면 늘 같은 값
+  for(let i=0;i<base.length;i++){ h^=base.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
+  return h>>>0;
+}
+function descRotate(pool,seed,n){
+  const p=[...new Set((pool||[]).filter(Boolean))];
+  let s=(seed>>>0)||1;
+  const rnd=()=>{ s=(Math.imul(s,1664525)+1013904223)>>>0; return s/4294967296; };
+  for(let i=p.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; }
+  return p.slice(0,n);
+}
+/* 🔴 2026-08-27 개편 — 사장님 지적 "매물특징이 위 정보를 그대로 풀어 쓴 것밖에 안 된다".
+   웹 조사(entpmkt 등)와 통합매물장에 남아 있던 옛 AI 문구의 공통점: **스펙 나열이 아니라
+   '생활 장면'으로 말한다**. 옛 AI 문구 3종도 그 형태였다.
+     "차량 필수인 제주에서 전용 주차 공간이 확보된 실속 있는 매물입니다."
+     "공실 상태로 계약 후 즉시 입주 가능, 이사 날짜 맞추기 부담 없는 매물입니다."
+     "하루 종일 햇살이 드는 남향 구조로 겨울에도 따뜻하고 낮에는 조명 없이 생활 가능합니다."
+   ⚠ 그 옛 문구에는 치명적 오류가 있었다 — "세대당 1020.8대"(실제 0.8대). 주차대수와 세대수를
+     나누지 않고 이어 붙인 값이다. **숫자는 코드가 계산하고 문장 틀만 여기서 가져온다.**
+   ⚠ 방향은 반드시 갈라 쓴다. 남향 문장을 서향 매물에 쓰면 그 자체가 허위광고다.            */
+const DESC_SAY={
+  주차n:['차량이 필수인 제주에서 세대당 {n}대 주차가 확보돼 있습니다',
+        '제주 생활에 꼭 필요한 주차가 세대당 {n}대로 확보된 건물입니다',
+        '주차 걱정을 더는 세대당 {n}대 확보 건물입니다'],
+  주차:['차량이 필수인 제주에서 주차 공간이 확보된 매물입니다',
+       '주차 가능한 건물이라 차량 이용이 편합니다',
+       '제주 생활에 필요한 주차가 가능한 건물입니다'],
+  세대:['{n}세대 규모 건물입니다','총 {n}세대가 들어선 건물입니다','{n}세대 규모로 관리되는 건물입니다'],
+  엘베:['엘리베이터가 있어 이사와 장보기가 편합니다',
+       '엘리베이터가 있어 고층도 오르내리기 부담 없습니다',
+       '엘리베이터 완비로 짐 옮기기가 수월합니다'],
+  // ⚠ 받침에 따라 달라지는 조사(이/가·은/는)는 쓰지 않는다 — '공용관리비이' 같은 오류가 난다
+  관리비포함:['관리비에 {v} 포함돼 월 고정비가 예측 가능합니다',
+            '{v} 포함 관리비라 따로 신경 쓸 일이 적습니다',
+            '관리비 하나로 {v}까지 해결되는 구조입니다'],
+  즉시:['공실 상태라 계약 후 바로 입주하실 수 있어 이사 날짜 부담이 없습니다',
+       '비어 있는 상태라 일정에 맞춰 바로 들어가실 수 있습니다',
+       '즉시 입주가 가능해 이사 일정을 자유롭게 잡으실 수 있습니다'],
+  입주일:['{v}부터 입주 가능해 이사 일정을 미리 잡으실 수 있습니다',
+        '{v} 입주가 가능합니다','입주 가능일은 {v}입니다'],
+  // 방향별 — 사실이 다르므로 절대 섞지 않는다
+  남향:['하루 종일 햇살이 드는 남향이라 겨울에도 따뜻합니다',
+       '남향이라 낮에는 조명 없이도 생활하실 수 있습니다',
+       '남향으로 채광이 좋아 실내가 밝습니다'],
+  동향:['아침 햇살이 드는 동향이라 하루를 밝게 시작하실 수 있습니다',
+       '동향이라 오전 채광이 좋습니다','아침 볕이 잘 드는 동향입니다'],
+  서향:['오후 햇살이 오래 남는 서향이라 저녁까지 실내가 밝습니다',
+       '서향이라 퇴근 후에도 밝은 실내를 만나실 수 있습니다',
+       '오후 볕이 길게 드는 서향입니다'],
+  북향:['직사광이 적어 여름철 실내가 덜 더운 북향입니다',
+       '북향이라 한여름에도 실내 온도가 비교적 안정적입니다',
+       '직사광이 강하지 않아 커튼 부담이 적은 북향입니다'],
+  방향:['{v} 호실입니다','{v}으로 배치된 호실입니다'],
+  반려:['반려동물과 함께 지내실 수 있어 조건은 문의 주시면 안내해 드립니다',
+       '반려동물 동반이 가능한 건물입니다'],
+  옵션:['생활에 필요한 옵션이 갖춰져 있어 짐만 들고 입주하실 수 있습니다',
+       '기본 옵션이 구비돼 있어 초기 비용 부담이 적습니다'],
+  원룸:['혼자 지내시기에 관리 부담이 적은 구조입니다',
+       '1인 가구가 생활하기 좋은 구조입니다'],
+  // ── 희소성: 우리 매물장 안에서의 비교. 반드시 비교 범위를 문장에 넣는다 ──
+  //   '유일한·최고·시세대비'는 공인중개사법 부당표시광고(과태료 300만원)라 절대 쓰지 않는다
+  //   (compliance.py BLACKLIST 참조). 대신 "이 건물에 나온 N개 중" 처럼 근거를 적는다.
+  최저가:['이 건물에 나온 {n}개 호실 중 월세가 가장 낮은 {v}만원대입니다',
+        '현재 이 건물에서 나온 {n}개 중 월세 부담이 가장 적은 호실입니다'],
+  최고가:['이 건물에 나온 {n}개 호실 중 조건이 가장 좋은 축에 드는 호실입니다'],
+  최대면적:['이 건물에 나온 호실 중 가장 넓은 {v}입니다'],
+  최소면적:['{v} 컴팩트 구조로, 이 건물에 나온 호실 중 면적이 가장 작습니다'],
+  희소방향:['{v} 호실은 이 건물에 나온 {n}개 중 {c}곳뿐입니다'],
+  최상층:['이 건물에 나온 호실 중 가장 높은 층입니다'],
+};
+function descSay(key,seed,kw){
+  const pool=DESC_SAY[key]; if(!pool) return '';
+  let t=descRotate(pool,seed,1)[0]||'';
+  for(const k in (kw||{})) t=t.replace('{'+k+'}',kw[k]);
+  return t;
+}
+// 이 매물에만 해당하는 사실 문장 [분류, 문장] — 값이 없으면 그 줄은 아예 만들지 않는다.
+// ⚠ 전용면적·층·총층·준공년월일은 여기서도 쓰지 않는다(광고문 물건 특정 방지 정책, 아래 참조).
+function descFacts(o,seed){
+  const v=x=>String(x||'').trim();
+  const out=[];
+  const pk=v(o.parkTotal).replace(/[^\d]/g,'');
+  if(pk&&Number(pk)>0) out.push(['주차',descSay('주차n',seed,{n:Number(pk)})]);
+  else if(v(o.parking)==='가능') out.push(['주차',descSay('주차',seed)]);
+  const hh=v(o.hhldCnt).replace(/[^\d]/g,'');
+  if(hh&&Number(hh)>0) out.push(['세대',descSay('세대',seed,{n:Number(hh)})]);
+  const ev=v(o.elevator);
+  if(ev&&ev!=='0'&&!/없|불가/.test(ev)) out.push(['엘베',descSay('엘베',seed)]);
+  // 관리비 포함항목은 시트 원문이 길어 모바일에서 줄이 접힌다 → 구분자를 · 로 모으고 '등'을 뗀다
+  //   (예: "인터넷, 케이블방송 및 공용관리비등" → "인터넷·케이블방송·공용관리비")
+  const inc=v(o.feeItems).split(/\s*(?:,|·|、|\/|및)\s*/).map(x=>x.replace(/등$/,'').trim())
+              .filter(Boolean).join('·').slice(0,24);
+  if(inc) out.push(['관리비',descSay('관리비포함',seed,{v:inc})]);
+  const av=v(o.availDate);
+  if(av) out.push(['입주',/즉시/.test(av)?descSay('즉시',seed):descSay('입주일',seed,{v:av})]);
+  // 방향은 사실이 다르므로 방향별 전용 문장을 쓴다(남향 문장을 서향에 쓰면 허위광고)
+  const dir=v(o.direction);
+  if(dir){
+    const base=(dir.match(/(남|동|서|북)향/)||[])[0];
+    out.push(['방향', (base&&DESC_SAY[base]) ? descSay(base,seed) : descSay('방향',seed,{v:dir})]);
+  }
+  if(v(o.pets)==='가능') out.push(['반려',descSay('반려',seed)]);
+  if(v(o.options)) out.push(['옵션',descSay('옵션',seed)]);            // '풀옵션' 단독 표기는 위반이라 순화
+  if(/원룸/.test(v(o.kind))) out.push(['구조',descSay('원룸',seed)]);
+  return out.filter(([,s])=>s);
+}
+/* 희소성 — 우리 매물장 안에서의 비교로만 만든다 (2026-08-27 사장님 지시).
+   🔴 '유일한·최고·시세 대비'는 공인중개사법 부당표시광고로 과태료 300만원 대상이라 쓰지 않는다
+      (01_광고자동화_당근\compliance.py BLACKLIST). 대신 **비교 범위를 문장에 명시**한다 —
+      "이 건물에 나온 11개 호실 중" 처럼 근거가 붙으면 단정이 아니라 사실 진술이 된다.
+   ⚠ 우리 매물장은 그 건물 전체가 아니라 우리가 가진 것뿐이므로 '나온'이라는 말을 반드시 넣는다.
+   ⚠ 면적·층 기준 희소성은 만들지 않는다 — 광고문에 전용면적·층을 노출하지 않는 기존 정책
+      (물건 특정 방지)과 충돌하기 때문. 정책을 푸시면 그때 추가한다.                        */
+function descRarity(o,seed,all){
+  const v=x=>String(x||'').trim();
+  const key=s=>String(s||'').replace(/\s+/g,'');
+  const num=s=>{const m=String(s||'').replace(/,/g,'').match(/\d+(\.\d+)?/);return m?Number(m[0]):NaN;};
+  const ON=['접수','상담중','공실',''];
+  const rows=(all||[]).filter(l=>key(l.apt)&&key(l.apt)===key(o.apt)&&ON.includes(v(l.status)));
+  const out=[];
+  if(rows.length<3) return out;                       // 표본이 적으면 비교 자체를 하지 않는다
+  const myRent=num(o.rentAmt);
+  const rents=rows.map(l=>num(l.rentAmt)).filter(x=>!isNaN(x)&&x>0);
+  if(!isNaN(myRent)&&myRent>0&&rents.length>=3&&myRent===Math.min.apply(null,rents)){
+    out.push(descSay('최저가',seed,{n:rows.length,v:myRent}));
+  }
+  const myDir=v(o.direction);
+  if(myDir){
+    const c=rows.filter(l=>v(l.direction)===myDir).length;
+    if(c>0&&c<=2&&rows.length>=5) out.push(descSay('희소방향',seed,{v:myDir,n:rows.length,c:c}));
+  }
+  return out.filter(Boolean);
+}
+/* 매물특징 = 손으로 적은 문구 + 생활권(회전) + 희소성 + 이 매물만의 사실 + 메모 키워드
+   skip: 「매물정보」에 이미 찍은 분류 — 같은 말을 두 번 하지 않게 뺀다
+   마지막에 페르소나(1인가구·신혼부부·가족·사업자) 우선순위로 **순서만** 바꾼다 — 문장은 안 건드린다 */
+function descFeatures(o,seed,skip,all){
+  const v=x=>String(x||'').trim();
+  const out=[],seen=new Set();
+  const add=t=>{ if(t&&!seen.has(t)){ out.push(t); seen.add(t); } };
+  const cur=v(o.desc);
+  if(cur&&cur.indexOf(DESC_CONFIG.brand)===-1) add(cur.split('\n')[0].slice(0,40));  // 손으로 적은 특징 우선
+  const addr=v(o.addr);
+  for(const k of Object.keys(LIVING_ZONES)){
+    if(addr.includes(k)){ descRotate(LIVING_ZONES[k],seed,2).forEach(add); break; }
+  }
+  // 희소성 문장은 정렬에서 빼고 **맨 앞에 고정**한다 — 이 매물을 고를 이유라서 뒤로 밀리면 의미가 없다
+  const rare=descRarity(o,seed,all).filter(t=>t&&!seen.has(t));
+  rare.forEach(t=>seen.add(t));
+  for(const [cat,s] of descFacts(o,seed)) if(!(skip||[]).includes(cat)) add(s);
+  // 메모·옵션 키워드 — 이미 같은 뜻의 문장이 들어갔으면 겹치지 않게 거른다
+  const memo=v(o.note)+' '+v(o.options)+' '+v(o.kind);
+  const dupWord=[['옵션','옵션'],['주차','주차'],['엘리베이터','엘리베이터'],['즉시','입주']];
+  const kw=DESC_KEYWORDS.filter(([re])=>re.test(memo)).map(([,t])=>t)
+    .filter(t=>!dupWord.some(([w,k])=>t.indexOf(w)>=0&&out.some(x=>x.indexOf(k)>=0)));
+  descRotate(kw,seed,2).forEach(add);
+  // 페르소나 추정 — 사실이 아니라 강조 순서만 정한다
+  const rooms=parseInt(v(o.rooms),10)||0, kind=v(o.kind)+v(o.type);
+  const persona=/상가|사무실|공장|창고/.test(kind)?'사업자':rooms>=3?'가족':rooms===2?'신혼부부':'1인가구';
+  const pri=DESC_PERSONA[persona]||[];
+  const rank=t=>{ for(let i=0;i<pri.length;i++) if(t.indexOf(pri[i])>=0) return i; return pri.length+1; };
+  const sorted=out.map((t,i)=>({t,i})).sort((a,b)=>rank(a.t)-rank(b.t)||a.i-b.i).map(x=>x.t);
+  return rare.concat(sorted).slice(0,6);
+}
 // 매물 객체 → 브리즈 광고문 텍스트 (화면 폼·시트 일괄 생성 공용)
-function buildListingDesc(o){
+function buildListingDesc(o,allListings){
   const v=x=>String(x||'').trim();
   const addr=v(o.addr), apt=v(o.apt);
   if(!addr&&!apt) return null;
@@ -3419,52 +3787,63 @@ function buildListingDesc(o){
   const priceDisp=price?(/^[\d,.]+$/.test(price)?price+'만원':price):'문의'; // 숫자만 적으면 만원 단위 자동
 
   let fee='별도 문의';
-  if(feeType==='정액 관리비') fee=(feeAmt?feeAmt+'만원':'정액')+(feeItems?' ('+feeItems+' 포함)':'');
-  else if(feeType==='기타 부과') fee='실비 부과'+(feeEv?' · '+feeEv:'');
+  // 2026-08-27: 포함항목·실비근거는 줄이 길어 모바일에서 접힌다 → 매물특징으로 내렸다
+  if(feeType==='정액 관리비') fee=(feeAmt?feeAmt+'만원':'정액');
+  else if(feeType==='기타 부과') fee='실비 부과'+(feeAmt?' '+feeAmt+'만원':'');
   else if(feeType==='확인 불가') fee='확인 불가'+(feeNote?' ('+feeNote+')':'');
 
-  // 매물특징: 직접 적은 짧은 특징(생성 양식이 아닐 때) + 지역 생활권 문구
-  const cur=v(o.desc);
-  const feats=[];
-  if(cur&&cur.indexOf(DESC_CONFIG.brand)===-1) feats.push(cur);
-  for(const k of Object.keys(LIVING_ZONES)){
-    if(addr.includes(k)){ feats.push(LIVING_ZONES[k].slice(0,2).join(' · ')); break; }
-  }
-  const featLine=feats.join(' / ')||'상세 문의 환영';
+  // 🔴 2026-08-27 양식 전면 개편 (사장님 지시) — 별(☆)·전각공백 들여쓰기·✅ 반복 제거.
+  //   · ✅ 는 CP949 에서 깨지는 문자다(실측). 안전 문자(· ■ 【 】 ━)만 쓴다.
+  //   · 스페이스로 칸을 맞추면 모바일 가변폭 글꼴에서 어긋나 지저분해 보인다 → 라벨을
+  //     전각공백으로 3글자 폭에 맞추고 ' : ' 로 끊는다(한글과 전각공백은 어느 글꼴에서도 폭이 같다).
+  //   · 모든 줄을 한글 18자 이내로 — 당근·네이버 모바일에서 줄이 접히지 않는 폭.
+  //   · 상호를 감싸는 괄호는 DESC_CONFIG.br1/br2 한 곳만 고치면 「 」·『 』로 바뀐다.
+  const seed=descSeed(o);
+  // 「매물정보」에 그대로 찍히는 분류는 특징에서 뺀다 — 같은 말을 두 번 하지 않게
+  const feats=descFeatures(o,seed,['주차','입주','반려'],allListings);
+  const L3=t=>{const n=[...String(t)].length;return t+'　'.repeat(Math.max(0,3-n));};  // 라벨 3글자 폭 정렬
+  const BAR='━'.repeat(16);
+  const cap=[BAR,DESC_CONFIG.br1+' '+DESC_CONFIG.brand+' '+DESC_CONFIG.br2,DESC_CONFIG.brandEn];
 
-  // 전용면적·층·총층·준공년월일은 광고에 노출하지 않는다 (물건 특정 방지)
-  const spec=[rooms?'방 '+rooms:'',baths?'욕실 '+baths:''].filter(Boolean).join(' ');
+  // 전용면적·층·총층·준공년월일은 광고에 노출하지 않는다 (물건 특정 방지 — 종전 정책 유지)
+  const spec=[rooms?'방'+rooms:'',baths?'욕실'+baths:''].filter(Boolean).join(' · ');
 
   const L=[];
-  L.push('────────────────');
-  L.push('　　☆ '+DESC_CONFIG.brand+' ☆');
-  L.push('────────────────');
-  L.push('▶ 담당자 직통 '+DESC_CONFIG.phone+' ◀');
-  L.push('▶ 직통번호로 문의 / 빠른 상담 가능합니다 ◀');
+  const row=(label,val)=>L.push('· '+L3(label)+' : '+val);
+  cap.forEach(x=>L.push(x)); L.push(BAR);
+  L.push('담당자 직통 '+DESC_CONFIG.phone);
   L.push('');
-  L.push('【 매 물 정 보 】');
+  L.push('■ 매물정보');
   // 상가·토지·매매는 지번(상세주소) 미노출 — 읍면동까지만 표기 (매도인·물건 특정 방지)
   const hideJibun=(type==='매매'||['상가','토지'].includes(kind))&&addr;
-  const addrDisp=hideJibun?addr.replace(/\s+\d[\d-]*.*$/,'')+' (상세주소는 문의 주세요)':addr;
-  L.push('✅ 위치    '+(addrDisp||'-')); // 호수는 광고에 미노출
-  L.push('✅ 단지명  '+(apt||'-'));
-  if(dir) L.push('✅ 방향    '+dir);
-  L.push('✅ 형태    '+type);
-  L.push('✅ 구분    '+kind);
-  L.push('✅ '+priceLabel+'  '+priceDisp);
-  if(rent&&['월세','연세','단기'].includes(type)) L.push('✅ 월세    '+rent+'만원');
-  if(premium) L.push('✅ 권리금  '+premium+'만원');
-  L.push('✅ 관리비  '+fee);
-  if(spec) L.push('✅ 규모    '+spec);
-  if(parking) L.push('✅ 주차    '+parking);
-  if(pets) L.push('✅ 반려동물 '+pets);
-  if(opts) L.push('✅ 옵션    '+opts);
-  L.push('✅ 입주날짜 '+(avail||'협의'));
-  L.push('✅ 매물특징 '+featLine);
-  L.push('▶ 매물번호 '+no+' ◀');
-  L.push('────────────────');
-  L.push('　　☆ '+DESC_CONFIG.brandEn+' ☆');
-  L.push('────────────────');
+  const addrDisp=hideJibun?addr.replace(/\s+\d[\d-]*.*$/,'')+' (상세주소 문의)'
+                          :addr.replace(/^제주특별자치도\s*/,'');   // 시도는 빼서 줄 길이를 줄인다
+  row('위치',addrDisp||'-');                        // 호수는 광고에 미노출
+  if(apt) row('단지',apt);
+  row('거래',[type,kind].filter(Boolean).join(' · '));
+  row(priceLabel,priceDisp);
+  if(rent&&['월세','연세','단기'].includes(type)) row('월세',rent+'만원');
+  if(premium) row('권리금',premium+'만원');
+  row('관리비',fee);
+  if(spec) row('규모',spec);
+  if(parking) row('주차',parking);
+  if(pets) row('반려',pets);
+  row('입주',avail||'협의');
+  if(feats.length){
+    L.push(''); L.push('■ 매물특징');
+    feats.forEach(f=>L.push('· '+f));
+  }
+  const cta=descRotate(DESC_CTA_POOL,seed,1)[0];     // 문의유도 멘트도 매물별 회전
+  if(cta){ L.push(''); L.push(cta); }
+  L.push('');
+  L.push('매물번호 '+no);
+  cap.forEach(x=>L.push(x));
+  L.push(DESC_CONFIG.slogan);
+  L.push(BAR);
+  // 🔴 공인중개사법 인터넷 표시·광고 법정 명시사항 — 미기재 시 과태료 대상 (2026-08-27 신설)
+  L.push(DESC_CONFIG.brand+' | 대표 '+DESC_CONFIG.ceo);
+  L.push('등록번호 '+DESC_CONFIG.regNo);
+  L.push(DESC_CONFIG.office.replace(/^제주특별자치도\s*/,''));
   return L.join('\n');
 }
 // 당근 업로드용 평문 설명 — 장식·전각공백 제거, AI가 놓치는 항목을 평서문으로 명시
@@ -3668,7 +4047,7 @@ function openAdCopyModal(id){
   if(!o){ showToast('매물을 찾을 수 없습니다'); return; }
   const daangn=adScrub(buildDaangnPlainDesc(o)||'');
   const texts={
-    '브리즈 양식 (매물설명)': buildListingDesc(o)||'',
+    '브리즈 양식 (매물설명)': buildListingDesc(o,listings)||'',
     '당근용 평문 (연락처·링크 자동제거)': daangn.text,
     '정보형 (오일장·교차로·네이버)': buildInfoDesc(o),
     '직방·다방 (짧은형)': buildShortDesc(o),
