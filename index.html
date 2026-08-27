@@ -443,7 +443,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <div class="sb-section">업무관리</div>
     <button class="sb-item" onclick="go('listing')">🏠 매물 관리</button>
     <button class="sb-item" onclick="go('ads')">📣 광고관리<span class="sb-badge red" id="sb-ad-todo" style="display:none">0</span></button>
-    <button class="sb-item" onclick="go('customer')">👥 고객 관리</button>
+    <button class="sb-item" onclick="go('customer')">👥 고객 관리<span class="sb-badge red" id="sb-customer" style="display:none">0</span></button>
     <button class="sb-item" onclick="go('contract')">📋 계약 완료</button>
     <button class="sb-item" onclick="go('landlord')">🤝 임대인 관리<span class="sb-badge red" id="sb-landlord" style="display:none">0</span></button>
     <div class="sb-section">발송 & AI</div>
@@ -748,6 +748,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="이름순">이름순</option>
           <option value="완료시점">완료시점 빠른순</option>
           <option value="단계순">진행단계순</option>
+          <option value="다음액션순">🔔 다음 액션 임박순</option>
         </select>
       </div>
 
@@ -1580,6 +1581,10 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         </select>
       </div>
     </div>
+    <div class="form-group">
+      <label>🔔 다음 연락 예정일 <span style="font-size:11px;font-weight:normal;opacity:.65">(임대인관리와 같은 방식 — 비워두면 방치되기 쉬움)</span></label>
+      <input id="c-next-action" type="date">
+    </div>
 
     <!-- 계약 완료 정보 (단계 4 선택 시 활성) -->
     <div id="c-contract-section" style="display:none">
@@ -1994,7 +1999,7 @@ function getKakaoKey(){ return localStorage.getItem(K.kakaoKey)||DEFAULT_KAKAO_J
 function setKakaoKey(key){ localStorage.setItem(K.kakaoKey,key); }
 
 // 과거 버그로 영문("Wed Jan 18 2017 ...")·한국식("2026. 8. 1.") 형태로 저장된 날짜를 yyyy-MM-dd로 정규화
-const DATE_FIELDS={listings:['aprDate','availDate','recvDate','moveDate','contractDate','contractEnd'],customers:['recvDate','deadline','conMoveIn'],contracts:['start','end'],landlords:['lastContact','nextContact']};
+const DATE_FIELDS={listings:['aprDate','availDate','recvDate','moveDate','contractDate','contractEnd'],customers:['recvDate','deadline','conMoveIn','nextAction'],contracts:['start','end'],landlords:['lastContact','nextContact']};
 function normDateStr(s){
   if(typeof s!=='string')return s;
   let m=s.match(/^[A-Z][a-z]{2} ([A-Z][a-z]{2}) (\d{2}) (\d{4}) /);
@@ -3267,6 +3272,7 @@ function openModal(type, editId){
       document.getElementById('c-area-size').value=item.areaSize||'';
       document.getElementById('c-step').value=item.step||0;
       document.getElementById('c-progress-status').value=item.progressStatus||'진행중';
+      document.getElementById('c-next-action').value=item.nextAction||'';
       document.getElementById('c-con-apt').value=item.conApt||'';
       document.getElementById('c-con-move-in').value=item.conMoveIn||'';
       document.getElementById('c-con-floor').value=item.conFloor||'';
@@ -3278,7 +3284,7 @@ function openModal(type, editId){
     } else {
       document.getElementById('customer-modal-title').textContent='👥 고객 추가';
       ['c-name','c-phone','c-recv-date','c-deadline','c-budget',
-       'c-region','c-area-size','c-note',
+       'c-region','c-area-size','c-note','c-next-action',
        'c-con-apt','c-con-move-in','c-con-floor','c-con-unit','c-con-price'].forEach(id=>{
         const el=document.getElementById(id); if(el) el.value='';
       });
@@ -4380,6 +4386,7 @@ function renderCustomers(){
   if(sort==='이름순')      list.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
   if(sort==='완료시점')    list.sort((a,b)=>(a.deadline||'9999').localeCompare(b.deadline||'9999'));
   if(sort==='단계순')      list.sort((a,b)=>(parseInt(a.step)||0)-(parseInt(b.step)||0));
+  if(sort==='다음액션순')  list.sort((a,b)=>(a.nextAction?daysLeft(a.nextAction):99999)-(b.nextAction?daysLeft(b.nextAction):99999));
 
   // 건수 표시
   const sub=document.getElementById('customer-count-sub');
@@ -4399,6 +4406,11 @@ function renderCustomers(){
       ?`<span class="badge br">🔴 종료</span>`
       :`<span class="badge bg">🟢 진행중</span>`;
     const deadline=c.deadline?`<div style="font-size:10px;color:var(--a);margin-top:2px">⏰ ${c.deadline}까지</div>`:'';
+    // 🔔 다음 연락 예정일 — 임대인관리 nextContact와 같은 개념. 클릭하면 "3일 뒤로" 즉시 재설정(스누즈).
+    const naDays=c.nextAction?daysLeft(c.nextAction):null;
+    const naCls=d=>d<=0?'dday-r':d<=3?'dday-a':'dday-g';
+    const naLabel=naDays===null?'':(naDays<=0?(naDays===0?'오늘':Math.abs(naDays)+'일 지남'):'D-'+naDays);
+    const naBadge=`<button class="btn btn-xs" style="margin-top:2px;font-size:10px;padding:1px 6px" title="클릭하면 3일 뒤로 재설정" onclick="event.stopPropagation();custSetNextAction('${c.id}',3)">🔔 ${c.nextAction?c.nextAction+' ':''}${naDays!==null?`<span class="dday ${naCls(naDays)}">${naLabel}</span>`:'설정'}</button>`;
     const contractInfo=c.conApt?`<div style="font-size:10px;color:var(--g);margin-top:2px">✍️ ${c.conApt} ${c.conFloor||''}${c.conUnit||''}</div>`:'';
     const renewal=c.conRenewal&&c.conRenewal!=='미신청'?`<span class="badge bg" style="font-size:9px">갱신권 ${c.conRenewal}</span>`:'';
 
@@ -4414,7 +4426,7 @@ function renderCustomers(){
       <td><span class="badge ${c.role==='임대인'?'bg':'bb'}">${c.role}</span></td>
       <td>${typeBadge(c.type)}</td>
       <td style="color:var(--b);white-space:nowrap">${telA(c.phone)||hl(c.phone)}</td>
-      <td style="font-size:11px;white-space:nowrap">${c.recvDate||'-'}${deadline}</td>
+      <td style="font-size:11px;white-space:nowrap">${c.recvDate||'-'}${deadline}<div style="margin-top:2px">${naBadge}</div></td>
       <td style="font-size:11px">${hl(c.budget)||'-'}</td>
       <td>
         <div class="mini-prog">${mp}</div>
@@ -4430,6 +4442,24 @@ function renderCustomers(){
       </td>
     </tr>`;
   }).join('');
+  updateCustomerBadge();
+}
+// 사이드바 배지 — 임대인관리의 updateLandlordBadge와 같은 패턴(다음 액션일이 지난 고객 수)
+function updateCustomerBadge(){
+  const el=document.getElementById('sb-customer');
+  if(!el) return;
+  const due=customers.filter(c=>c.nextAction&&(c.progressStatus||'진행중')!=='종료'&&daysLeft(c.nextAction)<=0).length;
+  el.textContent=due;
+  el.style.display=due?'':'none';
+}
+// 🔔 다음 연락일을 오늘로부터 N일 뒤로 즉시 재설정(스누즈) — 모달을 열지 않고 목록에서 바로 처리
+function custSetNextAction(id,days){
+  const c=customers.find(x=>x.id===id); if(!c) return;
+  const d=new Date(); d.setDate(d.getDate()+(days||3));
+  c.nextAction=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  save('customers',customers);
+  renderCustomers();
+  showToast(`🔔 ${c.name||''}님 다음 연락 ${c.nextAction}로 설정`);
 }
 
 function saveCustomer(){
@@ -4449,6 +4479,7 @@ function saveCustomer(){
     areaSize:document.getElementById('c-area-size').value.trim(),
     step:parseInt(document.getElementById('c-step').value)||0,
     progressStatus:document.getElementById('c-progress-status').value,
+    nextAction:document.getElementById('c-next-action').value,
     conApt:document.getElementById('c-con-apt').value.trim(),
     conMoveIn:document.getElementById('c-con-move-in').value,
     conFloor:document.getElementById('c-con-floor').value.trim(),
