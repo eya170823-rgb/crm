@@ -1380,17 +1380,10 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div class="form-group"><label>매도/이사 예정일</label><input id="l-move-date" type="date"></div>
     </div>
 
-    <!-- 접수 정보 -->
-    <div class="form-section">📞 접수 정보</div>
-    <div class="form-row">
-      <!-- 접수 방법: 다른 어떤 메뉴·필터·광고에도 안 쓰여 화면에서 제거 (2026-08-14 사장님 지시).
-           숨은 input 으로 기존 저장값은 보존 — 문자수집 서버(server.py)가 '전화'를 넣는 것도 그대로 동작 -->
-      <input type="hidden" id="l-recv-method" value="">
-
-      <!-- 공동명의: 매물 단계에서는 쓰는 곳이 없어 화면에서 제거 (2026-08-14 사장님 지시).
-           명의는 계약서 작성 때 등기부로 확인하는 값 — 숨은 input 으로 기존 저장값은 보존 -->
-      <input type="hidden" id="l-joint" value="단독">
-    </div>
+    <!-- 🗑 2026-08-27 사장님 지시로 '접수 방법'(recvMethod)·'공동명의'(joint) 완전 제거.
+         2026-08-14에 화면에서만 빼고 숨은 input 으로 값을 들고 있었는데, 당근 내보내기·광고문구·
+         계약서·필터 어디에서도 읽지 않아 시트 칼럼만 차지하고 있었다. GAS HEADERS 에서도 뺐다.
+         (명의는 계약서 작성 때 등기부로 확인하는 값이라 매물 단계에 둘 이유가 없다) -->
 
     <!-- 고객 연동 -->
     <div class="form-section">👤 고객 연동</div>
@@ -3163,8 +3156,6 @@ function openModal(type, editId){
       document.getElementById('l-contract-end').value=item.contractEnd||'';
       document.getElementById('l-recv-date').value=item.recvDate||'';
       document.getElementById('l-move-date').value=item.moveDate||'';
-      document.getElementById('l-recv-method').value=item.recvMethod||'전화';
-      document.getElementById('l-joint').value=item.joint||'단독';
       document.getElementById('l-cname').value=item.cname||'';
       document.getElementById('l-cphone').value=item.cphone||'';
       document.getElementById('l-customer-id').value=item.customerId||'';
@@ -3179,8 +3170,6 @@ function openModal(type, editId){
       document.getElementById('l-kind').value='아파트';
       renderOptionChips('');
       document.getElementById('l-status').value='접수';
-      document.getElementById('l-recv-method').value='전화';
-      document.getElementById('l-joint').value='단독';
       document.getElementById('l-customer-sel').value='';
       document.getElementById('l-recv-date').value=todayStr();
       renderExistingAttachments([]);
@@ -3794,8 +3783,6 @@ function saveListing(){
     status,
     recvDate:document.getElementById('l-recv-date').value,
     moveDate:document.getElementById('l-move-date').value,
-    recvMethod:document.getElementById('l-recv-method').value,
-    joint:document.getElementById('l-joint').value,
     cname:document.getElementById('l-cname').value.trim(),
     cphone:document.getElementById('l-cphone').value.trim(),
     customerId:document.getElementById('l-customer-id').value,
@@ -4552,7 +4539,7 @@ const DAANGN_FEE_EVID=['세대별 사용량에 따라 부과','관리규약에 �
 const DAANGN_FEE_NOTE=['단독주택','오피스텔 제외 상가 건물','미등기/신축건물'];
 const DAANGN_ZONES=['도시지역','관리지역','농림지역','자연환경보전지역'];
 // 쉼표 구분 칼럼: 키워드 → 당근 표준 단어 (관리비 포함항목 8종 · 옵션 10종)
-const DAANGN_FEE_ITEM_MAP=[['공용','공용'],['공동','공용'],['청소','공용'],['경비','공용'],['승강기','공용'],['엘리베이터','공용'],['전기','전기료'],['수도','수도료'],['가스','가스비'],['난방','난방비'],['인터넷','인터넷비'],['유선','TV'],['케이블','TV'],['티비','TV'],['TV','TV']];
+const DAANGN_FEE_ITEM_MAP=[['공용','공용'],['공동','공용'],['청소','공용'],['경비','공용'],['승강기','공용'],['엘리베이터','공용'],['전기','전기료'],['수도','수도료'],['가스','가스비'],['난방','난방비'],['인터넷','인터넷비'],['인테넛','인터넷비'],['인테넷','인터넷비'],['인터넷비','인터넷비'],['와이파이','인터넷비'],['wifi','인터넷비'],['유선','TV'],['케이블','TV'],['티비','TV'],['TV','TV']];
 // ⚠ '풀옵션'을 에어컨·냉장고·세탁기로 펼치지 않는다 — 실제로 있는지 확인된 바 없는 품목을
 // 있다고 광고하면 허위매물 신고 대상이다. 개별 품목은 매물 등록 화면에서 직접 선택해야 한다.
 const DAANGN_OPTION_MAP=[['에어컨','에어컨'],['냉장고','냉장고'],['세탁기','세탁기'],['가스레인지','가스렌지'],['가스렌지','가스렌지'],['인덕션','인덕션'],['전자레인지','전자렌지'],['전자렌지','전자렌지'],['침대','침대'],['엘리베이터','엘리베이터'],['엘베','엘리베이터'],['승강기','엘리베이터'],['복층','복층'],['옥탑','옥탑']];
@@ -5502,8 +5489,8 @@ function toggleContractSection(){
 function exportListingsExcel(){
   if(!window.XLSX){showToast('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.');return;}
   if(!listings.length){showToast('다운로드할 매물 데이터가 없습니다');return;}
-  const headers=['매물명','유형','거래가','면적','층수','진행상태','접수일','이사/매도예정일','접수방법','공동명의','고객명','연락처','네이버링크','첨부파일수','메모'];
-  const rows=listings.map(l=>[l.apt||'',l.type||'',l.price||'',l.area||'',l.floor||'',l.status||'',l.recvDate||'',l.moveDate||'',l.recvMethod||'',l.joint||'단독',l.cname||'',l.cphone||'',l.naverUrl||'',(l.attachments||[]).length,l.note||'']);
+  const headers=['매물명','유형','거래가','면적','층수','진행상태','접수일','이사/매도예정일','고객명','연락처','네이버링크','첨부파일수','메모'];
+  const rows=listings.map(l=>[l.apt||'',l.type||'',l.price||'',l.area||'',l.floor||'',l.status||'',l.recvDate||'',l.moveDate||'',l.cname||'',l.cphone||'',l.naverUrl||'',(l.attachments||[]).length,l.note||'']);
   const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
   ws['!cols']=[{wch:24},{wch:8},{wch:14},{wch:8},{wch:6},{wch:8},{wch:12},{wch:14},{wch:8},{wch:8},{wch:10},{wch:14},{wch:36},{wch:8},{wch:30}];
   const wb=XLSX.utils.book_new();
@@ -5546,8 +5533,6 @@ const LISTING_COLS = [
   {label:'진행상태',        key:'status',      required:false},
   {label:'접수일',          key:'recvDate',    required:false},
   {label:'이사/매도예정일', key:'moveDate',    required:false},
-  {label:'접수방법',        key:'recvMethod',  required:false},
-  {label:'공동명의',        key:'joint',       required:false},
   {label:'고객명',          key:'cname',       required:false},
   {label:'연락처',          key:'cphone',      required:false},
   {label:'네이버링크',      key:'naverUrl',    required:false},
@@ -5677,9 +5662,7 @@ function confirmUpload(){
       if(!price){errors.push(`${rn}행: 거래가 누락`);return;}
       const tv=['매매','전세','월세','연세','단기','단기임대'].includes(type)?type:'전세';
       const sv=['접수','상담중','계약완료','임대중','거래완료','보류','공실'].includes(getCV(row,'status',cols))?getCV(row,'status',cols):'접수';
-      const mv=['전화','방문','온라인'].includes(getCV(row,'recvMethod',cols))?getCV(row,'recvMethod',cols):'전화';
-      const jv=['단독','공동'].includes(getCV(row,'joint',cols))?getCV(row,'joint',cols):'단독';
-      newItems.push({id:uid(),apt,type:tv,price,area:getCV(row,'area',cols),floor:getCV(row,'floor',cols),status:sv,recvDate:getCV(row,'recvDate',cols),moveDate:getCV(row,'moveDate',cols),recvMethod:mv,joint:jv,cname:getCV(row,'cname',cols),cphone:getCV(row,'cphone',cols),naverUrl:getCV(row,'naverUrl',cols),note:getCV(row,'note',cols),attachments:[]});
+      newItems.push({id:uid(),apt,type:tv,price,area:getCV(row,'area',cols),floor:getCV(row,'floor',cols),status:sv,recvDate:getCV(row,'recvDate',cols),moveDate:getCV(row,'moveDate',cols),cname:getCV(row,'cname',cols),cphone:getCV(row,'cphone',cols),naverUrl:getCV(row,'naverUrl',cols),note:getCV(row,'note',cols),attachments:[]});
     } else {
       const name=getCV(row,'name',cols),phone=getCV(row,'phone',cols);
       if(!name){errors.push(`${rn}행: 이름 누락`);return;}
