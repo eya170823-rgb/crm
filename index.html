@@ -1324,6 +1324,22 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <input type="hidden" id="l-options">
       </div>
     </div>
+
+    <!-- 📈 광고 성과 (2026-08-27 신설) — 사장님 지시 "어떤 문구가 먹혔는지 알 수 있게".
+         조회수·문의수는 당근·직방 **광고주 화면에만** 있는 값이라, 여기에 적어 두지 않으면
+         나중에 어떤 광고문이 효과가 있었는지 영영 알 수 없다. 광고문이 바뀐 날(자동 기록)과
+         함께 보면 "이 문구로 며칠간 몇 명이 봤는지"가 남는다. -->
+    <div class="form-section">📈 광고 성과 <span style="font-size:11px;color:var(--t3);font-weight:400">당근·직방 광고주 화면 숫자를 가끔 옮겨 적어 주세요</span></div>
+    <div class="form-row">
+      <div class="form-group"><label>조회수</label><input id="l-ad-views" inputmode="numeric" placeholder="예: 120"></div>
+      <div class="form-group"><label>문의수</label><input id="l-ad-inq" inputmode="numeric" placeholder="예: 3"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>집계일</label><input type="date" id="l-ad-stat-at"></div>
+      <div class="form-group"><label>광고문 생성일 <span style="font-size:10px;color:var(--t3)">자동</span></label>
+        <input id="l-desc-at" readonly style="background:var(--bg2,#f5f5f5);color:var(--t3)"></div>
+    </div>
+    <div id="l-ad-rate" style="font-size:12px;color:var(--t2);padding:2px 0 8px"></div>
     <div class="form-row">
       <div class="form-group"><label>토지 지목 <span style="font-size:10px;color:var(--t3)">토지 필수</span></label>
         <select id="l-jimok">
@@ -2205,10 +2221,10 @@ async function gsEnrichAndLoad(){
     const fresh=plan.filter(p=>!p.had);
     const over =plan.filter(p=>p.had);
     let made=0;
-    if(fresh.length){ fresh.forEach(p=>{ p.l.desc=p.t; }); made+=fresh.length; }
+    if(fresh.length){ fresh.forEach(p=>{ p.l.desc=p.t; p.l.descAt=fmtDate(); }); made+=fresh.length; }
     if(over.length){
       if(confirm(`이미 광고문구가 있는 매물 ${over.length}건을 최신 정보로 다시 만들까요?\n직접 적어 두신 문구가 있으면 바뀝니다.\n\n${fresh.length?`(취소해도 문구가 없던 ${fresh.length}건은 그대로 생성됩니다)`:'(취소하면 지금 문구를 그대로 둡니다)'}`)){
-        over.forEach(p=>{ p.l.desc=p.t; }); made+=over.length;
+        over.forEach(p=>{ p.l.desc=p.t; p.l.descAt=fmtDate(); }); made+=over.length;
       }
     }
     if(made){
@@ -3103,7 +3119,7 @@ function renderListings(){
         </div>
         <div class="row">
           ${typeBadge(l.type)}
-          <span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span>
+          <span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span>${adStatBadge(l)}
           <button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button>
           <button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈 시세</button>
           <button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️ 수정</button>
@@ -3158,6 +3174,11 @@ function openModal(type, editId){
       document.getElementById('l-parking').value=item.parking||'';
       document.getElementById('l-pets').value=item.pets||'';
       document.getElementById('l-loan').value=item.loan||'';
+      document.getElementById('l-ad-views').value=item.adViews||'';
+      document.getElementById('l-ad-inq').value=item.adInq||'';
+      document.getElementById('l-ad-stat-at').value=item.adStatAt||'';
+      document.getElementById('l-desc-at').value=item.descAt||'';
+      renderAdRate(item);
       renderOptionChips(item.options||'');
       document.getElementById('l-rent').value=item.rentAmt||'';
       document.getElementById('l-bldg-use').value=item.bldgUse||'';
@@ -3182,7 +3203,8 @@ function openModal(type, editId){
       photoPanelOpen(item.id);
     } else {
       document.getElementById('listing-modal-title').textContent='🏠 매물 추가';
-      ['l-addr','l-addr2','l-apt','l-price','l-rent','l-area','l-floor','l-total-floor','l-apr-date','l-rooms','l-baths','l-direction','l-avail-date','l-fee-type','l-fee-amt','l-fee-items','l-fee-basis','l-fee-evidence','l-fee-note','l-parking','l-pets','l-loan','l-options','l-bldg-use','l-jimok','l-zone','l-premium','l-desc','l-move-date','l-cname','l-cphone','l-note','l-naver-url','l-contract-date','l-contract-end'].forEach(id=>document.getElementById(id).value='');
+      ['l-addr','l-addr2','l-apt','l-price','l-rent','l-area','l-floor','l-total-floor','l-apr-date','l-rooms','l-baths','l-direction','l-avail-date','l-fee-type','l-fee-amt','l-fee-items','l-fee-basis','l-fee-evidence','l-fee-note','l-parking','l-pets','l-loan','l-options','l-bldg-use','l-jimok','l-zone','l-premium','l-desc','l-move-date','l-cname','l-cphone','l-note','l-naver-url','l-contract-date','l-contract-end','l-ad-views','l-ad-inq','l-ad-stat-at','l-desc-at'].forEach(id=>document.getElementById(id).value='');
+      renderAdRate(null);
       document.getElementById('l-type').value='전세';
       document.getElementById('l-kind').value='아파트';
       renderOptionChips('');
@@ -3765,7 +3787,55 @@ function descFeatures(o,seed,skip,all){
   const pri=DESC_PERSONA[persona]||[];
   const rank=t=>{ for(let i=0;i<pri.length;i++) if(t.indexOf(pri[i])>=0) return i; return pri.length+1; };
   const sorted=out.map((t,i)=>({t,i})).sort((a,b)=>rank(a.t)-rank(b.t)||a.i-b.i).map(x=>x.t);
-  return rare.concat(sorted).slice(0,6);
+  return descSafe(rare.concat(sorted)).slice(0,6);
+}
+/* 🔴 2026-08-27 신설 — 광고문에 나가기 **전에** 금지표현을 스스로 거른다.
+   CRM 에는 AD_BLACKLIST·adComplianceScan 이 있었는데 **사람이 광고문을 손으로 고칠 때만**
+   돌고 있었다(호출부가 텍스트영역 검사 한 곳뿐). 자동 생성 경로는 무검사로 나가고 있었다는 뜻.
+   시트 원본에 위험 표현이 실제로 남아 있다(실측 2026-08-27: options '풀옵션' 31건,
+   note '외국인불가' 2건 — 뒤엣것은 차별 배제로 별도 법령 위반). 사장님이 메모에 뭘 적든
+   광고문에는 안 실리게 여기서 막는다. 방식은 당근 폴더 adgen._features 와 같다:
+     금지어를 지우고 남은 정보가 충분하면 살리고, 아니면 그 줄을 통째로 버린다.            */
+function descSafe(lines){
+  if(typeof adComplianceScan!=='function') return lines;      // 검사기가 없으면 원문 유지
+  const out=[];
+  for(const line of lines){
+    const bad=adComplianceScan(line);
+    if(!bad.length){ out.push(line); continue; }
+    let fixed=line;
+    for(const h of bad) fixed=fixed.split(h.hit).join('').replace(/\s{2,}/g,' ').trim().replace(/^[,·\/]+|[,·\/]+$/g,'');
+    // 금지어를 뺀 뒤에도 한글 4자 이상 남고 다시 걸리지 않을 때만 살린다
+    if((fixed.match(/[가-힣]/g)||[]).length>=4 && !adComplianceScan(fixed).length) out.push(fixed);
+  }
+  return out;
+}
+/* 📈 광고 성과 표시 (2026-08-27 신설) — 사장님 지시 "어떤 문구가 먹혔는지 알 수 있게".
+   조회수·문의수는 당근·직방 **광고주 화면에만** 있는 값이라 CRM에 옮겨 적지 않으면
+   나중에 어떤 광고문이 효과가 있었는지 확인할 방법이 아예 없다.
+   광고문 생성일(descAt)과 함께 봐야 "이 문구로 며칠간 몇 명이 봤는지"가 성립한다.        */
+// 매물 카드용 성과 배지 — 숫자가 있을 때만 보여 준다(없는 매물이 지저분해지지 않게)
+function adStatBadge(l){
+  const n=x=>{const m=String(x||'').replace(/,/g,'').match(/\d+/);return m?Number(m[0]):NaN;};
+  const v=n(l&&l.adViews), q=n(l&&l.adInq);
+  if(isNaN(v)&&isNaN(q)) return '';
+  const t=[!isNaN(v)?'👁 '+v.toLocaleString():'',!isNaN(q)?'💬 '+q.toLocaleString():''].filter(Boolean).join(' · ');
+  return ` <span class="badge bgr" style="font-size:10px" title="광고 성과 — 집계일 ${l.adStatAt||'미기재'}">${t}</span>`;
+}
+function renderAdRate(item){
+  const el=document.getElementById('l-ad-rate'); if(!el) return;
+  const n=x=>{const m=String(x||'').replace(/,/g,'').match(/\d+/);return m?Number(m[0]):NaN;};
+  const v=n(item&&item.adViews), q=n(item&&item.adInq);
+  const at=String((item&&item.descAt)||'').trim(), st=String((item&&item.adStatAt)||'').trim();
+  if(isNaN(v)&&isNaN(q)){ el.textContent='아직 성과 기록이 없습니다 — 당근·직방 광고주 화면의 조회수·문의수를 옮겨 적어 두시면 문구 효과를 비교할 수 있습니다'; return; }
+  const bits=[];
+  if(!isNaN(v)) bits.push('조회 '+v.toLocaleString());
+  if(!isNaN(q)) bits.push('문의 '+q.toLocaleString());
+  if(!isNaN(v)&&!isNaN(q)&&v>0) bits.push('문의율 '+(q/v*100).toFixed(1)+'%');
+  if(at&&st){
+    const d=Math.round((new Date(st)-new Date(at))/86400000);
+    if(!isNaN(d)&&d>=0) bits.push('이 광고문으로 '+d+'일간');
+  }
+  el.textContent='📈 '+bits.join(' · ');
 }
 // 매물 객체 → 브리즈 광고문 텍스트 (화면 폼·시트 일괄 생성 공용)
 function buildListingDesc(o,allListings){
@@ -4163,6 +4233,11 @@ function saveListing(){
     parking:document.getElementById('l-parking').value,
     pets:document.getElementById('l-pets').value,
     loan:document.getElementById('l-loan').value,
+    // 📈 광고 성과 (2026-08-27) — 당근·직방 광고주 화면 숫자를 옮겨 적는 칸
+    adViews:document.getElementById('l-ad-views').value.trim(),
+    adInq:document.getElementById('l-ad-inq').value.trim(),
+    adStatAt:document.getElementById('l-ad-stat-at').value,
+    descAt:document.getElementById('l-desc-at').value.trim(),
     options:document.getElementById('l-options').value.trim(),
     bldgUse:document.getElementById('l-bldg-use').value.trim(),
     jimok:document.getElementById('l-jimok').value,
