@@ -4063,14 +4063,13 @@ function _adCtx(o){
   if(feeType==='정액 관리비') fee=(v(o.feeAmt)?v(o.feeAmt)+'만원':'정액')+(v(o.feeItems)?' ('+v(o.feeItems)+' 포함)':'');
   else if(feeType==='기타 부과') fee='실비 부과';
   else if(feeType==='확인 불가') fee='확인 불가';
-  const cur=v(o.desc);
-  const feats=[];
-  if(cur&&cur.indexOf(DESC_CONFIG.brand)===-1) feats.push(cur);
-  for(const k of Object.keys(LIVING_ZONES)){
-    if(addr.includes(k)){ feats.push(LIVING_ZONES[k].slice(0,2).join(' · ')); break; }
-  }
+  // 🔴 2026-08-27: 여기 feats 가 옛 로직(생활권 앞 2개 고정)이라 정보형·직방다방·당근 3종은
+  //   브리즈 양식만 개편된 뒤에도 계속 "같은 두 줄"을 쓰고 있었다. 4종 전부 같은 문구 엔진을 쓴다.
+  const feats=descSafe(descFeatures(o,descSeed(o),[],(typeof listings!=='undefined'?listings:[])));
+  // 옵션 원문에는 '풀옵션'이 그대로 들어 있다(실측 31건) — 표시·광고 위반이라 검사기를 통과시킨다
+  const optSafe=(descSafe([v(o.options)])[0]||'');
   return {type,kind,addr,apt,addrDisp,priceLine,fee,feats,
-          premium:v(o.premium),options:v(o.options),movein:normDateStr(v(o.availDate)),
+          premium:v(o.premium),options:optSafe,movein:normDateStr(v(o.availDate)),
           parking:v(o.parking),pets:v(o.pets),num:v(o.id)};
 }
 // 정보형 — 제주오일장·교차로·네이버 게시용
