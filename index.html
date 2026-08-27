@@ -749,6 +749,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="완료시점">완료시점 빠른순</option>
           <option value="단계순">진행단계순</option>
           <option value="다음액션순">🔔 다음 액션 임박순</option>
+          <option value="리드점수순">🎯 리드 점수순</option>
         </select>
       </div>
 
@@ -4361,6 +4362,18 @@ function filterType(t){
 }
 
 // ═══ CUSTOMERS ═══
+// 🎯 즉석 리드 스코어링(2026-08-28) — 저장 안 하고 그 자리에서 계산만(SOLAPI CRM 리드스코어링
+//   개념 이식, 단 별도 필드·저장 없이 이미 있는 값으로 정렬 기준만 제공하는 가벼운 버전).
+//   진행 단계가 제일 큰 신호(계약에 가까울수록 우선) + 조건 정보를 채운 만큼 가점.
+function custLeadScore(c){
+  let s=(parseInt(c.step)||0)*15;
+  if((c.budget||'').trim())    s+=10;
+  if((c.region||'').trim())    s+=8;
+  if((c.propType||'').trim())  s+=5;
+  if((c.areaSize||'').trim())  s+=5;
+  if((c.note||'').trim().length>15) s+=7;
+  return s;
+}
 function renderCustomers(){
   const q=(document.getElementById('cust-search')?.value||'').trim().toLowerCase();
   const role=document.getElementById('cust-role').value;
@@ -4387,6 +4400,7 @@ function renderCustomers(){
   if(sort==='완료시점')    list.sort((a,b)=>(a.deadline||'9999').localeCompare(b.deadline||'9999'));
   if(sort==='단계순')      list.sort((a,b)=>(parseInt(a.step)||0)-(parseInt(b.step)||0));
   if(sort==='다음액션순')  list.sort((a,b)=>(a.nextAction?daysLeft(a.nextAction):99999)-(b.nextAction?daysLeft(b.nextAction):99999));
+  if(sort==='리드점수순')  list.sort((a,b)=>custLeadScore(b)-custLeadScore(a));
 
   // 건수 표시
   const sub=document.getElementById('customer-count-sub');
@@ -4412,6 +4426,8 @@ function renderCustomers(){
     const naLabel=naDays===null?'':(naDays<=0?(naDays===0?'오늘':Math.abs(naDays)+'일 지남'):'D-'+naDays);
     const naBadge=`<button class="btn btn-xs" style="margin-top:2px;font-size:10px;padding:1px 6px" title="클릭하면 3일 뒤로 재설정" onclick="event.stopPropagation();custSetNextAction('${c.id}',3)">🔔 ${c.nextAction?c.nextAction+' ':''}${naDays!==null?`<span class="dday ${naCls(naDays)}">${naLabel}</span>`:'설정'}</button>`;
     const contractInfo=c.conApt?`<div style="font-size:10px;color:var(--g);margin-top:2px">✍️ ${c.conApt} ${c.conFloor||''}${c.conUnit||''}</div>`:'';
+    const score=custLeadScore(c);
+    const scoreBadge=`<span title="진행단계·희망조건·메모 기입 정도로 계산한 참고 점수(저장되지 않음)" style="font-size:9px;color:var(--t3)">🎯${score}</span>`;
     const renewal=c.conRenewal&&c.conRenewal!=='미신청'?`<span class="badge bg" style="font-size:9px">갱신권 ${c.conRenewal}</span>`:'';
 
     // 검색어 하이라이트
@@ -4430,7 +4446,7 @@ function renderCustomers(){
       <td style="font-size:11px">${hl(c.budget)||'-'}</td>
       <td>
         <div class="mini-prog">${mp}</div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px">${STEP_NAMES[Math.min(cur,STEP_NAMES.length-1)]}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px">${STEP_NAMES[Math.min(cur,STEP_NAMES.length-1)]} ${scoreBadge}</div>
       </td>
       <td>${progressBadge}${contractInfo}${renewal}</td>
       <td style="font-size:11px;color:var(--t2);max-width:140px">${hl(c.note)||'-'}</td>
