@@ -2190,19 +2190,25 @@ async function gsEnrichAndLoad(){
         if(t&&t!==l.desc) plan.push({l,t,had:String(l.desc||'').trim().length>0});
       }
     });
-    if(plan.length){
-      const overwrite=plan.filter(p=>p.had).length;
-      const msg=overwrite
-        ? `광고문구 ${plan.length}건을 다시 생성합니다.\n그중 ${overwrite}건은 이미 문구가 있어 덮어쓰게 됩니다.\n직접 적어 두신 문구가 바뀔 수 있습니다.\n\n계속할까요?`
-        : `광고문구 ${plan.length}건을 새로 생성합니다. 계속할까요?`;
-      if(confirm(msg)){
-        plan.forEach(p=>{ p.l.desc=p.t; });
-        save('listings',listings);
-        renderListings();
-        showToast(`✨ 광고문구 ${plan.length}건 생성 (잠시 후 시트에도 반영됩니다)`);
-      }else{
-        showToast('광고문구는 그대로 두었습니다');
+    // 🔴 2026-08-27 사장님 지시 "그냥 자동으로 생성되게 안 되나" — 확인창을 반으로 나눈다.
+    //   · 문구가 **아예 없던 매물**은 잃을 것이 없으므로 묻지 않고 바로 생성한다.
+    //     (종전에는 이것도 확인창에 묶여 있어서, 대장 보강 알림창 뒤에 뜨는 창을 놓치면
+    //      새 매물의 광고문구가 계속 빈 칸으로 남았다 — 08-27 실측 6건)
+    //   · **이미 문구가 있는 매물**만 물어본다. 08-14 사고(직접 적어 둔 문구가 예고 없이
+    //     사라지고 save()가 시트에까지 확정)를 막는 안전장치는 그대로 유지.
+    const fresh=plan.filter(p=>!p.had);
+    const over =plan.filter(p=>p.had);
+    let made=0;
+    if(fresh.length){ fresh.forEach(p=>{ p.l.desc=p.t; }); made+=fresh.length; }
+    if(over.length){
+      if(confirm(`이미 광고문구가 있는 매물 ${over.length}건을 최신 정보로 다시 만들까요?\n직접 적어 두신 문구가 있으면 바뀝니다.\n\n${fresh.length?`(취소해도 문구가 없던 ${fresh.length}건은 그대로 생성됩니다)`:'(취소하면 지금 문구를 그대로 둡니다)'}`)){
+        over.forEach(p=>{ p.l.desc=p.t; }); made+=over.length;
       }
+    }
+    if(made){
+      save('listings',listings);
+      renderListings();
+      showToast(`✨ 광고문구 ${made}건 생성${fresh.length?` (새 매물 ${fresh.length}건 자동)`:''} — 잠시 후 시트에도 반영됩니다`);
     }
   }catch(e){
     gsShowStatus('err', e.message);
