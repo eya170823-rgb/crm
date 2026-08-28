@@ -79,6 +79,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans
 .card-sub{font-size:11px;color:var(--t3);margin-top:2px}
 .badge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:600;white-space:nowrap}
 .bg{background:var(--gl);color:var(--g)}.bb{background:var(--bl);color:var(--b)}.ba{background:var(--al);color:var(--a)}.br{background:var(--rl);color:var(--r)}.bp{background:var(--pl);color:var(--p)}.bgr{background:var(--bg3);color:var(--t2)}.bd{background:#DEE2E7;color:#39424E}
+.field-error{border:1.5px solid var(--r) !important;background:var(--rl) !important;}
+.warn-box{background:var(--rl);color:var(--r);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:none;}
 .stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
 .stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 12px;text-align:center;box-shadow:var(--sh)}
 .stat-num{font-size:24px;font-weight:700;margin-bottom:3px}
@@ -1511,6 +1513,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <span id="customer-modal-title">👥 고객 추가</span>
       <button class="btn btn-sm" onclick="closeModal('customer')" style="font-size:16px;padding:2px 8px">✕</button>
     </div>
+    <div class="warn-box" id="customer-warn-box"></div>
 
     <!-- 기본 정보 -->
     <div class="form-section">👤 기본 정보</div>
@@ -3122,6 +3125,7 @@ function renderListings(){
       <tbody>${list.map(l=>{
         const dN=dup.no.has(String(l.id||'').trim());
         const dA=!!String(l.addr||'').trim()&&dup.addr.has(listingAddrKey(l));
+        const noPhoto=!l.photoUrl||l.photoCnt===0||l.photoCnt==='0';
         return`<tr>
         <td style="font-size:11px;white-space:nowrap;color:${dN?'var(--r)':'var(--b)'};font-weight:600">${l.id}${dN?' <span class="badge br" style="font-size:9px" title="매물번호 중복 — 시트 입력 확인 필요">⚠️중복</span>':''}</td>
         <td style="font-size:11px;white-space:nowrap">${l.recvDate||'-'}</td>
@@ -3134,7 +3138,7 @@ function renderListings(){
         <td style="color:var(--b);white-space:nowrap">${l.cphone||'-'}</td>
         <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td>
         <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
-        <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}</td>
+        <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}${noPhoto?` <span class="badge bgr" style="font-size:9px;padding:2px 6px" title="사진 미등록">📷사진없음</span>`:''}</td>
         <td><button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈</button><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td>
       </tr>`;}).join('')}</tbody>
     </table></div>`;
@@ -3145,6 +3149,7 @@ function renderListings(){
   el.innerHTML=list.map(l=>{
     const dN=dup.no.has(String(l.id||'').trim());
     const dA=!!String(l.addr||'').trim()&&dup.addr.has(listingAddrKey(l));
+    const noPhoto=!l.photoUrl||l.photoCnt===0||l.photoCnt==='0';
     const steps=STEP_MAP[l.type]||STEP_MAP['전세'];
     const cur={접수:0,상담중:1,계약완료:5,임대중:5,거래완료:5,보류:0,공실:0}[l.status]||0;
     const sh=steps.map((s,i)=>{const c=i<cur?'done':i===cur?'cur':'';return`<div class="step ${c}"><div class="step-line"></div><div class="step-dot">${i<cur?'✓':i+1}</div><div class="step-txt">${s}</div></div>`;}).join('');
@@ -3167,7 +3172,7 @@ function renderListings(){
         </div>
         <div class="row">
           ${typeBadge(l.type)}
-          <span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span>${adStatBadge(l)}
+          <span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span>${adStatBadge(l)}${noPhoto?' <span class="badge bgr" title="사진 미등록">📷 사진없음</span>':''}
           <button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button>
           <button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈 시세</button>
           <button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️ 수정</button>
@@ -4491,9 +4496,26 @@ function custSetNextAction(id,days){
 }
 
 function saveCustomer(){
+  // ─── 필수 필드 validation ───
   const name=document.getElementById('c-name').value.trim();
   const phone=document.getElementById('c-phone').value.trim();
-  if(!name||!phone){showToast('이름과 연락처는 필수입니다');return;}
+  const role=document.getElementById('c-role').value;
+  const type=document.getElementById('c-type').value;
+  const _reqFields=[
+    {id:'c-name',val:name,label:'고객명'},
+    {id:'c-phone',val:phone,label:'연락처'},
+    {id:'c-role',val:role==='선택'?'':role,label:'구분'},
+    {id:'c-type',val:type==='선택'?'':type,label:'희망유형'},
+  ];
+  const _empty=_reqFields.filter(f=>!f.val);
+  _reqFields.forEach(f=>{const el=document.getElementById(f.id);if(el)el.classList.remove('field-error');});
+  const _warnBox=document.getElementById('customer-warn-box');
+  if(_empty.length){
+    _empty.forEach(f=>{const el=document.getElementById(f.id);if(el){el.classList.add('field-error');el.addEventListener('input',()=>el.classList.remove('field-error'),{once:true});el.addEventListener('change',()=>el.classList.remove('field-error'),{once:true});}});
+    if(_warnBox){_warnBox.textContent='⚠ 필수 항목을 입력해 주세요: '+_empty.map(f=>f.label).join(', ');_warnBox.style.display='block';}
+    return;
+  }
+  if(_warnBox) _warnBox.style.display='none';
   const editId=document.getElementById('c-edit-id').value;
   const data={
     name, phone,
