@@ -851,6 +851,18 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         ✂️ <strong>모든 문구는 단문(90바이트, 18원)으로 설계</strong> — 카드의 요금 배지가 빨간색(장문 45원)이면 문구를 줄이세요. [Web발신] 표시는 통신사가 붙이는 것이라 문자로는 뺄 수 없고, 알림톡 전환 시 사라집니다.
         <button class="btn btn-xs" style="margin-left:6px" onclick="smsCheckBalance()">💰 잔액 확인</button>
       </div>
+      <!-- 📬 공실확인 발송 대기열 (2026-08-28) — 오늘부터 새로 잡히는 공실 임대인에게만, 하루 50건씩 -->
+      <div id="vacq-card" style="border:1px solid var(--g);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div style="font-weight:700">📬 공실확인 발송 대기열</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-xs" onclick="vacQueueRender(1)">🔄 새로고침</button>
+            <button class="btn btn-xs" onclick="vacQueuePreview()">👁 미리보기</button>
+            <button class="btn btn-g btn-xs" onclick="vacQueueSend()">📨 오늘치 발송</button>
+          </div>
+        </div>
+        <div id="vacq-body" style="font-size:12px;color:var(--g);line-height:1.9;margin-top:8px">불러오는 중…</div>
+      </div>
       <div class="filter-bar">
         <select id="sms-month" onchange="renderSms()"></select>
         <input type="date" id="sms-date" title="공실 감지 날짜 (당근 수집일)" onchange="renderSms()">
@@ -5936,6 +5948,83 @@ async function sendSmsAll(){
     alert('발송 결과를 확인하지 못했습니다: '+e.message+'\n\n⚠️ 문자는 이미 발송됐을 수 있습니다.\n다시 누르기 전에 [💰 잔액 확인] 또는 solapi.com 발송내역을 먼저 확인하세요.');
   }
 }
+/* ═══ 📬 공실확인 발송 대기열 (2026-08-28) ═══════════════════════════════
+   대상은 **오늘부터 새로 공실이 잡히는 임대인**뿐이다(사장님 확정). 밀린 376명은
+   일부러 뺐다 — 최대 20일 지난 건이라 이미 나갔을 가능성이 크고, 첫 발송부터 수백 건이
+   나가면 스팸 신고로 계정이 정지된다(30일). 기준일은 GAS 속성 VACSMS_SINCE 에 있다.
+
+   🔴 자동으로 나가지 않는다. [오늘치 발송]을 사람이 눌러야 그때 50건이 나간다.
+      모르는 사람에게 실제 문자가 가는 일이라 확인 창을 한 번 더 띄운다.
+   대기열 채우기(vacSmsBuild)는 읽기·적재만 하므로 화면에 들어올 때 자동으로 돈다.  */
+let _vacqStat = null;
+
+async function vacQueueApi(action, extra){
+  const url = getGsUrl();
+  if(!url){ showToast('⚙️ 구글 시트 설정을 먼저 해주세요'); return null; }
+  const res = await fetch(`${url}?action=${action}&t=${Date.now()}${tokQ()}${extra||''}`);
+  const j = await res.json();
+  if(!j.ok) throw new Error(j.error || '알 수 없는 오류');
+  return j.result;
+}
+
+/** build=1 이면 임대인관리에서 새로 잡힌 공실을 대기열에 먼저 채운다 */
+async function vacQueueRender(build){
+  const box = document.getElementById('vacq-body');
+  if(!box) return;
+  box.textContent = '불러오는 중…';
+  try{
+    if(build) await vacQueueApi('vacSmsBuild');
+    const st = await vacQueueApi('vacSmsStat');
+    if(!st) { box.textContent = ''; return; }
+    _vacqStat = st;
+    const won = n => (n==null ? '—' : Number(n).toLocaleString()+'원');
+    const warn = [];
+    if(st.balance != null && st.affordable != null && st.affordable < st.wait)
+      warn.push(`⚠ 잔액으로는 ${st.affordable}건만 보낼 수 있습니다 (대기 ${st.wait}건)`);
+    if(st.remainToday <= 0) warn.push('⚠ 오늘 한도(50건)를 다 썼습니다 — 내일 이어서 보내세요');
+    if(st.wait === 0) warn.push('오늘 새로 잡힌 공실이 아직 없습니다. 당근 공실감지가 돌면 여기에 쌓입니다.');
+    box.innerHTML =
+      `<div>보낼 대기 <b style="color:var(--b)">${st.wait}건</b>`
+      + ` · 오늘 보냄 ${st.sentToday}/${st.dailyCap}건`
+      + ` · 누적 발송 ${st.sent}건${st.failed?` · 실패 ${st.failed}건`:''}</div>`
+      + `<div>솔라피 잔액 ${won(st.balance)}${st.affordable!=null?` (약 ${st.affordable}건분)`:''}`
+      + ` · 기준일 ${st.since} 이후 감지분만</div>`
+      + (st.wait ? `<div>대기 중 감지일 ${st.oldestWaiting} ~ ${st.newestWaiting}</div>` : '')
+      + (warn.length ? `<div style="color:var(--r);margin-top:4px">${warn.join('<br>')}</div>` : '');
+  }catch(e){
+    box.innerHTML = `<span style="color:var(--r)">대기열을 불러오지 못했습니다 — ${e.message}</span>`;
+  }
+}
+
+/** 실제로 보내지 않고 누구에게 무엇이 갈지만 본다 */
+async function vacQueuePreview(){
+  try{
+    const r = await vacQueueApi('vacSmsRun', '&dry=1');
+    if(!r) return;
+    if(!r.wouldSend){ showToast(r.reason || '보낼 대기 건이 없습니다'); return; }
+    const p = (r.preview||[]).map(x=>`▸ ${x.to}\n${x.text}`).join('\n\n──────────\n\n');
+    alert(`오늘 보낼 ${r.wouldSend}건 중 앞 ${(r.preview||[]).length}건 미리보기\n\n${p}`);
+  }catch(e){ showToast('❌ ' + e.message); }
+}
+
+async function vacQueueSend(){
+  const st = _vacqStat;
+  if(st && st.wait === 0){ showToast('보낼 대기 건이 없습니다'); return; }
+  const n = st ? Math.min(st.wait, st.remainToday, (st.affordable==null?st.wait:st.affordable)) : 50;
+  if(n <= 0){ showToast('오늘 보낼 수 있는 건이 없습니다 (한도 또는 잔액)'); return; }
+  // 🔴 모르는 사람에게 실제 문자가 나간다 — 사람이 한 번 더 확인한다
+  if(!confirm(`공실확인 문자를 ${n}건 발송합니다.\n\n· 대상: 오늘부터 새로 공실이 잡힌 임대인\n· 요금: 건당 45원 (약 ${(n*45).toLocaleString()}원)\n· 한 번 나간 문자는 취소할 수 없습니다\n\n보낼까요?`)) return;
+  showToast('📨 발송 중…');
+  try{
+    const r = await vacQueueApi('vacSmsRun');
+    if(!r) return;
+    if(r.ok === false){ showToast('❌ ' + r.reason); await vacQueueRender(0); return; }
+    showToast(`✅ ${r.sent}건 발송${r.failed?` · 실패 ${r.failed}건`:''}`);
+    if(r.failed && r.errors && r.errors.length) alert('실패 사유\n\n' + r.errors.join('\n'));
+    await vacQueueRender(0);
+  }catch(e){ showToast('❌ ' + e.message); }
+}
+
 async function smsCheckBalance(){
   const url=getGsUrl(); if(!url){showToast('⚙️ 구글 시트 설정을 먼저 해주세요');return;}
   showToast('💰 잔액 조회 중...');
@@ -6093,7 +6182,7 @@ function go(id){
   if(id==='contract')      renderContracts();
   if(id==='landlord')      renderLandlords();
   if(id==='expiry')        renderExpiry();
-  if(id==='sms')           renderSms();
+  if(id==='sms')           { renderSms(); vacQueueRender(1); }   // 📬 대기열 채우고 현황 표시
   if(id==='contract-writer') cwReset && cwReset();
   if(id==='vito')          {renderVitoNotes&&renderVitoNotes();refreshVitoCustomerSelects&&refreshVitoCustomerSelects();}
   if(id==='dash')          {renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();}
