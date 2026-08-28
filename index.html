@@ -1391,7 +1391,15 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="보류">보류</option>
         </select>
       </div>
-      <div class="form-group"></div>
+      <!-- 🌐 2026-08-28: 홈페이지 노출 스위치. 종전에는 조건만 맞으면 전부 자동으로 나갔다.
+           빈 칸을 '노출'로 치므로 기존 매물은 종전과 똑같이 나간다(기본을 숨김으로 두면
+           배포 순간 홈페이지가 통째로 빈다). -->
+      <div class="form-group"><label>🌐 홈페이지 노출</label>
+        <select id="l-web">
+          <option value="">노출 (기본)</option>
+          <option value="숨김">숨김 — 홈페이지에 내보내지 않음</option>
+        </select>
+      </div>
     </div>
 
     <!-- 계약 날짜 (계약완료·임대중 선택 시 노출) -->
@@ -3264,6 +3272,7 @@ function openModal(type, editId){
       document.getElementById('l-premium').value=item.premium||'';
       document.getElementById('l-desc').value=item.desc||'';
       document.getElementById('l-status').value=item.status;
+      { const w=document.getElementById('l-web'); if(w) w.value=(item.web==='숨김'?'숨김':''); }
       // 저장된 계약일·만료일을 되돌려 놓는다. 예전에는 불러오지 않아서, 계약완료 매물을
       // 다시 열어 저장하면 두 날짜가 빈 값으로 덮어써졌다.
       document.getElementById('l-contract-date').value=item.contractDate||'';
@@ -3286,6 +3295,7 @@ function openModal(type, editId){
       document.getElementById('l-kind').value='아파트';
       renderOptionChips('');
       document.getElementById('l-status').value='접수';
+      { const w=document.getElementById('l-web'); if(w) w.value=''; }   // 새 매물은 노출이 기본
       document.getElementById('l-customer-sel').value='';
       document.getElementById('l-recv-date').value=todayStr();
       renderExistingAttachments([]);
@@ -4294,6 +4304,7 @@ function saveListing(){
   const editId=document.getElementById('l-edit-id').value;
   const existingAttachments=editId?(listings.find(l=>l.id===editId)?.attachments||[]):[];
   const status=document.getElementById('l-status').value;
+  const web=(document.getElementById('l-web')||{}).value||'';
   const data={
     addr,addr2:normalizeAddr2(),
     apt,type:typeV,
@@ -4327,6 +4338,7 @@ function saveListing(){
     premium:document.getElementById('l-premium').value.trim(),
     desc:document.getElementById('l-desc').value.trim(),
     status,
+    web,                                   // 🌐 홈페이지 노출 (빈 칸 = 노출)
     recvDate:document.getElementById('l-recv-date').value,
     moveDate:document.getElementById('l-move-date').value,
     cname:document.getElementById('l-cname').value.trim(),
@@ -7227,6 +7239,74 @@ function adSet(id, k, patch){
   renderAds();
   if(typeof renderListings === 'function') renderListings();
 }
+/* 🌐 홈페이지 노출 스위치 (2026-08-28)
+   종전에는 조건(거래유형·가격·위치 있고 계약 안 됨)만 맞으면 **전부 자동으로** 홈페이지에
+   나갔다. 임대인이 온라인 노출을 원치 않거나 사진·정보가 덜 채워진 매물도 막을 방법이
+   없었다(사장님 지적).
+
+   🔴 빈 칸 = 노출이다. 끄고 싶은 것만 '숨김'으로 바꾼다.
+      기본을 숨김으로 두면 이 코드가 배포되는 순간 홈페이지가 통째로 비어 버린다.
+   판정은 GAS getHomepageListings 와 **같은 규칙**이어야 한다 — 한쪽만 고치면
+   화면에 '노출'로 보이는데 실제로는 안 나가는 상태가 된다(검산이 두 곳을 대조한다). */
+function webOn(o){ return String((o && o.web) || '').trim() !== '숨김'; }
+
+/* 물건유형이 홈페이지 종류로 분류되는가 (2026-08-28)
+   GAS 의 HOMEPAGE_KIND_MAP 과 같은 목록이다. 여기에 없는 값이면 홈페이지에서 '기타매물'이
+   되는데, 기타매물은 위치까지 숨기는 대상이라 손님 화면에 제목과 가격만 남는다.
+   ⚠️ GAS HOMEPAGE_KIND_MAP 을 고치면 이 목록도 같이 고쳐야 한다. */
+const WEB_KINDS = ['오픈형 원룸','분리형 원룸','오픈형원룸','분리형원룸','아파트','오피스텔',
+  '빌라·연립','빌라(투룸 이상)','주택','단독주택','상가','사무실','건물','공장/창고','토지'];
+
+/* 🔀 2026-08-28 — 두 세션이 이 함수를 동시에 고쳤다. 최종은 **통합 판정**이다.
+   메인컴 세션이 '물건유형·면적' 조건을 화면과 GAS 양쪽에 같이 넣었다
+   (GAS getHomepageListings: `if (homeType === '기타매물' || !g('area')) continue;`).
+   나는 그 사실을 모르고 화면만 두 갈래(나감/부실)로 쪼갰다가 되돌렸다 — 백엔드가 이미
+   거르고 있으므로 화면이 '나간다'고 말하면 그게 거짓말이 된다.
+   🔴 이 함수를 고치면 **GAS getHomepageListings 도 같이** 고친다.
+     검산 verify_webswitch 가 같은 표본을 양쪽에 넣어 결과가 같은지 대조한다. */
+
+/** 홈페이지에 실제로 나갈 수 있는 매물인가 — GAS 피드가 거르는 조건과 **똑같아야 한다** */
+function webEligible(o){
+  if(!o) return false;
+  if(!o.type || !o.price) return false;                       // 거래유형·가격 없으면 피드에서 빠진다
+  if(!o.addr && !o.apt) return false;                         // 위치 없으면 빠진다
+  if(['계약완료','임대중','거래완료','보류'].includes(String(o.status||'').trim())) return false;
+  if(String(o.note||'').includes('테스트')) return false;
+  if(!WEB_KINDS.includes(String(o.kind||'').trim())) return false;  // 물건유형 미분류 → 기타매물
+  if(!String(o.area||'').trim()) return false;                      // 면적 없으면 보여줄 게 없다
+  return true;
+}
+
+/** 왜 안 나가는지 한 줄로 — 스위치는 켰는데 홈페이지에 없을 때 사장님이 헤매지 않게 */
+function webWhyNot(o){
+  if(!o.type || !o.price) return '거래유형·가격이 비어 있어 홈페이지에 안 나갑니다';
+  if(!o.addr && !o.apt)   return '주소·건물명이 비어 있어 홈페이지에 안 나갑니다';
+  const st = String(o.status||'').trim();
+  if(['계약완료','임대중','거래완료','보류'].includes(st)) return `상태가 '${st}'라 홈페이지에 안 나갑니다`;
+  if(String(o.note||'').includes('테스트')) return '메모에 "테스트"가 있어 홈페이지에 안 나갑니다';
+  if(!WEB_KINDS.includes(String(o.kind||'').trim()))
+    return '물건유형이 비어 있어 홈페이지에 안 나갑니다 — 채우면 바로 올라갑니다';
+  if(!String(o.area||'').trim())
+    return '면적이 비어 있어 홈페이지에 안 나갑니다 — 채우면 바로 올라갑니다';
+  return '';
+}
+
+function webToggle(id){
+  const list = adListings();
+  const o = list.find(x => x.id === id);
+  if(!o) return;
+  if(webOn(o)){
+    if(!confirm(`이 매물을 홈페이지에서 내립니다.\n\n${o.apt||''} ${o.addr2||''}\n\n다시 켤 때까지 홈페이지 목록에 나오지 않습니다.`)) return;
+    o.web = '숨김';
+  }else{
+    o.web = '노출';
+    const why = webWhyNot(o);                                 // 켰지만 조건이 안 맞으면 미리 알려준다
+    if(why) showToast('⚠ ' + why);
+  }
+  adSaveList(list);
+  renderAds();
+}
+
 function adToggle(id, k){
   const o = adListings().find(x => x.id === id);
   if(!o) return;
@@ -7444,6 +7524,19 @@ function adTodoCount(){
   });
   return n;
 }
+/** 광고관리 표의 홈페이지 칸 — 켜짐/꺼짐과, 켰는데 조건이 안 맞는 경우를 구분해 보여준다 */
+function webCell(o){
+  const on = webOn(o), okay = webEligible(o);
+  const label = on ? (okay ? '노출중' : '안나감') : '내림';
+  const color = on ? (okay ? '#0F6E56' : '#DC2626') : '#D1D5DB';
+  const why   = on && !okay ? webWhyNot(o) : (on ? '홈페이지에 나가고 있습니다' : '홈페이지에서 내렸습니다');
+  return `<td style="text-align:center;cursor:pointer;padding:6px 4px"
+              onclick="webToggle('${o.id}')" title="${why}">
+    <div style="font-size:11px;font-weight:700;color:${color}">${label}</div>
+    ${on && !okay ? `<div style="font-size:9px;color:#DC2626">확인</div>` : ''}
+  </td>`;
+}
+
 function renderAds(){
   const el = document.getElementById('ad-table');
   if(!el) return;
@@ -7495,6 +7588,7 @@ function renderAds(){
       <td style="font-size:11px">${o.kind || ''}<div style="color:#6B7280">${o.type || ''}</div></td>
       <td style="font-size:11px">${o.price || ''}${o.rentAmt ? ' / ' + o.rentAmt : ''}</td>
       <td style="font-size:11px">${o.status || ''} ${warn}</td>
+      ${webCell(o)}
       ${cells}
     </tr>`;
   }).join('');
@@ -7504,14 +7598,19 @@ function renderAds(){
          <thead><tr style="background:#F9FAFB">
            <th style="font-size:11px">매물번호</th><th style="font-size:11px">건물·주소</th>
            <th style="font-size:11px">종류/거래</th><th style="font-size:11px">가격</th>
-           <th style="font-size:11px">상태</th>${head}
+           <th style="font-size:11px">상태</th>
+           <th style="text-align:center;color:#0F6E56;font-size:11px" title="우리 홈페이지 노출 여부">🌐 홈페이지</th>${head}
          </tr></thead><tbody>${body}</tbody></table></div>`
     : `<div style="padding:40px;text-align:center;color:#9CA3AF">해당하는 매물이 없습니다.</div>`;
 
   const sum = document.getElementById('ad-summary');
   if(sum){
     const cnt = PLATFORMS.map(p => p.label + ' ' + all.filter(o => adOn(o,p.key)).length).join(' · ');
-    sum.textContent = `총 ${all.length}건 / ${cnt}`;
+    const webN   = all.filter(o => webOn(o) && webEligible(o)).length;
+    const webOff = all.filter(o => !webOn(o)).length;
+    const webBad = all.filter(o => webOn(o) && !webEligible(o)).length;
+    sum.textContent = `총 ${all.length}건 / 🌐 홈페이지 ${webN}건`
+      + (webOff ? ` (내림 ${webOff})` : '') + (webBad ? ` (안나감 ${webBad})` : '') + ` / ${cnt}`;
   }
   const b = document.getElementById('sb-ad-todo');
   if(b){ const n = adTodoCount(); b.textContent = n; b.style.display = n ? '' : 'none'; }
