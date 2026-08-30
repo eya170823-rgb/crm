@@ -703,6 +703,11 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
             <option value="500">500건</option>
           </select>
           <span id="inbox-summary" style="font-size:11.5px;color:var(--t3)"></span>
+          <!-- 🚫 2026-08-30: 인증번호·결제알림·광고 같은 필요 없는 인입을 골라 준다.
+               자동으로 지우지 않는다 — 무엇이 지워질지 목록을 보여주고 확인을 받는다. -->
+          <button class="btn btn-xs" id="inbox-junk-btn" onclick="inboxDismissJunk()"
+            title="인증번호·결제알림·광고 등 — 지우기 전에 목록을 보여줍니다"
+            style="display:none;color:#DC2626;border-color:#DC2626"></button>
         </div>
         <div id="inbox-bulkbar" style="display:none;gap:6px;align-items:center;margin-top:8px;padding:6px 8px;background:var(--bg,#EEF3F2);border:1px solid var(--border);border-radius:6px;flex-wrap:wrap">
           <label style="font-size:12px;display:flex;align-items:center;gap:4px">
@@ -4692,6 +4697,13 @@ function inboxToggleOne(i,checked){
   updateInboxToolbar();
 }
 function updateInboxToolbar(){
+  // 🚫 필요 없어 보이는 건수를 상시 표시 — 선택하지 않아도 보이게 (2026-08-30)
+  const jb=document.getElementById('inbox-junk-btn');
+  if(jb){
+    const n=inboxJunkList().length;
+    jb.style.display=n?'':'none';
+    jb.textContent=`🚫 필요없는 것 ${n}건 정리`;
+  }
   const bar=document.getElementById('inbox-bulkbar'); if(!bar) return;
   const n=inboxSelected.size;
   bar.style.display=n?'flex':'none';
@@ -4753,7 +4765,12 @@ function inboxRender(){
       const bLl=isLl
         ?`<button class="btn btn-xs" onclick="inboxPromoteLandlord(${i})" title="이미 임대인 — 메모에 추가">🏠 메모+</button>`
         :`<button class="btn btn-xs ${ownerish?'btn-g':''}" onclick="inboxPromoteLandlord(${i})">🏠 임대인</button>`;
-      act=ownerish?(bLl+' '+bCust):(bCust+' '+bLl);
+      // 🚫 한 건만 바로 무시 — 체크박스를 거치지 않는다. 필요 없어 보이면 붉게 표시.
+      const jw=inboxJunkWhy(r);
+      const bNo=`<button class="btn btn-xs" onclick="inboxDismissOne(${i})"
+        title="${jw?ec(jw)+'으로 보입니다 — ':''}고객·임대인 등록 없이 인입함에서만 정리"
+        style="${jw?'color:#DC2626;border-color:#DC2626':''}">🚫${jw?' '+ec(jw):''}</button>`;
+      act=(ownerish?(bLl+' '+bCust):(bCust+' '+bLl))+' '+bNo;
     }
     const cb=done?'<span style="display:inline-block;width:16px"></span>'
       :`<input type="checkbox" ${inboxSelected.has(i)?'checked':''} onchange="inboxToggleOne(${i},this.checked)" style="margin-top:3px">`;
@@ -4836,6 +4853,97 @@ async function inboxBulkPromoteLandlord(){
 }
 // 2026-08-26 신설: 광고성 문의·관련없는 통화 등 등록할 필요 없는 건을 인입함에서만 정리.
 //   고객/임대인 시트에는 아무것도 남기지 않고 인입함 도장만 찍어 목록에서 사라지게 한다.
+/* 🚫 필요 없는 인입 골라내기 (2026-08-30)
+   인입함에는 손님 문의만 오는 게 아니다. 인증번호·결제알림·다른 업체 광고·매크로가
+   치환 못 한 매직텍스트까지 전부 쌓인다(현재 900건 넘게 적체). 지금까지는 체크박스로
+   하나씩 골라 일괄 무시하는 길뿐이었다.
+
+   🔴 원칙: **자동으로 지우지 않는다.** 여기서 하는 일은 "이건 필요 없어 보인다"고
+      골라 주는 것까지다. 실제로 무시 처리하려면 사장님이 목록을 보고 확인해야 한다.
+      손님 문의를 잘못 지우면 되돌릴 방법이 없다(인입함 도장은 남지만 놓친 문의는 못 찾는다).
+   🔴 판정은 **보수적으로.** 애매하면 junk 가 아니라고 본다. 놓친 광고 몇 건보다
+      잘못 지운 손님 문의 한 건이 훨씬 비싸다.
+
+   ⚠ 전화번호가 사람 번호(010)인데 내용이 광고인 경우가 있어, 번호만으로는 못 가른다.
+     내용 표지어를 함께 본다. */
+const INBOX_JUNK = [
+  { why: '인증번호',   re: /인증\s*번호|인증코드|verification|OTP|본인확인/i },
+  { why: '결제·주문알림', re: /결제(?:창|완료|취소|승인)|정상결제|주문(?:완료|취소)|배송|택배|카드승인|출금|입금\s*확인/ },
+  { why: '광고문자',   re: /\(광고\)|\[광고\]|무료거부|수신거부|할인\s*행사|이벤트\s*할인|대출\s*(?:상담|한도)|카지노|바카라|코인|주식\s*리딩/ },
+  { why: '수집기 오류', re: /\{sms_(?:number|message|name)\}|\{call_number\}|매직텍스트/ },
+  { why: '시험 데이터', re: /^0100000\d{4}$/ },                        // 번호에만 적용(정규화 후)
+];
+/** 🔴 시트는 010… 의 앞 0 을 떨군다(1026010110 처럼 저장된다). 되살려서 본다.
+    실데이터 500건에 돌려 보고 잡은 오탐 — 이걸 안 하면 휴대폰이 전부 '기관 번호'가 된다. */
+function inboxPhoneNorm(phone){
+  let d = String(phone||'').replace(/\D/g,'');
+  if(/^1[016789]\d{8}$/.test(d)) d = '0' + d;      // 앞 0 이 떨어진 휴대폰
+  return d;
+}
+/** 1588·1600·15xx·16xx·18xx·114 같은 **대표번호**만 기관으로 본다.
+    🔴 일반 유선(02·064·051…)은 기관으로 보지 않는다 — 손님·임대인이 유선으로도 건다. */
+function inboxOrgNumber(phone){
+  const d = inboxPhoneNorm(phone);
+  if(!d) return false;
+  return /^1[5-9]\d{2}/.test(d) || d === '114';
+}
+
+/** 필요 없어 보이는 이유 — 없으면 빈 문자열(=사람 문의로 본다) */
+function inboxJunkWhy(r){
+  const txt = String((r&&r.text)||'');
+  const ph  = String((r&&r.phone)||'');
+  // 🔴 부재중·회신 필요는 절대 자동으로 걸러내지 않는다 — 손님 전화일 수 있다(실데이터에서 잡은 오탐)
+  if(/부재중|회신\s*필요/.test(txt)) return '';
+  if(INBOX_JUNK[4].re.test(inboxPhoneNorm(ph))) return '시험 데이터';
+  for(let k=0;k<4;k++) if(INBOX_JUNK[k].re.test(txt)) return INBOX_JUNK[k].why;
+  // 대표번호(1588·16xx…)에서 온 것 중 부동산 이야기가 없는 것만
+  if(inboxOrgNumber(ph) && !/방|룸|매물|월세|연세|전세|보증금|공실|문의|입주|계약|임대|보러|위치|주소|사진/.test(txt))
+    return '대표번호 문자';
+  return '';
+}
+
+/** 지금 목록에서 필요 없어 보이는 것들 (아직 처리 안 된 것만) */
+function inboxJunkList(){
+  const out = [];
+  inboxRows.forEach((r,i)=>{
+    if(String(r.reg||'').trim()) return;
+    const why = inboxJunkWhy(r);
+    if(why) out.push({ i, why, r });
+  });
+  return out;
+}
+
+/** 한 건만 무시 — 체크박스 없이 바로 */
+async function inboxDismissOne(i){
+  const r = inboxRows[i];
+  if(!r || String(r.reg||'').trim()) return;
+  const why = inboxJunkWhy(r);
+  if(!confirm(`이 항목을 처리 완료로 표시합니다.\n\n${r.name||'(이름 없음)'} ${r.phone||''}\n${String(r.text||'').slice(0,80)}\n\n${why?`(${why}으로 보입니다)\n`:''}고객·임대인 등록 없이 인입함에서만 정리됩니다.`)) return;
+  r.reg='무시 방금';
+  inboxSelected.delete(i);
+  if(r.row) inboxMarkRemote(r,'무시');
+  showToast('🚫 1건 무시 처리');
+  inboxRender();
+}
+
+/** 필요 없어 보이는 것들을 골라 보여주고, 사장님이 확인하면 한꺼번에 정리 */
+async function inboxDismissJunk(){
+  const list = inboxJunkList();
+  if(!list.length){ showToast('필요 없어 보이는 항목이 없습니다'); return; }
+  const byWhy = {};
+  list.forEach(x=>{ byWhy[x.why]=(byWhy[x.why]||0)+1; });
+  const summary = Object.entries(byWhy).map(([k,v])=>`· ${k} ${v}건`).join('\n');
+  const sample = list.slice(0,8).map(x=>
+    `  [${x.why}] ${x.r.phone||''} ${String(x.r.text||'').replace(/\s+/g,' ').slice(0,44)}`).join('\n');
+  // 🔴 지우기 전에 무엇이 지워지는지 반드시 보여준다
+  if(!confirm(`필요 없어 보이는 ${list.length}건을 정리할까요?\n\n${summary}\n\n앞 ${Math.min(8,list.length)}건 미리보기:\n${sample}\n\n고객·임대인 등록 없이 인입함에서만 정리됩니다.\n손님 문의가 섞여 있으면 [취소]를 누르고 하나씩 확인해 주세요.`)) return;
+  const rows=[];
+  list.forEach(x=>{ x.r.reg='무시 방금'; inboxSelected.delete(x.i); if(x.r.row) rows.push(x.r.row); });
+  showToast(`🚫 ${rows.length}건 정리 완료`);
+  inboxMarkBulkRemote(rows,'무시');
+  inboxRender();
+}
+
 async function inboxBulkDismiss(){
   const idxs=[...inboxSelected].filter(i=>inboxRows[i]&&!String(inboxRows[i].reg||'').trim());
   if(!idxs.length){ showToast('선택된 항목이 없습니다'); return; }
