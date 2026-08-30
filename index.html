@@ -5991,6 +5991,28 @@ function smsShort(s){
 }
 // 긴 판부터 시도해 90B에 들어가는 첫 문안을 쓴다 — 잘림 자체를 회피
 function smsFit(...cands){for(const c of cands){if(smsBytes(c)<=90)return c;}return smsShort(cands[cands.length-1]);}
+/* 동 이름 + 건물명을 합칠 때 겹치는 것을 뺀다 (2026-08-30)
+   실제 대기열 미리보기에서 **'오등동 오등동진평연립주택'** 으로 나왔다. 건물명에 이미 동이
+   들어 있는데 앞에 또 붙인 것이다. 첫 발송 전에 잡았다.
+   규칙 (보수적으로 — 애매하면 그냥 둔다)
+     ① 건물명이 동 이름으로 시작하면 동을 빼고 건물명만    '오등동'+'오등동진평연립주택' → '오등동진평연립주택'
+     ② 동에서 끝의 동/읍/면/리를 떼어낸 앞부분(2글자 이상)으로 시작해도 뺀다
+        '노형동'+'노형뜨란채' → '노형뜨란채'
+        🔴 2글자 미만이면 안 뺀다 — '연동'의 앞부분은 '연' 한 글자라 '연립주택'까지
+           걸려 버린다. 그래서 '연동 투에이치 오피스텔'은 그대로 둔다(정상).
+     ③ 그 밖에는 그대로 '동 건물명'
+   ⚠ GAS 의 vacSmsPlace_ 와 **같은 규칙**이어야 한다. 한쪽만 고치면 화면 미리보기와
+      실제 발송 문안이 달라진다 — 검산이 같은 표본을 양쪽에 넣어 대조한다. */
+function smsPlace(dong,apt){
+  const d=String(dong||'').trim(), a=String(apt||'').trim();
+  if(!d) return a;
+  if(!a) return d;
+  if(a.startsWith(d)) return a;                          // ① 건물명이 동으로 시작
+  const stem=d.replace(/(동|읍|면|리)$/,'');
+  if(stem.length>=2 && a.startsWith(stem)) return a;      // ② 앞부분이 겹침(2글자 이상일 때만)
+  return (d+' '+a).replace(/\s+/g,' ').trim();
+}
+
 const smsTpl={
   // 공실확인(매일): 당근 수집이 임대인관리에 기록한 '공실감지 날짜'를 기준으로 발송
   // 🔴 2026-08-27 사장님 확정 — 처음 연락하는 임대인에게 보내는 문자라 톤을 다시 잡았다.
@@ -6036,7 +6058,7 @@ function renderSms(){
       // 2026-08-27: 주소(읍면동)+건물명으로 넘긴다 — 건물명만으로는 어느 동네인지 안 드러난다
       const dong=(String(l.addr||'').match(/([가-힣0-9]+(?:동|읍|면|리))(?=\s|$)/)||[])[1]||'';
       const aptNm=String(l.apt||'').trim();
-      const bld=[dong,aptNm].filter(Boolean).join(' ')
+      const bld=smsPlace(dong,aptNm)
         || String(l.addr||'').replace('제주특별자치도 제주시','').trim() || '보유하신 건물';
       list.push({name:l.name||'임대인',phone:l.phone||'-',role:'임대인',apt:bld,msg:smsTpl.vacancy.임대인(bld)});
     });
