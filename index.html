@@ -4457,12 +4457,18 @@ function custParseAreaMin(text){
   if(m) return parseFloat(m[1])*3.3058;
   return 0;
 }
+// 🎯 매칭률(%) 배점표 — 100점 만점, 손님이 안 채운 항목은 그 항목을 만점 처리한다
+//   (모르는 걸 감점하지 않는다 — 조건을 안 준 건 "그 부분은 상관없다"는 뜻으로 취급).
+//   거래유형·물건종류는 이미 위 하드필터를 통과한 것만 여기 들어오므로 사실상 항상 만점에
+//   가깝다 — 실제로 매물 사이 순위를 가르는 건 지역·면적이다(하드필터로 안 거르는 유일한 축).
+const CUST_MATCH_WEIGHTS={type:40,kind:20,region:25,area:15}; // 합계 100
 function custMatchListings(region,propType,type,areaSize){
   const regions=String(region||'').split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
   const wantKind=String(propType||'').trim();
   const wantType=String(type||'').trim();
   const areaMin=custParseAreaMin(areaSize);
   const rentish=t=>/월세|연세|단기/.test(t||'');
+  const W=CUST_MATCH_WEIGHTS;
   const scored=listings.filter(l=>{
     const st=String(l.status||'').trim();
     if(st && st!=='접수' && st!=='공실') return false;      // 임대중·계약완료·거래완료·보류 제외
@@ -4473,20 +4479,29 @@ function custMatchListings(region,propType,type,areaSize){
     if(wantKind && !String(l.kind||'').includes(wantKind)) return false;
     return true;
   }).map(l=>{
-    let s=0;
+    let pts=0;
+    // 거래유형: 완전히 같으면 만점, 월세/연세/단기끼리 교차 매칭이면 감점(그래도 하드필터는 통과함)
+    if(!wantType) pts+=W.type;
+    else pts+=(l.type===wantType)?W.type:Math.round(W.type*0.6);
+    // 물건종류: 하드필터를 통과했으니 지정했으면 항상 만점, 지정 안 했으면 그 자체로 만점
+    pts+=W.kind;
+    // 희망지역: 주소에 포함되면 만점, 지정 안 했으면 만점
     const addr=(l.addr||'')+' '+(l.apt||'');
-    const regionHit=regions.length && regions.some(r=>addr.includes(r));
-    if(regionHit) s+=3;
+    const regionHit=regions.length>0 && regions.some(r=>addr.includes(r));
+    if(!regions.length) pts+=W.region;
+    else if(regionHit) pts+=W.region;
+    // 희망면적: 매물 면적이 희망 이상이면 만점, 못 미치면 비례 감점, 매물에 면적 정보가 없으면 0점
     const areaN=parseFloat(l.area);
-    if(areaMin && areaN && areaN>=areaMin*0.85) s+=2;
-    if(wantKind && String(l.kind||'').trim()===wantKind) s+=1; // 표기까지 완전히 같으면 가산
-    return {l,s,regionHit};
+    if(!areaMin) pts+=W.area;
+    else if(areaN) pts+=(areaN>=areaMin)?W.area:Math.max(0,Math.round(W.area*(areaN/areaMin)));
+    const pct=Math.round(pts/(W.type+W.kind+W.region+W.area)*100);
+    return {l,pct,regionHit};
   });
   // 지역을 지정했는데 그 지역에 맞는 게 하나도 없으면, 지역 조건을 접고 나머지 조건으로 넓혀 보여준다
   let pool=scored;
   if(regions.length && scored.some(x=>x.regionHit)) pool=scored.filter(x=>x.regionHit);
-  pool.sort((a,b)=>b.s-a.s);
-  return {matches:pool.map(x=>x.l)};
+  pool.sort((a,b)=>b.pct-a.pct);
+  return {matches:pool.map(x=>({...x.l, matchPct:x.pct}))};
 }
 // 🐛 매칭 결과에서 매물을 열면 매물 모달이 고객 모달과 z-index가 같아(둘 다 500) DOM 순서상
 //   고객 모달(더 나중에 선언됨)에 가려 안 보이는 버그가 실브라우저 테스트로 드러났다.
@@ -4519,9 +4534,12 @@ function custRenderMatches(){
       // 단위가 없을 때만 붙인다(두 번 붙는 사고 방지, 실브라우저 테스트로 발견)
       const areaRaw=String(l.area||'').trim();
       const area=areaRaw?ec(areaRaw)+(/[㎡m]/i.test(areaRaw)?'':'㎡'):'';
-      return `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 4px;border-bottom:1px solid var(--border)">
+      const pct=Number.isFinite(l.matchPct)?l.matchPct:0;
+      const pctCls=pct>=80?'bg':pct>=50?'ba':'bgr';
+      const pctBadge=`<span class="badge ${pctCls}" title="거래유형·물건종류·희망지역·희망면적 부합도(저장되지 않는 참고 지표)">🎯${pct}%</span>`;
+      return `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 4px;border-bottom:1px solid var(--border);align-items:flex-start">
         <div style="min-width:0">
-          <span style="font-weight:600">${ec(l.apt)||ec(l.addr)}</span>
+          <div>${pctBadge} <span style="font-weight:600">${ec(l.apt)||ec(l.addr)}</span></div>
           <span style="color:var(--t2)">${ec(l.kind)||''} ${ec(l.type)||''} ${ec(price)}${area?' · '+area:''}${l.floor?' · '+ec(l.floor):''}</span>
         </div>
         <button class="btn btn-xs" onclick="custOpenMatchedListing('${l.id}')" title="매물 열기">${ec(l.id)}</button>
