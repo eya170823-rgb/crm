@@ -4488,14 +4488,21 @@ function custMatchListings(region,propType,type,areaSize){
   pool.sort((a,b)=>b.s-a.s);
   return {matches:pool.map(x=>x.l)};
 }
+// 🐛 매칭 결과에서 매물을 열면 매물 모달이 고객 모달과 z-index가 같아(둘 다 500) DOM 순서상
+//   고객 모달(더 나중에 선언됨)에 가려 안 보이는 버그가 실브라우저 테스트로 드러났다.
+//   이 앱은 모달을 한 번에 하나만 여는 구조라, 고객 모달을 먼저 닫고 매물 모달을 연다.
+function custOpenMatchedListing(id){
+  closeModal('customer');
+  openModal('listing', id);
+}
 function custRenderMatches(){
   const el=document.getElementById('c-match-results'); if(!el) return;
   const region=document.getElementById('c-region')?.value||'';
   const propType=document.getElementById('c-prop-type')?.value||'';
   const type=document.getElementById('c-type')?.value||'';
   const areaSize=document.getElementById('c-area-size')?.value||'';
-  if(!region.trim() && !propType.trim() && !areaSize.trim()){
-    el.innerHTML='조건(희망지역·물건종류·희망면적 중 하나 이상)을 채우면 매칭됩니다.';
+  if(!region.trim() && !propType.trim() && !areaSize.trim() && !type.trim()){
+    el.innerHTML='조건(희망지역·물건종류·거래유형·희망면적 중 하나 이상)을 채우면 매칭됩니다.';
     return;
   }
   const {matches}=custMatchListings(region,propType,type,areaSize);
@@ -4508,13 +4515,16 @@ function custRenderMatches(){
   el.innerHTML=`<div style="font-size:11px;color:var(--t3);margin-bottom:4px">${matches.length}건 매칭${matches.length>5?' 중 상위 5건':''}</div>`
     + top.map(l=>{
       const price=[l.price,l.rentAmt].filter(Boolean).join('/');
-      const area=l.area?ec(l.area)+'㎡':'';
+      // l.area는 시트에 이미 단위(㎡)가 붙어 저장돼 있다("22.5㎡") — 숫자만 오는 경우까지 대비해
+      // 단위가 없을 때만 붙인다(두 번 붙는 사고 방지, 실브라우저 테스트로 발견)
+      const areaRaw=String(l.area||'').trim();
+      const area=areaRaw?ec(areaRaw)+(/[㎡m]/i.test(areaRaw)?'':'㎡'):'';
       return `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 4px;border-bottom:1px solid var(--border)">
         <div style="min-width:0">
           <span style="font-weight:600">${ec(l.apt)||ec(l.addr)}</span>
           <span style="color:var(--t2)">${ec(l.kind)||''} ${ec(l.type)||''} ${ec(price)}${area?' · '+area:''}${l.floor?' · '+ec(l.floor):''}</span>
         </div>
-        <button class="btn btn-xs" onclick="openModal('listing','${l.id}')" title="매물 열기">${ec(l.id)}</button>
+        <button class="btn btn-xs" onclick="custOpenMatchedListing('${l.id}')" title="매물 열기">${ec(l.id)}</button>
       </div>`;
     }).join('');
 }
