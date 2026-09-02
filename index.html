@@ -2306,6 +2306,18 @@ async function gsLoadFromSheet(){
       landlords=normDates('landlords',data.landlords);
       localStorage.setItem(K.landlords,JSON.stringify(landlords));
     }
+    /* 🔴 2026-09-02 — 방금 시트에서 받아온 것이므로 '이미 올린 것'으로 도장을 찍는다.
+       안 찍으면 다음 저장 때 **42건을 전부 다시 올리느라 몇 분**이 걸리고,
+       그 사이 창을 닫으면 정작 새로 만든 광고문구가 안 올라간다(실제로 겪음). */
+    try{
+      [['listings',listings],['customers',customers],['contracts',contracts],['landlords',landlords]]
+        .forEach(([t,arr])=>{
+          if(!Array.isArray(arr)) return;
+          const m={};
+          arr.forEach(o=>{ const id=String((o&&o.id)||'').trim(); if(id) m[id]=gsFinger(o); });
+          gsShadowSet(t,m);
+        });
+    }catch(e){ console.warn('[동기화] 도장 찍기 실패: '+e.message); }
     gsShowStatus('ok');
     showToast(`불러오기 완료 — 매물 ${data.listings?.length||0}건 / 고객 ${data.customers?.length||0}명 / 계약 ${data.contracts?.length||0}건`);
     renderListings(); renderCustomers(); renderContracts(); renderLandlords();
