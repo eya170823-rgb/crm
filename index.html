@@ -460,7 +460,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <!-- 구글 시트 연동 상태 -->
       <div id="gs-sync-status" style="font-size:10px;margin-top:6px;color:var(--t3)">⚪ 구글 시트 미연동</div>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
-        <button onclick="gsSyncAll()" style="width:100%;padding:6px;background:#1D6F42;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">☁️ 시트에 저장</button>
+        <button onclick="gsSyncAllConfirm()" style="width:100%;padding:6px;background:#1D6F42;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">☁️ 시트에 저장</button>
         <button onclick="gsEnrichAndLoad()" title="구글 시트에 적어 넣은 매물을 건축물대장 기준으로 채운 뒤 CRM으로 가져옵니다" style="width:100%;padding:6px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⬇️ 시트에서 불러오기</button>
         <a href="https://docs.google.com/spreadsheets/d/1B69qGMsO6BPZvGVPxTnVzYmgRCqDB4UkrJjOluFqsBA/edit" target="_blank" rel="noopener" style="display:block;width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t2);cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box">📊 구글 시트 바로 열기</a>
         <button onclick="openGsSetup()" style="width:100%;padding:6px;background:none;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t3);cursor:pointer">⚙️ 구글 시트 설정</button>
@@ -2084,6 +2084,49 @@ function contractRestore(c){
 }
 
 // 저장 시 2초 후 자동 구글 시트 동기화 (디바운스)
+/* ═══ 🔴 2026-09-02 — 자동 동기화가 시트를 통째로 덮어쓰던 것을 고쳤다 ═══════════
+   무슨 일이 있었나
+     매물 한 건만 고쳐도 2초 뒤 `saveAll` 이 돌면서 **브라우저에 있는 목록 전체로
+     시트를 맞춰 버렸다.** 그래서 브라우저 목록이 낡거나 비어 있으면, 사장님이
+     아무 버튼도 안 눌러도 시트가 그 상태로 덮여 매물이 사라졌다(09-02 40건 소실).
+     버튼을 안 눌러도 일어나므로 "CRM 을 열어 두는 것만으로 위험"했다.
+
+   어떻게 고쳤나
+     **바뀐 것만 upsert 로 올린다.** upsert 는 그 한 행만 고치고 **절대 지우지 않는다.**
+     그래서 브라우저 목록이 낡아 있어도 시트의 다른 행을 건드리지 못한다.
+     · 무엇이 바뀌었는지는 '그림자'(gsShadow)와 대조해 안다 — id 별 마지막 전송 내용.
+     · 삭제는 원래부터 따로다(gsDeleteRow → action=delete, 묘비 보호).
+     · 전체를 밀어 넣는 saveAll 은 이제 **사람이 [☁️ 시트에 저장]을 누를 때만** 돈다.
+   ⚠ 그림자는 브라우저에 남는다. 지워져도 안전하다 — 다음 저장 때 전부 upsert 할 뿐이다.
+--------------------------------------------------------------------------- */
+const GS_SHADOW_KEY = 'crm_gs_shadow';
+function gsShadow(){
+  try { return JSON.parse(localStorage.getItem(GS_SHADOW_KEY) || '{}') || {}; }
+  catch(e){ return {}; }
+}
+function gsShadowSet(type, map){
+  const all = gsShadow(); all[type] = map;
+  try { localStorage.setItem(GS_SHADOW_KEY, JSON.stringify(all)); } catch(e){}
+}
+/** 한 건을 문자열로 굳혀 비교용 지문을 만든다(키 순서를 고정해 같은 내용이면 같은 값) */
+function gsFinger(o){
+  try { return JSON.stringify(Object.keys(o||{}).sort().map(k=>[k, o[k]])); }
+  catch(e){ return String(Math.random()); }
+}
+/** 지금 목록과 그림자를 대조해 새로 생기거나 바뀐 건만 뽑는다 */
+function gsChanged(type, list){
+  const prev = gsShadow()[type] || {};
+  const next = {}, out = [];
+  (Array.isArray(list)?list:[]).forEach(o=>{
+    const id = String((o&&o.id)||'').trim();
+    if(!id) return;                                   // id 없는 건 올리지 않는다
+    const f = gsFinger(o);
+    next[id] = f;
+    if(prev[id] !== f) out.push(o);
+  });
+  return { changed: out, next };
+}
+
 function gsAutoSync(key, val){
   const syncKeys=['listings','customers','contracts','landlords'];
   if(!syncKeys.includes(key)) return;
@@ -2099,7 +2142,14 @@ async function gsPushQueue(){
   gsShowStatus('sync');
   try{
     for(const [type, data] of Object.entries(gsSyncQueue)){
-      await gsSaveAll(type, data);
+      // 🔴 통째로 덮어쓰지 않는다 — 바뀐 건만 upsert (upsert 는 지우지 않는다)
+      const { changed, next } = gsChanged(type, data);
+      for(const item of changed){
+        try{ await gsUpsertOne(type, item); }
+        catch(e){ console.warn('[동기화] ' + type + ' ' + (item&&item.id) + ' 실패: ' + e.message); throw e; }
+      }
+      gsShadowSet(type, next);            // 성공한 것까지만 그림자에 반영
+      if(changed.length) console.log('[동기화] ' + type + ' ' + changed.length + '건 올림');
     }
     gsSyncQueue={};
     gsShowStatus('ok');
@@ -2130,6 +2180,22 @@ async function gsFetchJson(url, opts, label){
 }
 
 // 구글 시트 전체 저장
+/** 한 건만 시트에 올린다 — 다른 행은 건드리지 않는다 (2026-09-02) */
+async function gsUpsertOne(type, item){
+  const url=getGsUrl();
+  if(!url) return;
+  let data=item;
+  if(type==='contracts'&&typeof contractFlatten==='function') contractFlatten(data);
+  const one=normDates(type,[data]);
+  const json=await gsFetchJson(url,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify({action:'upsert', type, data: one[0], token:getGsTok()})
+  }, type+' 한 건 저장');
+  if(!json.ok) throw new Error(json.error||'저장 실패');
+  return json;
+}
+
 async function gsSaveAll(type, data){
   const url=getGsUrl();
   if(!url) return;
@@ -2179,6 +2245,14 @@ async function gsLoadAll(){
 }
 
 // 구글 시트 전체 동기화 (버튼)
+/* 🔴 전체 밀어넣기는 되돌릴 수 없다 — 누르기 전에 무엇이 일어나는지 알리고 확인받는다.
+   (2026-09-02: 이 동작이 자동으로 돌면서 매물 40건이 사라졌다) */
+async function gsSyncAllConfirm(){
+  const n = (typeof listings!=='undefined'&&Array.isArray(listings)) ? listings.length : 0;
+  if(!confirm(`이 화면의 목록으로 구글시트를 **통째로 맞춥니다**.\n\n· 매물 ${n}건을 시트에 그대로 씁니다\n· 시트에만 있고 이 화면에 없는 매물은 사라질 수 있습니다\n\n평소에는 누를 필요가 없습니다 — 고친 내용은 자동으로 올라갑니다.\n그래도 진행할까요?`)) return;
+  return gsSyncAll();
+}
+
 async function gsSyncAll(){
   const url=getGsUrl();
   if(!url){ showToast('구글 시트 URL을 먼저 설정해주세요'); openGsSetup(); return; }
