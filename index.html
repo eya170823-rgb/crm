@@ -438,7 +438,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" title="마지막 배포 시각 (사이트+백엔드 동시 배포)">2026-09-07 18:09</span></div>
+      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" title="마지막 배포 시각 (사이트+백엔드 동시 배포)">2026-09-07 18:17</span></div>
     </div>
     <div class="sb-section">메인</div>
     <button class="sb-item on" onclick="go('dash')">📊 대시보드<span class="sb-badge amber" id="sb-warn">0</span></button>
@@ -2060,13 +2060,67 @@ window.addEventListener('load', () => {
       document.getElementById('pwa-banner').style.display = 'flex';
     }, 2000);
   }
-  // Service Worker 등록
+  // Service Worker 등록 + 새 버전 자동 반영
+  // 🔴 2026-09-07: PC 는 새 화면이 뜨는데 폰·아이패드 앱은 옛 화면이 그대로였다.
+  //   원인 — GitHub Pages 가 Cache-Control: max-age=600 을 주고, 설치형 PWA 는
+  //   SW 스크립트와 HTML 을 브라우저 캐시에서 꺼내 쓴다. 그래서 배포해도 안 바뀐다.
+  //   updateViaCache:'none' 로 SW 검사를 캐시 없이 하고, 앱을 열거나 다시 볼 때마다
+  //   version.json 을 no-store 로 확인해 배포 시각이 다르면 캐시를 비우고 새로고침한다.
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(() => {
-      console.log('SW registered');
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      reg.update();
+      setInterval(() => reg.update(), 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update(); });
     }).catch(() => {});
+    let swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (swReloaded) return; swReloaded = true; location.reload();
+    });
   }
+  verCheck(true);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) verCheck(false); });
 });
+
+// ═══ 배포 버전 확인 (모든 기기 자동 갱신) ═══
+// 화면 좌측 상단 뱃지(#appVer)에 박힌 배포 시각 vs 서버 version.json 을 비교한다.
+// 다르면 새로 배포된 것 → 캐시를 비우고 새로고침. 무한 새로고침을 막으려고
+// 세션당 1회만 자동 새로고침하고, 그 뒤에도 다르면 배너로만 알린다.
+function appBuild(){ const e=document.getElementById('appVer'); return e?e.textContent.trim():''; }
+
+async function verCheck(auto){
+  try{
+    const r = await fetch('version.json?t=' + Date.now(), { cache:'no-store' });
+    if(!r.ok) return;
+    const j = await r.json();
+    const mine = appBuild(), live = String(j.build||'').trim();
+    if(!live || !mine || live === mine) return;
+    if(auto && !sessionStorage.getItem('ver_reloaded')){
+      sessionStorage.setItem('ver_reloaded','1');
+      await verPurge();
+      location.reload();
+      return;
+    }
+    verBanner(live);
+  }catch(e){}
+}
+
+async function verPurge(){
+  try{ const ks = await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); }catch(e){}
+  try{ const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r=>r.update())); }catch(e){}
+}
+
+function verBanner(live){
+  if(document.getElementById('ver-banner')) return;
+  const d=document.createElement('div');
+  d.id='ver-banner';
+  d.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;'
+    +'background:var(--g);color:#fff;padding:10px 14px;border-radius:10px;box-shadow:var(--sh);'
+    +'font-size:13px;display:flex;gap:10px;align-items:center;max-width:92vw';
+  d.innerHTML='<span>새 버전이 있습니다 ('+live+')</span>'
+    +'<button style="background:#fff;color:var(--g);border:0;border-radius:7px;padding:5px 10px;font-weight:700;cursor:pointer;white-space:nowrap">지금 갱신</button>';
+  d.querySelector('button').onclick=async()=>{ await verPurge(); sessionStorage.removeItem('ver_reloaded'); location.reload(); };
+  document.body.appendChild(d);
+}
 // ═══ STORAGE (localStorage + Google Sheets 연동) ═══
 const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contracts',landlords:'crm_landlords',expStatus:'crm_expStatus',contacted:'crm_contacted',vitoKey:'crm_vitoKey',vitoNotes:'crm_vitoNotes',gsUrl:'crm_gs_url',schedules:'crm_schedules',kakaoKey:'crm_kakao_key'};
 const load=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||[];}catch{return [];}};
