@@ -453,6 +453,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <button class="sb-item" onclick="go('contract-writer')" style="color:#7C3AED">📝 계약서 작성<span class="sb-badge" style="background:#EDE9FE;color:#7C3AED">AI</span></button>
     <button class="sb-item vito-menu" onclick="go('vito')">🎙️ 비토 통화메모<span class="sb-badge" style="background:var(--vtl);color:var(--vt)">STT</span></button>
     <div class="sb-section">도구</div>
+    <!-- 🥕 매물 수집 (2026-09-07) — 대표(마스터)만. 서버가 막지만 화면에서도 감춘다.
+         🔴 go() 의 ids 배열이 버튼 순서로 짝을 맞춘다. 이 버튼은 계산기 '앞'에 있어야 한다. -->
+    <button class="sb-item" id="sb-gather" style="display:none" onclick="go('gather')">🥕 매물 수집<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
     <button class="sb-item" title="취득세·양도세·중개보수·대출 한도 계산기 (새 창)" onclick="window.open('https://eya170823-rgb.github.io/crm/calc/','_blank','noopener')">🧮 계산기<span class="sb-badge" style="background:#FEF3C7;color:#B45309">세금·대출</span></button>
     <div class="sb-footer">
       제주시 연동<br>바른 기준, 가치 있는 동행<br>
@@ -1106,6 +1109,56 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <button class="btn" onclick="cwReset()">🔄 새로 작성</button>
         </div>
       </div>
+    </div>
+
+    <!-- 🥕 매물 수집 (2026-09-07 신설) — 대표(마스터) 전용
+         당근부동산·제주오일장 매물을 구글 서버가 직접 받아온다. PC를 켜 둘 필요가 없다.
+         🔴 서버(gatherStart 등)가 대표 토큰이 아니면 거절한다. 화면 감춤은 보조수단일 뿐이다. -->
+    <div class="panel" id="p-gather">
+      <div class="page-hd">
+        <div>
+          <div class="page-title">🥕 매물 수집</div>
+          <div class="page-sub">당근부동산 · 제주오일장에서 제주시 매물을 받아옵니다 (대표 전용)</div>
+        </div>
+        <div class="row">
+          <button class="btn btn-g btn-sm" id="gather-go" onclick="gatherStartGo()">▶ 수집 시작</button>
+          <button class="btn btn-sm" id="gather-stop" onclick="gatherStopGo()" style="display:none">■ 중지</button>
+          <button class="btn btn-sm" onclick="gatherRender()">🔄 새로고침</button>
+        </div>
+      </div>
+
+      <div id="gather-prog" style="background:#F8FAFC;border:1px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.7">
+        진행상황을 불러오는 중…
+      </div>
+
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <select id="gather-f-src" onchange="gatherRenderTable()">
+          <option value="">전체 출처</option><option value="당근">당근</option><option value="오일장">오일장</option>
+        </select>
+        <select id="gather-f-writer" onchange="gatherRenderTable()">
+          <option value="">개인 + 중개</option><option value="개인">개인 직거래만</option><option value="중개">중개업소만</option>
+        </select>
+        <select id="gather-f-dup" onchange="gatherRenderTable()">
+          <option value="">전체</option>
+          <option value="hide">내 매물과 겹치는 것 숨기기</option>
+          <option value="only">내 매물과 겹치는 것만</option>
+        </select>
+        <label style="font-size:12px;display:flex;align-items:center;gap:5px">
+          <input type="checkbox" id="gather-f-phone" onchange="gatherRenderTable()"> 연락처 있는 것만
+        </label>
+        <input id="gather-f-q" placeholder="동·건물명 검색" oninput="gatherRenderTable()" style="min-width:150px">
+        <div style="flex:1"></div>
+        <button class="btn btn-b btn-sm" onclick="gatherMoveGo()">🤝 개인 매물을 임대인으로 넘기기</button>
+      </div>
+
+      <div style="background:#FFF7ED;border:1px solid #FED7AA;color:#9A3412;border-radius:8px;padding:9px 12px;font-size:11.5px;line-height:1.6;margin-bottom:12px">
+        ⚠️ <strong>050 은 당근 안심번호입니다.</strong> 전화는 걸리지만 <strong>문자는 대부분 가지 않습니다.</strong>
+        오일장 번호(010…)는 임대인 실번호라 문자도 갑니다. 넘기기는 <strong>개인 직거래만</strong> 대상이며,
+        이미 임대인관리에 있는 번호는 자동으로 건너뜁니다.
+      </div>
+
+      <div id="gather-sub" style="font-size:12px;color:var(--t2);margin-bottom:8px"></div>
+      <div id="gather-table"></div>
     </div>
 
     <!-- 비토 STT -->
@@ -1999,6 +2052,8 @@ function isIOS() {
 
 // iOS: Safari에서 접속 시 안내 배너 표시
 window.addEventListener('load', () => {
+  // 🥕 매물 수집 메뉴는 대표(마스터)에게만 보인다 — 서버에 물어보고 정한다 (2026-09-07)
+  try { if (typeof gatherMenuSetup === 'function') gatherMenuSetup(); } catch (e) {}
   if (isIOS() && !navigator.standalone && !localStorage.getItem('pwa_dismissed')) {
     setTimeout(() => {
       document.getElementById('pwa-banner').style.display = 'flex';
@@ -6622,7 +6677,7 @@ function refreshVitoCustomerSelects(){
 
 // ═══ NAV ═══
 function go(id){
-  const ids=['dash','expiry','listing','ads','customer','contract','landlord','sms','contract-writer','vito'];
+  const ids=['dash','expiry','listing','ads','customer','contract','landlord','sms','contract-writer','vito','gather'];
   document.querySelectorAll('.sb-item').forEach((el,i)=>el.classList.toggle('on',ids[i]===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   // null 체크 추가 — 패널이 없으면 오류 방지
@@ -6638,6 +6693,7 @@ function go(id){
   if(id==='vito')          {renderVitoNotes&&renderVitoNotes();refreshVitoCustomerSelects&&refreshVitoCustomerSelects();}
   if(id==='dash')          {renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();}
   if(id==='ads'&&typeof renderAds==='function') renderAds();
+  if(id==='gather')        gatherRender();
   closeMobile();
 }
 
@@ -8067,6 +8123,166 @@ function adAuditReport(){
 const BLDG_CACHE_KEY = 'crm_bldg_cache';
 
 /* Apps Script 공통 호출 — 기존 gsSaveAll 과 같은 규약(text/plain + token) */
+/* ═══ 🥕 매물 수집 (당근·오일장) — 2026-09-07 신설, 대표(마스터) 전용 ═══
+   서버(GAS)가 직접 받아온다. PC를 켜 둘 필요가 없다.
+   🔴 여기서 메뉴를 감추는 것은 '보조'일 뿐이다. 진짜 차단은 서버의 colAdmin_ 이 한다.
+      (직원이 화면 코드를 고쳐도 서버가 거절한다) */
+// 화면에 글자를 안전하게 넣는다. 🔴 기존 esc() 는 다른 함수 안에만 있는 지역 변수라
+//    여기서 부르면 오류가 난다(2026-09-07 겪음). 그래서 따로 둔다.
+const gEsc = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+let gatherRows = [], gatherTimer = null;
+
+// 로그인한 사람이 대표인지 서버에 물어 메뉴를 보인다/감춘다
+async function gatherMenuSetup(){
+  const btn = document.getElementById('sb-gather'); if(!btn) return;
+  const url = getGsUrl(); if(!url) return;
+  try{
+    const r = await fetch(`${url}?action=ping&t=${Date.now()}${tokQ()}`);
+    const j = await r.json();
+    btn.style.display = (j && j.ok && j.role === 'admin') ? '' : 'none';
+  }catch(e){ btn.style.display = 'none'; }
+}
+
+async function gatherRender(){
+  await gatherStatusRender();
+  await gatherLoad();
+}
+
+async function gatherStatusRender(){
+  const el = document.getElementById('gather-prog'); if(!el) return;
+  const url = getGsUrl();
+  if(!url){ el.textContent = '구글 시트 연동을 먼저 설정하세요 (⚙️ 설정)'; return; }
+  try{
+    const r = await fetch(`${url}?action=gatherStatus&t=${Date.now()}${tokQ()}`);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '조회 실패');
+    const s = j.result || {};
+    const c = s.counts || {};
+    const running = s.phase && s.phase !== 'idle' && s.phase !== 'done';
+    document.getElementById('gather-go').style.display   = running ? 'none' : '';
+    document.getElementById('gather-stop').style.display = running ? '' : 'none';
+
+    if(s.phase === 'idle'){
+      el.innerHTML = '아직 수집한 적이 없습니다. <strong>[▶ 수집 시작]</strong> 을 누르면 제주시 45개 구역을 차례로 훑습니다 (약 25분, 창을 닫아도 계속됩니다).';
+    }else{
+      const names = { dg:'당근 매물 목록', oj:'오일장 목록', ojd:'오일장 상세주소',
+                      addr:'주소 변환', sn:'안심번호(050)', dup:'내 매물과 대조', done:'완료' };
+      const bar = `<div style="height:8px;background:#E5E7EB;border-radius:99px;overflow:hidden;margin:7px 0">
+          <div style="height:100%;width:${s.percent||0}%;background:${s.phase==='done'?'#10B981':'#3B82F6'};transition:width .4s"></div></div>`;
+      el.innerHTML =
+        `<strong>${s.phase==='done'?'✅ 수집 완료':'⏳ '+(names[s.phase]||s.phase)+' 진행 중'}</strong>`
+        + (s.phase==='dg' ? ` — 구역 ${s.tile||0}/${s.tiles||0}` : '')
+        + bar
+        + `당근 <strong>${c.dg||0}</strong>건 · 오일장 <strong>${c.oj||0}</strong>건`
+        + ` · 주소 ${c.addr||0}건 · 안심번호 ${c.sn||0}건`
+        + (c.dup ? ` · <span style="color:#B45309">내 매물과 겹침 ${c.dup}건</span>` : '')
+        + `<div style="color:var(--t2);font-size:11px;margin-top:5px">시작 ${s.startedAt||'-'}`
+        + (s.finishedAt ? ` · 종료 ${s.finishedAt}` : '') + '</div>';
+    }
+    // 도는 동안에는 10초마다 저절로 새로 고친다
+    if(gatherTimer){ clearTimeout(gatherTimer); gatherTimer = null; }
+    if(running && document.getElementById('p-gather').classList.contains('on')){
+      gatherTimer = setTimeout(()=>{ gatherStatusRender(); gatherLoad(); }, 10000);
+    }
+  }catch(e){ el.textContent = '진행상황을 불러오지 못했습니다 — ' + e.message; }
+}
+
+async function gatherLoad(){
+  const url = getGsUrl(); if(!url) return;
+  try{
+    const r = await fetch(`${url}?action=gatherList&t=${Date.now()}${tokQ()}`);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '조회 실패');
+    gatherRows = j.data || [];
+  }catch(e){ gatherRows = []; }
+  gatherRenderTable();
+}
+
+function gatherRenderTable(){
+  const el = document.getElementById('gather-table'); if(!el) return;
+  const fSrc = document.getElementById('gather-f-src').value;
+  const fWri = document.getElementById('gather-f-writer').value;
+  const fDup = document.getElementById('gather-f-dup').value;
+  const fPh  = document.getElementById('gather-f-phone').checked;
+  const q    = (document.getElementById('gather-f-q').value || '').trim();
+
+  let rows = gatherRows.filter(o=>{
+    if(fSrc && String(o.src) !== fSrc) return false;
+    if(fWri && String(o.writer) !== fWri) return false;
+    if(fDup === 'hide' && String(o.dup||'')) return false;
+    if(fDup === 'only' && !String(o.dup||'')) return false;
+    if(fPh && !String(o.phone||'').trim()) return false;
+    if(q && (String(o.dong||'') + String(o.apt||'') + String(o.addr||'')).indexOf(q) < 0) return false;
+    return true;
+  });
+
+  const withPhone = rows.filter(o=>String(o.phone||'').trim()).length;
+  document.getElementById('gather-sub').textContent =
+    `${rows.length}건 표시 (전체 ${gatherRows.length}건) · 연락처 있는 것 ${withPhone}건`;
+
+  if(!rows.length){ el.innerHTML = '<div style="padding:26px;text-align:center;color:var(--t2)">해당하는 매물이 없습니다</div>'; return; }
+  const capped = rows.length > 400;
+  if(capped) rows = rows.slice(0, 400);
+
+  const money = o => {
+    const bits = [];
+    if(o.price)   bits.push('매매 ' + o.price);
+    if(o.deposit) bits.push('보증 ' + o.deposit);
+    if(o.rent)    bits.push('월/연 ' + o.rent);
+    return bits.join(' / ') || '-';
+  };
+  el.innerHTML = '<div class="tbl-wrap"><table><thead><tr>'
+    + '<th>출처</th><th>구분</th><th>종류</th><th>거래</th><th>금액(만원)</th>'
+    + '<th>면적</th><th>층</th><th>동</th><th>건물명</th><th>연락처</th><th>내매물</th><th>글</th>'
+    + '</tr></thead><tbody>'
+    + rows.map(o=>{
+        const ph = String(o.phone||'').trim();
+        const is050 = ph.replace(/\D/g,'').indexOf('050') === 0;
+        return '<tr>'
+        + `<td><span class="chip" style="background:${o.src==='당근'?'#FFF7ED':'#EFF6FF'};color:${o.src==='당근'?'#C2410C':'#1D4ED8'}">${gEsc(o.src)}</span></td>`
+        + `<td>${o.writer==='개인'?'<span class="chip" style="background:#DCFCE7;color:#15803D">개인</span>':'<span class="chip" style="background:#F3F4F6;color:#4B5563">중개</span>'}</td>`
+        + `<td>${gEsc(o.kind)}</td><td>${gEsc(o.trade)}</td><td style="white-space:nowrap">${gEsc(money(o))}</td>`
+        + `<td>${gEsc(o.area)}</td><td>${gEsc(o.floor)}</td><td>${gEsc(o.dong)}</td><td style="font-weight:600">${gEsc(o.apt)}</td>`
+        + `<td style="white-space:nowrap">${ph ? `<a href="tel:${gEsc(ph)}">${gEsc(ph)}</a>${is050?' <span title="당근 안심번호 — 문자는 대부분 안 갑니다" style="color:#B45309">✉✕</span>':''}` : '-'}</td>`
+        + `<td>${o.dup ? '<span class="chip" style="background:#FEF3C7;color:#B45309">겹침</span>' : ''}</td>`
+        + `<td>${o.url ? `<a href="${gEsc(o.url)}" target="_blank" rel="noopener">보기</a>` : ''}</td>`
+        + '</tr>';
+      }).join('')
+    + '</tbody></table></div>'
+    + (capped ? '<div style="padding:8px;color:var(--t2);font-size:11px">※ 화면에는 400건까지만 그립니다. 전체는 구글시트 [수집매물] 탭에서 보세요.</div>' : '');
+}
+
+async function gatherStartGo(){
+  if(!confirm('제주시 전체를 훑습니다.\n\n· 45개 구역 · 약 25분 걸립니다\n· 창을 닫아도 구글 서버가 계속 진행합니다\n· 결과는 구글시트 [수집매물] 탭에 쌓입니다\n\n시작할까요?')) return;
+  try{
+    const r = await gsCall('gatherStart', {});
+    showToast(r && r.already ? '이미 수집이 진행 중입니다' : '수집을 시작했습니다');
+  }catch(e){ alert('시작하지 못했습니다 — ' + e.message); }
+  gatherRender();
+}
+
+async function gatherStopGo(){
+  if(!confirm('수집을 중지합니다. 지금까지 받은 매물은 그대로 남습니다.')) return;
+  try{ await gsCall('gatherStop', {}); showToast('중지했습니다'); }
+  catch(e){ alert('중지하지 못했습니다 — ' + e.message); }
+  gatherRender();
+}
+
+async function gatherMoveGo(){
+  const cands = gatherRows.filter(o=>String(o.writer)==='개인' && String(o.phone||'').trim() && !String(o.movedAt||''));
+  if(!cands.length){ alert('넘길 대상이 없습니다.\n(개인 직거래 + 연락처 있음 + 아직 안 넘긴 것)'); return; }
+  const n050 = cands.filter(o=>String(o.phone).replace(/\D/g,'').indexOf('050')===0).length;
+  if(!confirm(`개인 직거래 ${cands.length}건을 임대인관리로 넘깁니다.\n`
+    + `· 그중 ${n050}건은 050 안심번호입니다(통화는 되지만 문자는 대부분 안 갑니다)\n`
+    + '· 이미 임대인관리에 있는 번호는 건너뜁니다\n· 한 번에 최대 100건\n\n넘길까요?')) return;
+  try{
+    const r = await gsCall('gatherMove', { max: 100 });
+    alert(`넘김 ${r.moved}건 / 건너뜀 ${r.skipped}건`);
+    if(typeof renderLandlords === 'function') renderLandlords();
+  }catch(e){ alert('넘기지 못했습니다 — ' + e.message); }
+  gatherRender();
+}
+
 async function gsCall(action, payload){
   const url = getGsUrl();
   if(!url) throw new Error('구글 시트 연동(Apps Script URL)이 설정되지 않았습니다');
