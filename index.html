@@ -452,11 +452,14 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <div class="sb-section">발송 & AI</div>
     <button class="sb-item" onclick="go('sms')">💬 문자 발송<span class="sb-badge green">준비됨</span></button>
     <button class="sb-item" onclick="go('contract-writer')" style="color:#7C3AED">📝 계약서 작성<span class="sb-badge" style="background:#EDE9FE;color:#7C3AED">AI</span></button>
-    <button class="sb-item vito-menu" onclick="go('vito')">🎙️ 비토 통화메모<span class="sb-badge" style="background:var(--vtl);color:var(--vt)">STT</span></button>
+    <button class="sb-item vito-menu" onclick="go('vito')">🎙️ 회의·음성 메모<span class="sb-badge" style="background:var(--vtl);color:var(--vt)">NEW</span></button>
     <div class="sb-section">도구</div>
     <!-- 🥕 매물 수집 (2026-09-07) — 대표(마스터)만. 서버가 막지만 화면에서도 감춘다.
          🔴 go() 의 ids 배열이 버튼 순서로 짝을 맞춘다. 이 버튼은 계산기 '앞'에 있어야 한다. -->
     <button class="sb-item" id="sb-gather" style="display:none" onclick="go('gather')">🥕 매물 수집<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
+    <!-- 📈 아파트 시세 (2026-09-07) — 국토부 실거래가. 직원도 쓴다(공개 데이터).
+         🔴 go() ids 배열 순서상 gather 다음, 계산기 앞. -->
+    <button class="sb-item" onclick="go('apt')">📈 아파트 시세<span class="sb-badge" style="background:#E0F2FE;color:#0369A1">실거래</span></button>
     <button class="sb-item" title="취득세·양도세·중개보수·대출 한도 계산기 (새 창)" onclick="window.open('https://eya170823-rgb.github.io/crm/calc/','_blank','noopener')">🧮 계산기<span class="sb-badge" style="background:#FEF3C7;color:#B45309">세금·대출</span></button>
     <div class="sb-footer">
       제주시 연동<br>바른 기준, 가치 있는 동행<br>
@@ -1162,9 +1165,92 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div id="gather-table"></div>
     </div>
 
+    <!-- 📈 아파트 실거래가 (2026-09-07 신설) — 국토부 공공데이터. 바탕화면 알집 GUI를 CRM로 이식.
+         조회는 언제나 고른 지역 1곳만 부른다(전국 선택지가 있어도 안 무거워짐). -->
+    <div class="panel" id="p-apt">
+      <div class="page-hd">
+        <div>
+          <div class="page-title">📈 아파트 실거래가</div>
+          <div class="page-sub">국토교통부 신고 실거래 — 매매·전세·월세 조회와 시세 추이</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">시/도</label>
+            <select id="apt-sido" onchange="aptFillGugun()"></select></div>
+          <div><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">시/군/구</label>
+            <select id="apt-gugun"></select></div>
+          <div><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">종류</label>
+            <select id="apt-kind"><option>아파트</option><option>오피스텔</option></select></div>
+          <div><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">기간</label>
+            <select id="apt-months"><option value="3">최근 3개월</option><option value="6" selected>최근 6개월</option><option value="12">최근 12개월</option></select></div>
+          <div style="flex:1;min-width:140px"><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">단지명(선택)</label>
+            <input id="apt-q" placeholder="예: 중흥S클래스" onkeydown="if(event.key==='Enter')aptSearchGo()"></div>
+        </div>
+        <div class="row" style="gap:6px;margin-top:10px">
+          <div class="row" id="apt-type-seg" style="gap:6px">
+            <button class="tab-btn on" data-type="매매" onclick="aptSetType(this)">매매</button>
+            <button class="tab-btn" data-type="전세" onclick="aptSetType(this)">전세</button>
+            <button class="tab-btn" data-type="월세" onclick="aptSetType(this)">월세</button>
+          </div>
+          <div style="flex:1"></div>
+          <button class="btn btn-g" id="apt-search-btn" onclick="aptSearchGo()">🔍 조회</button>
+          <button class="btn" onclick="aptTrendGo()">📊 추이 차트</button>
+        </div>
+      </div>
+
+      <div id="apt-summary"></div>
+      <div id="apt-chart-wrap" style="display:none" class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="card-title" id="apt-chart-title">시세 추이</div>
+          <button class="btn btn-xs" onclick="document.getElementById('apt-chart-wrap').style.display='none'">✕ 닫기</button>
+        </div>
+        <div style="overflow-x:auto"><canvas id="apt-chart" width="720" height="300" style="max-width:100%"></canvas></div>
+        <div style="font-size:11px;color:var(--t2);margin-top:4px">막대=거래량, 선=평균가. 단지명을 넣으면 그 단지만, 비우면 지역 전체.</div>
+      </div>
+      <div id="apt-result"></div>
+    </div>
+
     <!-- 비토 STT -->
     <div class="panel" id="p-vito">
-      <div class="page-hd"><div><div class="page-title">🎙️ 비토 통화 메모</div><div class="page-sub">통화 녹음 파일을 텍스트로 변환 → 고객 메모에 자동 저장</div></div></div>
+      <div class="page-hd"><div><div class="page-title">🎙️ 회의 녹음 · 빠른 음성 메모</div><div class="page-sub">회의는 바로 녹음하고, 짧은 말은 곧바로 고객 메모로 남깁니다</div></div></div>
+      <div class="card" style="border-color:#BFDBFE;background:#F8FBFF;margin-bottom:16px">
+        <div class="card-title" style="margin-bottom:5px">🔴 회의 녹음</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.65;margin-bottom:12px">시작을 누르면 이 기기의 마이크로 녹음합니다. 멈춘 뒤 <strong>파일 저장</strong>을 누르면 회의 파일을 기기에 보관할 수 있습니다. 민감한 음성은 자동으로 공개 저장하지 않습니다.</div>
+        <div class="form-row">
+          <div class="form-group"><label>회의 제목</label><input id="vm-meeting-title" placeholder="예: 9월 월요일 아침 회의"></div>
+          <div class="form-group"><label>연결할 고객 (선택)</label><select id="vm-meeting-customer" class="customer-select"><option value="">-- 고객 선택 안 함 --</option></select></div>
+        </div>
+        <div class="row" style="gap:8px;align-items:center">
+          <button class="btn btn-r" id="vm-record-start" onclick="vmStartRecording()">● 녹음 시작</button>
+          <button class="btn" id="vm-record-stop" onclick="vmStopRecording()" disabled>■ 녹음 끝내기</button>
+          <span id="vm-record-status" style="font-size:12px;color:var(--t3)">녹음 전</span>
+        </div>
+        <div id="vm-record-result" style="display:none;margin-top:12px"></div>
+      </div>
+
+      <div class="card" style="border-color:#C7E8D8;margin-bottom:16px">
+        <div class="card-title" style="margin-bottom:5px">⚡ 빠른 음성 메모</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.65;margin-bottom:12px">버튼을 누르고 말하면 글로 적힙니다. 인식이 안 되는 기기에서는 아래 칸에 직접 입력해도 됩니다.</div>
+        <div class="form-row">
+          <div class="form-group"><label>메모 제목</label><input id="vm-title" placeholder="예: 현장 안내 후속 연락"></div>
+          <div class="form-group"><label>연결할 고객 (선택)</label><select id="vm-customer" class="customer-select"><option value="">-- 고객 선택 안 함 --</option></select></div>
+        </div>
+        <div class="form-group"><label>내용</label><textarea id="vm-text" placeholder="말한 내용이 여기에 적힙니다"></textarea></div>
+        <div class="row" style="gap:8px;align-items:center">
+          <button class="btn btn-b" id="vm-speech-btn" onclick="vmToggleSpeech()">🎤 말해서 입력</button>
+          <button class="btn btn-g" onclick="vmSaveQuickMemo()">✓ CRM에 메모 저장</button>
+          <span id="vm-speech-status" style="font-size:12px;color:var(--t3)"></span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-hd"><div class="card-title">📚 최근 회의·음성 메모</div><button class="btn btn-sm" onclick="vmRenderMemos()">새로고침</button></div>
+        <div id="vm-memo-list"></div>
+      </div>
+
+      <div class="page-hd" style="margin-top:24px"><div><div class="page-title" style="font-size:15px">통화 녹음 파일 텍스트 변환</div><div class="page-sub">저장한 파일을 글로 바꿔 고객 메모에 붙일 때 사용합니다</div></div></div>
       <div style="background:var(--gl);color:var(--g);border-radius:10px;padding:10px 14px;font-size:12px;line-height:1.6;margin-bottom:14px">📌 <strong>자동 수집이 켜져 있으면 이 메뉴는 거의 쓸 일이 없습니다.</strong> 메인컴퓨터 수집 서버가 휴대폰의 통화 녹음·문자·사진을 자동으로 요약해 구글 시트(인입함·공실현황)에 기록합니다. 이 메뉴는 개별 녹음 파일을 수동으로 변환하고 싶을 때만 사용하세요. (비토 키를 서버에도 넣으면 자동 변환 품질이 비토 수준으로 올라갑니다)</div>
 
       <div class="vito-header">
@@ -2139,7 +2225,7 @@ function verBanner(live){
   document.body.appendChild(d);
 }
 // ═══ STORAGE (localStorage + Google Sheets 연동) ═══
-const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contracts',landlords:'crm_landlords',expStatus:'crm_expStatus',contacted:'crm_contacted',vitoKey:'crm_vitoKey',vitoNotes:'crm_vitoNotes',gsUrl:'crm_gs_url',schedules:'crm_schedules',kakaoKey:'crm_kakao_key'};
+const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contracts',landlords:'crm_landlords',expStatus:'crm_expStatus',contacted:'crm_contacted',vitoKey:'crm_vitoKey',vitoNotes:'crm_vitoNotes',voiceMemos:'crm_voiceMemos',gsUrl:'crm_gs_url',schedules:'crm_schedules',kakaoKey:'crm_kakao_key'};
 const load=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||[];}catch{return [];}};
 const loadObj=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||{};}catch{return {};}};
 const loadStr=k=>localStorage.getItem(K[k])||'';
@@ -2849,6 +2935,7 @@ async function gsTestConnection(){
 let listings=load('listings'),customers=load('customers'),contracts=load('contracts'),landlords=load('landlords');
 let expStatus=loadObj('expStatus'),contacted=loadObj('contacted');
 let vitoNotes=load('vitoNotes');
+let voiceMemos=load('voiceMemos');
 
 // 링크로 시트 연동 자동 설정: 주소 뒤 #gs=<인코딩된 Apps Script URL> — 새 기기 최초 설정 자동화
 // 이미 열려 있는 탭에 링크를 붙여넣는 경우(hashchange)에도 동작해야 함
@@ -6749,7 +6836,7 @@ function refreshVitoCustomerSelects(){
 
 // ═══ NAV ═══
 function go(id){
-  const ids=['dash','expiry','listing','ads','customer','contract','landlord','sms','contract-writer','vito','gather'];
+  const ids=['dash','expiry','listing','ads','customer','contract','landlord','sms','contract-writer','vito','gather','apt'];
   document.querySelectorAll('.sb-item').forEach((el,i)=>el.classList.toggle('on',ids[i]===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   // null 체크 추가 — 패널이 없으면 오류 방지
@@ -6766,6 +6853,7 @@ function go(id){
   if(id==='dash')          {renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();}
   if(id==='ads'&&typeof renderAds==='function') renderAds();
   if(id==='gather')        gatherRender();
+  if(id==='apt')           aptInit();
   closeMobile();
 }
 
@@ -8353,6 +8441,162 @@ async function gatherMoveGo(){
     if(typeof renderLandlords === 'function') renderLandlords();
   }catch(e){ alert('넘기지 못했습니다 — ' + e.message); }
   gatherRender();
+}
+
+/* ═══ 📈 아파트 실거래가 조회·분석 — 2026-09-07 신설 ═══
+   국토부 공공데이터(서버 aptSearch/aptTrend)를 불러 표·차트로 보여준다.
+   바탕화면 '아파트_실거래가_조회분석.zip'(파이썬 GUI)를 CRM 안으로 옮긴 것.
+   차트는 외부 라이브러리 없이 canvas 로 직접 그린다(CSP·오프라인 안전). */
+let aptType = '매매', aptRegionsCache = null, aptLastRows = [];
+
+async function aptInit(){
+  if(aptRegionsCache) return;                 // 한 번만 불러온다
+  const url = getGsUrl();
+  if(!url){ document.getElementById('apt-summary').innerHTML = '<div class="card">⚙️ 구글 시트 설정을 먼저 해주세요</div>'; return; }
+  try{
+    const r = await fetch(`${url}?action=aptRegions&t=${Date.now()}${tokQ()}`);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error||'지역 목록 조회 실패');
+    aptRegionsCache = j.data;
+    const sido = document.getElementById('apt-sido');
+    sido.innerHTML = Object.keys(aptRegionsCache).map(s=>`<option>${gEsc(s)}</option>`).join('');
+    aptFillGugun();
+  }catch(e){ document.getElementById('apt-summary').innerHTML = `<div class="card">지역 목록을 불러오지 못했습니다 — ${gEsc(e.message)}</div>`; }
+}
+
+function aptFillGugun(){
+  if(!aptRegionsCache) return;
+  const sido = document.getElementById('apt-sido').value;
+  const g = document.getElementById('apt-gugun');
+  const list = Object.keys(aptRegionsCache[sido]||{});
+  g.innerHTML = list.map(x=>`<option>${gEsc(x)}</option>`).join('');
+}
+
+function aptSetType(btn){
+  aptType = btn.getAttribute('data-type');
+  document.querySelectorAll('#apt-type-seg .tab-btn').forEach(b=>b.classList.toggle('on', b===btn));
+}
+
+function aptParams(){
+  return {
+    sido: document.getElementById('apt-sido').value,
+    gugun: document.getElementById('apt-gugun').value,
+    kind: document.getElementById('apt-kind').value,
+    type: aptType,
+    months: document.getElementById('apt-months').value,
+    q: (document.getElementById('apt-q').value||'').trim(),
+  };
+}
+
+async function aptSearchGo(){
+  const btn = document.getElementById('apt-search-btn');
+  const sumEl = document.getElementById('apt-summary');
+  const resEl = document.getElementById('apt-result');
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '조회 중…';
+  sumEl.innerHTML = '<div class="card">국토부에서 실거래를 불러오는 중… (최대 20초)</div>';
+  resEl.innerHTML = '';
+  try{
+    const r = await gsCall('aptSearch', aptParams());
+    if(!r.ok){ sumEl.innerHTML = `<div class="card">${gEsc(r.why||'조회 실패')}</div>`; return; }
+    aptLastRows = r.rows||[];
+    aptRenderSummary(r);
+    aptRenderTable(r);
+  }catch(e){ sumEl.innerHTML = `<div class="card">조회하지 못했습니다 — ${gEsc(e.message)}</div>`; }
+  finally{ btn.disabled = false; btn.textContent = old; }
+}
+
+function aptRenderSummary(r){
+  const el = document.getElementById('apt-summary');
+  const s = r.summary;
+  const reg = document.getElementById('apt-sido').value.replace(/(특별자치도|특별자치시|광역시|특별시|도)$/,'') + ' ' + document.getElementById('apt-gugun').value;
+  if(!s){ el.innerHTML = `<div class="card">${gEsc(reg)} · ${gEsc(r.kind)} ${gEsc(r.type)} — 최근 ${r.months}개월 거래가 없습니다${r.err?` <span style="color:var(--t2)">(${gEsc(r.err)})</span>`:''}</div>`; return; }
+  const tile = (label,val,hi)=>`<div style="flex:1;min-width:96px;text-align:center;padding:8px 4px;border-radius:8px;background:${hi?'#EFF6FF':'#F8FAFC'}">
+    <div style="font-size:11px;color:var(--t2)">${label}</div><div style="font-size:15px;font-weight:700;color:${hi?'#1D4ED8':'var(--t1)'};margin-top:2px">${gEsc(val)}</div></div>`;
+  el.innerHTML = `<div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px">${gEsc(reg)} · ${gEsc(r.kind)} <span style="color:#1D4ED8">${gEsc(r.type)}</span> <span style="color:var(--t2);font-weight:400">최근 ${r.months}개월 · ${r.count}건</span></div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      ${tile('평균', s.avgLabel, true)}${tile('중위값', s.medLabel)}${tile('최고', s.maxLabel)}${tile('최저', s.minLabel)}
+    </div>
+    ${r.err?`<div style="font-size:11px;color:#B45309;margin-top:6px">※ 일부 월: ${gEsc(r.err)}</div>`:''}
+  </div>`;
+}
+
+function aptRenderTable(r){
+  const el = document.getElementById('apt-result');
+  let rows = r.rows||[];
+  if(!rows.length){ el.innerHTML=''; return; }
+  const capped = rows.length >= 500;
+  el.innerHTML = '<div class="tbl-wrap"><table><thead><tr>'
+    + '<th>계약월</th><th>단지</th><th>동</th><th>전용면적</th><th>층</th><th>'+(r.type==='매매'?'거래가':(r.type==='전세'?'보증금':'보증/월세'))+'</th>'
+    + '</tr></thead><tbody>'
+    + rows.map(o=>`<tr>
+        <td style="white-space:nowrap">${gEsc(o.ym)}</td>
+        <td style="font-weight:600">${gEsc(o.name)}</td>
+        <td>${gEsc(o.dong)}</td>
+        <td>${gEsc(o.area)}㎡</td>
+        <td>${gEsc(o.floor)}</td>
+        <td style="white-space:nowrap;font-weight:600">${gEsc(o.label)}</td>
+      </tr>`).join('')
+    + '</tbody></table></div>'
+    + (capped?'<div style="padding:8px;color:var(--t2);font-size:11px">※ 500건까지만 표시합니다. 단지명으로 좁혀 보세요.</div>':'');
+}
+
+async function aptTrendGo(){
+  const wrap = document.getElementById('apt-chart-wrap');
+  const title = document.getElementById('apt-chart-title');
+  wrap.style.display = 'block';
+  title.textContent = '시세 추이 불러오는 중…';
+  try{
+    const p = aptParams(); p.months = 12;
+    const r = await gsCall('aptTrend', p);
+    if(!r.ok){ title.textContent = r.why||'추이 조회 실패'; return; }
+    const reg = document.getElementById('apt-gugun').value;
+    title.textContent = `${reg} ${r.kind} ${r.type} 추이` + (r.q?` — ${r.q}`:' (지역 전체)');
+    aptDrawChart(r.series, r.type);
+  }catch(e){ title.textContent = '추이를 불러오지 못했습니다 — ' + e.message; }
+}
+
+// 막대(거래량) + 선(평균가) 겹쳐 그리기. 외부 라이브러리 없이 canvas.
+function aptDrawChart(series, type){
+  const cv = document.getElementById('apt-chart');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+  if(!series || !series.length){ ctx.fillStyle='#888'; ctx.font='13px sans-serif'; ctx.fillText('표시할 데이터가 없습니다',20,40); return; }
+  const padL=54, padR=48, padT=16, padB=40;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+  const avgs = series.map(s=>s.avg||0), cnts = series.map(s=>s.count||0);
+  const maxAvg = Math.max.apply(null, avgs.concat([1]));
+  const maxCnt = Math.max.apply(null, cnts.concat([1]));
+  const x = i => padL + (series.length===1 ? plotW/2 : plotW*i/(series.length-1));
+  const yA = v => padT + plotH*(1 - v/maxAvg);
+  // 거래량 막대
+  const bw = Math.max(4, plotW/series.length*0.5);
+  ctx.fillStyle = '#DBEAFE';
+  for(let i=0;i<series.length;i++){
+    const h = plotH*(cnts[i]/maxCnt);
+    ctx.fillRect(x(i)-bw/2, padT+plotH-h, bw, h);
+  }
+  // 평균가 선
+  ctx.strokeStyle = '#2563EB'; ctx.lineWidth = 2; ctx.beginPath();
+  for(let i=0;i<series.length;i++){ const px=x(i), py=yA(avgs[i]); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+  ctx.stroke();
+  ctx.fillStyle = '#2563EB';
+  for(let i=0;i<series.length;i++){ ctx.beginPath(); ctx.arc(x(i),yA(avgs[i]),3,0,7); ctx.fill(); }
+  // 축 라벨
+  ctx.fillStyle = '#64748B'; ctx.font = '10px sans-serif'; ctx.textAlign='center';
+  for(let i=0;i<series.length;i++){
+    if(series.length>8 && i%2) continue;                // 빽빽하면 한 칸 걸러
+    ctx.fillText(String(series[i].ym).slice(2), x(i), H-padB+14);
+  }
+  // 좌: 평균가(만원→억), 우: 거래량
+  ctx.textAlign='right'; ctx.fillStyle='#2563EB';
+  const manLabel = v => v>=10000 ? (v/10000).toFixed(1)+'억' : Math.round(v)+'만';
+  ctx.fillText(manLabel(maxAvg), padL-6, padT+8);
+  ctx.fillText(manLabel(maxAvg/2), padL-6, padT+plotH/2);
+  ctx.textAlign='left'; ctx.fillStyle='#60A5FA';
+  ctx.fillText(maxCnt+'건', W-padR+6, padT+8);
+  ctx.fillText('0', W-padR+6, padT+plotH);
 }
 
 async function gsCall(action, payload){
