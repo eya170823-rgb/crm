@@ -5575,7 +5575,7 @@ function renderContracts(){
     const d=daysLeft(c.end||'9999-01-01');
     return`<tr>
       <td style="font-weight:700;white-space:nowrap">${hl(c.apt)}${c.addr2?` <span style="font-weight:500;color:var(--t2)">${hl(c.addr2)}</span>`:''}</td>
-      <td>${typeBadge(c.type)}</td>
+      <td>${typeBadge(c.type)}${cwRiskBadge(c)}</td>
       <td>${hl(c.landlord?.name)||'-'}</td>
       <td style="color:var(--b);white-space:nowrap">${telA(c.landlord?.phone)||'-'}</td>
       <td>${hl(c.tenant?.name)||'-'}</td>
@@ -5605,7 +5605,7 @@ function saveContract(){
     if(idx>=0) contracts[idx]={...contracts[idx],...data};
     showToast('계약 정보가 수정되었습니다 ✓');
   } else {
-    contracts.push({id:uid(),...data});
+    contracts.push({id:uid(),...data,...(cwRiskPending||{})}); cwRiskPending=null;   // ⚖ 계약서 작성기에서 온 이상거래 등급 동반 저장
     showToast('계약이 추가되었습니다 ✓');
     // ✍️ 2026-08-24: 새 계약이면 양측 계약 완료 문자 + 잔금·입주일 리마인더 + 캘린더 (체크 시)
     if(document.getElementById('ct-notify')?.checked) ctNotifyRegister(data);
@@ -7465,6 +7465,7 @@ async function cwGenerate(){
     special:cwGetV('cw-special'),
     today:todayStr(),
   };
+  cwRiskCheck(i);   // ⚖ 이상거래 점검(비동기) — 계약서 생성과 나란히, 결과는 배너로
   // API 연동 시도 → 실패 시 로컬 생성으로 자동 전환
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -7489,6 +7490,13 @@ async function cwGenerate(){
 // 자동 저장하지 않고 기존 계약 모달에 값을 채워 열어준다 — 날짜·금액은 사람이 확인 후 저장(법적 기록).
 function cwRegisterContract(){
   if(!cwType){showToast('계약 유형이 없습니다 — 1단계부터 작성해주세요');return;}
+  // ⚖ 이상거래 RED 게이트 (2026-09-08): 기본은 '경고만'. 서버 RISK_BLOCK_RED=true 면 직원은 등록 불가(대표만).
+  const rk = cwLastRisk;
+  if(rk && rk.grade==='RED' && rk.blockRed && window.__crmRole!=='admin'){
+    alert('🚨 이상거래 강한 의심(RED) 계약입니다.\n'+(rk.why||'')+'\n\n대표 확인 후 대표 계정에서 등록해 주세요.'); return;
+  }
+  if(rk && rk.grade==='RED' && !confirm('🚨 이상거래 강한 의심(RED)입니다.\n'+(rk.why||'')+'\n\n그래도 계약완료에 등록할까요? (등급이 함께 저장됩니다)')) return;
+  cwRiskPending = cwRiskFields();
   const dates=[...String(cwGetV('cw-period')||'').matchAll(/(\d{4})[.\-\/년\s]*(\d{1,2})[.\-\/월\s]*(\d{1,2})/g)]
     .map(m=>`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`);
   const isRent=['월세','연세','단기'].includes(cwType);
@@ -8348,6 +8356,7 @@ async function gatherMenuSetup(){
     const j = await r.json();
     show = !!(j && j.ok && j.role === 'admin');
   }catch(e){ show = false; }
+  window.__crmRole = show ? 'admin' : 'staff';   // ⚖ 이상거래 RED 게이트 등이 참고 (모르면 직원 취급)
   btns.forEach(b => { b.style.display = show ? '' : 'none'; });
 }
 
@@ -8721,6 +8730,72 @@ async function staffRevokeGo(i){
     document.getElementById('staff-link-box').style.display = 'none';
     staffRender();
   }catch(e){ alert('삭제하지 못했습니다 — ' + e.message); }
+}
+
+/* ═══ ⚖ 이상거래 탐지 — 2026-09-08 신설 (계약서 작성기에 붙음) ═══
+   계약서 생성 때 서버 riskCheck 로 실거래 분포와 대조해 GREEN/AMBER/RED/HOLD 배너를 띄우고,
+   [계약완료에 등록] 때 등급을 계약에 함께 저장한다(HEADERS.contracts 끝 11칸). */
+let cwLastRisk = null, cwRiskPending = null;
+
+function cwRiskBox(){
+  let box = document.getElementById('cw-risk-box');
+  if(!box){
+    const st = document.getElementById('cw-extract-status'); if(!st) return null;
+    box = document.createElement('div'); box.id = 'cw-risk-box'; box.style.cssText = 'margin-top:8px;display:none';
+    st.insertAdjacentElement('beforebegin', box);
+  }
+  return box;
+}
+
+async function cwRiskCheck(i){
+  cwLastRisk = null;
+  const box = cwRiskBox(); if(!box) return;
+  const url = getGsUrl(); if(!url){ box.style.display = 'none'; return; }
+  box.style.display = '';
+  box.innerHTML = '<div style="padding:9px 12px;border-radius:8px;background:#F1F5F9;font-size:12px">⚖ 실거래가 대비 이상거래 점검 중… (최근 12개월)</div>';
+  try{
+    const q = new URLSearchParams({ action:'riskCheck', type:i.type||'', kind:i.buildingType||'', addr:i.addr||'',
+      area:String(parseFloat(i.area)||''), price:i.price1||'', rentAmt:(i.type==='월세' ? (i.price2||'') : '') });
+    const j = await gsFetchJson(`${url}?${q.toString()}&t=${Date.now()}${tokQ()}`, null, '이상거래 점검');
+    if(!j.ok) throw new Error(j.error||'점검 실패');
+    cwLastRisk = j.result; cwRiskRender(j.result);
+  }catch(e){
+    box.innerHTML = `<div style="padding:9px 12px;border-radius:8px;background:#F1F5F9;font-size:12px;color:var(--t2)">⚖ 이상거래 점검을 못 했습니다 — ${gEsc(e.message)} (계약서 작성은 계속됩니다)</div>`;
+  }
+}
+
+function cwRiskRender(r){
+  const box = cwRiskBox(); if(!box || !r) return;
+  const col = { GREEN:['#DCFCE7','#166534','✅'], AMBER:['#FEF3C7','#92400E','⚠️'], RED:['#FEE2E2','#991B1B','🚨'], HOLD:['#F1F5F9','#475569','⏸'] }[r.grade] || ['#F1F5F9','#475569','⚖'];
+  const title = { GREEN:'실거래 범위 안', AMBER:'실거래 범위 밖 — 확인 필요', RED:'이상거래 강한 의심 — 대표 확인 필요', HOLD:'판정 보류' }[r.grade] || '점검';
+  let body = gEsc(r.why||'');
+  if(r.n && r.labels && r.labels.M){
+    body += `<div style="margin-top:4px;opacity:.85">비교 ${r.n}건 (${gEsc(r.scope||'')}, ${r.months||12}개월) · 중위 ${gEsc(r.labels.M)} · 정상범위 ${gEsc(r.labels.Q1)} ~ ${gEsc(r.labels.Q3)} · 이 계약 ${gEsc(r.labels.V)}</div>`;
+  }
+  body += `<div style="margin-top:4px;font-size:11px;opacity:.75">※ ${gEsc(r.note||'국토부 신고 실거래 기준 참고자료이며 법적 판단이 아닙니다')}. 등록 시 계약에 등급이 함께 저장됩니다.</div>`;
+  box.style.display = '';
+  box.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:${col[0]};color:${col[1]};font-size:12px;line-height:1.6"><strong>${col[2]} ${title}</strong><div>${body}</div></div>`;
+}
+
+// 계약완료 행에 함께 저장할 칸들 (HEADERS.contracts 끝 11칸과 이름 일치)
+function cwRiskFields(){
+  const r = cwLastRisk; if(!r || !r.grade) return null;
+  return { riskGrade:r.grade, riskCode:r.code||'', riskKind:r.kind||cwBuildingType||'',
+           riskN:String(r.n||0), riskM:String(r.M||''), riskQ1:String(r.Q1||''), riskQ3:String(r.Q3||''),
+           riskV:String(r.V||''), riskAt:todayStr(), trackState:'', trackAt:'' };
+}
+
+
+// ⚖ 계약 목록 등급 배지 — GREEN 은 표시 안 함(소음), 추적 상태(해제·미등기)도 함께
+function cwRiskBadge(c){
+  const g = String(c.riskGrade||''); const t = String(c.trackState||'');
+  const parts = [];
+  if(g==='RED')   parts.push('<span class="badge" style="background:#FEE2E2;color:#991B1B;font-size:10px" title="이상거래 강한 의심">🚨RED</span>');
+  if(g==='AMBER') parts.push('<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:10px" title="실거래 범위 밖">⚠AMBER</span>');
+  if(t==='CANCELLED')       parts.push('<span class="badge" style="background:#FEE2E2;color:#991B1B;font-size:10px" title="실거래 해제됨 — 가장거래 의심">해제</span>');
+  if(t==='REGISTRY_DELAY')  parts.push('<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:10px" title="신고 후 90일 등기 없음">등기지연</span>');
+  if(t==='REPORT_MISSING')  parts.push('<span class="badge" style="background:#F3F4F6;color:#4B5563;font-size:10px" title="계약 후 60일 신고 없음">신고없음</span>');
+  return parts.length ? ' ' + parts.join(' ') : '';
 }
 
 async function gsCall(action, payload){
