@@ -438,7 +438,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 02:24</span></div>
+      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 04:44</span></div>
     </div>
     <div class="sb-section">메인</div>
     <button class="sb-item on" onclick="go('dash')">📊 대시보드<span class="sb-badge amber" id="sb-warn">0</span></button>
@@ -8350,12 +8350,19 @@ async function gatherMenuSetup(){
   const btns = ['sb-gather','sb-staff'].map(id=>document.getElementById(id)).filter(Boolean);
   if(!btns.length) return;
   const url = getGsUrl(); if(!url) return;
-  let show = false;
+  // 🔴 09-08 사장님 "예전 그대로": 대표 메뉴는 서버 확인(ping) 뒤에야 켜지는데, 그 확인이 느리거나
+  //    한 번 실패하면 어제와 똑같아 보였다. 지난번 확인 결과(crm_role)를 먼저 적용하고,
+  //    서버가 "대표 아님"이라고 답할 때만 숨긴다. 응답을 못 받으면(오프라인) 지난 상태 유지.
+  //    (진짜 차단은 서버 adminOnly_/colAdmin_ — 화면 표시는 편의일 뿐)
+  try{ if(localStorage.getItem('crm_role')==='admin'){ window.__crmRole='admin'; btns.forEach(b => { b.style.display = ''; }); } }catch(e){}
+  let show = null;                              // null = 서버 응답 못 받음
   try{
     const r = await fetch(`${url}?action=ping&t=${Date.now()}${tokQ()}`);
     const j = await r.json();
-    show = !!(j && j.ok && j.role === 'admin');
-  }catch(e){ show = false; }
+    if(j && j.ok){ show = (j.role === 'admin'); try{ localStorage.setItem('crm_role', show ? 'admin' : 'staff'); }catch(e){} }
+    else if(j && /인증 실패/.test(String(j.error||''))){ show = false; try{ localStorage.removeItem('crm_role'); }catch(e){} }
+  }catch(e){ show = null; }
+  if(show === null) return;                     // 판단 불가 → 지난 상태 그대로
   window.__crmRole = show ? 'admin' : 'staff';   // ⚖ 이상거래 RED 게이트 등이 참고 (모르면 직원 취급)
   btns.forEach(b => { b.style.display = show ? '' : 'none'; });
 }
