@@ -457,6 +457,8 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <!-- 🥕 매물 수집 (2026-09-07) — 대표(마스터)만. 서버가 막지만 화면에서도 감춘다.
          🔴 go() 의 ids 배열이 버튼 순서로 짝을 맞춘다. 이 버튼은 계산기 '앞'에 있어야 한다. -->
     <button class="sb-item" id="sb-gather" style="display:none" onclick="go('gather')">🥕 매물 수집<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
+    <!-- 👥 직원 관리 (2026-09-08) — 대표(마스터)만. gatherMenuSetup 이 role=admin 일 때만 보인다. -->
+    <button class="sb-item" id="sb-staff" style="display:none" onclick="go('staff')">👥 직원 관리<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
     <!-- 📈 아파트 시세 (2026-09-07) — 국토부 실거래가. 직원도 쓴다(공개 데이터).
          🔴 go() ids 배열 순서상 gather 다음, 계산기 앞. -->
     <button class="sb-item" onclick="go('apt')">📈 아파트 시세<span class="sb-badge" style="background:#E0F2FE;color:#0369A1">실거래</span></button>
@@ -1210,6 +1212,47 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <div style="font-size:11px;color:var(--t2);margin-top:4px">막대=거래량, 선=평균가. 단지명을 넣으면 그 단지만, 비우면 지역 전체.</div>
       </div>
       <div id="apt-result"></div>
+    </div>
+
+    <!-- 👥 직원 계정 관리 (2026-09-08 신설) — 대표(마스터) 전용.
+         서버(staffList/staffAdd/staffRevoke)가 adminOnly_ 로 막는다. 화면 감춤은 보조. -->
+    <div class="panel" id="p-staff">
+      <div class="page-hd">
+        <div>
+          <div class="page-title">👥 직원 관리</div>
+          <div class="page-sub">직원 계정을 만들고 접속 링크를 보냅니다 — 링크를 열면 그 기기가 바로 연결됩니다 (대표 전용)</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:12px">
+        <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:160px">
+            <label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">직원 이름</label>
+            <input id="staff-name" placeholder="예: 김직원" maxlength="20" onkeydown="if(event.key==='Enter')staffAddGo()">
+          </div>
+          <button class="btn btn-g" onclick="staffAddGo()">＋ 계정 발급</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--t2);margin-top:8px;line-height:1.6">
+          직원 계정은 <strong>임대인 이름·번호가 가려지고</strong>, 매물 수집·직원 관리 메뉴는 보이지 않습니다. 나머지(매물·고객·계약·문자·시세)는 전부 씁니다.
+        </div>
+      </div>
+
+      <div class="card" id="staff-link-box" style="display:none;margin-bottom:12px;border-color:#BFDBFE;background:#F8FBFF">
+        <div class="card-title" style="margin-bottom:6px">🔗 <span id="staff-link-name"></span> 님 접속 링크</div>
+        <div class="row" style="gap:6px">
+          <input id="staff-link-url" readonly style="flex:1;font-size:11px" onclick="this.select()">
+          <button class="btn btn-b btn-sm" onclick="(async()=>{try{await navigator.clipboard.writeText(document.getElementById('staff-link-url').value);showToast('복사했습니다')}catch(e){document.getElementById('staff-link-url').select();showToast('칸을 눌러 직접 복사하세요')}})()">📋 복사</button>
+        </div>
+        <div style="font-size:11.5px;color:#1E40AF;margin-top:8px;line-height:1.7">
+          <strong>직원에게 이렇게 보내세요:</strong><br>
+          ① 이 링크를 카톡·문자로 보냅니다 (이 직원에게만 — 링크 = 열쇠)<br>
+          ② 직원이 폰/PC 크롬에서 열면 "구글 시트 연동 자동 설정" 알림과 함께 바로 연결됩니다<br>
+          ③ 폰이면 [홈 화면에 추가]로 앱처럼 씁니다 (아이폰: 공유 → 홈 화면에 추가)<br>
+          ④ 퇴사·분실 시 아래 [삭제] — 그 기기는 즉시 끊깁니다
+        </div>
+      </div>
+
+      <div id="staff-list"></div>
     </div>
 
     <!-- 비토 STT -->
@@ -6836,7 +6879,7 @@ function refreshVitoCustomerSelects(){
 
 // ═══ NAV ═══
 function go(id){
-  const ids=['dash','expiry','listing','ads','customer','contract','landlord','sms','contract-writer','vito','gather','apt'];
+  const ids=['dash','expiry','listing','ads','customer','contract','landlord','sms','contract-writer','vito','gather','staff','apt'];
   document.querySelectorAll('.sb-item').forEach((el,i)=>el.classList.toggle('on',ids[i]===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   // null 체크 추가 — 패널이 없으면 오류 방지
@@ -6854,6 +6897,7 @@ function go(id){
   if(id==='ads'&&typeof renderAds==='function') renderAds();
   if(id==='gather')        gatherRender();
   if(id==='apt')           aptInit();
+  if(id==='staff')         staffRender();
   closeMobile();
 }
 
@@ -8294,13 +8338,17 @@ let gatherRows = [], gatherTimer = null;
 
 // 로그인한 사람이 대표인지 서버에 물어 메뉴를 보인다/감춘다
 async function gatherMenuSetup(){
-  const btn = document.getElementById('sb-gather'); if(!btn) return;
+  // 대표 전용 메뉴 2개(수집·직원)를 한 번의 ping 으로 같이 켠다 (2026-09-08)
+  const btns = ['sb-gather','sb-staff'].map(id=>document.getElementById(id)).filter(Boolean);
+  if(!btns.length) return;
   const url = getGsUrl(); if(!url) return;
+  let show = false;
   try{
     const r = await fetch(`${url}?action=ping&t=${Date.now()}${tokQ()}`);
     const j = await r.json();
-    btn.style.display = (j && j.ok && j.role === 'admin') ? '' : 'none';
-  }catch(e){ btn.style.display = 'none'; }
+    show = !!(j && j.ok && j.role === 'admin');
+  }catch(e){ show = false; }
+  btns.forEach(b => { b.style.display = show ? '' : 'none'; });
 }
 
 async function gatherRender(){
@@ -8597,6 +8645,82 @@ function aptDrawChart(series, type){
   ctx.textAlign='left'; ctx.fillStyle='#60A5FA';
   ctx.fillText(maxCnt+'건', W-padR+6, padT+8);
   ctx.fillText('0', W-padR+6, padT+plotH);
+}
+
+/* ═══ 👥 직원 관리 — 2026-09-08 신설, 대표(마스터) 전용 ═══
+   서버 staffList/staffAdd/staffRevoke(adminOnly_). 접속 링크는 현재 사이트 주소 + #gs=&tk= 로
+   여기서 만든다 — 기존 applyGsLink() 가 그 해시를 읽어 자동 연결한다(수정 없음). */
+let staffRows = [];
+
+function staffLink(token){
+  const gs = getGsUrl(); if(!gs || !token) return '';
+  return location.origin + location.pathname + '#gs=' + encodeURIComponent(gs) + '&tk=' + encodeURIComponent(token);
+}
+
+async function staffRender(){
+  const el = document.getElementById('staff-list'); if(!el) return;
+  el.innerHTML = '<div style="padding:14px;color:var(--t2)">불러오는 중…</div>';
+  try{
+    const url = getGsUrl(); if(!url) throw new Error('구글 시트 연동을 먼저 설정하세요');
+    const res = await gsFetchJson(url, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'staffList', token:getGsTok() }) }, 'staffList');
+    if(!res.ok) throw new Error(res.error||'조회 실패');
+    staffRows = res.data || [];
+  }catch(e){ el.innerHTML = `<div class="card">직원 목록을 불러오지 못했습니다 — ${gEsc(e.message)}</div>`; return; }
+  if(!staffRows.length){
+    el.innerHTML = '<div class="empty-state"><div class="es-icon">👥</div>아직 직원 계정이 없습니다. 위에서 이름을 넣고 [계정 발급]을 누르세요.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th>이름</th><th>계정</th><th>만든 날</th><th>접속 링크</th><th></th></tr></thead><tbody>'
+    + staffRows.map((s,i)=>`<tr>
+        <td style="font-weight:600">${gEsc(s.name)}</td>
+        <td style="font-size:11px;color:var(--t2)">${gEsc(s.id)}</td>
+        <td style="font-size:11px;white-space:nowrap">${gEsc(s.createdAt||'')}</td>
+        <td style="white-space:nowrap"><button class="btn btn-xs btn-b" onclick="staffCopyLink(${i})">📋 링크 복사</button> <button class="btn btn-xs" onclick="staffShowLink(${i})">👁 보기</button></td>
+        <td><button class="btn btn-xs btn-r" onclick="staffRevokeGo(${i})">삭제</button></td>
+      </tr>`).join('')
+    + '</tbody></table></div>';
+}
+
+async function staffAddGo(){
+  const inp = document.getElementById('staff-name');
+  const name = (inp.value||'').trim();
+  if(!name){ showToast('직원 이름을 입력하세요'); inp.focus(); return; }
+  try{
+    const r = await gsCall('staffAdd', { name });
+    inp.value = '';
+    showToast(`${r.name} 계정을 만들었습니다`);
+    await staffRender();
+    staffShowLinkFor(r);
+  }catch(e){ alert('발급하지 못했습니다 — ' + e.message); }
+}
+
+function staffShowLink(i){ staffShowLinkFor(staffRows[i]); }
+function staffShowLinkFor(s){
+  if(!s) return;
+  const box = document.getElementById('staff-link-box');
+  document.getElementById('staff-link-name').textContent = s.name || '';
+  document.getElementById('staff-link-url').value = staffLink(s.token);
+  box.style.display = '';
+  box.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+async function staffCopyLink(i){
+  const s = staffRows[i]; if(!s) return;
+  const link = staffLink(s.token);
+  try{ await navigator.clipboard.writeText(link); showToast(`${s.name} 접속 링크를 복사했습니다`); }
+  catch(e){ staffShowLink(i); showToast('아래 칸에서 직접 복사하세요'); }
+}
+
+async function staffRevokeGo(i){
+  const s = staffRows[i]; if(!s) return;
+  if(!confirm(`${s.name} 계정을 삭제합니다.\n그 직원의 기기는 즉시 접속이 끊깁니다(다시 발급하면 됩니다).\n\n삭제할까요?`)) return;
+  try{
+    const r = await gsCall('staffRevoke', { id: s.id });
+    showToast(r && r.removed ? '삭제했습니다' : (r && r.why) || '삭제 결과 확인 필요');
+    document.getElementById('staff-link-box').style.display = 'none';
+    staffRender();
+  }catch(e){ alert('삭제하지 못했습니다 — ' + e.message); }
 }
 
 async function gsCall(action, payload){
