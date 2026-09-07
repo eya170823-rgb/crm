@@ -57,7 +57,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans
 .sb-header{padding:20px 18px 16px;border-bottom:1px solid var(--border)}
 .sb-brand{font-size:15px;font-weight:700;color:var(--g)}
 .sb-sub{font-size:11px;color:var(--t3);margin-top:3px}
-.sb-ver{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:4px;background:var(--gl);color:var(--gd);font-size:10px;font-weight:700;letter-spacing:.2px;white-space:nowrap}
+.sb-ver{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:4px;background:var(--gl);color:var(--gd);font-size:10px;font-weight:700;letter-spacing:.2px;white-space:nowrap;cursor:pointer}
 .sb-section{padding:12px 10px 4px;font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;text-transform:uppercase}
 .sb-item{display:flex;align-items:center;gap:8px;padding:10px 12px;margin:1px 8px;cursor:pointer;border-radius:8px;font-size:13px;color:var(--t2);transition:all .15s;border:none;background:none;width:calc(100% - 16px);text-align:left;white-space:nowrap;overflow:hidden}
 .sb-item:hover{background:var(--bg3);color:var(--t1)}
@@ -438,7 +438,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" title="마지막 배포 시각 (사이트+백엔드 동시 배포)">2026-09-07 18:32</span></div>
+      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-07 18:35</span></div>
     </div>
     <div class="sb-section">메인</div>
     <button class="sb-item on" onclick="go('dash')">📊 대시보드<span class="sb-badge amber" id="sb-warn">0</span></button>
@@ -2086,6 +2086,23 @@ window.addEventListener('load', () => {
 // 다르면 새로 배포된 것 → 캐시를 비우고 새로고침. 무한 새로고침을 막으려고
 // 세션당 1회만 자동 새로고침하고, 그 뒤에도 다르면 배너로만 알린다.
 function appBuild(){ const e=document.getElementById('appVer'); return e?e.textContent.trim():''; }
+
+// 뱃지를 누르면 그 자리에서 최신 버전 확인·갱신 (수동 버튼)
+async function verManual(){
+  showToast('새 버전 확인 중...');
+  try{
+    const r = await fetch('version.json?t=' + Date.now(), { cache:'no-store' });
+    if(!r.ok){ showToast('확인 실패 — 인터넷 연결을 확인하세요'); return; }
+    const j = await r.json();
+    const live = String(j.build||'').trim();
+    if(!live){ showToast('확인 실패 — 잠시 후 다시 시도하세요'); return; }
+    if(live === appBuild()){ showToast('지금이 최신 버전입니다 (' + live + ')'); return; }
+    showToast('새 버전(' + live + ')으로 갱신합니다...');
+    await verPurge();
+    sessionStorage.removeItem('ver_reloaded');
+    setTimeout(() => location.reload(), 600);
+  }catch(e){ showToast('확인 실패 — 인터넷 연결을 확인하세요'); }
+}
 
 async function verCheck(auto){
   try{
