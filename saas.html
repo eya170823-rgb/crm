@@ -572,6 +572,14 @@ table td,table th{font-size:12.5px}
 .dd-c,.dd-lkb,.pf-b,.pf-dkb,.gw-app,.gw-tile,.sx-dk{box-sizing:border-box;min-width:0}
 .dd-c,.dd-lkb b,.dd-lkb em,.dd-c .s,.dd-c .n,.dd-rk .t,.dd-rk .w,.dd-ch b,.dd-ch em{overflow-wrap:anywhere;word-break:keep-all}
 .dd-bar>span:first-child,.dd-ax span{min-width:0}
+/* 🎙 녹음 단추 — 어느 화면에서든 바로 */
+.sx-rec{display:inline-flex;align-items:center;gap:6px}
+.sx-rec-dot{width:8px;height:8px;border-radius:50%;background:#F87171;flex:0 0 auto}
+.sx-rec.on{background:#B91C1C;border-color:#B91C1C;color:#fff}
+.sx-rec.on .sx-rec-dot{background:#fff;animation:sxBlink 1s steps(2,start) infinite}
+@keyframes sxBlink{to{visibility:hidden}}
+.sx-rec-box{padding:12px 14px}
+.sx-rec-box .s{font-size:11.5px;color:var(--t3);line-height:1.7;margin-top:8px}
 /* ⚡ 자동화 표시 */
 .sx-auto{margin-left:5px;font-size:11px;flex-shrink:0}
 .sx-auto.auto{color:#0B5040}
@@ -883,6 +891,9 @@ body{padding-bottom:46px}
     <button class="sx-btn" onclick="sxPop('sx-new')" title="빠른등록">＋ 빠른등록</button>
     <button class="sx-btn" onclick="sxPop('sx-cal')" title="오늘 일정">오늘 일정</button>
     <button class="sx-btn" onclick="sxGo('home')" title="처음 화면으로">홈</button>
+    <button class="sx-btn sx-rec" id="sx-rec-b" onclick="recToggle()" title="녹음 — 상담·회의를 이 기기에 남깁니다">
+      <span class="sx-rec-dot"></span><span id="sx-rec-t">녹음</span>
+    </button>
     <button class="sx-btn" onclick="sxPop('sx-memo')" title="메모 — 생각나면 바로 적기">메모</button>
     <button class="sx-btn" id="sx-deploy-b" data-admin="1" onclick="sxGo('deploy')" title="배포 관리 — 지금 버전과 배포 절차 보기">배포</button>
     <button class="sx-btn" onclick="sxAi()" title="AI 직원">AI 직원</button>
@@ -897,6 +908,7 @@ body{padding-bottom:46px}
     <button onclick="sxGo('visit');sxPop('sx-new')">임장 체크인</button></div>
   <div class="sx-pop" id="sx-cal"><h4>오늘 일정</h4><div id="sx-cal-body"></div></div>
   <div class="sx-pop" id="sx-noti"><h4>알림</h4><div id="sx-noti-body"></div></div>
+  <div class="sx-pop" id="sx-rec"><h4>녹음</h4><div class="sx-rec-box" id="sx-rec-body"></div></div>
   <div class="sx-pop" id="sx-memo"><h4>메모 <span id="sx-memo-n" style="font-weight:400;color:var(--t3);font-size:11.5px"></span></h4>
     <div class="sx-memo-w">
       <textarea id="sx-memo-t" class="sx-memo-t" rows="3" placeholder="생각난 것을 그대로 적으세요. 아이디어·할 일·전화 내용 무엇이든."></textarea>
@@ -917,7 +929,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 20:46</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 20:50</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -983,11 +995,10 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="gw" onclick="sxGo('gw',0,'그룹웨어')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>메인포털<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="approval" onclick="sxGo('approval',0,'그룹웨어')"><span class="sx-pri p3" title="필요할 때">3</span>전자결재<span class="sx-tag ref">참조</span></button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="links" onclick="sxGo('links',0,'그룹웨어')">자료실</button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="minutes" onclick="sxGo('minutes',0,'그룹웨어')">회의록</button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="ref" onclick="sxGo('ref',0,'그룹웨어')">업무 자료실</button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="guide" onclick="sxGo('guide',0,'그룹웨어')"><span class="sx-pri p3" title="필요할 때">3</span>직원 매뉴얼</button>
-          <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('협업메신저')">협업메신저<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('게시판')">게시판<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('이메일')">이메일<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('소통(메신저·게시판·이메일)')">소통(메신저·게시판·이메일)<span class="sx-tag soon">준비 중</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
         <div class="sx-grp-h">관리부<em>만기·계약·인사·회계</em></div>
@@ -1329,6 +1340,11 @@ body{padding-bottom:46px}
       <div class="page-hd"><div><div class="page-title">업무 자료실</div>
         <div class="page-sub">업무 사이트 · 매물장 구조 · 이어받을 규칙</div></div></div>
       <div id="ref-body"></div>
+    </div>
+    <div class="panel" id="p-minutes">
+      <div class="page-hd"><div><div class="page-title">회의록</div>
+        <div class="page-sub">녹음한 회의를 정리해 남깁니다</div></div></div>
+      <div class="dd-wrap" id="min-body"></div>
     </div>
     <div class="panel" id="p-memo">
       <div class="page-hd"><div><div class="page-title">메모 · 요구사항</div>
@@ -11208,7 +11224,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links"},{"label":"업무 자료실","id":"ref"},{"label":"직원 매뉴얼","id":"guide"},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"만기·계약·인사·회계","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"만기 · 계약"},{"label":"만기 현황","id":"dash-expiry"},{"label":"계약 원장","id":"contract"},{"sub":"인사 · 회계"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"sub":"결재 · 설정"},{"label":"승인·보고함","id":"approval"},{"label":"환경 설정","id":"pref"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 만들기","id":"paste"},{"sub":"광고"},{"label":"광고 현황","id":"dash-ads"},{"label":"광고 원장","id":"ads"},{"sub":"고객"},{"label":"고객 현황","id":"dash-cust"},{"label":"고객 전체","id":"customer"},{"label":"문자 발송","id":"sms"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links"},{"label":"회의록","id":"minutes"},{"label":"업무 자료실","id":"ref"},{"label":"직원 매뉴얼","id":"guide"},{"label":"소통(메신저·게시판·이메일)"}]},{"dept":"관리부","desc":"만기·계약·인사·회계","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"만기 · 계약"},{"label":"만기 현황","id":"dash-expiry"},{"label":"계약 원장","id":"contract"},{"sub":"인사 · 회계"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"sub":"결재 · 설정"},{"label":"승인·보고함","id":"approval"},{"label":"환경 설정","id":"pref"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 만들기","id":"paste"},{"sub":"광고"},{"label":"광고 현황","id":"dash-ads"},{"label":"광고 원장","id":"ads"},{"sub":"고객"},{"label":"고객 현황","id":"dash-cust"},{"label":"고객 전체","id":"customer"},{"label":"문자 발송","id":"sms"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -11313,7 +11329,7 @@ function sxPop(id){
   const el = document.getElementById(id); if(!el) return;
   const open = el.style.display === 'block';
   document.querySelectorAll('.sx-pop').forEach(p => p.style.display = 'none');
-  if(!open){ el.style.display = 'block'; if(id === 'sx-noti') sxNotiRender(); if(id === 'sx-acc') sxAccRender(); if(id === 'sx-memo') memoRender(); if(id === 'sx-cal') sxCalRender(); }
+  if(!open){ el.style.display = 'block'; if(id === 'sx-noti') sxNotiRender(); if(id === 'sx-acc') sxAccRender(); if(id === 'sx-memo') memoRender(); if(id === 'sx-rec') recRender(); if(id === 'sx-cal') sxCalRender(); }
 }
 document.addEventListener('click', e => { if(!e.target.closest('.sx-pop') && !e.target.closest('.sx-ico') && !e.target.closest('.sx-me')) document.querySelectorAll('.sx-pop').forEach(p => p.style.display = 'none'); }, true);
 function sxNotiList(){
@@ -12372,6 +12388,7 @@ function ddRender(id){
       + '<button class="dd-go" onclick="sxGo(&#39;customer&#39;)">고객 전체 →</button> '
       + '<button class="dd-go" onclick="sxGo(&#39;vito&#39;)">상담·통화요약 →</button></div>'
       + '<div class="dd-c"><div class="dd-h">구분해서 보기</div><div class="dd-lk">'
+      + '<button class="dd-lkb" onclick="inboxGo()"><b>📥 문의 인입함</b><em>문자·통화가 자동으로 쌓입니다</em></button>'
       + '<button class="dd-lkb" onclick="custRole(&#39;임대인&#39;)"><b>매도·임대인</b><em>집을 내놓는 쪽</em></button>'
       + '<button class="dd-lkb" onclick="custRole(&#39;임차인&#39;)"><b>매수·임차인</b><em>집을 찾는 쪽</em></button>'
       + '<button class="dd-lkb" onclick="custRole(&#39;문의&#39;)"><b>문의 고객</b><em>아직 구분 안 한 고객</em></button>'
@@ -13912,6 +13929,175 @@ function adPlat(key){
     }
   }, 420);
 }
+/* ── 🎙 녹음 단추 (상단) ──
+   원본 회의 녹음 기능(vmStartRecording/vmStopRecording)을 그대로 부른다. 새로 만들지 않는다.
+   🔴 녹음은 이 기기 안에만 남는다. 어디로도 올라가지 않는다. */
+let recOn = false, recTick = null;
+function recToggle(){
+  const b = document.getElementById('sx-rec-b');
+  if(!recOn){
+    if(typeof vmStartRecording !== 'function'){ showToast('이 기기는 녹음을 지원하지 않습니다'); return; }
+    vmStartRecording();
+    recOn = true;
+    if(b) b.classList.add('on');
+    recTick = setInterval(recLabel, 1000);
+    recLabel();
+    showToast('녹음을 시작했습니다 — 이 기기에만 남습니다');
+  } else {
+    if(typeof vmStopRecording === 'function') vmStopRecording();
+    recOn = false;
+    if(b) b.classList.remove('on');
+    if(recTick){ clearInterval(recTick); recTick = null; }
+    const t = document.getElementById('sx-rec-t');
+    if(t) t.textContent = '녹음';
+    recRender();
+    sxPop('sx-rec');
+  }
+}
+function recLabel(){
+  const t = document.getElementById('sx-rec-t');
+  if(!t) return;
+  let m = '녹음 중';
+  try{ m = vmMin(); }catch(e){}
+  t.textContent = m;
+}
+function recRender(){
+  const el = document.getElementById('sx-rec-body'); if(!el) return;
+  const res = document.getElementById('vm-record-result');
+  const done = res && res.innerHTML && res.style.display !== 'none';
+  el.innerHTML = (done
+      ? '<div style="font-size:12.5px;color:var(--t2);line-height:1.8">녹음이 끝났습니다. 아래에서 듣고 <b>파일로 저장</b>하세요.</div>'
+        + '<div style="margin-top:9px">' + res.innerHTML + '</div>'
+      : '<div style="font-size:12.5px;color:var(--t2);line-height:1.8">아직 녹음한 것이 없습니다. 위 <b>녹음</b> 단추를 누르면 시작합니다.</div>')
+    + '<div class="dd-h" style="margin:14px 0 8px">받아쓴 글을 어디로 보낼까요</div>'
+    + '<div class="dd-lk">'
+    + '<button class="dd-lkb" onclick="minFromText()"><b>회의록으로</b><em>제목·정한 것·할 일 틀에 맞춰 정리</em></button>'
+    + '<button class="dd-lkb" onclick="minToMemo()"><b>내 메모로</b><em>짧은 말은 그냥 메모에</em></button>'
+    + '</div>'
+    + '<div style="margin-top:10px">'
+    + '<button class="dd-go" onclick="sxGo(&#39;minutes&#39;);sxPop(&#39;sx-rec&#39;)">회의록 보기 →</button> '
+    + '<button class="dd-go" onclick="sxGo(&#39;vito&#39;);sxPop(&#39;sx-rec&#39;)">녹음 화면 →</button></div>'
+    + '<div class="s">🔴 녹음은 이 기기 안에만 있습니다. 어디로도 올라가지 않습니다.<br>'
+    + '폰 통화 녹음은 이것과 별개로 서버가 자동으로 글로 바꿔 인입함에 쌓습니다.</div>';
+}
+/* ── 📥 문의 인입함 열기 — 고객 화면 안쪽에 있어 눈에 안 띈다 ── */
+function inboxGo(){
+  sxGo('customer', 0, '운영부');
+  setTimeout(function(){
+    const box = document.getElementById('inbox-list');
+    const btn = Array.from(document.querySelectorAll('#p-customer button'))
+      .find(x => (x.textContent || '').indexOf('인입함 불러오기') >= 0);
+    if(btn){
+      btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      btn.style.outline = '2px solid var(--navy)';
+      setTimeout(() => { btn.style.outline = ''; }, 2600);
+      try{ btn.click(); }catch(e){}
+      showToast('문의 인입함을 불러옵니다');
+    } else if(box){
+      box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      showToast('고객 화면 위쪽 인입함입니다');
+    } else {
+      showToast('고객 화면 위쪽 [📥 문의 인입함] 을 보세요');
+    }
+  }, 450);
+}
+/* ── 🗂 회의록 (2026-09-08 대표 지시) ──
+   받아쓴 글을 **틀에 맞춰** 정리해 남긴다. 요약은 사람이 채운다.
+   🔴 AI 로 지어내지 않는다 — 없는 말을 만들지 않기 위해서다.
+   🔴 이 기기에 저장된다. 서버에 모으는 것은 아직 연결 전이다. */
+const MIN_K = 'sx_minutes';
+function minLoad(){ try{ return JSON.parse(localStorage.getItem(MIN_K) || '[]'); }catch(e){ return []; } }
+function minSave(a){ try{ localStorage.setItem(MIN_K, JSON.stringify(a)); }catch(e){ showToast('저장 공간이 가득 찼습니다'); } }
+function minGrab(){
+  // 받아쓰기 칸 → 없으면 회의 제목 칸만
+  const t = document.getElementById('vm-text');
+  return String(t ? t.value : '').trim();
+}
+function minFromText(){
+  const body = minGrab();
+  const title = String((document.getElementById('vm-meeting-title') || {}).value || '').trim();
+  if(!body && !title){ showToast('받아쓴 글이 없습니다 — 녹음 화면에서 말하기를 눌러 보세요'); return; }
+  const m = {
+    id: 'MT' + Date.now(),
+    title: title || '회의 ' + todayStr(),
+    at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    by: (typeof crmWho === 'function') ? crmWho() : '',
+    people: '', decided: '', todo: '',
+    body: body,
+  };
+  const a = minLoad(); a.unshift(m); minSave(a);
+  const t = document.getElementById('vm-text'); if(t) t.value = '';
+  sxPop('sx-rec');
+  sxGo('minutes');
+  showToast('회의록으로 옮겼습니다 — 정한 것·할 일을 채워 주세요');
+}
+function minToMemo(){
+  const body = minGrab();
+  if(!body){ showToast('받아쓴 글이 없습니다'); return; }
+  const a = memoLoad();
+  a.unshift({ id: 'M' + Date.now(), k: '기타', t: body,
+    at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    who: (typeof crmWho === 'function') ? crmWho() : '' });
+  memoSave(a);
+  const t = document.getElementById('vm-text'); if(t) t.value = '';
+  sxPop('sx-rec');
+  showToast('내 메모로 옮겼습니다');
+}
+function minSet(id, f, v){
+  const a = minLoad();
+  const m = a.find(x => x.id === id); if(!m) return;
+  m[f] = v; minSave(a);
+}
+function minDel(id){
+  if(!confirm('이 회의록을 지울까요?')) return;
+  minSave(minLoad().filter(x => x.id !== id));
+  minRender();
+}
+function minCopy(id){
+  const m = minLoad().find(x => x.id === id); if(!m) return;
+  const txt = ['[' + m.title + ']', '날짜 · ' + m.at + (m.by ? ' · ' + m.by : ''),
+    '참석 · ' + (m.people || '확인 필요'), '', '[정한 것]', m.decided || '(아직 안 적음)',
+    '', '[할 일]', m.todo || '(아직 안 적음)', '', '[받아쓴 내용]', m.body || '(없음)'].join(NLC);
+  try{ navigator.clipboard.writeText(txt); showToast('회의록을 복사했습니다'); }
+  catch(e){ showToast('글자를 직접 복사하세요'); }
+}
+function minRender(){
+  const el = document.getElementById('min-body'); if(!el) return;
+  const a = minLoad();
+  const fld = (m, f, ph) => '<textarea class="sx-memo-t" style="min-height:44px" placeholder="' + gAttr(ph) + '"'
+    + ' oninput="minSet(&#39;' + gAttr(m.id) + '&#39;,&#39;' + f + '&#39;,this.value)">' + gEsc(m[f] || '') + '</textarea>';
+  el.innerHTML = '<div class="dd-kpi">'
+    + ddCard('남긴 회의록', a.length, '이 기기에 저장된 것만')
+    + ddCard('이번 달', a.filter(x => String(x.at || '').slice(0, 7) === todayStr().slice(0, 7)).length, '')
+    + ddCard('정한 것 안 적음', a.filter(x => !String(x.decided || '').trim()).length, '채워 주세요')
+    + ddCard('할 일 안 적음', a.filter(x => !String(x.todo || '').trim()).length, '') + '</div>'
+    + '<div class="dd-c"><div class="dd-h">새 회의록</div><div class="s">위 <b>녹음</b> 단추로 녹음하고 말하기를 켜면 글이 적힙니다. '
+    + '끝낸 뒤 <b>회의록으로</b>를 누르면 여기 들어옵니다.</div>'
+    + '<button class="dd-go" style="margin-top:9px" onclick="sxGo(&#39;vito&#39;)">녹음 화면 →</button> '
+    + '<button class="dd-go" onclick="minNew()">빈 회의록 만들기</button></div>'
+    + (a.length ? a.slice(0, 30).map(m => '<div class="dd-c"><div class="dd-h">' + gEsc(m.title) + '</div>'
+        + '<div class="s" style="margin:0 0 8px">' + gEsc(m.at) + (m.by ? ' · ' + gEsc(m.by) : '') + '</div>'
+        + '<div class="s" style="margin:0 0 4px">참석</div>' + fld(m, 'people', '예: 대표, 이실장')
+        + '<div class="s" style="margin:8px 0 4px">정한 것</div>' + fld(m, 'decided', '회의에서 정해진 것을 적으세요')
+        + '<div class="s" style="margin:8px 0 4px">할 일</div>' + fld(m, 'todo', '누가 언제까지 무엇을')
+        + (m.body ? '<div class="s" style="margin:8px 0 4px">받아쓴 내용</div><pre class="doc-pre" style="max-height:200px">' + gEsc(m.body) + '</pre>' : '')
+        + '<div style="margin-top:9px"><button class="dd-go" onclick="minCopy(&#39;' + gAttr(m.id) + '&#39;)">글자로 복사</button> '
+        + '<button class="dd-go" style="color:#B91C1C" onclick="minDel(&#39;' + gAttr(m.id) + '&#39;)">지우기</button></div></div>').join('')
+      : '<div class="dd-c"><div class="dd-empty">아직 남긴 회의록이 없습니다.</div></div>')
+    + '<div class="dd-c" style="border-color:#FDE68A;background:#FFFBEB"><div class="card-title">알아 두실 것</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">'
+    + '· 요약은 <b>사람이 적습니다</b>. 기계가 없는 말을 지어내지 않게 하기 위해서입니다.<br>'
+    + '· 회의록은 <b>이 기기에만</b> 저장됩니다. 서버에 모으는 것은 아직 연결 전입니다.<br>'
+    + '· 녹음 파일은 따로 저장하지 않으면 화면을 닫을 때 사라집니다.</div></div>';
+}
+function minNew(){
+  const a = minLoad();
+  a.unshift({ id: 'MT' + Date.now(), title: '회의 ' + todayStr(),
+    at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    by: (typeof crmWho === 'function') ? crmWho() : '', people: '', decided: '', todo: '', body: '' });
+  minSave(a); minRender();
+  showToast('빈 회의록을 만들었습니다');
+}
 /* ── 📝 메모 — 생각나면 바로 적는다 ── */
 const MEMO_K = 'sx_memo';
 function memoLoad(){ try{ return JSON.parse(localStorage.getItem(MEMO_K) || '[]'); }catch(e){ return []; } }
@@ -14100,6 +14286,7 @@ function sxInit(){
     if(id === 'chan') exRender();
     if(id.indexOf('dash-') === 0) ddRender(id);
     if(id === 'memo') memoPanelRender();
+    if(id === 'minutes') minRender();
     if(id === 'sms5') sms5Render();
     if(id === 'ref') refRender();
     if(id === 'reg') regRender();
