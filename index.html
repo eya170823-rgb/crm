@@ -35,6 +35,19 @@
 #ios-guide-inner .ig-step{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0F2F5;font-size:13px;color:#5A6270}
 #ios-guide-inner .ig-step:last-child{border-bottom:none}
 #ios-guide-inner .ig-num{width:24px;height:24px;border-radius:50%;background:#0F6E56;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* 🎨 브랜드 스튜디오 (2026-09-08) */
+.br-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.br-card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
+.br-thumb{height:150px;background:#F7F8FA;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.br-thumb img{width:100%;height:100%;object-fit:contain}
+.br-noimg{font-size:11px;color:var(--t3);text-align:center;padding:10px}
+/* 📘 이용 가이드 (2026-09-08) */
+.guide-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-top:6px}
+@media(max-width:900px){.guide-grid{grid-template-columns:1fr}}
+.guide-img{width:100%;border:1px solid var(--border);border-radius:10px;background:#fff}
+.guide-shot{width:100%;height:230px;overflow:hidden;border:1px solid var(--border);border-radius:10px;background:#F7F8FA;position:relative}
+.guide-shot-in{transform:scale(.42);transform-origin:0 0;width:238%;pointer-events:none}
+.guide-shot-in .panel{display:block;padding:12px}
 </style>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -63,6 +76,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans
 .sb-item:hover{background:var(--bg3);color:var(--t1)}
 .sb-item.on{background:var(--gl);color:var(--g);font-weight:600}
 .sb-item.vito-menu.on{background:var(--vtl);color:var(--vt)}
+.ai-dept-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.ai-dept-card{border:1px solid var(--border);border-radius:10px;background:#fff;padding:13px;cursor:pointer;text-align:left;color:var(--t1)}
+.ai-dept-card:hover{border-color:var(--gm);box-shadow:var(--sh)}
+.ai-dept-card.on{border-color:var(--g);background:var(--gl)}
+.ai-dept-card strong{display:block;margin-bottom:4px}.ai-dept-card span{font-size:11px;color:var(--t2);line-height:1.45}
+.ai-approval{border:1px solid #F59E0B;background:#FFFBEB;color:#92400E;border-radius:10px;padding:12px 14px;line-height:1.6}
+@media(max-width:900px){.ai-dept-grid{grid-template-columns:1fr}}
 .sb-badge{margin-left:auto;font-size:9.5px;padding:2px 6px;border-radius:10px;font-weight:600;white-space:nowrap;flex-shrink:0}
 .sb-badge.red{background:var(--rl);color:var(--r)}
 .sb-badge.green{background:var(--gl);color:var(--g)}
@@ -438,16 +458,19 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 05:02</span></div>
+      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 14:00</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
     <div class="sb-section">1 · 홈 · 통합 업무 포털</div>
     <button class="sb-item on" onclick="go('dash')">📊 홈 대시보드<span class="sb-badge amber" id="sb-warn">0</span></button>
     <button class="sb-item" onclick="go('expiry')">⏰ 만기 관리<span class="sb-badge red" id="sb-exp">0</span></button>
+    <button class="sb-item" data-feature="guide" onclick="go('guide')">📘 이용 가이드<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
     <div class="sb-section">2 · 매물(SCM) · 공적장부</div>
     <button class="sb-item" onclick="go('listing')">🏠 매물 관리</button>
+    <button class="sb-item" id="sb-map" data-feature="map" style="display:none" onclick="go('map')">🗺 매물 지도<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
     <button class="sb-item" onclick="go('ads')">📣 광고관리<span class="sb-badge red" id="sb-ad-todo" style="display:none">0</span></button>
+    <button class="sb-item" data-feature="audit" onclick="go('audit')">🧹 데이터 검수<span class="sb-badge red" id="sb-audit" style="display:none">0</span></button>
     <button class="sb-item" onclick="go('apt')">📈 아파트 시세<span class="sb-badge" style="background:#E0F2FE;color:#0369A1">실거래</span></button>
     <button class="sb-item" id="sb-gather" style="display:none" onclick="go('gather')">🥕 매물 수집<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
     <div class="sb-section">3 · 고객 CRM · 매칭(AX)</div>
@@ -457,6 +480,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <button class="sb-item vito-menu" onclick="go('vito')">🎙️ 회의·음성 메모<span class="sb-badge" style="background:var(--vtl);color:var(--vt)">STT</span></button>
     <div class="sb-section">4 · 오피스 협업(HRM)</div>
     <button class="sb-item" onclick="go('visit')">📍 임장 체크인·근태<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
+    <button class="sb-item" data-feature="links" onclick="go('links')">🔗 링크 보관함<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
     <button class="sb-item" id="sb-staff" style="display:none" onclick="go('staff')">👥 직원 관리<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
     <div class="sb-section">5 · 계약 · 재무(FCM)</div>
     <button class="sb-item" onclick="go('contract')">📋 계약 완료</button>
@@ -464,6 +488,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <button class="sb-item" onclick="go('payout')">💰 수당 정산<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
     <div class="sb-section">6 · 경영 · 통계(CO)</div>
     <button class="sb-item" onclick="go('stats')">📊 경영 통계<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
+    <button class="sb-item" id="sb-brand" data-feature="brand" style="display:none" onclick="go('brand')">🎨 브랜드 스튜디오<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
+    <div class="sb-section">7 · AI 본부 · 부서 운영</div>
+    <button class="sb-item" id="sb-ai-center" data-feature="ai-center" style="display:none" onclick="go('ai-center')">🤖 AI 직원 센터<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1·대표시험</span></button>
     <button class="sb-item" title="취득세·양도세·중개보수·대출 한도 계산기 (새 창)" onclick="window.open('https://eya170823-rgb.github.io/crm/calc/','_blank','noopener')">🧮 계산기<span class="sb-badge" style="background:#FEF3C7;color:#B45309">세금·대출</span></button>
     <div class="sb-footer">
       제주시 연동<br>바른 기준, 가치 있는 동행<br>
@@ -502,6 +529,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         <div class="stat"><div class="stat-icon">🗝️</div><div class="stat-num" style="color:var(--p)" id="stat-short">0</div><div class="stat-lbl">단기임대</div></div>
         <div class="stat" onclick="go('contract')" style="cursor:pointer" title="이상거래 RED·AMBER 또는 해제·등기지연·신고없음 계약"><div class="stat-icon">⚖</div><div class="stat-num" style="color:var(--r)" id="stat-risk">0</div><div class="stat-lbl">위험 계약</div></div>
         <div class="stat" onclick="go('visit')" style="cursor:pointer"><div class="stat-icon">📍</div><div class="stat-num" style="color:var(--b)" id="stat-visit">0</div><div class="stat-lbl">오늘 임장</div></div>
+        <div class="stat" onclick="go('audit')" style="cursor:pointer" title="중복 매물·호수 누락·외부 공실망 내려감 — 🧹 데이터 검수"><div class="stat-icon">🧹</div><div class="stat-num" style="color:#B45309" id="stat-audit">-</div><div class="stat-lbl">검수 경고</div></div>
       </div>
       <!-- 📈 이번 주 영업 지표 (2026-08-23): 계약률 = 인입→응답→고객→계약 네 숫자의 관리 -->
       <div id="week-metrics" style="border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px">
@@ -1290,6 +1318,58 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div id="vt-list"></div>
     </div>
 
+    <!-- 📘 이용 가이드 (2026-09-08) — 왼쪽 메뉴·각 화면 제목·GUIDE_TEXT·캡처(guide/<id>.png)에서 그때그때 생성 -->
+    <div class="panel" id="p-guide">
+      <div class="page-hd">
+        <div><div class="page-title">📘 이용 가이드 · 직원 매뉴얼</div><div class="page-sub">화면 구성이 바뀌면 이 가이드도 자동으로 따라갑니다 (메뉴 순서 = 읽는 순서)</div></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="guideRender()">🔄 다시 만들기</button><button class="btn btn-g btn-sm" onclick="guidePrint()">🖨 인쇄 · PDF</button></div>
+      </div>
+      <div id="guide-body"></div>
+    </div>
+
+    <!-- 🗺 매물 지도 (2026-09-08 지시어⑥ 직원 대시보드: 검증 통과 매물만 지도로) -->
+    <div class="panel" id="p-map">
+      <div class="page-hd">
+        <div><div class="page-title">🗺 매물 지도</div><div class="page-sub" id="map-sub">검증 통과 매물을 지도에 표시합니다 · 위치는 주소로 자동 계산</div></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <select id="map-filter" onchange="mapRender()"><option value="verified">✅ 검증 통과만</option><option value="all">진행 매물 전체(대표)</option></select>
+          <button class="btn btn-sm" onclick="mapGeocodeAll()">📍 위치 계산(좌표 없는 매물)</button>
+        </div>
+      </div>
+      <div id="map-box" style="width:100%;height:62vh;min-height:360px;border-radius:12px;border:1px solid var(--border);background:#F7F8FA"></div>
+      <div id="map-list" style="margin-top:10px;font-size:12px;color:var(--t2)"></div>
+    </div>
+
+    <!-- 🧹 데이터 검수 (2026-09-08 지시어⑥ 데이터 감사 · 온하우스형 외부 공실망 대조) -->
+    <div class="panel" id="p-audit">
+      <div class="page-hd">
+        <div><div class="page-title">🧹 데이터 검수</div><div class="page-sub">중복 매물 · 호수 누락 · 대장 미조회 · 외부 공실망(당근·오일장) 내려감 — 직원에겐 검증 통과 매물만 온전히 보입니다</div></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <button class="btn btn-b btn-sm" onclick="auditRun()">🔍 검수 실행</button>
+          <button class="btn btn-g btn-sm" id="audit-apply-btn" onclick="auditApplyStamp()" style="display:none">✅ 검증 도장 찍기</button>
+          <button class="btn btn-r btn-sm" id="audit-dedupe-btn" onclick="auditDedupeRun()" style="display:none">🧹 중복 정제</button>
+        </div>
+      </div>
+      <div class="stat-row" id="audit-tiles" style="grid-template-columns:repeat(7,1fr)"></div>
+      <div id="audit-body"><div class="empty-state"><div class="es-icon">🧹</div>[🔍 검수 실행]을 누르면 시트의 매물 전체를 서버에서 대조합니다.</div></div>
+    </div>
+
+    <!-- 🔗 링크 보관함 (2026-09-08 지시어① 카톡 kakao.txt → 제목·URL·업로드 날짜, 노션 DB 선택) -->
+    <div class="panel" id="p-links">
+      <div class="page-hd">
+        <div><div class="page-title">🔗 링크 보관함</div><div class="page-sub">카톡 대화 내보내기(kakao.txt)를 올리면 링크·날짜·보낸이를 뽑아 제목까지 붙여 저장합니다 · <span id="lk-notion">노션 연동: 확인 중</span></div></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center">
+          <input type="file" id="lk-file" accept=".txt,text/plain" onchange="linksParseFile(this.files[0])" style="font-size:12px">
+          <button class="btn btn-g btn-sm" id="lk-save-btn" onclick="linksSave()" style="display:none">💾 저장(제목 자동 수집)</button>
+        </div>
+      </div>
+      <div class="card" id="lk-notion-setup" style="display:none;margin-bottom:10px"><div class="card-title">노션 연동(대표)</div>
+        <div class="row" style="gap:6px;flex-wrap:wrap"><input id="lk-notion-db" placeholder="노션 데이터베이스 ID(32자)" style="min-width:260px"><input id="lk-notion-token" type="password" placeholder="노션 통합 토큰 (저장만 되고 다시 보이지 않음)" style="min-width:260px"><button class="btn btn-sm btn-g" onclick="linksNotionSave()">저장</button></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">노션 DB 속성은 <b>제목</b>(제목형) · <b>URL</b>(URL형) · <b>업로드 날짜</b>(날짜형)로 만들고, 통합(integration)을 그 DB에 연결해 두세요.</div></div>
+      <div id="lk-preview"></div>
+      <div id="lk-list"></div>
+    </div>
+
     <!-- 💰 수당 정산 (2026-09-08, 기획서 PART4 화면B) -->
     <div class="panel" id="p-payout">
       <div class="page-hd">
@@ -1302,6 +1382,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       </div>
       <div class="card" id="po-sum" style="margin-bottom:12px;font-size:13px"></div>
       <div id="po-table"></div>
+      <div class="card" id="po-rates" style="margin-top:12px"></div>
       <div style="font-size:11px;color:var(--t3);margin-top:8px">중개보수 칸이 비어 있으면 회색 제안값(매매 0.4% · 임대 0.3%)이 보입니다 — 실제 금액을 넣으면 계약에 저장됩니다. 배분율·세율은 대표만 바꿉니다(3.3% = 프리랜서 원천징수).</div>
     </div>
 
@@ -1316,6 +1397,52 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       </div>
       <div class="stat-row" id="st-tiles"></div>
       <div class="card" id="st-detail"></div>
+    </div>
+
+    <!-- 🤖 부서별 AI 직원 센터 — P1 대표시험. 외부 실행은 승인 체계 연결 전 차단 -->
+    <!-- 🎨 브랜드 스튜디오 (2026-09-08, P1 · 사장님 지시: 캐릭터 브랜드 시스템) -->
+    <div class="panel" id="p-brand">
+      <div class="page-hd">
+        <div><div class="page-title">🎨 브랜드 스튜디오</div><div class="page-sub">캐릭터·로고·색상·굿즈 자산을 한곳에서 — 초안 → 검토대기 → 대표 승인 → 사용</div></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">
+          <select id="br-filter" onchange="brandGridRender()"><option value="">분류 전체</option></select>
+          <select id="br-status" onchange="brandGridRender()"><option value="">상태 전체</option></select>
+          <button class="btn btn-sm" onclick="brandCharsToggle()">🧍 캐릭터 기준표</button>
+          <button class="btn btn-g btn-sm" onclick="brandFormOpen('')">＋ 자산 등록</button>
+        </div>
+      </div>
+      <div class="card" id="br-chars" style="display:none;margin-bottom:12px"></div>
+      <div class="card" id="br-form" style="display:none;margin-bottom:12px"></div>
+      <div id="br-sum" style="font-size:12px;color:var(--t2);margin-bottom:10px"></div>
+      <div id="br-grid"></div>
+      <div class="card" style="margin-top:14px;border-color:#BFDBFE;background:#F8FBFF">
+        <div class="card-title">🔌 다음 단계(예정) — 여기에 이어 붙습니다</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.8">
+          승인된 캐릭터·로고를 골라 <b>매물 카드뉴스 · 블로그 이미지 · 인스타 게시물 · 문자·카카오 이미지 · 명함·현수막·굿즈 시안</b>을 만드는 기능이 이 화면에 붙습니다.
+          기존 [📣 광고관리]의 광고문 작성·블로그 발행과 같은 자산을 씁니다. 지금 단계는 <b>자산 등록 · 승인 · 사용 기록</b>까지입니다.<br>
+          만든 결과물은 자동으로 게시되지 않습니다 — 초안 → 검토대기 → 대표 승인 → 사용 순서를 그대로 따릅니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="p-ai-center">
+      <div class="page-hd">
+        <div><div class="page-title">🤖 AI 직원 센터</div><div class="page-sub">한 회사 데이터 위에서 부서별 역할·권한을 나누는 대표 지휘 화면</div></div>
+        <span class="badge ba">P1 · 대표시험</span>
+      </div>
+      <div class="ai-approval"><strong>🔒 사람 승인 원칙</strong><br>AI는 조회·분류·초안·경고까지만 수행합니다. 계약 확정, 금전 처리, 데이터 삭제, 고객에게 외부 발송, 운영 배포는 대표 또는 지정 담당자의 최종 승인 없이는 실행하지 않습니다.</div>
+      <div class="ai-dept-grid" id="ai-dept-grid"></div>
+      <div class="card" id="ai-dept-detail"><div class="card-title">부서를 선택하세요</div></div>
+      <div class="card">
+        <div class="card-hd"><div><div class="card-title">업무 지시 초안</div><div class="card-sub">이 기기에만 임시 저장됩니다. 아직 AI·외부 서비스로 전송되지 않습니다.</div></div></div>
+        <div class="form-group"><label>선택 부서</label><input id="ai-dept-name" value="관리부" readonly></div>
+        <div class="form-group"><label>대표 지시</label><textarea id="ai-task-draft" placeholder="예: 오늘 미확인 계약과 만기 30일 이내 건을 찾아 보고서 초안을 작성"></textarea></div>
+        <div class="row">
+          <button class="btn btn-g" onclick="aiDraftSave()">💾 초안 저장</button>
+          <button class="btn" onclick="aiExecutionBlocked()" aria-disabled="true">▶ AI 실행 요청</button>
+          <span style="font-size:11px;color:var(--t3)">AI 연결·권한·감사로그 검증 후 실행 버튼을 활성화합니다.</span>
+        </div>
+      </div>
     </div>
 
     <!-- 비토 STT -->
@@ -1526,6 +1653,19 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     </div>
     <div class="form-row">
       <div class="form-group"><label>건물용도</label><input id="l-bldg-use" placeholder="예: 오피스텔 · 자동조회 가능"></div>
+    </div>
+    <!-- 🏢 2026-09-08 표제부 확장(지시어③) — 대장 자동조회가 채운다. 1일 캐시. -->
+    <div class="form-row">
+      <div class="form-group"><label>대지면적</label><input id="l-plat-area" placeholder="자동조회(표제부)"></div>
+      <div class="form-group"><label>연면적</label><input id="l-tot-area" placeholder="자동조회(표제부)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>구조</label><input id="l-strct" placeholder="예: 철근콘크리트구조 · 자동조회"></div>
+      <div class="form-group"><label>내진설계</label><select id="l-quake"><option value="">모름</option><option value="Y">적용</option><option value="N">미적용</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>지하층</label><input id="l-ug-floor" placeholder="예: 2층 · 자동조회"></div>
+      <div class="form-group"><label>검수 상태</label><div id="l-verified-show" style="font-size:12px;padding:9px 0;color:var(--t2)">검수 전</div></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label>방 수</label><input id="l-rooms" placeholder="예: 3 · 직접 입력"></div>
@@ -2159,7 +2299,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     <div style="background:#F7F8FA;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:11px;color:#5A6270;line-height:1.6">
       💡 <strong>자동 동기화:</strong> 데이터 저장 시 2초 후 구글 시트에 자동 반영됩니다<br>
       💡 <strong>공유 방법:</strong> 같은 URL+토큰을 다른 직원 CRM에도 입력하면 즉시 공유됩니다<br>
-      🔒 <strong>보안:</strong> 데이터 조회·저장·문자발송은 토큰이 맞아야만 처리됩니다 (홈페이지 매물 노출은 토큰 불필요)
+      🔒 <strong>보안:</strong> 데이터 조회·저장·문자발송은 토큰이 맞아야만 처리됩니다 (홈페이지 매물 노출은 토큰 불필요)<br>
+      📞 <label style="cursor:pointer"><input type="checkbox" id="gs-cti-poll" onchange="try{localStorage.setItem('crm_cti_poll', this.checked?'1':'0')}catch(e){}"> <strong>전화 실시간 팝업</strong> — 벨이 울리면 이 화면에 고객 카드(8초마다 확인)</label><br>
+      🚦 <label style="cursor:pointer"><input type="checkbox" id="gs-preview" onchange="try{localStorage.setItem('crm_preview', this.checked?'1':'0')}catch(e){};featureMenusApply()"> <strong>예정(P1) 기능 미리보기</strong> — 검증 전 메뉴도 이 기기에서 보기(대표 확인용)</label>
     </div>
 
     <div style="display:flex;gap:8px">
@@ -2865,6 +3007,9 @@ async function bldgAutoFill(silent){
     setIf('l-floor',d.floor);
     setIf('l-area',d.area);
     setIf('l-bldg-use',d.use);
+    // 🏢 2026-09-08 표제부 확장 — 대지면적·연면적·구조·내진·지하층
+    setIf('l-plat-area',d.platArea); setIf('l-tot-area',d.totArea); setIf('l-strct',d.strct); setIf('l-ug-floor',d.ugFloor);
+    if(d.quake){ const q=document.getElementById('l-quake'); if(q) q.value=d.quake; }
     const got=['totalFloor','aprDate','floor','area'].filter(k=>d[k]).length;
     if(got===0){
       showToast('❌ 대장에서 정보를 찾지 못했습니다. 주소를 확인하거나 [📋 호수목록]으로 확인해보세요');
@@ -3580,17 +3725,17 @@ function renderListings(){
       <tbody>${list.map(l=>{
         const dN=dup.no.has(String(l.id||'').trim());
         const dA=!!String(l.addr||'').trim()&&dup.addr.has(listingAddrKey(l));
-        const noPhoto=!l.photoUrl||l.photoCnt===0||l.photoCnt==='0';
+        const noPhoto=!l.photoUrl||l.photoCnt===0||l.photoCnt==='0';const lk=listingLocked(l);
         return`<tr>
         <td style="font-size:11px;white-space:nowrap;color:${dN?'var(--r)':'var(--b)'};font-weight:600">${l.id}${dN?' <span class="badge br" style="font-size:9px" title="매물번호 중복 — 시트 입력 확인 필요">⚠️중복</span>':''}</td>
         <td style="font-size:11px;white-space:nowrap">${l.recvDate||'-'}</td>
-        <td style="font-weight:600;white-space:nowrap">${l.apt}${l.addr2?' '+l.addr2:''}${dA?' <span class="badge br" style="font-size:9px" title="주소·호수 중복 — 당근 중복등록 시 계정 제재 위험">⚠️주소중복</span>':''}</td>
+        <td style="font-weight:600;white-space:nowrap">${l.apt}${l.addr2?' '+l.addr2:''}${dA?' <span class="badge br" style="font-size:9px" title="주소·호수 중복 — 당근 중복등록 시 계정 제재 위험">⚠️주소중복</span>':''}${auditBadge(l)}</td>
         <td><span class="badge bgr">${l.kind||'-'}</span></td>
         <td>${typeBadge(l.type)}</td>
         <td style="white-space:nowrap">${l.price}${l.rentAmt?' / '+l.rentAmt:''}</td>
         <td style="white-space:nowrap">${l.availDate||moveBadge(l.moveDate)||`<span style="color:var(--t3);font-size:11px">${l.moveDate||'-'}</span>`}</td>
-        <td style="font-weight:500">${l.cname||'-'}</td>
-        <td style="color:var(--b);white-space:nowrap">${l.cphone||'-'}</td>
+        <td style="font-weight:500">${lk?maskNameUI(l.cname):(l.cname||'-')}</td>
+        <td style="color:var(--b);white-space:nowrap">${lk?maskPhoneUI(l.cphone):(l.cphone||'-')}</td>
         <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td>
         <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
         <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}${noPhoto?` <span class="badge bgr" style="font-size:9px;padding:2px 6px" title="사진 미등록">📷사진없음</span>`:''}</td>
@@ -3604,7 +3749,7 @@ function renderListings(){
   el.innerHTML=list.map(l=>{
     const dN=dup.no.has(String(l.id||'').trim());
     const dA=!!String(l.addr||'').trim()&&dup.addr.has(listingAddrKey(l));
-    const noPhoto=!l.photoUrl||l.photoCnt===0||l.photoCnt==='0';
+    const noPhoto=!l.photoUrl||l.photoCnt===0||l.photoCnt==='0';const lk=listingLocked(l);
     const steps=STEP_MAP[l.type]||STEP_MAP['전세'];
     const cur={접수:0,상담중:1,계약완료:5,임대중:5,거래완료:5,보류:0,공실:0}[l.status]||0;
     const sh=steps.map((s,i)=>{const c=i<cur?'done':i===cur?'cur':'';return`<div class="step ${c}"><div class="step-line"></div><div class="step-dot">${i<cur?'✓':i+1}</div><div class="step-txt">${s}</div></div>`;}).join('');
@@ -3615,15 +3760,15 @@ function renderListings(){
       l.moveDate?`<div class="l-info-item">${moveBadge(l.moveDate)}</div>`:'',
       // 임대중(다른 곳 계약)은 만료일이 곧 다시 나오는 시점 — 놓치지 않도록 D-day로 보여준다
       (l.status==='임대중'&&l.contractEnd)?`<div class="l-info-item"><span class="li-label">다시 나옴</span> ${l.contractEnd} <span class="dday ${ddCls(daysLeft(l.contractEnd))}">${ddLabel(daysLeft(l.contractEnd))}</span></div>`:'',
-      l.cname?`<div class="l-info-item">👤 <strong>${l.cname}</strong>${l.cphone?` · <span style="color:var(--b)">${l.cphone}</span>`:''}</div>`:'',
+      l.cname?`<div class="l-info-item">👤 <strong>${lk?maskNameUI(l.cname):l.cname}</strong>${l.cphone?` · <span style="color:var(--b)">${lk?maskPhoneUI(l.cphone):l.cphone}</span>`:''}</div>`:'',
       l.naverUrl?`<a class="naver-link-badge" href="${l.naverUrl}" target="_blank" onclick="event.stopPropagation()">N 네이버 매물 바로가기</a>`:'',
       (l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="event.stopPropagation();openListingFiles('${l.id}')">📎 첨부파일 ${l.attachments.length}개</span>`:'',
     ].filter(Boolean).join('');
     return`<div class="card">
       <div class="card-hd">
         <div>
-          <div class="card-title">${l.apt}${l.addr2?' '+l.addr2:''} <span style="font-size:10px;color:${dN?'var(--r)':'var(--b)'};font-weight:600">${l.id}</span>${dN?' <span class="badge br" style="font-size:10px" title="매물번호 중복 — 시트 입력 확인 필요">⚠️ 번호중복</span>':''}${dA?' <span class="badge br" style="font-size:10px" title="주소·호수 중복 — 당근 중복등록 시 계정 제재 위험">⚠️ 주소중복</span>':''}</div>
-          <div class="card-sub">${[l.kind,l.area,l.floor?l.floor:'',l.price+(l.rentAmt?' / '+l.rentAmt:'')].filter(Boolean).join(' · ')}</div>
+          <div class="card-title">${l.apt}${l.addr2?' '+l.addr2:''} <span style="font-size:10px;color:${dN?'var(--r)':'var(--b)'};font-weight:600">${l.id}</span>${dN?' <span class="badge br" style="font-size:10px" title="매물번호 중복 — 시트 입력 확인 필요">⚠️ 번호중복</span>':''}${dA?' <span class="badge br" style="font-size:10px" title="주소·호수 중복 — 당근 중복등록 시 계정 제재 위험">⚠️ 주소중복</span>':''}${auditBadge(l)}</div>
+          <div class="card-sub">${[l.kind,l.area,l.floor?l.floor:'',l.price+(l.rentAmt?' / '+l.rentAmt:'')].filter(Boolean).join(' · ')} · <span title="매물 수명주기(SCM): 접수→검증→광고→임장→계약">🔄 ${lifecycleOf(l)}</span></div>
         </div>
         <div class="row">
           ${typeBadge(l.type)}
@@ -3690,6 +3835,14 @@ function openModal(type, editId){
       renderOptionChips(item.options||'');
       document.getElementById('l-rent').value=item.rentAmt||'';
       document.getElementById('l-bldg-use').value=item.bldgUse||'';
+      document.getElementById('l-plat-area').value=item.platArea||'';
+      document.getElementById('l-tot-area').value=item.totArea||'';
+      document.getElementById('l-strct').value=item.strct||'';
+      document.getElementById('l-quake').value=item.quake||'';
+      document.getElementById('l-ug-floor').value=item.ugFloor||'';
+      { const vs=document.getElementById('l-verified-show'); if(vs) vs.textContent=auditBadgeText(item); }
+      // 🔒 직원 + 잠금 매물: 임대인 이름·연락처 칸을 감춘다(값은 그대로 있어 저장해도 원본이 안 바뀜) — 리뷰(09-08)
+      { const lk=typeof listingLocked==='function' && listingLocked(item); ['l-cname','l-cphone'].forEach(id=>{ const el=document.getElementById(id); const fg=el&&el.closest('.form-group'); if(fg) fg.style.display=lk?'none':''; }); }
       document.getElementById('l-jimok').value=item.jimok||'';
       document.getElementById('l-zone').value=item.zone||'';
       document.getElementById('l-premium').value=item.premium||'';
@@ -3712,7 +3865,9 @@ function openModal(type, editId){
       photoPanelOpen(item.id);
     } else {
       document.getElementById('listing-modal-title').textContent='🏠 매물 추가';
-      ['l-addr','l-addr2','l-apt','l-price','l-rent','l-area','l-floor','l-total-floor','l-apr-date','l-rooms','l-baths','l-direction','l-avail-date','l-fee-type','l-fee-amt','l-fee-items','l-fee-basis','l-fee-evidence','l-fee-note','l-parking','l-pets','l-loan','l-options','l-bldg-use','l-jimok','l-zone','l-premium','l-desc','l-move-date','l-cname','l-cphone','l-note','l-naver-url','l-contract-date','l-contract-end','l-ad-views','l-ad-inq','l-ad-stat-at','l-desc-at'].forEach(id=>document.getElementById(id).value='');
+      ['l-addr','l-addr2','l-apt','l-price','l-rent','l-area','l-floor','l-total-floor','l-apr-date','l-rooms','l-baths','l-direction','l-avail-date','l-fee-type','l-fee-amt','l-fee-items','l-fee-basis','l-fee-evidence','l-fee-note','l-parking','l-pets','l-loan','l-options','l-bldg-use','l-plat-area','l-tot-area','l-strct','l-ug-floor','l-jimok','l-zone','l-premium','l-desc','l-move-date','l-cname','l-cphone','l-note','l-naver-url','l-contract-date','l-contract-end','l-ad-views','l-ad-inq','l-ad-stat-at','l-desc-at'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('l-quake').value=''; { const vs=document.getElementById('l-verified-show'); if(vs) vs.textContent='검수 전'; }
+      ['l-cname','l-cphone'].forEach(id=>{ const el=document.getElementById(id); const fg=el&&el.closest('.form-group'); if(fg) fg.style.display=''; });
       renderAdRate(null);
       document.getElementById('l-type').value='전세';
       document.getElementById('l-kind').value='아파트';
@@ -4758,6 +4913,12 @@ function saveListing(){
     descAt:document.getElementById('l-desc-at').value.trim(),
     options:document.getElementById('l-options').value.trim(),
     bldgUse:document.getElementById('l-bldg-use').value.trim(),
+    // 🏢 2026-09-08 표제부 확장(HEADERS.listings 끝)
+    platArea:document.getElementById('l-plat-area').value.trim(),
+    totArea:document.getElementById('l-tot-area').value.trim(),
+    strct:document.getElementById('l-strct').value.trim(),
+    quake:document.getElementById('l-quake').value,
+    ugFloor:document.getElementById('l-ug-floor').value.trim(),
     jimok:document.getElementById('l-jimok').value,
     zone:document.getElementById('l-zone').value,
     premium:document.getElementById('l-premium').value.trim(),
@@ -5668,7 +5829,7 @@ function saveContract(){
     if(idx>=0) contracts[idx]={...contracts[idx],...data};
     showToast('계약 정보가 수정되었습니다 ✓');
   } else {
-    contracts.push({id:uid(),...data,...(cwRiskPending||{})}); cwRiskPending=null;   // ⚖ 계약서 작성기에서 온 이상거래 등급 동반 저장
+    contracts.push({id:uid(),agent:crmWho(),...data,...(cwRiskPending||{})}); cwRiskPending=null;   // 🤝 09-08 담당자(요율 계산용)   // ⚖ 계약서 작성기에서 온 이상거래 등급 동반 저장
     showToast('계약이 추가되었습니다 ✓');
     // ✍️ 2026-08-24: 새 계약이면 양측 계약 완료 문자 + 잔금·입주일 리마인더 + 캘린더 (체크 시)
     if(document.getElementById('ct-notify')?.checked) ctNotifyRegister(data);
@@ -5740,6 +5901,7 @@ function syncListingToContract(listing){
     end:listing.contractEnd||'',
     fromListing:true,
   };
+  if(!newContract.agent) newContract.agent=crmWho();   // 🤝 09-08 담당자
   contracts.push(newContract);
   save('contracts',contracts);
 }
@@ -6942,7 +7104,7 @@ function refreshVitoCustomerSelects(){
 
 // ═══ NAV ═══
 function go(id){
-  const ids=['dash','expiry','listing','ads','apt','gather','customer','landlord','sms','vito','visit','staff','contract','contract-writer','payout','stats'];
+  const ids=['dash','expiry','guide','listing','map','ads','audit','apt','gather','customer','landlord','sms','vito','visit','links','staff','contract','contract-writer','payout','stats','brand','ai-center'];
   document.querySelectorAll('.sb-item').forEach((el,i)=>el.classList.toggle('on',ids[i]===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   // null 체크 추가 — 패널이 없으면 오류 방지
@@ -6964,6 +7126,13 @@ function go(id){
   if(id==='visit')         visitRender();
   if(id==='payout')        payoutRender();
   if(id==='stats')         statsRender();
+  if(id==='brand')         brandRender();
+  if(id==='ai-center')     aiCenterRender();
+  // 🧩 2026-09-08 지시어 6건 + 📘 가이드
+  if(id==='map')           mapRender();
+  if(id==='audit')         auditRender();
+  if(id==='links')         linksRender();
+  if(id==='guide')         guideRender();
   closeMobile();
 }
 
@@ -8401,6 +8570,791 @@ function adAuditReport(){
 const BLDG_CACHE_KEY = 'crm_bldg_cache';
 
 /* Apps Script 공통 호출 — 기존 gsSaveAll 과 같은 규약(text/plain + token) */
+/* ═══════════════════════════════════════════════════════════════════
+   🧩 지시어 6건 화면 — 2026-09-08 (PC 프로그램·별도 서버 없이 CRM 안에서 = SaaS 방식)
+   ① 🔗 링크 보관함(kakao.txt 파서 → linkImport)   ③ 🏢 대장 확장칸은 매물 모달(bldgAutoFill)
+   ④ 📞 전화 실시간 카드(callRingPoll 8초 폴링 → 고객·임대인·매물 카드 열기)
+   ⑤ 💰 공동중개 몫·에스크로·담당자별 요율(서버 cfg) / 📍 체크아웃·체류 / 🔄 매물 수명주기
+   ⑥ 🧹 데이터 검수(중복·호수·대장·외부망) + 🗺 매물 지도 + 직원 화면 미검증 🔒 마스킹
+   🔴 새 함수 이름은 전부 접두어(cfg·audit·map·links·cti·guide·payout) — 같은 이름 선언 금지(09-08 moneyMan 사고)
+   ═══════════════════════════════════════════════════════════════════ */
+const AUDIT_DONE_RE = /계약완료|임대중|거래완료/;
+function gAttr(v){ return gEsc(v).replace(/'/g, '&#39;'); }   // onclick="f('…')" 인자용 — 작은따옴표까지 막는다(리뷰 09-08)
+
+/* ── 사무소 공통 설정(서버 스크립트 속성) — 기기마다 다른 localStorage 대신 ── */
+window.__cfg = null;
+function cfgGet(key){
+  let c = window.__cfg;
+  if(!c){ try { c = JSON.parse(localStorage.getItem('crm_cfg') || 'null'); } catch(e){ c = null; } }
+  return c && c[key] !== undefined ? c[key] : undefined;
+}
+async function cfgLoad(){
+  try{
+    const url = getGsUrl(); if(!url) return null;
+    const r = await fetch(`${url}?action=cfgAll&t=${Date.now()}${tokQ()}`);
+    const j = await r.json();
+    if(j && j.ok && j.result){
+      window.__cfg = j.result; try{ localStorage.setItem('crm_cfg', JSON.stringify(j.result)); }catch(e){}
+      // 설정이 늦게 도착하면 메뉴 스위치·매물 배지를 다시 그린다(리뷰 09-08)
+      try{ if(typeof featureMenusApply === 'function') featureMenusApply(); const pl = document.getElementById('p-listing'); if(pl && pl.classList.contains('active') && typeof renderListings === 'function') renderListings(); }catch(e){}
+      return j.result;
+    }
+  }catch(e){}
+  return null;
+}
+async function cfgSetRemote(key, value){
+  const v = String(value == null ? '' : value);
+  await gsCall('cfgSet', { key, value: v });
+  window.__cfg = Object.assign({}, window.__cfg || {});
+  if(key !== 'NOTION_TOKEN') window.__cfg[key] = v;
+  try{ localStorage.setItem('crm_cfg', JSON.stringify(window.__cfg)); }catch(e){}
+}
+function localOnlySave(type, arr){   // 서버가 이미 아는 값을 화면·localStorage 에만 반영(다시 올리지 않는다)
+  try{ localStorage.setItem(K[type], JSON.stringify(arr)); }catch(e){}
+  try{ if(typeof gsChanged === 'function' && typeof gsShadowSet === 'function') gsShadowSet(type, gsChanged(type, arr).next); }catch(e){}
+}
+
+/* ── ⑥ 검수 결과 → 매물 목록 배지·직원 마스킹·수명주기 ── */
+let auditLast = null;
+function auditLastGet(){ if(auditLast) return auditLast; try{ auditLast = JSON.parse(localStorage.getItem('crm_audit_last') || 'null'); }catch(e){} return auditLast; }
+function auditWarnCount(a){ return a ? ((a.dupGroups||[]).length + (a.hoMissing||[]).length + ((a.ext && a.ext.gone) || []).length + (a.review||[]).length) : 0; }
+function auditStamped(){ let s = ''; try{ s = localStorage.getItem('crm_audit_at') || ''; }catch(e){} return !!(cfgGet('AUDIT_AT') || s); }
+function listingLocked(l){ return window.__crmRole !== 'admin' && auditStamped() && String(l.verified||'') === 'N' && !AUDIT_DONE_RE.test(String(l.status||'')); }   // 🔴 잠금은 N(중복·주소 없음)만. R(검토대기)은 배지만
+function maskNameUI(s){ s = String(s||'').trim(); return s ? s.charAt(0) + '*'.repeat(Math.max(1, s.length - 1)) : '-'; }
+function maskPhoneUI(p){ const d = String(p||'').replace(/\D/g,''); return d.length >= 7 ? d.slice(0,3) + '-****-' + d.slice(-4) : (p ? '***' : '-'); }
+function auditBadge(l){
+  if(AUDIT_DONE_RE.test(String(l.status||''))) return '';
+  if(String(l.verified||'') === 'Y') return ' <span class="badge" style="background:#DCFCE7;color:#166534;font-size:10px" title="검수 통과 ' + gEsc(l.verifiedAt||'') + '">✅ 검증</span>';
+  if(listingLocked(l)) return ' <span class="badge" style="background:#FEE2E2;color:#991B1B;font-size:10px" title="' + gEsc(l.auditNote||'') + ' — 연락처가 가려집니다">🔒 미검증</span>';
+  if(String(l.verified||'') === 'R') return ' <span class="badge" style="background:#FEF3C7;color:#92400E;font-size:10px" title="' + gEsc(l.auditNote||'') + '">🟡 검토대기</span>';
+  if(String(l.verified||'') === 'N') return ' <span class="badge" style="background:#FEF3C7;color:#92400E;font-size:10px" title="' + gEsc(l.auditNote||'') + '">⚠ ' + gEsc(String(l.auditNote||'미검증').split(',')[0]) + '</span>';
+  return '';
+}
+function auditBadgeText(l){
+  if(String(l.verified||'') === 'Y') return '✅ 검증 통과 ' + (l.verifiedAt||'');
+  if(String(l.verified||'') === 'R') return '🟡 검토대기 — ' + (l.auditNote||'') + ' (' + (l.verifiedAt||'') + ')';
+  if(String(l.verified||'') === 'N') return '🔒 미검증 — ' + (l.auditNote||'') + ' (' + (l.verifiedAt||'') + ')';
+  return '검수 전 — [🧹 데이터 검수]에서 확인';
+}
+function lifecycleOf(l){   // SCM 매물 수명주기: 접수 → 검증완료 → 광고중 → 임장 → 임대중/계약·정산
+  const st = String(l.status||'');
+  if(/거래완료|계약완료/.test(st)) return '계약·정산';
+  if(/임대중/.test(st)) return '임대중';
+  if(typeof visits !== 'undefined' && Array.isArray(visits) && visits.some(v => v.kind === '임장' && v.listingId === l.id)) return '임장';
+  if(String(l.adList||'').trim() || String(l.adsFlat||'').trim()) return '광고중';
+  if(String(l.verified||'') === 'Y') return '검증완료';
+  return '접수';
+}
+
+/* ── ⑥ 🧹 데이터 검수 화면 ── */
+async function auditRun(){
+  const url = getGsUrl(); if(!url){ showToast('⚙️ 구글 시트 설정을 먼저 해주세요'); return; }
+  document.getElementById('audit-body').innerHTML = '<div class="empty-state">⏳ 서버에서 매물 전체를 대조하는 중… (수집매물 대조 포함, 10초 안팎)</div>';
+  try{
+    const j = await gsFetchJson(`${url}?action=auditListings&t=${Date.now()}${tokQ()}`, {}, '데이터 검수');
+    if(!j.ok) throw new Error(j.error || '검수 실패');
+    auditLast = j.result; try{ localStorage.setItem('crm_audit_last', JSON.stringify(auditLast)); }catch(e){}
+    auditRenderResult(); dashExtraStats();
+  }catch(e){ document.getElementById('audit-body').innerHTML = '<div class="empty-state">검수 실패: ' + gEsc(e.message) + '</div>'; }
+}
+function auditRender(){
+  const isAdmin = window.__crmRole === 'admin';
+  document.getElementById('audit-apply-btn').style.display = isAdmin ? '' : 'none';
+  const a = auditLastGet();
+  document.getElementById('audit-dedupe-btn').style.display = (isAdmin && a && (a.dupGroups||[]).length) ? '' : 'none';
+  if(a) auditRenderResult();
+}
+function auditRenderResult(){
+  const a = auditLast; if(!a) return;
+  const isAdmin = window.__crmRole === 'admin';
+  const tile = (icon, label, val, color) => `<div class="stat"><div class="stat-icon">${icon}</div><div class="stat-num"${color?` style="color:${color}"`:''}>${val}</div><div class="stat-lbl">${label}</div></div>`;
+  const gone = (a.ext && a.ext.gone) || [], dg = a.dupGroups || [], hm = a.hoMissing || [], uv = a.unverified || [], rv = a.review || [];
+  document.getElementById('audit-tiles').innerHTML =
+    tile('🏠','검수 대상', a.active) + tile('✅','검증 통과', (a.verifiedIds||[]).length, 'var(--g)') +
+    tile('🧬','중복 그룹', dg.length, dg.length ? 'var(--r)' : '') + tile('🚪','호수 확인 필요', hm.length, hm.length ? '#B45309' : '') +
+    tile('📡','외부망 확인', gone.length, gone.length ? '#B45309' : '') + tile('🟡','검토대기', rv.length, rv.length ? '#B45309' : '') + tile('🔒','미검증(잠금)', uv.length, uv.length ? 'var(--r)' : '');
+  const open = id => `<button class="btn btn-xs" onclick="openModal('listing','${gAttr(id)}')">✏️ ${gEsc(id)}</button>`;
+  let h = `<div style="font-size:11px;color:var(--t3);margin-bottom:8px">검수 시각 ${gEsc(a.at)} · 외부망 대조: 수집매물 ${(a.ext&&a.ext.checked)||0}건 확인, ${(a.ext&&a.ext.matched)||0}건 매칭${a.ext&&a.ext.lastSeen?` · 마지막 수집 ${gEsc(a.ext.lastSeen)}`:''}${a.ext&&a.ext.error?` · 대조 오류: ${gEsc(a.ext.error)}`:''}<br>${gEsc(a.note||'')}</div>`;
+  if(dg.length) h += `<div class="card" style="margin-bottom:10px;border-color:#FECACA"><div class="card-title">🧬 중복 매물 ${dg.length}그룹 — [건물명 · 거래유형 · 보증금 · 월세 · 층 · 호수]가 완전히 같음(호수가 다르면 중복 아님)</div><div class="tbl-wrap"><table><thead><tr><th>매물</th><th>조건</th><th>남길 것</th><th>정제 대상</th></tr></thead><tbody>${dg.map(g => `<tr><td style="font-weight:600">${gEsc(g.apt||'')}</td><td style="white-space:nowrap">${gEsc(g.type||'')} ${gEsc(g.price||'')}${g.rentAmt?'/'+gEsc(g.rentAmt):''} ${gEsc(g.floor||'')}${g.ho?' '+gEsc(g.ho)+'호':' (호수 없음)'}</td><td>${open(g.keep)}</td><td>${(g.drop||[]).map(open).join(' ')}</td></tr>`).join('')}</tbody></table></div>${isAdmin?'<div style="font-size:11px;color:var(--t3);margin-top:6px">[🧹 중복 정제]를 누르면 그룹마다 "남길 것" 하나만 남기고 나머지를 삭제합니다(삭제로그에 남고, 새벽 3시 백업탭에서 되살릴 수 있습니다).</div>':''}</div>`;
+  const sc = a.sameCond || [];
+  if(sc.length) h += `<div class="card" style="margin-bottom:10px"><div class="card-title">🏘 같은 조건 매물(호수 다름) ${sc.length}묶음 — 참고: 같은 방을 두 번 넣은 게 아닌지 호수만 확인</div>${sc.map(g => `<div style="font-size:12px;margin:3px 0">${gEsc(g.apt||'')} ${gEsc(g.type||'')} ${gEsc(g.price||'')}${g.rentAmt?'/'+gEsc(g.rentAmt):''} ${gEsc(g.floor||'')} · 호수 ${gEsc((g.hos||[]).join(', '))} · ${(g.ids||[]).map(open).join(' ')}</div>`).join('')}</div>`;
+  if(hm.length) h += `<div class="card" style="margin-bottom:10px;border-color:#FDE68A"><div class="card-title">🚪 상세 호실 확인 필요 ${hm.length}건 — 같은 층에 조건이 다른 매물이 여럿인데 호수가 비어 있음</div>${hm.map(x => `<div style="font-size:12px;margin:3px 0">${open(x.id)} ${gEsc(x.apt||'')} ${gEsc(x.floor||'')} ${gEsc(x.price||'')}${x.rentAmt?'/'+gEsc(x.rentAmt):''}</div>`).join('')}</div>`;
+  if(gone.length) h += `<div class="card" style="margin-bottom:10px;border-color:#FDE68A"><div class="card-title">📡 외부 공실망(당근·오일장)에서 내려간 것으로 보이는 매물 ${gone.length}건 — 거래완료인지 확인하고 상태를 바꾸세요(자동으로 바꾸지 않습니다)</div>${gone.map(x => `<div style="font-size:12px;margin:3px 0">${open(x.id)} ${gEsc(x.apt||'')} ${gEsc(x.price||'')}${x.rentAmt?'/'+gEsc(x.rentAmt):''} · ${gEsc(x.src||'')} 마지막 확인 ${gEsc(x.seenAt||'-')}${x.status?' · '+gEsc(x.status):''}</div>`).join('')}</div>`;
+  if(rv.length) h += `<div class="card" style="margin-bottom:10px;border-color:#FDE68A"><div class="card-title">🟡 검토대기 ${rv.length}건 — 확실치 않은 것은 자동 처리하지 않습니다(직원 화면 잠그지 않음, 배지만)</div><div class="tbl-wrap" style="max-height:280px;overflow:auto"><table><thead><tr><th>매물</th><th>사유</th></tr></thead><tbody>${rv.map(u => `<tr><td>${open(u.id)} ${gEsc(u.apt||'')} ${gEsc(u.addr2||'')}</td><td style="font-size:12px">${gEsc((u.reasons||[]).join(', '))}</td></tr>`).join('')}</tbody></table></div></div>`;
+  if(uv.length) h += `<div class="card" style="margin-bottom:10px;border-color:#FECACA"><div class="card-title">🔒 미검증 ${uv.length}건(중복·주소 없음 — 도장 후 직원 화면에서 연락처 가림)</div><div class="tbl-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>매물</th><th>사유</th></tr></thead><tbody>${uv.map(u => `<tr><td>${open(u.id)} ${gEsc(u.apt||'')} ${gEsc(u.addr2||'')}</td><td style="font-size:12px">${gEsc((u.reasons||[]).join(', '))}</td></tr>`).join('')}</tbody></table></div></div>`;
+  if(!dg.length && !hm.length && !gone.length && !uv.length && !rv.length) h += '<div class="empty-state"><div class="es-icon">✅</div>경고 없음 — 진행 매물 전부 검증 통과</div>';
+  document.getElementById('audit-body').innerHTML = h;
+  document.getElementById('audit-dedupe-btn').style.display = (isAdmin && dg.length) ? '' : 'none';
+}
+async function auditApplyStamp(){
+  if(window.__crmRole !== 'admin'){ showToast('검증 도장은 대표만 찍을 수 있습니다'); return; }
+  if(!confirm('진행 매물 전체에 검증 도장(Y / 검토대기 R / 미검증 N)을 찍습니다.\n직원 화면에서 🔒 미검증(중복·주소 없음)만 연락처가 가려지고, 검토대기는 🟡 배지만 붙습니다. 진행할까요?')) return;
+  try{
+    const r = await gsCall('auditApply', {});
+    auditLast = r.audit; try{ localStorage.setItem('crm_audit_last', JSON.stringify(auditLast)); localStorage.setItem('crm_audit_at', r.at || ''); }catch(e){}
+    const okSet = new Set(auditLast.verifiedIds || []), why = {}, rvw = {}; (auditLast.unverified||[]).forEach(u => { why[u.id] = (u.reasons||[]).join(', '); }); (auditLast.review||[]).forEach(u => { rvw[u.id] = (u.reasons||[]).join(', '); });
+    listings.forEach(l => { if(okSet.has(l.id)){ l.verified = 'Y'; l.verifiedAt = r.at; l.auditNote = ''; } else if(rvw[l.id] !== undefined){ l.verified = 'R'; l.verifiedAt = r.at; l.auditNote = rvw[l.id]; } else if(why[l.id] !== undefined){ l.verified = 'N'; l.verifiedAt = r.at; l.auditNote = why[l.id]; } });
+    localOnlySave('listings', listings);
+    if(window.__cfg) window.__cfg.AUDIT_AT = r.at;
+    showToast(`검증 도장 ✓ 통과 ${r.verified}건 · 검토대기 ${r.review||0}건 · 미검증 ${r.unverified}건`);
+    auditRenderResult(); renderListings(); dashExtraStats();
+  }catch(e){ showToast('도장 실패: ' + e.message); }
+}
+async function auditDedupeRun(){
+  if(window.__crmRole !== 'admin'){ showToast('중복 정제는 대표만 할 수 있습니다'); return; }
+  const a = auditLastGet(); if(!a || !(a.dupGroups||[]).length){ showToast('정제할 중복 그룹이 없습니다 — 먼저 [🔍 검수 실행]'); return; }
+  const n = a.dupGroups.reduce((s,g) => s + (g.drop||[]).length, 0);
+  if(!confirm(`중복 ${a.dupGroups.length}그룹에서 ${n}건을 삭제하고 그룹마다 1건만 남깁니다.\n(삭제로그에 남고, 새벽 3시 백업탭에서 되살릴 수 있습니다) 진행할까요?`)) return;
+  try{
+    const r = await gsCall('auditDedupe', { groups: a.dupGroups.map(g => ({ keep: g.keep, drop: g.drop })) });
+    const del = new Set(r.deleted || []);
+    listings = listings.filter(l => !del.has(l.id));
+    localOnlySave('listings', listings);
+    showToast(`정제 완료 — 삭제 ${del.size}건` + (r.skipped && r.skipped.length ? ` · 건너뜀 ${r.skipped.length}건` : ''));
+    renderListings(); updateStats(); await auditRun();
+  }catch(e){ showToast('정제 실패: ' + e.message); }
+}
+
+/* ── ⑥ 🗺 매물 지도 (검증 통과만 — 직원은 고정) ── */
+let mapObj = null, mapMarkers = [], mapInfo = null;
+function mapListings(){
+  const isAdmin = window.__crmRole === 'admin';
+  const sel = document.getElementById('map-filter');
+  if(sel){ sel.disabled = !isAdmin; if(!isAdmin) sel.value = 'verified'; }
+  const all = listings.filter(l => !AUDIT_DONE_RE.test(String(l.status||'')));
+  const verifiedOnly = !isAdmin || !sel || sel.value === 'verified';
+  return { all, shown: verifiedOnly ? all.filter(l => String(l.verified||'') === 'Y') : all, verifiedOnly };
+}
+async function mapRender(){
+  const box = document.getElementById('map-box'); if(!box) return;
+  const { all, shown, verifiedOnly } = mapListings();
+  const noGeo = shown.filter(l => !(l.lat && l.lon)).length;
+  const sub = document.getElementById('map-sub');
+  if(sub) sub.textContent = (verifiedOnly ? `검증 통과 매물 ${shown.length}건 (진행 ${all.length}건 중)` : `진행 매물 전체 ${shown.length}건`) + (noGeo ? ` · 좌표 없음 ${noGeo}건 → [📍 위치 계산]` : '');
+  try{ await loadKakaoSdk(); }catch(e){ box.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px">카카오 지도를 불러오지 못했습니다 (' + gEsc(e.message) + ') — 카카오 키·도메인 등록 확인</div>'; return; }
+  if(!mapObj){ box.innerHTML = ''; mapObj = new kakao.maps.Map(box, { center: new kakao.maps.LatLng(33.4996, 126.5312), level: 7 }); mapInfo = new kakao.maps.InfoWindow({ zIndex: 2 }); }
+  mapObj.relayout();
+  mapMarkers.forEach(m => m.setMap(null)); mapMarkers = [];
+  const bounds = new kakao.maps.LatLngBounds(); let n = 0;
+  shown.forEach(l => {
+    if(!(l.lat && l.lon)) return;
+    const pos = new kakao.maps.LatLng(parseFloat(l.lat), parseFloat(l.lon));
+    const mk = new kakao.maps.Marker({ map: mapObj, position: pos, title: [l.apt, l.addr2].filter(Boolean).join(' ') });
+    kakao.maps.event.addListener(mk, 'click', () => {
+      mapInfo.setContent(`<div style="padding:8px 10px;font-size:12px;min-width:160px"><b>${gEsc(l.apt||'')}</b> ${gEsc(l.addr2||'')}<br>${gEsc(l.type||'')} ${gEsc(l.price||'')}${l.rentAmt?'/'+gEsc(l.rentAmt):''} · ${gEsc(l.floor||'')}<br><a href="#" onclick="openModal('listing','${gAttr(l.id)}');return false">✏️ 열기</a></div>`);
+      mapInfo.open(mapObj, mk);
+    });
+    mapMarkers.push(mk); bounds.extend(pos); n++;
+  });
+  if(n) mapObj.setBounds(bounds);
+  const list = document.getElementById('map-list');
+  if(list) list.innerHTML = n ? `지도에 ${n}건 표시 · 핀을 누르면 매물 정보` : (shown.length ? '좌표가 없어 표시할 수 없습니다 — [📍 위치 계산]을 누르세요' : (verifiedOnly ? '검증 통과 매물이 없습니다 — 대표가 [🧹 데이터 검수]에서 검증 도장을 찍으면 표시됩니다' : '표시할 매물이 없습니다'));
+}
+async function mapGeocodeAll(){
+  const todo = listings.filter(l => String(l.addr||'').trim() && !(l.lat && l.lon)).slice(0, 80);
+  if(!todo.length){ showToast('좌표가 없는 매물이 없습니다'); return; }
+  try{ await loadKakaoSdk(); }catch(e){ showToast('카카오 지도 키가 필요합니다'); return; }
+  const geocoder = new kakao.maps.services.Geocoder(); let done = 0, fail = 0;
+  showToast(`📍 ${todo.length}건 위치 계산 중…`);
+  for(const l of todo){
+    await new Promise(res => geocoder.addressSearch(l.addr, (r, s) => { if(s === kakao.maps.services.Status.OK && r.length){ l.lat = String(r[0].y); l.lon = String(r[0].x); l.updatedAt = new Date().toISOString(); done++; } else fail++; res(); }));
+    await new Promise(res => setTimeout(res, 120));
+  }
+  if(done) save('listings', listings);
+  showToast(`위치 계산 완료 ${done}건` + (fail ? ` · 못 찾음 ${fail}건(주소 확인)` : ''));
+  mapRender();
+}
+
+/* ── ① 🔗 링크 보관함 (카톡 kakao.txt) ── */
+let linksPending = [];
+function linksPad2(n){ return String(n).padStart(2,'0'); }
+function linksHM(ap, h, m){ h = parseInt(h,10); if(ap === '오후' && h < 12) h += 12; if(ap === '오전' && h === 12) h = 0; return linksPad2(h) + ':' + m; }
+function linksParseText(txt){
+  // 폰 내보내기: "2026년 9월 8일 오후 3:12, 홍길동 : 메시지"  /  PC 내보내기: "--- 2026년 9월 8일 화요일 ---" 아래 "[홍길동] [오후 3:12] 메시지"
+  const items = [], seen = {}; let curDate = '';
+  const urlRe = /https?:\/\/[^\s<>\x22\x27\]\)]+/g;
+  String(txt||'').split(/\r?\n/).forEach(line => {
+    let m;
+    if((m = line.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/))) curDate = `${m[1]}-${linksPad2(m[2])}-${linksPad2(m[3])}`;
+    else if((m = line.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\./))) curDate = `${m[1]}-${linksPad2(m[2])}-${linksPad2(m[3])}`;
+    let sender = '', time = '';
+    if((m = line.match(/^\[([^\]]+)\]\s*\[(오전|오후)\s*(\d{1,2}):(\d{2})\]/))){ sender = m[1]; time = linksHM(m[2], m[3], m[4]); }
+    else if((m = line.match(/(오전|오후)\s*(\d{1,2}):(\d{2}),\s*([^:]+?)\s*:/))){ time = linksHM(m[1], m[2], m[3]); sender = m[4]; }
+    (line.match(urlRe) || []).forEach(u => {
+      u = u.replace(/[.,)\]]+$/, '');
+      if(seen[u]) return; seen[u] = 1;
+      items.push({ url: u, at: curDate ? curDate + (time ? ' ' + time : '') : '', sender: sender.trim().slice(0,30), source: 'kakao' });
+    });
+  });
+  return items;
+}
+function linksParseFile(file){
+  if(!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    linksPending = linksParseText(rd.result);
+    const pv = document.getElementById('lk-preview'), btn = document.getElementById('lk-save-btn');
+    if(!linksPending.length){ pv.innerHTML = '<div class="empty-state"><div class="es-icon">🔗</div>파일에서 링크를 찾지 못했습니다 (카톡 대화 → 내보내기 → kakao.txt 인지 확인)</div>'; btn.style.display = 'none'; return; }
+    pv.innerHTML = `<div class="card" style="margin-bottom:12px;border-color:#BFDBFE;background:#F8FBFF"><div class="card-title">미리보기 · 링크 ${linksPending.length}개 (저장하면 제목을 자동으로 붙입니다 — 한 번에 25개씩, 나머지는 사이트 이름)</div>
+      <div class="tbl-wrap" style="max-height:260px;overflow:auto"><table><thead><tr><th>업로드 날짜</th><th>보낸이</th><th>URL</th></tr></thead><tbody>${linksPending.slice(0,200).map(i => `<tr><td style="white-space:nowrap">${gEsc(i.at||'-')}</td><td>${gEsc(i.sender||'-')}</td><td style="font-size:11px;word-break:break-all">${gEsc(i.url)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    btn.style.display = '';
+  };
+  rd.readAsText(file, 'utf-8');
+}
+async function linksSave(){
+  if(!linksPending.length) return;
+  const btn = document.getElementById('lk-save-btn'); btn.disabled = true; btn.textContent = '⏳ 저장 중…';
+  let saved = 0, titled = 0, dup = 0, notion = 0;
+  try{
+    for(let i = 0; i < linksPending.length; i += 100){
+      const r = await gsCall('linkImport', { items: linksPending.slice(i, i + 100) });
+      saved += r.saved||0; titled += r.titled||0; dup += r.dup||0; notion += r.notion||0;
+    }
+    showToast(`저장 ${saved}건 · 제목 ${titled}건 · 이미 있음 ${dup}건` + (notion ? ` · 노션 ${notion}건` : ''));
+    linksPending = []; document.getElementById('lk-preview').innerHTML = ''; btn.style.display = 'none';
+    document.getElementById('lk-file').value = '';
+  }catch(e){ showToast('저장 실패: ' + e.message); }
+  btn.disabled = false; btn.textContent = '💾 저장(제목 자동 수집)';
+  linksRender();
+}
+async function linksRender(){
+  const el = document.getElementById('lk-list'); if(!el) return;
+  const cfg = window.__cfg || (await cfgLoad()) || {};
+  const nt = document.getElementById('lk-notion');
+  if(nt) nt.textContent = '노션 연동: ' + (cfg.notionReady ? '준비됨(저장 시 노션 DB에도 한 줄)' : '미설정(시트에만 저장)');
+  const setup = document.getElementById('lk-notion-setup');
+  if(setup) setup.style.display = window.__crmRole === 'admin' ? '' : 'none';
+  const url = getGsUrl(); if(!url){ el.innerHTML = '<div class="empty-state">구글 시트 연동 후 사용할 수 있습니다</div>'; return; }
+  try{
+    const r = await fetch(`${url}?action=getAll&type=links&t=${Date.now()}${tokQ()}`);
+    const j = await r.json();
+    const rows = (j.ok && Array.isArray(j.data) ? j.data : []).sort((a,b) => String(b.at||b.updatedAt||'').localeCompare(String(a.at||a.updatedAt||'')));
+    el.innerHTML = rows.length
+      ? `<div style="font-size:12px;color:var(--t2);margin:6px 0">저장된 링크 ${rows.length}개 · 구글시트 [링크수집]</div><div class="tbl-wrap"><table><thead><tr><th>업로드 날짜</th><th>제목</th><th>사이트</th><th>보낸이</th><th>노션</th></tr></thead><tbody>${rows.slice(0,300).map(x => `<tr><td style="white-space:nowrap">${gEsc(x.at||'-')}</td><td><a href="${gEsc(x.url)}" target="_blank" rel="noopener">${gEsc(x.title||x.url)}</a></td><td style="font-size:11px">${gEsc(x.domain||'')}</td><td>${gEsc(x.sender||'')}</td><td>${x.notionId?'✓':''}</td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty-state"><div class="es-icon">🔗</div>아직 저장된 링크가 없습니다. 카톡 대화 → 내보내기 → kakao.txt 를 위에서 선택하세요.</div>';
+  }catch(e){ el.innerHTML = '<div class="empty-state">불러오기 실패: ' + gEsc(e.message) + '</div>'; }
+}
+async function linksNotionSave(){
+  const db = document.getElementById('lk-notion-db').value.trim(), tk = document.getElementById('lk-notion-token').value.trim();
+  try{
+    if(db !== '') await cfgSetRemote('NOTION_LINK_DB', db);
+    if(tk) await cfgSetRemote('NOTION_TOKEN', tk);
+    document.getElementById('lk-notion-token').value = '';
+    await cfgLoad(); showToast('노션 연동 저장 ✓'); linksRender();
+  }catch(e){ showToast('저장 실패: ' + e.message); }
+}
+
+/* ── ④ 📞 전화 실시간 카드 (벨 → 웹훅 callRing → 이 화면이 8초마다 확인) ── */
+let ctiSince = 0, ctiTimer = null, ctiHideTimer = null;
+function ctiEnabled(){ try{ return localStorage.getItem('crm_cti_poll') !== '0'; }catch(e){ return true; } }
+function ctiKey(p){ let d = String(p||'').replace(/\D/g,''); if(d.startsWith('82')) d = '0' + d.slice(2); return d; }
+function ctiSettingInit(){ const cb = document.getElementById('gs-cti-poll'); if(cb) cb.checked = ctiEnabled(); }
+function ctiStart(){
+  if(ctiTimer) return;
+  ctiSince = 0;                                                // 첫 응답의 서버 시각(now)으로 맞춘다 — PC 시계가 빨라도 벨을 놓치지 않게(리뷰 09-08)
+  const sec = Math.max(5, parseInt(cfgGet('CTI_POLL_SEC'),10) || 8);
+  ctiTimer = setInterval(ctiPoll, sec * 1000);
+  ctiSettingInit();
+}
+async function ctiPoll(){
+  try{
+    if(document.hidden || !ctiEnabled()) return;
+    const url = getGsUrl(); if(!url) return;
+    const r = await fetch(`${url}?action=callRingPoll&since=${ctiSince}&t=${Date.now()}${tokQ()}`);
+    const j = await r.json(); if(!j || !j.ok || !j.result) return;
+    const evs = [j.result.ev].concat(j.result.others || []).filter(Boolean).sort((a,b) => a.at - b.at);
+    if(!ctiSince){ ctiSince = (Number(j.result.now) || Date.now()) - 120000; evs.forEach(ev => { if(ev.at > ctiSince) ctiShow(ev); }); }
+    else evs.forEach(ev => ctiShow(ev));
+    evs.forEach(ev => { if(ev.at > ctiSince) ctiSince = ev.at; });
+  }catch(e){}
+}
+function ctiFind(ev){
+  const k = ctiKey(ev.phone); if(k.length < 9) return null;
+  const same = p => ctiKey(p) === k;
+  const cu = customers.find(c => same(c.phone)); if(cu) return { kind:'customer', id: cu.id, label: '👥 고객 카드 열기' };
+  const lls = (typeof landlords !== 'undefined' && Array.isArray(landlords)) ? landlords : [];
+  const ld = lls.find(x => same(x.phone)); if(ld) return { kind:'landlord', id: ld.id, label: '🤝 임대인 카드 열기' };
+  const li = listings.find(x => String(x.cphone||'').split(/[,\/;·\s]+/).some(same)); if(li) return { kind:'listing', id: li.id, label: '🏠 매물 열기' };
+  return null;
+}
+function ctiOpen(kind, id, phone){
+  ctiHide();
+  if(kind === 'customer') openModal('customer', id);
+  else if(kind === 'landlord') openLandlordModal(id);
+  else if(kind === 'listing') openModal('listing', id);
+  else { openModal('customer', null); setTimeout(() => { const el = document.getElementById('c-phone'); if(el && !el.value) el.value = phone || ''; }, 50); }
+}
+function ctiShow(ev){
+  let box = document.getElementById('call-card');
+  if(!box){
+    box = document.createElement('div'); box.id = 'call-card';
+    box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:900;width:320px;max-width:calc(100vw - 32px);background:#fff;border:2px solid #0F6E56;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:14px;font-size:13px;display:none';
+    document.body.appendChild(box);
+  }
+  const f = ctiFind(ev);
+  const who = (ev.byName && ev.by !== 'admin' && window.__crmRole === 'admin') ? ` <span style="font-size:11px;color:var(--t3)">(${gEsc(ev.byName)} 폰)</span>` : '';
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>📞 전화 ${ev.kind==='missed'?'부재중':'수신'} ${gEsc(ev.atStr||'')}</b>${who}<button onclick="ctiHide()" style="border:0;background:none;font-size:16px;cursor:pointer">✕</button></div>
+    <div style="white-space:pre-wrap;line-height:1.55">${gEsc(ev.text||'')}</div>
+    <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">${f ? `<button class="btn btn-g btn-sm" onclick="ctiOpen('${f.kind}','${gAttr(f.id)}')">${f.label}</button>` : `<button class="btn btn-g btn-sm" onclick="ctiOpen('new','','${gAttr(ev.phone||'')}')">＋ 고객으로 등록</button>`}<button class="btn btn-sm" onclick="ctiHide()">닫기</button></div>`;
+  box.style.display = '';
+  clearTimeout(ctiHideTimer); ctiHideTimer = setTimeout(ctiHide, 90000);
+}
+function ctiHide(){ const b = document.getElementById('call-card'); if(b) b.style.display = 'none'; }
+setTimeout(() => { try { ctiStart(); cfgLoad(); } catch(e){} }, 2500);
+
+/* ── ⑤ 📍 임장 체크아웃 ── */
+async function visitCheckout(id){
+  const v = visits.find(x => x.id === id); if(!v){ showToast('체크인 기록을 찾지 못했습니다'); return; }
+  if(v.outAt){ showToast('이미 체크아웃한 기록입니다'); return; }
+  const now = new Date();
+  v.outAt = todayStr() + ' ' + nowHM();
+  const t0 = new Date(String(v.at).replace(' ', 'T'));
+  v.stayMin = isNaN(t0.getTime()) ? '' : String(Math.max(0, Math.round((now - t0) / 60000)));
+  v.updatedAt = now.toISOString();
+  visitsSave(); visitList(); visitPush(v);
+  showToast(`체크아웃 ✓ 체류 ${v.stayMin || '-'}분`);
+}
+
+/* ── ⑤ 💰 담당자별 요율 · 공동중개 칸 ── */
+function payoutRates(){ try { return JSON.parse(cfgGet('PAYOUT_RATES') || '{}') || {}; } catch(e){ return {}; } }
+function payoutRateFor(agent){ const r = payoutRates()[String(agent||'').trim()]; const n = parseFloat(r); return isNaN(n) ? payoutSplit() : n; }
+function payoutSetCo(id, key, val){
+  const c = contracts.find(x => x.id === id); if(!c) return;
+  c[key] = String(val == null ? '' : val).trim();
+  c.updatedAt = new Date().toISOString();
+  save('contracts', contracts);
+  payoutRender();
+}
+function payoutRatesRender(){
+  const box = document.getElementById('po-rates'); if(!box) return;
+  const isAdmin = window.__crmRole === 'admin';
+  const rates = payoutRates();
+  if(isAdmin && !window.__staffNames && getGsUrl()){
+    window.__staffNames = [];
+    gsFetchJson(getGsUrl(), { method:'POST', headers:{ 'Content-Type':'text/plain' }, body: JSON.stringify({ action:'staffList', token:getGsTok() }) }, '직원 목록')
+      .then(j => { window.__staffNames = (j && j.data ? j.data : []).map(s => String(s.name||'').trim()).filter(Boolean); payoutRatesRender(); }).catch(() => {});
+  }
+  const names = isAdmin ? Array.from(new Set(['대표'].concat(contracts.map(c => String(c.agent||'').trim()).filter(Boolean), Object.keys(rates), window.__staffNames || []))) : [crmWho()];   // 직원에겐 본인 요율만(리뷰 09-08)
+  box.innerHTML = `<div class="card-title" style="margin-bottom:6px">👥 담당자별 인센티브 요율(%) <span style="font-size:11px;color:var(--t3);font-weight:400">비어 있으면 기본 배분율 ${payoutSplit()}% · 계약의 담당자는 등록한 사람으로 자동 기록</span></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${names.map(n => `<label style="font-size:12px">${gEsc(n)} <input type="number" min="0" max="100" data-agent="${gEsc(n)}" value="${rates[n] !== undefined ? gEsc(rates[n]) : ''}" style="width:64px"${isAdmin?'':' disabled'}></label>`).join('')}
+    ${isAdmin ? '<button class="btn btn-sm btn-g" onclick="payoutRatesSave()">💾 요율 저장</button>' : ''}</div>`;
+}
+async function payoutRatesSave(){
+  if(window.__crmRole !== 'admin'){ showToast('요율은 대표만 바꿀 수 있습니다'); return; }
+  const out = {};
+  document.querySelectorAll('#po-rates input[data-agent]').forEach(i => { const v = parseFloat(i.value); if(!isNaN(v)) out[i.getAttribute('data-agent')] = v; });
+  try{ await cfgSetRemote('PAYOUT_RATES', JSON.stringify(out)); showToast('요율 저장 ✓ (모든 기기 공통)'); }catch(e){ showToast('저장 실패: ' + e.message); }
+  payoutRender();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   📘 이용 가이드(직원 매뉴얼) + 🚦 기능 단계(P0·P1·P2) 스위치 — 2026-09-08
+   · 가이드는 **지금 화면**에서 만든다: 왼쪽 메뉴(DOM)·각 화면의 제목/부제(DOM)·아래 GUIDE_TEXT(설명)·
+     캡처(guide/<id>.png, 배포 때 자동 생성)·캡처가 없으면 실제 화면을 축소해 그대로 보여준다(live clone).
+     → 탭·화면 구성이 바뀌면 가이드도 저절로 바뀐다. 검산(verify_guide.js)이 "메뉴마다 GUIDE_TEXT 있음"을 강제한다.
+   · FEATURES: 마스터 지시어의 기능은 버리지 않는다 — 단계(P0 운영 / P1 검증 후 공개 / P2 예정)로 관리.
+     live:false 인 메뉴는 숨김. 대표가 [설정 → 예정 기능 미리보기] 로 보거나, 검증 뒤 [직원에게 공개](cfg FEATURE_LIVE)로 켠다.
+   ═══════════════════════════════════════════════════════════════════ */
+const FEATURES = {
+  guide: { stage: 'P0', live: true,  name: '이용 가이드' },
+  audit: { stage: 'P0', live: true,  name: '데이터 검수' },
+  links: { stage: 'P1', live: true,  name: '링크 보관함' },
+  map:   { stage: 'P1', live: false, name: '매물 지도', why: '카카오 지도 화면 실측 전 — 대표가 보고 [직원에게 공개]' },
+  brand: { stage: 'P1', live: false, name: '브랜드 스튜디오', why: '캐릭터 자산 등록·승인 흐름 실측 전 — 대표 확인 후 [직원에게 공개]' },
+  'ai-center': { stage: 'P1', live: false, name: 'AI 직원 센터', why: 'AI 연결·부서별 데이터 권한·감사로그·사람 승인 실측 전' },
+};
+function featureLive(id){
+  const f = FEATURES[id]; if(!f) return true;
+  let extra = []; try{ extra = JSON.parse(cfgGet('FEATURE_LIVE') || '[]') || []; }catch(e){ extra = []; }
+  if(f.live || extra.indexOf(id) >= 0) return true;
+  try{ if(localStorage.getItem('crm_preview') === '1') return true; }catch(e){}
+  return false;
+}
+function featureMenusApply(){
+  document.querySelectorAll('.sb-item[data-feature]').forEach(b => { b.style.display = featureLive(b.getAttribute('data-feature')) ? '' : 'none'; });
+  const cb = document.getElementById('gs-preview'); if(cb){ try{ cb.checked = localStorage.getItem('crm_preview') === '1'; }catch(e){} }
+}
+async function featurePublish(id, on){
+  if(window.__crmRole !== 'admin'){ showToast('기능 공개는 대표만 할 수 있습니다'); return; }
+  let extra = []; try{ extra = JSON.parse(cfgGet('FEATURE_LIVE') || '[]') || []; }catch(e){ extra = []; }
+  extra = extra.filter(x => x !== id); if(on) extra.push(id);
+  try{ await cfgSetRemote('FEATURE_LIVE', JSON.stringify(extra)); showToast(`${(FEATURES[id]||{}).name||id} ${on?'직원에게 공개 ✓':'공개 해제'} (모든 기기)`); featureMenusApply(); guideRender(); }
+  catch(e){ showToast('저장 실패: ' + e.message); }
+}
+
+/* 메뉴별 설명 — 🔴 메뉴(go id)를 추가하면 여기도 한 줄 추가해야 검산(verify_guide.js)이 통과한다 */
+const GUIDE_TEXT = {
+  dash:            { what: '오늘 할 일·만기·위험 계약·임장을 한 화면에', when: '출근하면 제일 먼저', steps: ['오늘 할 일 확인', '⚖ 위험 계약·🧹 검수 경고 타일 확인', '연락일 비어 있는 손님 없게'], tips: ['타일을 누르면 그 화면으로 갑니다'] },
+  expiry:          { what: '계약 만기 D-day와 연장/종료 확정', when: '매주 월요일 · 만기 30일 전', steps: ['만기 순으로 보기', '연락 완료 표시', '연장/종료 확정'], tips: ['확정 내역은 시트에 저장되어 폰·PC가 같습니다'] },
+  guide:           { what: '이 매뉴얼 — 화면 구성이 바뀌면 자동으로 따라갑니다', when: '첫날 · 새 기능이 생겼을 때', steps: ['메뉴 순서대로 읽기', '🖨 인쇄해 책상에'], tips: ['P0=운영 중, P1=검증 후 공개, P2=예정'] },
+  listing:         { what: '매물 등록·수정, 건축물대장 자동조회, 사진', when: '매물 접수 즉시', steps: ['주소 입력 → 상세주소(호수)', '[🏢 대장 자동조회] — 총층·승인일·면적·구조·내진', '거래유형·가격·입주일', '저장(자동으로 시트에)'], tips: ['🔒 미검증 표시는 대표 검수 전 — 연락처가 가려집니다', '🔄 수명주기: 접수→검증→광고→임장→계약'] },
+  map:             { what: '검증 통과 매물을 지도에 핀으로', when: '손님 상담·임장 동선 짤 때', steps: ['[📍 위치 계산] 한 번(주소→좌표)', '핀 클릭 → 매물 열기'], tips: ['직원 화면은 검증 통과 매물만 보입니다'] },
+  ads:             { what: '광고 원장(당근·네이버·블로그)·홈페이지 노출 스위치', when: '광고 올릴 때·내릴 때', steps: ['플랫폼 켜기/끄기', '광고번호·URL 기록', '조회/문의 숫자 옮겨 적기'], tips: ['당근은 삭제 후 재등록 금지 — 수정 또는 거래완료로'] },
+  audit:           { what: '중복 매물·호수 누락·대장 미조회·외부 공실망 내려감을 서버가 대조', when: '매일 아침 1번(대표) · 매물 많이 넣은 뒤', steps: ['[🔍 검수 실행]', '경고 매물 열어서 고치기', '대표: [✅ 검증 도장] → 직원 화면에 깨끗한 매물만', '대표: [🧹 중복 정제]는 확인 후'], tips: ['소유자 대조는 공개 API에 없어 등기부(유료)로만 가능'] },
+  apt:             { what: '국토부 실거래가 조회·추이', when: '가격 상담·계약서 쓰기 전', steps: ['지역·단지 선택', '매매/전세/월세 표', '추이 그래프'], tips: ['전국 가능, 기본 제주'] },
+  gather:          { what: '당근·오일장 매물 자동 수집(대표 전용)', when: '주 1~2회', steps: ['[수집 시작]', '중복 대조 결과 보기', '임대인 이관'], tips: ['수집 중에도 다른 기능은 그대로 됩니다'] },
+  customer:        { what: '손님 등록·매칭률 %·문자·인입함', when: '문의 오면 바로', steps: ['[인입함] 새 문의 → 고객으로 전환', '조건 입력 → 🎯 매칭 매물', '[📤 문자로 보내기]', '다음 연락일 채우기'], tips: ['전화가 오면 📞 카드가 뜹니다 — [고객 카드 열기]'] },
+  landlord:        { what: '임대인 연락 주기·공실 확인', when: '공실 확인 전화 돌릴 때', steps: ['다음 연락일 순으로', '통화 후 메모·다음 날짜'], tips: ['직원에겐 이름·번호 일부가 가려집니다(본인 등록분 제외)'] },
+  sms:             { what: '문자·알림톡 발송(검토→승인→발송)', when: '매물 안내·공실 확인', steps: ['대상 선택', '미리보기', '승인 후 발송'], tips: ['자동 발송은 없습니다 — 사람이 누릅니다'] },
+  vito:            { what: '회의 녹음·빠른 음성 메모 → 고객 메모', when: '회의·이동 중', steps: ['녹음', '텍스트 확인', '고객 메모로'], tips: ['음성 원본은 기기에만'] },
+  visit:           { what: '출근/복귀 · 임장 체크인/체크아웃(GPS) · 현장 평가', when: '현장 나갈 때마다', steps: ['출근 스탬프', '매물·고객 고르고 [📍 체크인]', '반응·가능성·메모 저장(고객 카드에 자동)', '[🏁 체크아웃] → 체류 시간'], tips: ['폰 위치 권한 허용'] },
+  links:           { what: '카톡 대화 내보내기(kakao.txt)의 링크를 제목·날짜·보낸이로 보관', when: '단톡방 자료 정리할 때', steps: ['카톡 → 대화 내보내기 → 파일 선택', '미리보기 확인 → [💾 저장]', '(대표) 노션 DB 연동 시 노션에도'], tips: ['같은 링크는 한 번만 저장'] },
+  staff:           { what: '직원 계정 발급·링크·삭제(대표 전용)', when: '직원 입사·퇴사', steps: ['이름 → [＋ 계정 발급]', '링크를 그 직원에게만', '퇴사 시 삭제'], tips: ['링크 = 열쇠'] },
+  contract:        { what: '계약 등록·만기·⚖ 이상거래 배지·매매 추적', when: '계약 성사 직후', steps: ['매물에서 계약완료 → 자동 생성 또는 직접 등록', '임대인·임차인·기간'], tips: ['🚨 RED 는 대표 확인 후'] },
+  'contract-writer': { what: '계약서·확인설명서 자동 생성 + 이상거래 자동 점검', when: '계약 직전', steps: ['매물·고객 선택', '[공부 추출]로 대장 값 채움', '⚖ 배너 확인', '[📋 계약완료에 등록]'], tips: ['배너는 참고자료(법적 판단 아님)'] },
+  payout:          { what: '계약별 중개보수 → 공동중개 몫 → 담당자 요율 → 세후', when: '월말', steps: ['달 선택', '중개보수 입력(제안값 회색)', '공동중개면 사무소명·우리 몫 %', '에스크로·입금일'], tips: ['배분율·세율·담당자 요율은 대표만(사무소 공통)'] },
+  stats:           { what: '월별 계약·보수·고객·임장·광고·이상거래', when: '월말 · 주간 회의', steps: ['달 선택', '타일 읽기'], tips: [] },
+  brand:           { what: '캐릭터·로고·색상·굿즈 시안을 한곳에서 관리 — 초안 → 검토대기 → 대표 승인 → 사용', when: '광고·블로그·굿즈를 만들기 전', steps: ['[＋ 자산 등록]으로 파일 올리기(6MB 이하) 또는 링크 붙이기', '분류·캐릭터·버전 적기', '대표가 [승인]으로 바꾸기', '쓴 곳을 [📌 사용처 기록]'], tips: ['승인된 자산만 대외에 씁니다', '캐릭터 이름·고정 특징은 [🧍 캐릭터 기준표]에서 대표가 정합니다', '파일 원본은 구글드라이브 [브리즈_브랜드스튜디오] 폴더'] },
+  'ai-center':     { what: '관리·운영·마케팅·개발부와 계열사의 AI 업무 초안·권한·승인을 한곳에서 관리', when: '대표 지시·매일 업무 취합', steps: ['부서 선택', '접근 데이터·담당 업무 확인', '업무 지시 초안 저장', 'AI 결과 검토 후 사람이 승인'], tips: ['계약·금전·삭제·외부발송·배포는 AI 단독 실행 금지', '현재 P1 대표시험: AI로 전송하지 않음'] },
+};
+
+/* 부서별 AI 직원은 별도 앱 7개가 아니라 공통 엔진의 역할 설정으로 운영한다. */
+const AI_DEPARTMENTS = [
+  {name:'관리부', icon:'🏢', role:'경영·인사·회계·전자결재·전사 보고 취합', data:'계약, 수당, 일정, 감사로그, 부서 보고', guard:'금전 처리·결재 확정은 대표 승인'},
+  {name:'운영부', icon:'🏠', role:'매물·고객·임대인·상담·임장·계약 실무', data:'CRM, 매물, 인입함, 임장, 계약', guard:'계약 확정·삭제·고객 발송은 담당자 승인'},
+  {name:'마케팅부', icon:'📣', role:'광고 원장·콘텐츠 초안·성과 분석', data:'검증 매물, 광고, 문의·전환 통계', guard:'게시·문자·외부 발송은 사람 승인'},
+  {name:'개발부', icon:'🛠️', role:'SaaS 개발·검산·장애 감시·배포 준비', data:'설정, 오류, 검산 결과, 변경 이력', guard:'운영 배포·키 변경은 대표 승인'},
+  {name:'브리즈디자인', icon:'🎨', role:'브랜드·공간·홍보물 디자인 초안', data:'승인된 브랜드 자료, 매물 공개 정보', guard:'최종 납품·대외 공개는 사람 승인'},
+  {name:'브리즈아카데미', icon:'🎓', role:'직원 교육·매뉴얼·평가 콘텐츠 관리', data:'가이드, 업무 표준, 비식별 사례', guard:'개인정보 원문 학습 금지·교육 배포 승인'},
+  {name:'대표실', icon:'👔', role:'전 부서 한 장 보고·우선순위·최종 승인', data:'부서별 요약, 위험 경고, KPI, 승인함', guard:'모든 고위험 실행의 최종 책임자'},
+];
+let aiDeptSelected = '관리부';
+function aiCenterRender(){
+  const grid=document.getElementById('ai-dept-grid'); if(!grid) return;
+  grid.innerHTML=AI_DEPARTMENTS.map(d=>`<button class="ai-dept-card ${d.name===aiDeptSelected?'on':''}" onclick="aiDeptSelect('${d.name}')"><strong>${d.icon} ${d.name}</strong><span>${d.role}</span></button>`).join('');
+  aiDeptSelect(aiDeptSelected, true);
+  try{ document.getElementById('ai-task-draft').value=localStorage.getItem('crm_ai_draft_'+aiDeptSelected)||''; }catch(e){}
+}
+function aiDeptSelect(name, keepDraft){
+  if(!keepDraft){ try{ const old=document.getElementById('ai-task-draft'); if(old) localStorage.setItem('crm_ai_draft_'+aiDeptSelected,old.value||''); }catch(e){} }
+  aiDeptSelected=name; const d=AI_DEPARTMENTS.find(x=>x.name===name); if(!d) return;
+  document.querySelectorAll('.ai-dept-card').forEach(b=>b.classList.toggle('on',b.textContent.indexOf(name)>=0));
+  const n=document.getElementById('ai-dept-name'); if(n)n.value=name;
+  const detail=document.getElementById('ai-dept-detail'); if(detail)detail.innerHTML=`<div class="card-title">${d.icon} ${d.name} AI 직원</div><div class="divider"></div><div style="font-size:12px;line-height:1.8"><strong>담당 업무</strong> · ${d.role}<br><strong>접근 데이터</strong> · ${d.data}<br><strong>승인 경계</strong> · <span style="color:var(--r)">${d.guard}</span><br><strong>현재 상태</strong> · 코드완료·검증대기(AI 실행 연결 안 됨)</div>`;
+  const draft=document.getElementById('ai-task-draft'); if(draft){ try{draft.value=localStorage.getItem('crm_ai_draft_'+name)||'';}catch(e){draft.value='';} }
+}
+function aiDraftSave(){
+  const v=(document.getElementById('ai-task-draft')||{}).value||'';
+  try{localStorage.setItem('crm_ai_draft_'+aiDeptSelected,v);showToast('업무 지시 초안을 이 기기에 저장했습니다');}catch(e){showToast('초안 저장 실패');}
+}
+function aiExecutionBlocked(){ showToast('AI 연결·권한·감사로그·승인 체계 검증 후 활성화됩니다'); }
+
+/* 흐름도(SVG) — 그림으로 보는 하루 */
+function guideFlowSvg(steps, color){
+  const w = 150, h = 54, gap = 34, W = steps.length * w + (steps.length - 1) * gap + 8, c = color || '#0F6E56';
+  let s = `<svg viewBox="0 0 ${W} 70" width="100%" style="max-width:${W}px;display:block" role="img" aria-label="${steps.map(x => x.replace(/\n/g,' ')).join(' → ')}">`;
+  steps.forEach((t, i) => {
+    const x = 4 + i * (w + gap);
+    s += `<rect x="${x}" y="8" width="${w}" height="${h}" rx="12" fill="${c}14" stroke="${c}" stroke-width="1.5"/>`;
+    const lines = String(t).split('\n');
+    lines.forEach((ln, k) => { s += `<text x="${x + w/2}" y="${8 + h/2 + (k - (lines.length-1)/2) * 15 + 5}" text-anchor="middle" font-size="12.5" font-weight="${k?400:700}" fill="#1A1D21">${ln}</text>`; });
+    if(i < steps.length - 1) s += `<path d="M${x + w + 4} 35 L${x + w + gap - 6} 35" stroke="${c}" stroke-width="2" fill="none" marker-end="url(#gArrow)"/>`;
+  });
+  return s + `<defs><marker id="gArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="${c}"/></marker></defs></svg>`;
+}
+const GUIDE_FLOWS = [
+  { title: '하루 흐름', steps: ['📊 홈\n오늘 할 일', '👥 인입함\n새 문의', '🎯 매칭\n문자 보내기', '📍 임장\n체크인·평가', '📝 계약서\n⚖ 점검', '💰 정산\n월말'] },
+  { title: '전화가 오면', steps: ['📱 벨\n(웹훅)', '☁ 서버\ncallRing', '💻 화면\n📞 카드', '👥 카드 열기\n또는 고객 등록'], color: '#185FA5' },
+  { title: '매물 검수', steps: ['🏠 매물 등록\n대장 자동조회', '🧹 검수 실행\n중복·호수·외부망', '✅ 검증 도장\n(대표)', '🗺 직원 화면\n깨끗한 매물만'], color: '#B45309' },
+];
+
+function guideClone(id){   // 캡처가 없을 때: 실제 화면을 축소해 보여준다(항상 최신)
+  if(id === 'guide') return '';                       // 🔴 가이드 자신을 복제하면 열 때마다 한 벌씩 불어난다(리뷰 09-08)
+  const p = document.getElementById('p-' + id); if(!p) return '';
+  const c = p.cloneNode(true);
+  c.removeAttribute('id'); c.style.display = 'block';
+  c.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+  c.querySelectorAll('input,select,button,textarea').forEach(n => { n.setAttribute('disabled', ''); n.removeAttribute('onclick'); n.removeAttribute('onchange'); });
+  return `<div class="guide-shot"><div class="guide-shot-in">${c.outerHTML}</div></div>`;
+}
+function guideRender(){
+  const body = document.getElementById('guide-body'); if(!body) return;
+  const sb = document.querySelector('.sidebar'); if(!sb) return;
+  const isAdmin = window.__crmRole === 'admin';
+  const ver = (document.getElementById('appVer') || {}).textContent || '';
+  const stageBadge = id => { const f = FEATURES[id]; if(!f) return '<span class="badge" style="background:#DCFCE7;color:#166534">P0 운영</span>';
+    const live = featureLive(id);
+    return `<span class="badge" style="background:${f.stage==='P0'?'#DCFCE7':f.stage==='P1'?'#FEF3C7':'#F3F4F6'};color:${f.stage==='P0'?'#166534':f.stage==='P1'?'#92400E':'#374151'}">${f.stage} ${live?(f.live?'운영':'공개됨'):'예정·미리보기'}</span>` +
+      (isAdmin && !f.live ? ` <button class="btn btn-xs" onclick="featurePublish('${id}', ${live && !f.live ? 'false' : 'true'})">${live && !f.live ? '공개 해제' : '직원에게 공개'}</button>` : '');
+  };
+  let h = `<div style="font-size:12px;color:var(--t2);margin-bottom:12px">버전 <b>${gEsc(ver)}</b> · 이 가이드는 왼쪽 메뉴와 각 화면에서 그때그때 만들어집니다 — 화면 구성이 바뀌면 여기도 함께 바뀝니다. 🔒 대표 전용·예정 기능은 직원 화면에 없습니다.</div>`;
+  h += GUIDE_FLOWS.map(f => `<div class="card" style="margin-bottom:10px"><div class="card-title">${gEsc(f.title)}</div>${guideFlowSvg(f.steps, f.color)}</div>`).join('');
+  let n = 0;
+  Array.from(sb.children).forEach(el => {
+    if(el.classList.contains('sb-section')){ h += `<h3 style="margin:18px 0 8px;font-size:15px">${gEsc(el.textContent)}</h3>`; return; }
+    if(!el.classList.contains('sb-item')) return;
+    const m = /go\('([^']+)'\)/.exec(el.getAttribute('onclick') || ''); if(!m) return;
+    if(!isAdmin && el.style.display === 'none') return;   // 직원에겐 숨긴 메뉴(대표 전용·예정)를 가이드에도 안 보인다(리뷰 09-08)
+    const id = m[1], g = GUIDE_TEXT[id] || { what: '(설명 준비 중)', when: '', steps: [], tips: [] };
+    const label = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    const p = document.getElementById('p-' + id);
+    const title = p && p.querySelector('.page-title') ? p.querySelector('.page-title').textContent.trim() : label;
+    const sub = p && p.querySelector('.page-sub') ? p.querySelector('.page-sub').textContent.trim() : '';
+    const adminOnly = /대표전용/.test(label);
+    n++;
+    h += `<div class="card guide-card" style="margin-bottom:12px${adminOnly?';border-color:#FECACA':''}">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div><div class="card-title">${n}. ${gEsc(title)} ${stageBadge(id)}${adminOnly?' <span class="badge" style="background:#FEE2E2;color:#B91C1C">대표 전용</span>':''}</div>
+          ${sub?`<div style="font-size:12px;color:var(--t2);margin-top:2px">${gEsc(sub)}</div>`:''}</div>
+        <button class="btn btn-xs" onclick="go('${id}')">화면 열기 →</button>
+      </div>
+      <div class="guide-grid">
+        <div>
+          <div style="font-size:12.5px;margin:6px 0"><b>무엇</b> ${gEsc(g.what)}</div>
+          ${g.when?`<div style="font-size:12.5px;margin:6px 0"><b>언제</b> ${gEsc(g.when)}</div>`:''}
+          ${g.steps&&g.steps.length?`<div style="font-size:12.5px;margin:6px 0"><b>순서</b><ol style="margin:4px 0 0 18px;padding:0">${g.steps.map(s => `<li>${gEsc(s)}</li>`).join('')}</ol></div>`:''}
+          ${g.tips&&g.tips.length?`<div style="font-size:12px;color:var(--t2);margin:6px 0">💡 ${g.tips.map(gEsc).join(' · ')}</div>`:''}
+        </div>
+        <div><img class="guide-img" src="guide/${id}.png" alt="${gEsc(title)} 화면" loading="lazy" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display=''"><div style="display:none">${guideClone(id)}</div></div>
+      </div>
+    </div>`;
+  });
+  // P2 예정(설계서에만 있는 기능) — 버리지 않고 여기 남긴다
+  h += `<h3 style="margin:18px 0 8px;font-size:15px">📌 예정(P2) — 로드맵에 남겨 둔 기능</h3><div class="card"><div style="font-size:12.5px;line-height:1.8">${GUIDE_P2.map(x => `• <b>${gEsc(x.name)}</b> — ${gEsc(x.why)}`).join('<br>')}</div><div style="font-size:11px;color:var(--t3);margin-top:6px">전체 로드맵: 03_지시어_문서\\_최종로드맵_P0P1P2_2026-09-08.md</div></div>`;
+  body.innerHTML = h;
+}
+const GUIDE_P2 = [
+  { name: '전자서명(모두싸인·위드싸인)', why: '상용 계약·과금 필요 — 계약서 작성기는 준비됨' },
+  { name: '온하우스 실제 공실망 연동', why: '공개 API 없음 — 지금은 당근·오일장 수집분으로 대조' },
+  { name: '소유자 대조(등기부)', why: '공개 건축물대장 API에 소유자 없음 — 등기부 열람(유료) 연동 시' },
+  { name: '노션 → 깃허브 문서 자동 동기화', why: '저장소에 준비됨(docs-sync.yml) — 깃허브 비밀값 2개 등록 후 작동' },
+  { name: '광고비 배부·ROI / KPI·MBO / 급여·퇴직 / 메신저·전자결재 / 벌점', why: '소규모 사무소엔 과잉 — 직원 늘면 단계별' },
+  { name: '매물까지 거리 표시(임장)', why: '좌표(🗺 위치 계산) 쌓인 뒤' },
+  { name: '페르소나(대표/직원) 완전 분리 대시보드', why: '지금은 타일·마스킹으로 구분' },
+];
+function guidePrint(){
+  const body = document.getElementById('guide-body'); if(!body) return;
+  const w = window.open('', '_blank'); if(!w){ showToast('팝업이 막혔습니다 — 허용 후 다시'); return; }
+  const css = Array.from(document.querySelectorAll('style')).map(s => s.textContent).join('\n');
+  w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>브리즈 CRM 직원 매뉴얼</title><style>${css}
+    body{background:#fff;padding:20px;max-width:900px;margin:0 auto} .btn{display:none} .guide-card{break-inside:avoid;page-break-inside:avoid} .guide-img{max-width:100%;border:1px solid #ddd;border-radius:8px}</style></head><body><h1 style="font-size:20px">📘 브리즈 CRM 직원 매뉴얼</h1>${body.innerHTML}<script>setTimeout(function(){window.print()},600)<\/script></body></html>`);
+  w.document.close();
+}
+setTimeout(() => { try { featureMenusApply(); } catch(e){} }, 300);
+setTimeout(() => { try { const m = /tab=([a-z-]+)/.exec(location.hash || ''); if(m && typeof go === 'function' && document.getElementById('p-' + m[1])) go(m[1]); } catch(e){} }, 900);
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   🎨 브랜드 스튜디오 화면 — 2026-09-08 (P1 · 기본 숨김, 대표가 [직원에게 공개] 하면 보임)
+   최소 기능만: 자산 등록(파일 업로드 또는 링크) · 분류(2D·3D·영상·굿즈…) · 미리보기 · 승인 상태 ·
+                사용처 기록 · 다운로드 · 캐릭터 기준표(이름·역할·고정 특징 편집) · 확장 자리.
+   🔴 이미지 안 작은 글씨는 그대로 쓰지 않는다 — 화면 글자는 전부 HTML 텍스트로 다시 썼고,
+      색상값은 참고값으로 표시하고 대표가 고칠 수 있게 둔다(BRAND_GUIDE, 서버 설정).
+   ═══════════════════════════════════════════════════════════════════ */
+const BRAND_CATS = ['원본캐릭터','투명배경PNG','2D포즈·표정','3D캐릭터','영상·애니메이션','로고','브랜드색상','굿즈시안','사용지침','금지사례'];
+const BRAND_STATUS = ['초안','검토대기','승인','사용','보관'];
+const BRAND_STATUS_CLS = { '초안':'background:#F3F4F6;color:#374151', '검토대기':'background:#FEF3C7;color:#92400E', '승인':'background:#DCFCE7;color:#166534', '사용':'background:#DBEAFE;color:#1E40AF', '보관':'background:#E5E7EB;color:#6B7280' };
+/* 캐릭터 기준표 기본값 — 🔴 공식 이름은 비워 둔다(대표가 정한다). 역할·고정 특징만 미리 채워 둔다. */
+const BRAND_GUIDE_DEFAULT = {
+  note: '색상값·특징은 참고용 초기값입니다. 대표가 확정한 값으로 고쳐 주세요(이 표가 모든 콘텐츠의 기준).',
+  colors: [ { name: 'Navy(주색)', hex: '#0E2A4E' }, { name: 'Sky Blue', hex: '#3B8FD4' }, { name: 'Sun Orange', hex: '#FF9A00' }, { name: 'Warm Beige', hex: '#F7F2EB' } ],
+  chars: [
+    { key: 'agent',  name: '', role: '공인중개사(전문가)', use: '고객상담 · 계약 · 매물 설명', fixed: '안경 · 또렷한 눈매 · 밝은 미소 · 네이비 상의 · 사원증' },
+    { key: 'family', name: '', role: '가족',              use: '좋은 집 · 신뢰할 수 있는 중개의 상징', fixed: '네이비 계열 옷 · 편안한 표정' },
+    { key: 'child',  name: '', role: '어린이',            use: '가족 · 학군 · 생활환경 콘텐츠', fixed: '둥근 투명 안경 · 일자 앞머리 · 활짝 웃는 표정' },
+    { key: 'ai',     name: '', role: 'AI 로봇',           use: '자동화 · AI 매칭 · 분석 · 알림 안내', fixed: '흰 몸체 · 파란 곡선 · 웃는 화면 눈' },
+    { key: 'dog',    name: '', role: '강아지',            use: '친근한 홍보 · SNS · 굿즈 · 반려동물 가능 매물', fixed: '크림색 털 · 네이비 스카프' },
+    { key: 'cat',    name: '', role: '고양이',            use: '허위매물 경고 · SNS · 굿즈', fixed: '검은 털 · 모자 · 단호한 표정' },
+  ],
+  rules: ['로고는 좌측 상단 고정, 비율 변형·회전 금지', '캐릭터 얼굴·머리·의상은 기준표와 다르게 그리지 않기',
+          '승인된 자산만 대외 사용(초안·검토대기는 내부용)', 'AI 생성 결과는 대표 승인 후 사용', '이미지 속 손글씨 문구는 그대로 쓰지 말고 실제 문구로 다시 쓰기'],
+};
+let brandAssets = [], brandGuideObj = null;
+
+function brandGuide(){
+  if(brandGuideObj) return brandGuideObj;
+  try{ const s = cfgGet('BRAND_GUIDE'); if(s) brandGuideObj = JSON.parse(s); }catch(e){ brandGuideObj = null; }
+  if(!brandGuideObj || !brandGuideObj.chars) brandGuideObj = JSON.parse(JSON.stringify(BRAND_GUIDE_DEFAULT));
+  return brandGuideObj;
+}
+function brandIsAdmin(){ return window.__crmRole === 'admin'; }
+
+async function brandRender(){
+  const grid = document.getElementById('br-grid'); if(!grid) return;
+  const fc = document.getElementById('br-filter');
+  if(fc && fc.options.length <= 1) fc.innerHTML = '<option value="">분류 전체</option>' + BRAND_CATS.map(c => `<option>${gEsc(c)}</option>`).join('');
+  const fs = document.getElementById('br-status');
+  if(fs && fs.options.length <= 1) fs.innerHTML = '<option value="">상태 전체</option>' + BRAND_STATUS.map(c => `<option>${gEsc(c)}</option>`).join('');
+  await cfgLoad();
+  brandGuideObj = null;
+  await brandLoad();
+  brandGridRender();
+  brandCharsRender();
+}
+async function brandLoad(){
+  const url = getGsUrl(); if(!url) return;
+  try{
+    const r = await fetch(`${url}?action=getAll&type=brand&t=${Date.now()}${tokQ()}`);
+    const j = await r.json();
+    if(j && j.ok && Array.isArray(j.data)) brandAssets = j.data;
+  }catch(e){}
+}
+function brandGridRender(){
+  const grid = document.getElementById('br-grid'); if(!grid) return;
+  const cat = (document.getElementById('br-filter')||{}).value || '';
+  const st = (document.getElementById('br-status')||{}).value || '';
+  const rows = brandAssets.filter(a => (!cat || a.category === cat) && (!st || a.status === st))
+    .sort((a,b) => String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  const cnt = {}; brandAssets.forEach(a => { cnt[a.status||'초안'] = (cnt[a.status||'초안']||0) + 1; });
+  const sum = document.getElementById('br-sum');
+  if(sum) sum.innerHTML = `자산 <b>${brandAssets.length}</b>개 · ` + BRAND_STATUS.map(s => `${gEsc(s)} ${cnt[s]||0}`).join(' · ') + ' · 파일은 구글드라이브 [브리즈_브랜드스튜디오] 폴더에 보관됩니다';
+  if(!rows.length){ grid.innerHTML = '<div class="empty-state"><div class="es-icon">🎨</div>등록된 자산이 없습니다. [＋ 자산 등록]으로 캐릭터·로고 파일을 올리세요.</div>'; return; }
+  const admin = brandIsAdmin();
+  grid.innerHTML = '<div class="br-grid">' + rows.map(a => {
+    const id = gAttr(a.id), locked = !admin && (a.status === '승인' || a.status === '사용');
+    const opts = BRAND_STATUS.map(s => `<option${a.status===s?' selected':''}${(!admin && (s==='승인'||s==='사용'||s==='보관'))?' disabled':''}>${gEsc(s)}</option>`).join('');
+    const thumb = a.thumbUrl || a.fileUrl || '';
+    return `<div class="br-card">
+      <div class="br-thumb">${thumb ? `<img src="${gEsc(thumb)}" alt="${gEsc(a.name)}" loading="lazy" onerror="this.style.display='none';this.parentNode.innerHTML='<div class=&quot;br-noimg&quot;>미리보기 없음<br>파일 열기로 확인</div>'">` : '<div class="br-noimg">파일 없음(링크만)</div>'}</div>
+      <div style="padding:10px">
+        <div style="font-weight:700;font-size:13px">${gEsc(a.name||'')} <span style="font-size:10px;color:var(--t3)">${gEsc(a.version||'')}</span></div>
+        <div style="font-size:11px;color:var(--t2);margin:3px 0">${gEsc(a.category||'')}${a.kind?' · '+gEsc(a.kind):''}${a.charRole?' · '+gEsc(a.charRole):''}</div>
+        ${a.desc?`<div style="font-size:11.5px;color:var(--t2);margin:4px 0">${gEsc(a.desc)}</div>`:''}
+        <div class="row" style="gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap">
+          <span class="badge" style="${BRAND_STATUS_CLS[a.status]||BRAND_STATUS_CLS['초안']}">${gEsc(a.status||'초안')}</span>
+          <select style="font-size:11px;padding:3px 6px" onchange="brandSetStatus('${id}', this.value)">${opts}</select>
+        </div>
+        ${a.approvedAt?`<div style="font-size:10.5px;color:var(--g)">✅ ${gEsc(a.approvedAt)} ${gEsc(a.approvedBy||'')}</div>`:''}
+        ${a.usedFor?`<div style="font-size:10.5px;color:var(--t3);margin-top:3px">📌 ${gEsc(a.usedFor)}</div>`:''}
+        <div class="row" style="gap:5px;margin-top:8px;flex-wrap:wrap">
+          ${a.fileUrl?`<a class="btn btn-xs" href="${gEsc(a.fileUrl)}" target="_blank" rel="noopener">👁 열기</a>`:''}
+          ${a.fileId?`<a class="btn btn-xs" href="https://drive.google.com/uc?export=download&id=${gEsc(a.fileId)}" target="_blank" rel="noopener">⬇ 다운로드</a>`:''}
+          <button class="btn btn-xs" onclick="brandUseAdd('${id}')">📌 사용처 기록</button>
+          ${locked?'':`<button class="btn btn-xs" onclick="brandFormOpen('${id}')">✏️ 수정</button>`}
+          ${admin?`<button class="btn btn-r btn-xs" onclick="brandDeleteAsset('${id}')">🗑</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+function brandFormOpen(id){
+  const box = document.getElementById('br-form'); if(!box) return;
+  const a = id ? brandAssets.find(x => x.id === id) : null;
+  const g = brandGuide();
+  const roles = ['(공통)'].concat(g.chars.map(c => (c.name ? c.name + ' · ' : '') + c.role));
+  box.style.display = '';
+  box.innerHTML = `<div class="card-title">${a?'✏️ 자산 수정':'＋ 자산 등록'}</div>
+    <input type="hidden" id="br-id" value="${gEsc(a?a.id:'')}">
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">
+      <div style="flex:1;min-width:180px"><label style="font-size:11px;color:var(--t2);display:block">이름 *</label><input id="br-name" value="${gEsc(a?a.name:'')}" placeholder="예: 공인중개사 캐릭터 정면 웃는 표정"></div>
+      <div><label style="font-size:11px;color:var(--t2);display:block">분류</label><select id="br-cat">${BRAND_CATS.map(c => `<option${a&&a.category===c?' selected':''}>${gEsc(c)}</option>`).join('')}</select></div>
+      <div><label style="font-size:11px;color:var(--t2);display:block">형식</label><select id="br-kind">${['이미지','2D','3D','영상','문서','굿즈'].map(k => `<option${a&&a.kind===k?' selected':''}>${gEsc(k)}</option>`).join('')}</select></div>
+      <div><label style="font-size:11px;color:var(--t2);display:block">캐릭터</label><select id="br-role">${roles.map(r => `<option${a&&a.charRole===r?' selected':''}>${gEsc(r)}</option>`).join('')}</select></div>
+      <div><label style="font-size:11px;color:var(--t2);display:block">버전</label><input id="br-ver" value="${gEsc(a?(a.version||'v1'):'v1')}" style="width:70px"></div>
+    </div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+      <div style="flex:1;min-width:220px"><label style="font-size:11px;color:var(--t2);display:block">설명 · 사용 지침</label><input id="br-desc" value="${gEsc(a?a.desc:'')}" placeholder="예: 블로그 상단용. 배경 투명. 로고는 좌측 상단"></div>
+      <div style="flex:1;min-width:220px"><label style="font-size:11px;color:var(--t2);display:block">파일(6MB 이하) 또는 아래 링크</label><input type="file" id="br-file" style="font-size:12px"></div>
+    </div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+      <div style="flex:1;min-width:240px"><label style="font-size:11px;color:var(--t2);display:block">파일 링크(드라이브·외부)</label><input id="br-url" value="${gEsc(a?a.fileUrl:'')}" placeholder="파일을 올리면 자동으로 채워집니다"></div>
+      <div><label style="font-size:11px;color:var(--t2);display:block">상태</label><select id="br-st">${BRAND_STATUS.map(s => `<option${a&&a.status===s?' selected':(!a&&s==='초안'?' selected':'')}${(!brandIsAdmin() && (s==='승인'||s==='사용'||s==='보관'))?' disabled':''}>${gEsc(s)}</option>`).join('')}</select></div>
+      <button class="btn btn-g" id="br-save-btn" onclick="brandFormSave()">💾 저장</button>
+      <button class="btn btn-sm" onclick="brandFormClose()">취소</button>
+    </div>
+    <div style="font-size:11px;color:var(--t3);margin-top:6px">초안 → 검토대기 → <b>대표 승인</b> → 사용 순서로만 대외에 씁니다. 승인·사용 표시는 대표만 할 수 있습니다.</div>`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function brandFormClose(){ const b = document.getElementById('br-form'); if(b){ b.style.display = 'none'; b.innerHTML = ''; } }
+function brandFileB64(file){
+  return new Promise((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result||'').split(',')[1] || ''); rd.onerror = () => rej(new Error('파일을 읽지 못했습니다')); rd.readAsDataURL(file); });
+}
+async function brandFormSave(){
+  const name = (document.getElementById('br-name').value||'').trim();
+  if(!name){ showToast('자산 이름을 입력해주세요'); return; }
+  const btn = document.getElementById('br-save-btn'); btn.disabled = true; btn.textContent = '⏳ 저장 중…';
+  try{
+    const id = document.getElementById('br-id').value || ('br_' + Date.now().toString(36));
+    const old = brandAssets.find(x => x.id === id) || {};
+    const f = document.getElementById('br-file').files[0];
+    let up = null;
+    if(f){
+      if(f.size > 6 * 1024 * 1024) throw new Error('파일이 6MB 를 넘습니다 — 줄여서 올리거나 링크로 등록하세요');
+      up = await gsCall('brandUpload', { name: f.name, mime: f.type || 'application/octet-stream', b64: await brandFileB64(f) });
+    }
+    const item = {
+      id, name,
+      category: document.getElementById('br-cat').value,
+      kind: document.getElementById('br-kind').value,
+      charRole: document.getElementById('br-role').value,
+      desc: (document.getElementById('br-desc').value||'').trim(),
+      fileUrl: up ? up.fileUrl : (document.getElementById('br-url').value||'').trim(),
+      fileId: up ? up.fileId : (old.fileId || ''),
+      thumbUrl: up ? up.thumbUrl : (old.thumbUrl || ''),
+      version: (document.getElementById('br-ver').value||'v1').trim(),
+      status: document.getElementById('br-st').value,
+      approvedAt: old.approvedAt || '', approvedBy: old.approvedBy || '',
+      createdBy: old.createdBy || crmWho(),
+      usedFor: old.usedFor || '', usedAt: old.usedAt || '', note: old.note || '',
+      updatedAt: new Date().toISOString(),
+    };
+    await gsCall('upsert', { type: 'brand', data: item });
+    showToast(up ? `자산 저장 ✓ (파일 ${Math.round(up.size/1024)}KB 드라이브 보관)` : '자산 저장 ✓');
+    brandFormClose(); await brandLoad(); brandGridRender();
+  }catch(e){ showToast('저장 실패: ' + e.message); }
+  btn.disabled = false; btn.textContent = '💾 저장';
+}
+async function brandSetStatus(id, st){
+  const a = brandAssets.find(x => x.id === id); if(!a) return;
+  if(!brandIsAdmin() && (st === '승인' || st === '사용' || st === '보관')){ showToast('승인·사용·보관 표시는 대표만 할 수 있습니다'); brandGridRender(); return; }
+  try{
+    const item = Object.assign({}, a, { status: st, updatedAt: new Date().toISOString() });
+    await gsCall('upsert', { type: 'brand', data: item });
+    showToast(`상태 → ${st} ✓`);
+    await brandLoad(); brandGridRender();
+  }catch(e){ showToast('변경 실패: ' + e.message); brandGridRender(); }
+}
+async function brandUseAdd(id){
+  const a = brandAssets.find(x => x.id === id); if(!a) return;
+  const where = prompt('어디에 썼는지 적어 주세요 (예: 네이버 블로그 9/8 매물 소개, 명함 시안)');
+  if(where === null || !where.trim()) return;
+  try{
+    const tag = `${todayStr()} ${where.trim()}`;
+    const item = Object.assign({}, a, { usedFor: (a.usedFor ? a.usedFor + ' / ' : '') + tag, usedAt: todayStr(), updatedAt: new Date().toISOString() });
+    await gsCall('upsert', { type: 'brand', data: item });
+    showToast('사용처 기록 ✓'); await brandLoad(); brandGridRender();
+  }catch(e){ showToast('기록 실패: ' + e.message); }
+}
+async function brandDeleteAsset(id){
+  if(!brandIsAdmin()){ showToast('삭제는 대표만 할 수 있습니다'); return; }
+  const a = brandAssets.find(x => x.id === id); if(!a) return;
+  if(!confirm(`'${a.name}' 을(를) 목록에서 지웁니다.\n드라이브의 원본 파일은 그대로 남습니다(폴더: 브리즈_브랜드스튜디오). 진행할까요?`)) return;
+  try{ await gsCall('brandDelete', { id }); showToast('목록에서 삭제 ✓ (드라이브 원본은 보존)'); await brandLoad(); brandGridRender(); }
+  catch(e){ showToast('삭제 실패: ' + e.message); }
+}
+function brandCharsToggle(){
+  const b = document.getElementById('br-chars'); if(!b) return;
+  b.style.display = (b.style.display === 'none' || !b.style.display) ? '' : 'none';
+  if(b.style.display === '') brandCharsRender();
+}
+function brandCharsRender(){
+  const b = document.getElementById('br-chars'); if(!b || b.style.display === 'none') return;
+  const g = brandGuide(), admin = brandIsAdmin(), dis = admin ? '' : ' disabled';
+  b.innerHTML = `<div class="card-title">🧍 캐릭터 기준표 <span style="font-size:11px;color:var(--t3);font-weight:400">모든 콘텐츠가 이 표를 따릅니다 · 공식 이름은 대표가 정합니다</span></div>
+    <div style="font-size:11px;color:var(--t3);margin:4px 0 8px">${gEsc(g.note||'')}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>공식 이름</th><th>역할</th><th>쓰는 곳</th><th>고정 특징(얼굴·머리·의상·색)</th></tr></thead><tbody>
+    ${g.chars.map((c,i) => `<tr>
+      <td><input data-bc="name" data-i="${i}" value="${gEsc(c.name||'')}" placeholder="이름 미정" style="width:110px"${dis}></td>
+      <td><input data-bc="role" data-i="${i}" value="${gEsc(c.role||'')}" style="width:120px"${dis}></td>
+      <td><input data-bc="use" data-i="${i}" value="${gEsc(c.use||'')}" style="width:100%;min-width:180px"${dis}></td>
+      <td><input data-bc="fixed" data-i="${i}" value="${gEsc(c.fixed||'')}" style="width:100%;min-width:220px"${dis}></td>
+    </tr>`).join('')}
+    </tbody></table></div>
+    <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+      ${g.colors.map((c,i) => `<label style="font-size:11.5px;display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:16px;height:16px;border-radius:4px;border:1px solid #ccc;background:${gEsc(c.hex)}"></span>${gEsc(c.name)} <input data-bk="hex" data-i="${i}" value="${gEsc(c.hex)}" style="width:86px;font-family:monospace"${dis}></label>`).join('')}
+      ${admin?'<button class="btn btn-sm btn-g" onclick="brandCharsSave()">💾 기준표 저장</button>':'<span style="font-size:11px;color:var(--t3)">수정은 대표만</span>'}
+    </div>
+    <div style="font-size:11px;color:var(--t2);margin-top:8px"><b>지켜야 할 것</b> · ${g.rules.map(gEsc).join(' · ')}</div>`;
+}
+async function brandCharsSave(){
+  if(!brandIsAdmin()){ showToast('기준표는 대표만 고칠 수 있습니다'); return; }
+  const g = brandGuide();
+  document.querySelectorAll('#br-chars input[data-bc]').forEach(el => { const i = +el.getAttribute('data-i'); if(g.chars[i]) g.chars[i][el.getAttribute('data-bc')] = el.value.trim(); });
+  document.querySelectorAll('#br-chars input[data-bk]').forEach(el => { const i = +el.getAttribute('data-i'); if(g.colors[i]) g.colors[i].hex = el.value.trim(); });
+  try{ await cfgSetRemote('BRAND_GUIDE', JSON.stringify(g)); brandGuideObj = g; showToast('기준표 저장 ✓ (모든 기기 공통)'); brandCharsRender(); }
+  catch(e){ showToast('저장 실패: ' + e.message); }
+}
+
 /* ═══ 🥕 매물 수집 (당근·오일장) — 2026-09-07 신설, 대표(마스터) 전용 ═══
    서버(GAS)가 직접 받아온다. PC를 켜 둘 필요가 없다.
    🔴 여기서 메뉴를 감추는 것은 '보조'일 뿐이다. 진짜 차단은 서버의 colAdmin_ 이 한다.
@@ -8932,7 +9886,7 @@ async function visitPush(v){
 }
 function visitMake(kind, extra){
   const v = Object.assign({ id: uid(), kind, agent: crmWho(), listingId:'', listingName:'', customerId:'', customerName:'',
-    lat:'', lon:'', dist:'', at: todayStr() + ' ' + nowHM(), rating:'', prob:'', memo:'', updatedAt: new Date().toISOString() }, extra || {});
+    lat:'', lon:'', dist:'', at: todayStr() + ' ' + nowHM(), rating:'', prob:'', memo:'', outAt:'', stayMin:'', updatedAt: new Date().toISOString() }, extra || {});
   visits.push(v); visitsSave(); return v;
 }
 async function visitAttend(kind){
@@ -8986,14 +9940,14 @@ function visitList(){
   document.getElementById('vt-attend').textContent = att.length ? att.map(v => `${v.kind} ${String(v.at).slice(11)}`).join(' · ') : '아직 기록 없음';
   const vs = rows.filter(v => v.kind === '임장');
   document.getElementById('vt-count').textContent = `오늘 임장 ${vs.length}건`;
-  el.innerHTML = vs.length ? '<div class="tbl-wrap"><table><thead><tr><th>시각</th><th>매물</th><th>고객</th><th>반응</th><th>가능성</th><th>메모</th><th>위치</th></tr></thead><tbody>'
-    + vs.map(v => `<tr><td>${gEsc(String(v.at).slice(11))}</td><td>${gEsc(v.listingName||'-')}</td><td>${gEsc(v.customerName||'-')}</td><td>${v.rating?'★'+gEsc(v.rating):'-'}</td><td>${gEsc(v.prob||'-')}</td><td style="font-size:11px">${gEsc(v.memo||'')}</td><td style="font-size:11px">${v.lat?'📍':'-'}</td></tr>`).join('')
+  el.innerHTML = vs.length ? '<div class="tbl-wrap"><table><thead><tr><th>시각</th><th>매물</th><th>고객</th><th>반응</th><th>가능성</th><th>메모</th><th>위치</th><th>체크아웃</th></tr></thead><tbody>'
+    + vs.map(v => `<tr><td>${gEsc(String(v.at).slice(11))}</td><td>${gEsc(v.listingName||'-')}</td><td>${gEsc(v.customerName||'-')}</td><td>${v.rating?'★'+gEsc(v.rating):'-'}</td><td>${gEsc(v.prob||'-')}</td><td style="font-size:11px">${gEsc(v.memo||'')}</td><td style="font-size:11px">${v.lat?'📍':'-'}</td><td style="white-space:nowrap">${v.outAt ? gEsc(String(v.outAt).slice(11)) + (v.stayMin ? ' · ' + gEsc(v.stayMin) + '분' : '') : `<button class="btn btn-xs" onclick="visitCheckout('${gEsc(v.id)}')">🏁 체크아웃</button>`}</td></tr>`).join('')
     + '</tbody></table></div>' : '<div class="empty-state"><div class="es-icon">📍</div>오늘 임장 기록이 없습니다. 위에서 매물·고객을 고르고 [체크인]을 누르세요.</div>';
 }
 
 /* ═══════════════ 💰 수당 정산 ═══════════════ */
-function payoutSplit(){ const v = parseFloat(localStorage.getItem('crm_split_pct')); return isNaN(v) ? 50 : v; }
-function payoutTax(){ const v = parseFloat(localStorage.getItem('crm_tax_pct')); return isNaN(v) ? 3.3 : v; }
+function payoutSplit(){ const c = parseFloat(cfgGet('PAYOUT_SPLIT')); if(!isNaN(c)) return c; const v = parseFloat(localStorage.getItem('crm_split_pct')); return isNaN(v) ? 50 : v; }   // 09-08 사무소 공통(cfg) 우선
+function payoutTax(){ const c = parseFloat(cfgGet('PAYOUT_TAX')); if(!isNaN(c)) return c; const v = parseFloat(localStorage.getItem('crm_tax_pct')); return isNaN(v) ? 3.3 : v; }
 function payoutFeeSuggest(c){
   const man = manFromText(c.price); if(!man) return 0;
   const rate = c.type === '매매' ? 0.004 : 0.003;                      // 법정 상한 안쪽 기본값(만원 기준) — 화면에서 고칠 수 있음
@@ -9002,9 +9956,12 @@ function payoutFeeSuggest(c){
 function payoutHold(c){ return c.riskGrade === 'RED' || c.trackState === 'CANCELLED'; }
 function payoutCalc(c){
   const fee = Math.round(Number(String(c.feeAmt||'').replace(/[^\d]/g,''))||0);
-  const split = payoutSplit(), tax = payoutTax();
-  const mine = Math.round(fee * split / 100), taxAmt = Math.round(mine * tax / 100);
-  return { fee, split, mine, tax, taxAmt, net: mine - taxAmt, hold: payoutHold(c) };
+  // 🤝 09-08 공동중개: 우리 사무소 몫(coRate %, 빈 칸=100) → 담당자 요율(없으면 기본 배분율) → 세금
+  const coRate = (c.coRate === undefined || c.coRate === '' || isNaN(parseFloat(c.coRate))) ? 100 : Math.max(0, Math.min(100, parseFloat(c.coRate)));
+  const office = Math.round(fee * coRate / 100);
+  const split = payoutRateFor(c.agent), tax = payoutTax();
+  const mine = Math.round(office * split / 100), taxAmt = Math.round(mine * tax / 100);
+  return { fee, coRate, office, split, mine, tax, taxAmt, net: mine - taxAmt, hold: payoutHold(c) };
 }
 function payoutRender(){
   const mEl = document.getElementById('po-month'); if(!mEl) return;
@@ -9016,26 +9973,31 @@ function payoutRender(){
   const month = mEl.value;
   const rows = contracts.filter(c => String(c.start||'').slice(0,7) === month);
   const el = document.getElementById('po-table');
-  let sumFee = 0, sumNet = 0, held = 0;
+  let sumFee = 0, sumOffice = 0, sumNet = 0, held = 0;
+  const escOpts = ['', '예치', '해제', '정산완료'];
   const html = rows.map(c => {
     const p = payoutCalc(c);
-    if(!p.hold){ sumFee += p.fee; sumNet += p.net; } else held++;
+    if(!p.hold){ sumFee += p.fee; sumOffice += p.office; sumNet += p.net; } else held++;
     const sug = payoutFeeSuggest(c);
+    const id = gEsc(c.id);
     return `<tr${p.hold?' style="opacity:.6"':''}>
-      <td style="font-weight:600">${gEsc(c.apt||'')}${c.addr2?' '+gEsc(c.addr2):''}</td>
+      <td style="font-weight:600">${gEsc(c.apt||'')}${c.addr2?' '+gEsc(c.addr2):''}<div style="font-size:10px;color:var(--t3)">${gEsc(c.agent||'담당 미지정')} · 요율 ${p.split}%</div></td>
       <td>${typeBadge(c.type)}</td>
       <td style="white-space:nowrap">${gEsc(c.price||'')}${c.rentAmt?' / '+gEsc(c.rentAmt):''}</td>
-      <td><input type="number" min="0" step="10000" value="${p.fee||''}" placeholder="${sug?sug.toLocaleString('ko-KR'):'중개보수'}" style="width:110px" onchange="payoutSetFee('${gEsc(c.id)}', this.value)"></td>
-      <td style="white-space:nowrap">${p.split}% → ${wonFmt(p.mine)}</td>
+      <td><input type="number" min="0" step="10000" value="${p.fee||''}" placeholder="${sug?sug.toLocaleString('ko-KR'):'중개보수'}" style="width:110px" onchange="payoutSetFee('${id}', this.value)"></td>
+      <td style="white-space:nowrap"><input value="${gEsc(c.coName||'')}" placeholder="공동중개 사무소" style="width:110px" onchange="payoutSetCo('${id}','coName',this.value)"> <input type="number" min="0" max="100" value="${p.coRate}" style="width:56px" title="우리 사무소 몫 %" onchange="payoutSetCo('${id}','coRate',this.value)">%</td>
+      <td style="white-space:nowrap">${wonFmt(p.office)} → ${wonFmt(p.mine)}</td>
       <td style="white-space:nowrap">−${wonFmt(p.taxAmt)}</td>
       <td style="white-space:nowrap;font-weight:700">${p.hold ? '<span class="badge" style="background:#FEE2E2;color:#991B1B">보류(이상거래)</span>' : wonFmt(p.net)}</td>
+      <td style="white-space:nowrap"><select onchange="payoutSetCo('${id}','escrow',this.value)">${escOpts.map(x => `<option value="${x}"${(c.escrow||'')===x?' selected':''}>${x||'에스크로 없음'}</option>`).join('')}</select> <input type="date" value="${gEsc(c.feePaidAt||'')}" title="중개보수 입금일" onchange="payoutSetCo('${id}','feePaidAt',this.value)"></td>
     </tr>`;
   }).join('');
   el.innerHTML = rows.length
-    ? '<div class="tbl-wrap"><table><thead><tr><th>계약</th><th>유형</th><th>금액</th><th>중개보수(원)</th><th>내 배분</th><th>세금</th><th>세후</th></tr></thead><tbody>' + html + '</tbody></table></div>'
+    ? '<div class="tbl-wrap"><table><thead><tr><th>계약 · 담당</th><th>유형</th><th>금액</th><th>중개보수(원)</th><th>공동중개(사무소 · 우리 몫%)</th><th>사무소 몫 → 내 배분</th><th>세금</th><th>세후</th><th>에스크로 · 입금일</th></tr></thead><tbody>' + html + '</tbody></table></div>'
     : '<div class="empty-state"><div class="es-icon">💰</div>이 달에 시작한 계약이 없습니다 (계약 완료 탭의 계약 시작일 기준).</div>';
   document.getElementById('po-sum').innerHTML =
-    `계약 <b>${rows.length}</b>건 · 중개보수 합계 <b>${wonFmt(sumFee)}</b> · 세후 지급 예정 <b style="color:var(--g);font-size:16px">${wonFmt(sumNet)}</b>` + (held ? ` · <span style="color:#991B1B">보류 ${held}건(이상거래 RED/해제)</span>` : '');
+    `계약 <b>${rows.length}</b>건 · 중개보수 합계 <b>${wonFmt(sumFee)}</b> · 우리 사무소 몫 <b>${wonFmt(sumOffice)}</b> · 세후 지급 예정 <b style="color:var(--g);font-size:16px">${wonFmt(sumNet)}</b>` + (held ? ` · <span style="color:#991B1B">보류 ${held}건(이상거래 RED/해제)</span>` : '');
+  payoutRatesRender();
 }
 function payoutSetFee(id, val){
   const c = contracts.find(x => x.id === id); if(!c) return;
@@ -9047,9 +10009,11 @@ function payoutSetFee(id, val){
 function payoutSetting(){
   if(window.__crmRole !== 'admin'){ showToast('배분율·세율은 대표만 바꿀 수 있습니다'); payoutRender(); return; }
   const s = parseFloat(document.getElementById('po-split').value), t = parseFloat(document.getElementById('po-tax').value);
-  if(!isNaN(s) && s >= 0 && s <= 100) localStorage.setItem('crm_split_pct', String(s));
-  if(!isNaN(t) && t >= 0 && t <= 50) localStorage.setItem('crm_tax_pct', String(t));
-  showToast('정산 기준 저장 ✓'); payoutRender();
+  // 09-08: 기기(localStorage)에도 남기지만 진짜 기준은 서버 cfg — 폰·PC·직원 화면이 같은 값을 쓴다
+  const fail = e => showToast('⚠ 서버 저장 실패(이 기기에만 저장됨): ' + e.message);
+  if(!isNaN(s) && s >= 0 && s <= 100){ localStorage.setItem('crm_split_pct', String(s)); cfgSetRemote('PAYOUT_SPLIT', s).catch(fail); }
+  if(!isNaN(t) && t >= 0 && t <= 50){ localStorage.setItem('crm_tax_pct', String(t)); cfgSetRemote('PAYOUT_TAX', t).catch(fail); }
+  showToast('정산 기준 저장 ✓ (사무소 공통)'); payoutRender();
 }
 
 /* ═══════════════ 📊 경영 통계 ═══════════════ */
@@ -9090,11 +10054,13 @@ function statsRender(){
 
 /* ═══════════════ 홈 대시보드 추가 타일 ═══════════════ */
 function dashExtraStats(){
-  const r = document.getElementById('stat-risk'), v = document.getElementById('stat-visit');
+  const r = document.getElementById('stat-risk'), v = document.getElementById('stat-visit'), a = document.getElementById('stat-audit');
   if(r) r.textContent = contracts.filter(c => c.riskGrade === 'RED' || c.riskGrade === 'AMBER' || /CANCELLED|REGISTRY_DELAY|REPORT_MISSING/.test(String(c.trackState||''))).length;
   if(v){ const t = todayStr(); v.textContent = visits.filter(x => x.kind === '임장' && String(x.at||'').slice(0,10) === t).length; }
+  if(a && typeof auditLastGet === 'function'){ const last = auditLastGet(); const n = last ? auditWarnCount(last) : null; a.textContent = n === null ? '-' : n; const sb = document.getElementById('sb-audit'); if(sb){ sb.textContent = n || 0; sb.style.display = n ? '' : 'none'; } }
 }
 setTimeout(() => { try { dashExtraStats(); } catch(e){} }, 0);
+
 
 async function gsCall(action, payload){
   const url = getGsUrl();
