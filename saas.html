@@ -15,7 +15,7 @@
 <!-- Apple Touch Icons (인라인 SVG → data URI로 대체, 별도 파일 불필요) -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<title>브리즈부동산중개 CRM</title>
+<title>브리즈 SaaS — 업무화면 미리보기</title>
 <!-- xlsx-js-style: SheetJS 0.18.5 동일 API + 셀 서식(색상) 지원 — 당근 엑셀 필수칼럼 노랑 표시용 --><script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 /* PWA 설치 배너 */
@@ -61,6 +61,83 @@
 .guide-shot{width:100%;height:230px;overflow:hidden;border:1px solid var(--border);border-radius:10px;background:#F7F8FA;position:relative}
 .guide-shot-in{transform:scale(.42);transform-origin:0 0;width:238%;pointer-events:none}
 .guide-shot-in .panel{display:block;padding:12px}
+
+/* ══ 🏢 브리즈 SaaS 업무화면 셸 (2026-09-08 생성) ══
+   네이비·딥그린 + 흰 배경. 금색 금지 — 기존 --a(#BA7517 금색 계열)를 벽돌색으로 덮는다.
+   밀도: 본문 13px / 라벨 12px / 숫자 14px tabular / 행높이 32px. */
+:root{
+  --navy:#12305B; --navy-d:#0B2240; --navy-l:#E8EEF6;
+  --a:#C2410C; --al:#FDEBE1;            /* 금색 제거 */
+  --shell-h:56px; --nav-w:248px;
+}
+body{font-size:13px}
+.layout{display:grid;grid-template-columns:var(--nav-w) 1fr;grid-template-rows:var(--shell-h) 1fr;min-height:100vh}
+.sx-top{grid-column:1 / -1;display:flex;align-items:center;gap:14px;background:var(--navy);color:#fff;padding:0 16px;position:sticky;top:0;z-index:120}
+.sx-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.2px;white-space:nowrap}
+.sx-logo i{display:inline-block;width:22px;height:22px;border-radius:6px;background:#fff;color:var(--navy);font-style:normal;font-weight:800;font-size:13px;text-align:center;line-height:22px}
+.sx-co{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:8px;padding:6px 10px;font-size:12.5px;cursor:pointer}
+.sx-co select{background:transparent;border:0;color:#fff;font-size:12.5px;font-weight:600;outline:none;cursor:pointer}
+.sx-co select option{color:#1A1D21}
+.sx-search{flex:1;max-width:460px;position:relative}
+.sx-search input{width:100%;height:34px;border-radius:8px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;padding:0 12px 0 32px;font-size:13px;outline:none}
+.sx-search input::placeholder{color:rgba(255,255,255,.65)}
+.sx-search:before{content:'';position:absolute;left:11px;top:11px;width:12px;height:12px;border:1.6px solid rgba(255,255,255,.75);border-radius:50%}
+.sx-res{position:absolute;left:0;right:0;top:38px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.16);max-height:400px;overflow:auto;display:none;z-index:130}
+.sx-res div.r{padding:9px 12px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--bg3);color:#1A1D21}
+.sx-res div.r:hover{background:var(--navy-l)}
+.sx-res .k{font-size:10.5px;color:#fff;background:var(--navy);border-radius:4px;padding:1px 5px;margin-right:6px}
+.sx-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.sx-ico{width:44px;height:44px;border:0;background:transparent;color:#fff;font-size:16px;cursor:pointer;border-radius:8px;position:relative}
+.sx-ico:hover{background:rgba(255,255,255,.12)}
+.sx-dot{position:absolute;top:9px;right:10px;min-width:16px;height:16px;border-radius:9px;background:#E11D48;color:#fff;font-size:10px;line-height:16px;padding:0 4px;font-weight:700}
+.sx-me{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:8px;cursor:pointer}
+.sx-me:hover{background:rgba(255,255,255,.12)}
+.sx-av{width:26px;height:26px;border-radius:50%;background:#fff;color:var(--navy);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+.sx-me b{font-size:12.5px;font-weight:600}
+.sx-me span{font-size:11px;opacity:.8}
+.sx-pop{position:absolute;right:12px;top:52px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:280px;max-width:360px;display:none;z-index:130;overflow:hidden}
+.sx-pop h4{margin:0;padding:11px 14px;font-size:12.5px;background:var(--bg3);color:var(--t2);font-weight:700}
+.sx-pop a,.sx-pop button{display:block;width:100%;text-align:left;padding:10px 14px;font-size:12.5px;border:0;background:none;cursor:pointer;color:#1A1D21;border-top:1px solid var(--bg3)}
+.sx-pop a:hover,.sx-pop button:hover{background:var(--navy-l)}
+.sidebar{padding-bottom:24px}
+.sb-header{padding:10px 14px 8px}
+.sb-sub{font-size:11px;color:var(--t3)}
+.sx-dept{padding:13px 14px 5px;font-size:11.5px;font-weight:800;color:var(--navy);letter-spacing:.2px;display:flex;align-items:baseline;gap:6px;border-top:1px solid var(--bg3);margin-top:4px}
+.sx-dept:first-of-type{border-top:0;margin-top:0}
+.sx-dept em{font-style:normal;font-size:10.5px;font-weight:500;color:var(--t3)}
+.sx-item{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 22px;margin:0 8px;border-radius:7px;font-size:13px;color:var(--t2);cursor:pointer;border:0;background:none;width:calc(100% - 16px);text-align:left;line-height:18px}
+.sx-item:hover{background:var(--bg3);color:#1A1D21}
+.sx-item.on{background:var(--navy-l);color:var(--navy);font-weight:700}
+.sx-item.on:before{content:'';position:absolute;left:8px;width:3px;height:18px;border-radius:2px;background:var(--navy)}
+.sx-item{position:relative}
+.sx-item.soon{color:var(--t3);cursor:not-allowed}
+.sx-tag{margin-left:auto;font-size:9.5px;border-radius:4px;padding:1px 5px;font-weight:700}
+.sx-tag.soon{background:var(--bg3);color:var(--t3)}
+.sx-tag.ref{background:var(--bl);color:var(--b)}
+.sx-tag.p1{background:#FEF3C7;color:#92400E}
+.sx-crumb{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t3);margin:-6px 0 14px}
+.sx-crumb b{color:var(--navy);font-weight:700}
+.main{padding:20px 22px}
+.stat-num{font-variant-numeric:tabular-nums}
+table td,table th{font-size:12.5px}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .sx-search{display:none}
+  .sx-me b,.sx-me span{display:none}
+  .main{padding:14px 12px}
+  .sx-item{padding:11px 12px 11px 22px;font-size:14px}
+}
+/* 대표 홈 */
+.ch-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:900px){.ch-row{grid-template-columns:1fr}}
+.ch-rep{border:1px solid var(--border);border-radius:14px;background:#fff;padding:16px 18px}
+.ch-rep h3{margin:0 0 10px;font-size:14px;color:var(--navy)}
+.ch-line{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--bg3);font-size:12.5px}
+.ch-line:last-child{border-bottom:0}
+.ch-line b{font-variant-numeric:tabular-nums}
+.ch-na{color:var(--t3)}
+.ch-warn{border-left:3px solid #E11D48;padding-left:10px}
+
 </style>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -468,44 +545,79 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
 <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobile()">☰</button>
 
 <div class="layout">
+<div class="sx-top">
+  <div class="sx-logo"><i>B</i> 브리즈 SaaS</div>
+  <div class="sx-co"><select id="sx-co" onchange="sxCompany(this.value)">
+    <option value="head">브리즈부동산중개</option>
+    <option value="design">브리즈디자인 (계열사)</option>
+    <option value="academy">브리즈아카데미 (계열사)</option>
+  </select></div>
+  <div class="sx-search"><input id="sx-q" placeholder="매물·고객·임대인·계약 통합검색" autocomplete="off"
+    oninput="sxSearch(this.value)" onfocus="sxSearch(this.value)"><div class="sx-res" id="sx-res"></div></div>
+  <div class="sx-right">
+    <button class="sx-ico" onclick="sxPop('sx-noti')" title="알림">🔔<span class="sx-dot" id="sx-noti-n" style="display:none">0</span></button>
+    <div class="sx-me" onclick="sxPop('sx-acc')"><div class="sx-av" id="sx-av">브</div>
+      <div><b id="sx-who">대표</b><br><span id="sx-role">대표 계정</span></div></div>
+  </div>
+  <div class="sx-pop" id="sx-noti"><h4>알림</h4><div id="sx-noti-body"></div></div>
+  <div class="sx-pop" id="sx-acc"><h4>내 계정</h4><div id="sx-acc-body"></div></div>
+</div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 14:00</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 14:00</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
-        <div class="sb-section">1 · 대표실 · 통합 보고·지시·승인</div>
-    <button class="sb-item on" onclick="go('dash')">📊 홈 대시보드<span class="sb-badge amber" id="sb-warn">0</span></button>
-    <button class="sb-item" onclick="go('stats')">📊 경영 통계<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <div class="sb-section">2 · 관리부 · 인사·회계·결재</div>
-    <button class="sb-item" onclick="go('expiry')">⏰ 만기 관리<span class="sb-badge red" id="sb-exp">0</span></button>
-    <button class="sb-item" onclick="go('payout')">💰 수당 정산<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <button class="sb-item" id="sb-staff" style="display:none" onclick="go('staff')">👥 직원 관리<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
-    <div class="sb-section">3 · 운영부 · 영업·매물·계약</div>
-    <button class="sb-item" onclick="go('listing')">🏠 매물 관리</button>
-    <button class="sb-item" id="sb-map" data-feature="map" style="display:none" onclick="go('map')">🗺 매물 지도<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
-    <button class="sb-item" onclick="go('customer')">👥 고객 관리<span class="sb-badge red" id="sb-customer" style="display:none">0</span></button>
-    <button class="sb-item" onclick="go('landlord')">🤝 임대인 관리<span class="sb-badge red" id="sb-landlord" style="display:none">0</span></button>
-    <button class="sb-item" onclick="go('sms')">💬 문자 발송<span class="sb-badge green">준비됨</span></button>
-    <button class="sb-item vito-menu" onclick="go('vito')">🎙️ 회의·음성 메모<span class="sb-badge" style="background:var(--vtl);color:var(--vt)">STT</span></button>
-    <button class="sb-item" onclick="go('visit')">📍 임장 체크인·근태<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <button class="sb-item" onclick="go('contract')">📋 계약 완료</button>
-    <button class="sb-item" onclick="go('contract-writer')" style="color:#7C3AED">📝 계약서 작성<span class="sb-badge" style="background:#EDE9FE;color:#7C3AED">AI·⚖</span></button>
-    <button class="sb-item" onclick="go('apt')">📈 아파트 시세<span class="sb-badge" style="background:#E0F2FE;color:#0369A1">실거래</span></button>
-    <button class="sb-item" id="sb-gather" style="display:none" onclick="go('gather')">🥕 매물 수집<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
-    <div class="sb-section">4 · 마케팅부 · 광고·콘텐츠</div>
-    <button class="sb-item" onclick="go('ads')">📣 광고관리<span class="sb-badge red" id="sb-ad-todo" style="display:none">0</span></button>
-    <button class="sb-item" data-feature="links" onclick="go('links')">🔗 링크 보관함<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
-    <div class="sb-section">5 · 개발부 · 시스템·검산·배포</div>
-    <button class="sb-item" data-feature="audit" onclick="go('audit')">🧹 데이터 검수<span class="sb-badge red" id="sb-audit" style="display:none">0</span></button>
-    <button class="sb-item" id="sb-ai-center" data-feature="ai-center" style="display:none" onclick="go('ai-center')">🤖 AI 직원 센터<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1·대표시험</span></button>
-    <div class="sb-section">6 · 브리즈디자인 · 브랜드(계열사)</div>
-    <button class="sb-item" id="sb-brand" data-feature="brand" style="display:none" onclick="go('brand')">🎨 브랜드 스튜디오<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
-    <div class="sb-section">7 · 브리즈아카데미 · 교육(계열사)</div>
-    <button class="sb-item" data-feature="guide" onclick="go('guide')">📘 이용 가이드<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <button class="sb-item" title="취득세·양도세·중개보수·대출 한도 계산기 (새 창)" onclick="window.open('https://eya170823-rgb.github.io/crm/calc/','_blank','noopener')">🧮 계산기<span class="sb-badge" style="background:#FEF3C7;color:#B45309">세금·대출</span></button>
-<div class="sb-footer">
+        
+      <div class="sx-dept" data-co="head" data-admin="1">대표실<em>통합 보고·지시·승인</em></div>
+        <button class="sx-item" data-co="head" data-menu="chief" onclick="sxGo('chief')">대표 홈</button>
+        <button class="sx-item" data-co="head" data-menu="stats" onclick="sxGo('stats')">경영 통계</button>
+        <button class="sx-item" data-co="head" data-menu="approval" onclick="sxGo('approval')">승인·보고함</button>
+      <div class="sx-dept" data-co="head">관리부<em>인사·회계·결재</em></div>
+        <button class="sx-item" data-co="head" data-menu="staff" data-admin="1" onclick="sxGo('staff')">인사·직원</button>
+        <button class="sx-item" data-co="head" data-menu="payout" onclick="sxGo('payout')">회계·정산</button>
+        <button class="sx-item" data-co="head" data-menu="expiry" onclick="sxGo('expiry')">일정</button>
+        <button class="sx-item" data-co="head" data-menu="approval" onclick="sxGo('approval')">전자결재</button>
+        <button class="sx-item" data-co="head" data-menu="guide" onclick="sxGo('guide')">교육 이력<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item" data-co="head" data-menu="approval" onclick="sxGo('approval')">보고 취합<span class="sx-tag ref">참조</span></button>
+      <div class="sx-dept" data-co="head">운영부<em>영업·매물·계약</em></div>
+        <button class="sx-item" data-co="head" data-menu="listing" onclick="sxGo('listing')">매물</button>
+        <button class="sx-item" data-co="head" data-menu="map" onclick="sxGo('map')">매물 지도</button>
+        <button class="sx-item" data-co="head" data-menu="apt" onclick="sxGo('apt')">시세 조회</button>
+        <button class="sx-item" data-co="head" data-menu="gather" data-admin="1" onclick="sxGo('gather')">매물 수집</button>
+        <button class="sx-item" data-co="head" data-menu="customer" onclick="sxGo('customer')">고객·임대인</button>
+        <button class="sx-item" data-co="head" data-menu="landlord" onclick="sxGo('landlord')">임대인 명부</button>
+        <button class="sx-item" data-co="head" data-menu="customer" onclick="sxGo('customer')">문의 인입<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item" data-co="head" data-menu="sms" onclick="sxGo('sms')">문자 발송</button>
+        <button class="sx-item" data-co="head" data-menu="visit" onclick="sxGo('visit')">임장</button>
+        <button class="sx-item" data-co="head" data-menu="vito" onclick="sxGo('vito')">음성 메모</button>
+        <button class="sx-item" data-co="head" data-menu="contract" onclick="sxGo('contract')">계약</button>
+        <button class="sx-item" data-co="head" data-menu="contract-writer" onclick="sxGo('contract-writer')">계약서 작성</button>
+        <button class="sx-item" data-co="head" data-menu="expiry" onclick="sxGo('expiry')">만기<span class="sx-tag ref">참조</span></button>
+      <div class="sx-dept" data-co="head">마케팅부<em>광고·콘텐츠</em></div>
+        <button class="sx-item" data-co="head" data-menu="ads" onclick="sxGo('ads')">광고 관리</button>
+        <button class="sx-item" data-co="head" data-menu="ads" onclick="sxGo('ads')">광고 성과<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item" data-co="head" data-menu="links" onclick="sxGo('links')">자료 링크</button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('블로그·SNS')">블로그·SNS<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('사진·썸네일')">사진·썸네일<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('홈페이지 콘텐츠')">홈페이지 콘텐츠<span class="sx-tag soon">준비 중</span></button>
+      <div class="sx-dept" data-co="head">개발부<em>시스템·검산·배포</em></div>
+        <button class="sx-item" data-co="head" data-menu="audit" onclick="sxGo('audit')">오류·검산</button>
+        <button class="sx-item" data-co="head" data-menu="ai-center" onclick="sxGo('ai-center')">AI 직원</button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('자동화 현황')">자동화 현황<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('프로그램 연결')">프로그램 연결<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('변경 이력')">변경 이력<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('배포 관리')">배포 관리<span class="sx-tag soon">준비 중</span></button>
+      <div class="sx-dept" data-co="design">제작<em>브랜드·홍보물</em></div>
+        <button class="sx-item" data-co="design" data-menu="brand" onclick="sxGo('brand')">브랜드 스튜디오</button>
+        <button class="sx-item" data-co="design" data-menu="brand" onclick="sxGo('brand')">캐릭터 기준표<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item soon" data-co="design" data-menu="" onclick="sxSoon('굿즈 시안')">굿즈 시안<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item soon" data-co="design" data-menu="" onclick="sxSoon('영상·애니메이션')">영상·애니메이션<span class="sx-tag soon">준비 중</span></button>
+      <div class="sx-dept" data-co="academy">교육<em>매뉴얼·강의</em></div>
+        <button class="sx-item" data-co="academy" data-menu="guide" onclick="sxGo('guide')">직원 매뉴얼</button>
+        <button class="sx-item soon" data-co="academy" data-menu="" onclick="sxSoon('강의 자료')">강의 자료<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item soon" data-co="academy" data-menu="" onclick="sxSoon('평가·이수')">평가·이수<span class="sx-tag soon">준비 중</span></button>
+    <div class="sb-footer">
       제주시 연동<br>바른 기준, 가치 있는 동행<br>
       <span id="today-display"></span>
       <!-- 구글 시트 연동 상태 -->
@@ -524,6 +636,27 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   </div>
 
   <div class="main">
+    <div class="sx-crumb" id="sx-crumb"></div>
+
+    <!-- 대표 홈 (통합) -->
+    <div class="panel" id="p-chief">
+      <div class="page-hd"><div><div class="page-title">대표 홈</div>
+        <div class="page-sub">전 부서 현황과 일일 경영보고를 한 장으로</div></div>
+        <div class="row"><button class="btn btn-sm" onclick="chiefRender()">새로고침</button></div></div>
+      <div id="chief-portal"></div>
+      <div class="ch-row">
+        <div class="ch-rep" id="chief-report"></div>
+        <div class="ch-rep" id="chief-risk"></div>
+      </div>
+    </div>
+
+    <!-- 승인·보고함 -->
+    <div class="panel" id="p-approval">
+      <div class="page-hd"><div><div class="page-title">승인 · 보고함</div>
+        <div class="page-sub">대표 승인이 필요한 일과 부서 보고를 모읍니다</div></div></div>
+      <div id="approval-body"></div>
+    </div>
+
 
     <!-- 대시보드 -->
     <div class="panel on" id="p-dash">
@@ -10372,6 +10505,158 @@ async function fillBldgBulk(){
   showToast(`🏢 대장 보충 완료 — 성공 ${ok}건 / 실패 ${miss}건`);
   if(misses.length) console.warn('대장 조회 실패(토지·무허가·미등재일 수 있음):\n' + misses.join('\n'));
 }
+
+
+/* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"대표실","desc":"통합 보고·지시·승인","adminOnly":true,"items":[{"label":"대표 홈","id":"chief"},{"label":"경영 통계","id":"stats"},{"label":"승인·보고함","id":"approval"}]},{"dept":"관리부","desc":"인사·회계·결재","items":[{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"일정","id":"expiry"},{"label":"전자결재","id":"approval"},{"label":"교육 이력","id":"guide","ref":true},{"label":"보고 취합","id":"approval","ref":true}]},{"dept":"운영부","desc":"영업·매물·계약","items":[{"label":"매물","id":"listing"},{"label":"매물 지도","id":"map"},{"label":"시세 조회","id":"apt"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"고객·임대인","id":"customer"},{"label":"임대인 명부","id":"landlord"},{"label":"문의 인입","id":"customer","ref":true},{"label":"문자 발송","id":"sms"},{"label":"임장","id":"visit"},{"label":"음성 메모","id":"vito"},{"label":"계약","id":"contract"},{"label":"계약서 작성","id":"contract-writer"},{"label":"만기","id":"expiry","ref":true}]},{"dept":"마케팅부","desc":"광고·콘텐츠","items":[{"label":"광고 관리","id":"ads"},{"label":"광고 성과","id":"ads","ref":true},{"label":"자료 링크","id":"links"},{"label":"블로그·SNS"},{"label":"사진·썸네일"},{"label":"홈페이지 콘텐츠"}]},{"dept":"개발부","desc":"시스템·검산·배포","items":[{"label":"오류·검산","id":"audit"},{"label":"AI 직원","id":"ai-center"},{"label":"자동화 현황"},{"label":"프로그램 연결"},{"label":"변경 이력"},{"label":"배포 관리"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사","depts":[{"dept":"제작","desc":"브랜드·홍보물","items":[{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"굿즈 시안"},{"label":"영상·애니메이션"}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사","depts":[{"dept":"교육","desc":"매뉴얼·강의","items":[{"label":"직원 매뉴얼","id":"guide"},{"label":"강의 자료"},{"label":"평가·이수"}]}]}];
+let sxCo = 'head';
+function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
+  try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
+function sxSoon(label){ showToast(label + ' — 준비 중입니다. 연결되면 이 자리에서 바로 씁니다'); }
+function sxGo(id){ go(id); sxCrumb(id); try{ localStorage.setItem('sx_last', id); }catch(e){} closeMobile && closeMobile(); }
+function sxMenuLabel(id){
+  for(const c of SX_NAV) for(const d of c.depts) for(const it of d.items) if(it.id === id && !it.ref) return { co: c.coName, dept: d.dept, label: it.label };
+  for(const c of SX_NAV) for(const d of c.depts) for(const it of d.items) if(it.id === id) return { co: c.coName, dept: d.dept, label: it.label };
+  return { co: '브리즈부동산중개', dept: '', label: id };
+}
+function sxCrumb(id){
+  const el = document.getElementById('sx-crumb'); if(!el) return;
+  const m = sxMenuLabel(id);
+  el.innerHTML = gEsc(m.co) + ' <span>›</span> ' + gEsc(m.dept) + ' <span>›</span> <b>' + gEsc(m.label) + '</b>';
+  document.querySelectorAll('.sx-item').forEach(b => b.classList.toggle('on', b.getAttribute('data-menu') === id));
+}
+function sxCompany(co){
+  sxCo = co;
+  document.querySelectorAll('.sx-dept,.sx-item').forEach(el => { el.style.display = (el.getAttribute('data-co') === co) ? '' : 'none'; });
+  sxRole();
+  try{ localStorage.setItem('sx_co', co); }catch(e){}
+  const first = document.querySelector('.sx-item[data-co="' + co + '"][data-menu]:not([data-menu=""])');
+  if(first) sxGo(first.getAttribute('data-menu'));
+}
+function sxRole(){
+  const admin = sxAdmin();
+  const who = (typeof crmWho === 'function') ? crmWho() : '사용자';
+  const w = document.getElementById('sx-who'), r = document.getElementById('sx-role'), a = document.getElementById('sx-av');
+  if(w) w.textContent = who;
+  if(r) r.textContent = admin ? '대표 계정' : '직원 계정';
+  if(a) a.textContent = (who || '브').charAt(0);
+  document.querySelectorAll('[data-admin="1"]').forEach(el => {
+    const coOk = el.getAttribute('data-co') === sxCo;
+    el.style.display = (admin && coOk) ? '' : 'none';
+  });
+  // 🔒 화면에서 감추는 것은 편의일 뿐 — 실제 차단은 서버(adminOnly_)가 한다
+}
+function sxPop(id){
+  const el = document.getElementById(id); if(!el) return;
+  const open = el.style.display === 'block';
+  document.querySelectorAll('.sx-pop').forEach(p => p.style.display = 'none');
+  if(!open){ el.style.display = 'block'; if(id === 'sx-noti') sxNotiRender(); if(id === 'sx-acc') sxAccRender(); }
+}
+document.addEventListener('click', e => { if(!e.target.closest('.sx-pop') && !e.target.closest('.sx-ico') && !e.target.closest('.sx-me')) document.querySelectorAll('.sx-pop').forEach(p => p.style.display = 'none'); }, true);
+function sxNotiList(){
+  const t = todayStr(), out = [];
+  const risk = contracts.filter(c => c.riskGrade === 'RED' || c.riskGrade === 'AMBER' || /CANCELLED|REGISTRY_DELAY|REPORT_MISSING/.test(String(c.trackState||'')));
+  if(risk.length) out.push({ k: '위험', t: '이상거래·추적 계약 ' + risk.length + '건', go: 'contract' });
+  const a = (typeof auditLastGet === 'function') ? auditLastGet() : null;
+  if(a && auditWarnCount(a)) out.push({ k: '검수', t: '매물 검수 경고 ' + auditWarnCount(a) + '건', go: 'audit' });
+  const call = customers.filter(c => c.nextContact && String(c.nextContact).slice(0,10) <= t);
+  if(call.length) out.push({ k: '고객', t: '오늘 연락할 손님 ' + call.length + '명', go: 'customer' });
+  const exp = (typeof get6m === 'function') ? get6m() : [];
+  if(exp.length) out.push({ k: '만기', t: '6개월 내 만기 ' + exp.length + '건', go: 'expiry' });
+  return out;
+}
+function sxNotiRender(){
+  const list = sxNotiList(), b = document.getElementById('sx-noti-body');
+  if(b) b.innerHTML = list.length ? list.map(x => '<button onclick="sxGo(\'' + x.go + '\');sxPop(\'sx-noti\')"><span class="sx-tag ref">' + gEsc(x.k) + '</span> ' + gEsc(x.t) + '</button>').join('') : '<a style="color:var(--t3)">새 알림 없음</a>';
+}
+function sxNotiBadge(){
+  const n = sxNotiList().length, d = document.getElementById('sx-noti-n');
+  if(d){ d.textContent = n; d.style.display = n ? '' : 'none'; }
+}
+function sxAccRender(){
+  const b = document.getElementById('sx-acc-body'); if(!b) return;
+  const admin = sxAdmin();
+  b.innerHTML = '<a style="color:var(--t3)">' + gEsc(crmWho()) + ' · ' + (admin ? '대표(모든 부서)' : '직원(운영부 중심)') + '</a>'
+    + '<button onclick="openGsSetup();sxPop(\'sx-acc\')">연동·토큰 설정</button>'
+    + '<button onclick="sxGo(\'guide\');sxPop(\'sx-acc\')">이용 가이드</button>'
+    + (admin ? '<button onclick="sxGo(\'staff\');sxPop(\'sx-acc\')">직원 계정 관리</button>' : '')
+    + '<button onclick="location.href=\'index.html\'">기존 화면으로 돌아가기</button>';
+}
+function sxSearch(q){
+  q = String(q||'').trim(); const box = document.getElementById('sx-res'); if(!box) return;
+  if(q.length < 2){ box.style.display = 'none'; return; }
+  const hit = s => String(s||'').toLowerCase().indexOf(q.toLowerCase()) >= 0;
+  const out = [];
+  listings.filter(l => hit(l.apt) || hit(l.addr) || hit(l.addr2) || hit(l.id)).slice(0,6)
+    .forEach(l => out.push({ k: '매물', t: [l.apt, l.addr2, l.type, l.price].filter(Boolean).join(' '), fn: "openModal('listing','" + l.id + "')" }));
+  customers.filter(c => hit(c.name) || hit(c.phone)).slice(0,5)
+    .forEach(c => out.push({ k: '고객', t: [c.name, c.role, c.propType, c.region].filter(Boolean).join(' '), fn: "openModal('customer','" + c.id + "')" }));
+  (typeof landlords !== 'undefined' ? landlords : []).filter(l => hit(l.name) || hit(l.apt)).slice(0,5)
+    .forEach(l => out.push({ k: '임대인', t: [l.name, l.apt, l.addr].filter(Boolean).join(' '), fn: "openLandlordModal('" + l.id + "')" }));
+  contracts.filter(c => hit(c.apt) || hit(c.tenantName) || hit(c.landlordName)).slice(0,5)
+    .forEach(c => out.push({ k: '계약', t: [c.apt, c.type, c.start].filter(Boolean).join(' '), fn: "sxGo('contract')" }));
+  box.innerHTML = out.length ? out.map(o => '<div class="r" onclick="' + o.fn + ';document.getElementById(\'sx-res\').style.display=\'none\'"><span class="k">' + gEsc(o.k) + '</span>' + gEsc(o.t) + '</div>').join('') : '<div class="r" style="color:var(--t3)">찾는 것이 없습니다</div>';
+  box.style.display = 'block';
+}
+
+/* ── 대표 홈 ── */
+function chiefRender(){
+  const p = document.getElementById('chief-portal');
+  if(p && typeof portalStats === 'function'){
+    const box = document.getElementById('dash-portal');
+    if(box){ portalRender(); p.innerHTML = box.innerHTML; }
+  }
+  const s = (typeof portalStats === 'function') ? portalStats() : null;
+  const rep = document.getElementById('chief-report');
+  if(rep && s){
+    const line = (k, v, na) => '<div class="ch-line"><span>' + gEsc(k) + '</span>' + (na ? '<b class="ch-na">확인 불가</b>' : '<b>' + v + '</b>') + '</div>';
+    rep.innerHTML = '<h3>일일 경영보고 · ' + gEsc(todayStr()) + '</h3>'
+      + line('진행 매물 / 검증 통과', s.listActive + ' / ' + s.listVerified)
+      + line('오늘 연락할 손님', s.custToday + '명')
+      + line('오늘 임장', s.visitToday + '건')
+      + line('이 달 계약 / 세후 지급 예정', s.conMonth + '건 / ' + portalMoney(s.payNet))
+      + line('광고 조회 / 문의', s.adViews + ' / ' + s.adInq)
+      + line('부서별 업무보고 취합', '', true)
+      + '<div style="font-size:11px;color:var(--t3);margin-top:10px">숫자는 이 기기에 불러온 자료 기준입니다. 부서별 업무보고 자동 취합은 아직 연결하지 않았습니다 — 매일 자동 보고는 검증 후에 켭니다.</div>';
+  }
+  const rk = document.getElementById('chief-risk');
+  if(rk){
+    const list = sxNotiList();
+    rk.innerHTML = '<h3>위험 · 누락 · 승인 요청</h3>'
+      + (list.length ? list.map(x => '<div class="ch-line ch-warn"><span>' + gEsc(x.t) + '</span><b><button class="btn btn-xs" onclick="sxGo(\'' + x.go + '\')">보기</button></b></div>').join('')
+                     : '<div class="ch-line"><span>지금 급한 것 없음</span><b>✓</b></div>')
+      + '<div class="ch-line"><span>대표 승인 대기</span><b class="ch-na">확인 불가</b></div>'
+      + '<div style="font-size:11px;color:var(--t3);margin-top:10px">전자결재는 준비 중입니다. 연결되면 승인 대기 건이 여기에 뜹니다.</div>';
+  }
+}
+function approvalRender(){
+  const b = document.getElementById('approval-body'); if(!b) return;
+  b.innerHTML = '<div class="card"><div class="card-title">전자결재 · 부서 보고 취합</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">아직 연결하지 않았습니다. 연결되면 이 화면에서 결재 요청·승인·반려와 부서별 업무보고를 봅니다.<br>'
+    + '지금 대표 승인이 필요한 일은 <b>대표 홈</b>의 [위험 · 누락 · 승인 요청]에 모아 두었습니다.</div>'
+    + '<div class="row" style="margin-top:10px"><button class="btn btn-sm" onclick="sxGo(\'chief\')">대표 홈으로</button></div></div>';
+}
+
+/* ── 시작 ── */
+function sxInit(){
+  try{
+    const co = localStorage.getItem('sx_co') || 'head';
+    const sel = document.getElementById('sx-co'); if(sel) sel.value = co;
+    sxCo = co;
+    document.querySelectorAll('.sx-dept,.sx-item').forEach(el => { el.style.display = (el.getAttribute('data-co') === co) ? '' : 'none'; });
+    sxRole(); sxNotiBadge();
+    const last = localStorage.getItem('sx_last');
+    const start = (last && document.getElementById('p-' + last)) ? last : (sxAdmin() ? 'chief' : 'listing');
+    sxGo(start);
+  }catch(e){}
+  setInterval(sxNotiBadge, 60000);
+}
+(function(){
+  const _go = go;
+  window.go = function(id){ _go(id); if(id === 'chief') chiefRender(); if(id === 'approval') approvalRender(); sxCrumb(id); };
+})();
+setTimeout(sxInit, 700);
+setTimeout(function(){ try{ sxRole(); sxNotiBadge(); }catch(e){} }, 2600);   // 서버 ping 으로 역할이 확정된 뒤 한 번 더
 
 </script>
 </body>

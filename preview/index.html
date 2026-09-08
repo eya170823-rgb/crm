@@ -35,6 +35,19 @@
 #ios-guide-inner .ig-step{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0F2F5;font-size:13px;color:#5A6270}
 #ios-guide-inner .ig-step:last-child{border-bottom:none}
 #ios-guide-inner .ig-num{width:24px;height:24px;border-radius:50%;background:#0F6E56;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* 🏢 모듈 포털 · 페르소나 대시보드 (2026-09-08) */
+.mod-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(100deg,#0F6E56,#185FA5);color:#fff;border-radius:14px;padding:13px 18px;margin-bottom:12px;box-shadow:var(--sh)}
+.mod-bar-r{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px}
+.mod-bar-r b{font-size:15px;margin-left:4px}
+.mod-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:10px;margin-bottom:18px}
+.mod-card{background:#fff;border:1px solid var(--border);border-left:4px solid #0F6E56;border-radius:14px;padding:13px 14px;cursor:pointer;box-shadow:var(--sh);transition:transform .12s,box-shadow .12s}
+.mod-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.10)}
+.mod-code{font-size:9.5px;font-weight:800;letter-spacing:.06em;color:#fff;border-radius:5px;padding:2px 7px;display:inline-block}
+.mod-title{font-size:14px;font-weight:700;margin:8px 0 7px;color:#1A1D21}
+.mod-kv{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--t2);padding:2px 0}
+.mod-kv b{color:#1A1D21;font-size:13.5px}
+.mod-note{font-size:10.5px;color:var(--t3);margin-top:7px;border-top:1px dashed var(--border);padding-top:6px}
+@media(max-width:640px){.mod-grid{grid-template-columns:repeat(2,1fr)}}
 /* 🎨 브랜드 스튜디오 (2026-09-08) */
 .br-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .br-card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
@@ -462,37 +475,37 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
-    <div class="sb-section">1 · 홈 · 통합 업무 포털</div>
+        <div class="sb-section">1 · 대표실 · 통합 보고·지시·승인</div>
     <button class="sb-item on" onclick="go('dash')">📊 홈 대시보드<span class="sb-badge amber" id="sb-warn">0</span></button>
+    <button class="sb-item" onclick="go('stats')">📊 경영 통계<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
+    <div class="sb-section">2 · 관리부 · 인사·회계·결재</div>
     <button class="sb-item" onclick="go('expiry')">⏰ 만기 관리<span class="sb-badge red" id="sb-exp">0</span></button>
-    <button class="sb-item" data-feature="guide" onclick="go('guide')">📘 이용 가이드<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <div class="sb-section">2 · 매물(SCM) · 공적장부</div>
+    <button class="sb-item" onclick="go('payout')">💰 수당 정산<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
+    <button class="sb-item" id="sb-staff" style="display:none" onclick="go('staff')">👥 직원 관리<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
+    <div class="sb-section">3 · 운영부 · 영업·매물·계약</div>
     <button class="sb-item" onclick="go('listing')">🏠 매물 관리</button>
     <button class="sb-item" id="sb-map" data-feature="map" style="display:none" onclick="go('map')">🗺 매물 지도<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
-    <button class="sb-item" onclick="go('ads')">📣 광고관리<span class="sb-badge red" id="sb-ad-todo" style="display:none">0</span></button>
-    <button class="sb-item" data-feature="audit" onclick="go('audit')">🧹 데이터 검수<span class="sb-badge red" id="sb-audit" style="display:none">0</span></button>
-    <button class="sb-item" onclick="go('apt')">📈 아파트 시세<span class="sb-badge" style="background:#E0F2FE;color:#0369A1">실거래</span></button>
-    <button class="sb-item" id="sb-gather" style="display:none" onclick="go('gather')">🥕 매물 수집<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
-    <div class="sb-section">3 · 고객 CRM · 매칭(AX)</div>
     <button class="sb-item" onclick="go('customer')">👥 고객 관리<span class="sb-badge red" id="sb-customer" style="display:none">0</span></button>
     <button class="sb-item" onclick="go('landlord')">🤝 임대인 관리<span class="sb-badge red" id="sb-landlord" style="display:none">0</span></button>
     <button class="sb-item" onclick="go('sms')">💬 문자 발송<span class="sb-badge green">준비됨</span></button>
     <button class="sb-item vito-menu" onclick="go('vito')">🎙️ 회의·음성 메모<span class="sb-badge" style="background:var(--vtl);color:var(--vt)">STT</span></button>
-    <div class="sb-section">4 · 오피스 협업(HRM)</div>
     <button class="sb-item" onclick="go('visit')">📍 임장 체크인·근태<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <button class="sb-item" data-feature="links" onclick="go('links')">🔗 링크 보관함<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
-    <button class="sb-item" id="sb-staff" style="display:none" onclick="go('staff')">👥 직원 관리<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
-    <div class="sb-section">5 · 계약 · 재무(FCM)</div>
     <button class="sb-item" onclick="go('contract')">📋 계약 완료</button>
     <button class="sb-item" onclick="go('contract-writer')" style="color:#7C3AED">📝 계약서 작성<span class="sb-badge" style="background:#EDE9FE;color:#7C3AED">AI·⚖</span></button>
-    <button class="sb-item" onclick="go('payout')">💰 수당 정산<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <div class="sb-section">6 · 경영 · 통계(CO)</div>
-    <button class="sb-item" onclick="go('stats')">📊 경영 통계<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
-    <button class="sb-item" id="sb-brand" data-feature="brand" style="display:none" onclick="go('brand')">🎨 브랜드 스튜디오<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
-    <div class="sb-section">7 · AI 본부 · 부서 운영</div>
+    <button class="sb-item" onclick="go('apt')">📈 아파트 시세<span class="sb-badge" style="background:#E0F2FE;color:#0369A1">실거래</span></button>
+    <button class="sb-item" id="sb-gather" style="display:none" onclick="go('gather')">🥕 매물 수집<span class="sb-badge" style="background:#FEE2E2;color:#B91C1C">대표전용</span></button>
+    <div class="sb-section">4 · 마케팅부 · 광고·콘텐츠</div>
+    <button class="sb-item" onclick="go('ads')">📣 광고관리<span class="sb-badge red" id="sb-ad-todo" style="display:none">0</span></button>
+    <button class="sb-item" data-feature="links" onclick="go('links')">🔗 링크 보관함<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
+    <div class="sb-section">5 · 개발부 · 시스템·검산·배포</div>
+    <button class="sb-item" data-feature="audit" onclick="go('audit')">🧹 데이터 검수<span class="sb-badge red" id="sb-audit" style="display:none">0</span></button>
     <button class="sb-item" id="sb-ai-center" data-feature="ai-center" style="display:none" onclick="go('ai-center')">🤖 AI 직원 센터<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1·대표시험</span></button>
+    <div class="sb-section">6 · 브리즈디자인 · 브랜드(계열사)</div>
+    <button class="sb-item" id="sb-brand" data-feature="brand" style="display:none" onclick="go('brand')">🎨 브랜드 스튜디오<span class="sb-badge" style="background:#FEF3C7;color:#92400E">P1</span></button>
+    <div class="sb-section">7 · 브리즈아카데미 · 교육(계열사)</div>
+    <button class="sb-item" data-feature="guide" onclick="go('guide')">📘 이용 가이드<span class="sb-badge" style="background:#DCFCE7;color:#166534">NEW</span></button>
     <button class="sb-item" title="취득세·양도세·중개보수·대출 한도 계산기 (새 창)" onclick="window.open('https://eya170823-rgb.github.io/crm/calc/','_blank','noopener')">🧮 계산기<span class="sb-badge" style="background:#FEF3C7;color:#B45309">세금·대출</span></button>
-    <div class="sb-footer">
+<div class="sb-footer">
       제주시 연동<br>바른 기준, 가치 있는 동행<br>
       <span id="today-display"></span>
       <!-- 구글 시트 연동 상태 -->
@@ -521,6 +534,8 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <button class="btn btn-sm" onclick="go('sms')">💬 문자 발송</button>
         </div>
       </div>
+      <!-- 🏢 2026-09-08 모듈 포털 + 페르소나(대표/직원) — 더존 제안서의 화면 부분. 아래 기존 타일은 그대로 둔다 -->
+      <div id="dash-portal"></div>
       <div class="stat-row">
         <div class="stat"><div class="stat-icon">🏠</div><div class="stat-num" style="color:var(--g)" id="stat-listing">0</div><div class="stat-lbl">전체 매물</div></div>
         <div class="stat"><div class="stat-icon">🤝</div><div class="stat-num" style="color:var(--b)" id="stat-customer">0</div><div class="stat-lbl">진행중 상담</div></div>
@@ -7104,8 +7119,13 @@ function refreshVitoCustomerSelects(){
 
 // ═══ NAV ═══
 function go(id){
-  const ids=['dash','expiry','guide','listing','map','ads','audit','apt','gather','customer','landlord','sms','vito','visit','links','staff','contract','contract-writer','payout','stats','brand','ai-center'];
-  document.querySelectorAll('.sb-item').forEach((el,i)=>el.classList.toggle('on',ids[i]===id));
+  const ids=['dash','stats','expiry','payout','staff','listing','map','customer','landlord','sms','vito','visit','contract','contract-writer','apt','gather','ads','links','audit','ai-center','brand','guide'];
+  // 🔴 2026-09-08: 종전에는 **버튼 순서와 ids 순서가 같다**는 전제로 골랐다(el,i → ids[i]).
+  //   부서별로 메뉴를 재배치하면 그 전제가 깨져 엉뚱한 메뉴에 불이 켜진다 → 버튼 자신의 onclick 으로 찾는다.
+  document.querySelectorAll('.sb-item').forEach(el=>{
+    const m=/go\('([^']+)'\)/.exec(el.getAttribute('onclick')||'');
+    el.classList.toggle('on', !!m && m[1]===id);
+  });
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   // null 체크 추가 — 패널이 없으면 오류 방지
   const panel=document.getElementById('p-'+id);
@@ -7118,7 +7138,7 @@ function go(id){
   if(id==='sms')           { renderSms(); vacQueueRender(1); }   // 📬 대기열 채우고 현황 표시
   if(id==='contract-writer') cwReset && cwReset();
   if(id==='vito')          {renderVitoNotes&&renderVitoNotes();refreshVitoCustomerSelects&&refreshVitoCustomerSelects();}
-  if(id==='dash')          {renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();dashExtraStats();}
+  if(id==='dash')          {renderCal();renderMonthEvents();renderExpiryMini();renderDashAlerts();updateStats();dashExtraStats();portalRender();}
   if(id==='ads'&&typeof renderAds==='function') renderAds();
   if(id==='gather')        gatherRender();
   if(id==='apt')           aptInit();
@@ -8596,7 +8616,7 @@ async function cfgLoad(){
     if(j && j.ok && j.result){
       window.__cfg = j.result; try{ localStorage.setItem('crm_cfg', JSON.stringify(j.result)); }catch(e){}
       // 설정이 늦게 도착하면 메뉴 스위치·매물 배지를 다시 그린다(리뷰 09-08)
-      try{ if(typeof featureMenusApply === 'function') featureMenusApply(); const pl = document.getElementById('p-listing'); if(pl && pl.classList.contains('active') && typeof renderListings === 'function') renderListings(); }catch(e){}
+      try{ if(typeof featureMenusApply === 'function') featureMenusApply(); if(typeof portalRender === 'function') portalRender(); const pl = document.getElementById('p-listing'); if(pl && pl.classList.contains('active') && typeof renderListings === 'function') renderListings(); }catch(e){}
       return j.result;
     }
   }catch(e){}
@@ -8984,7 +9004,7 @@ async function featurePublish(id, on){
 
 /* 메뉴별 설명 — 🔴 메뉴(go id)를 추가하면 여기도 한 줄 추가해야 검산(verify_guide.js)이 통과한다 */
 const GUIDE_TEXT = {
-  dash:            { what: '오늘 할 일·만기·위험 계약·임장을 한 화면에', when: '출근하면 제일 먼저', steps: ['오늘 할 일 확인', '⚖ 위험 계약·🧹 검수 경고 타일 확인', '연락일 비어 있는 손님 없게'], tips: ['타일을 누르면 그 화면으로 갑니다'] },
+  dash:            { what: '맨 위 6개 모듈 카드(매물·고객·협업·계약재무·경영·검수)로 회사 전체를 한눈에 — 대표와 직원이 서로 다른 화면을 봅니다', when: '출근하면 제일 먼저', steps: ['위쪽 띠에서 오늘 할 일 확인(대표: 위험·검수·만기 / 직원: 임장·연락·근태)', '모듈 카드를 눌러 그 업무로 바로 이동', '아래 숫자·주간 지표·일정 확인'], tips: ['모듈 카드는 누르면 해당 메뉴로 갑니다', '직원 화면에는 회사 전체 금액 대신 본인 것만 보입니다'] },
   expiry:          { what: '계약 만기 D-day와 연장/종료 확정', when: '매주 월요일 · 만기 30일 전', steps: ['만기 순으로 보기', '연락 완료 표시', '연장/종료 확정'], tips: ['확정 내역은 시트에 저장되어 폰·PC가 같습니다'] },
   guide:           { what: '이 매뉴얼 — 화면 구성이 바뀌면 자동으로 따라갑니다', when: '첫날 · 새 기능이 생겼을 때', steps: ['메뉴 순서대로 읽기', '🖨 인쇄해 책상에'], tips: ['P0=운영 중, P1=검증 후 공개, P2=예정'] },
   listing:         { what: '매물 등록·수정, 건축물대장 자동조회, 사진', when: '매물 접수 즉시', steps: ['주소 입력 → 상세주소(호수)', '[🏢 대장 자동조회] — 총층·승인일·면적·구조·내진', '거래유형·가격·입주일', '저장(자동으로 시트에)'], tips: ['🔒 미검증 표시는 대표 검수 전 — 연락처가 가려집니다', '🔄 수명주기: 접수→검증→광고→임장→계약'] },
@@ -9355,6 +9375,116 @@ async function brandCharsSave(){
   catch(e){ showToast('저장 실패: ' + e.message); }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   🏢 모듈 포털 + 페르소나 화면 — 2026-09-08 (더존 OmniEsol 제안서의 "보이는 부분")
+   사장님 지적: "더존 지시문을 잔뜩 줬는데 화면이 그대로다" — 맞다. 메뉴 이름과 기능만 바꿨고
+   제안서의 ① 모듈별 홈 ② 경영자/실무자 페르소나 대시보드는 만들지 않았다. 그 둘을 여기서 만든다.
+   🔴 기존 화면은 지우지 않는다 — 홈 대시보드 맨 위에 얹기만 한다(밑의 숫자 타일·주간지표·일정 그대로).
+   대표: 6개 모듈 카드 전부(경영·재무 금액 포함) / 직원: 실무 4개 + 본인 것만(금액 대신 건수).
+   ═══════════════════════════════════════════════════════════════════ */
+/* 부서 ↔ 기존 메뉴 대응 (사장님 확정 2026-09-08). 🔴 데이터를 부서마다 복제하지 않는다 — '참조'는 같은 기록을 함께 본다는 뜻. */
+const DEPT_MAP = [
+  { dept: '대표실',        kind: '대표',   menus: ['dash', 'stats'], refs: ['contract', 'audit'], note: '통합 보고·지시·승인 (부서 아님)' },
+  { dept: '관리부',        kind: '본사',   menus: ['staff', 'payout', 'expiry'], refs: ['contract'], note: '인사·회계·일정·전자결재·업무보고 취합 / 계약은 운영부 기록을 참조' },
+  { dept: '운영부',        kind: '본사',   menus: ['listing', 'map', 'customer', 'landlord', 'sms', 'vito', 'visit', 'contract', 'contract-writer', 'apt', 'gather'], refs: [], note: '영업·상담·매물·고객·임장·계약 (영업부 따로 두지 않음)' },
+  { dept: '마케팅부',      kind: '본사',   menus: ['ads', 'links'], refs: ['listing', 'brand'], note: '광고·블로그·SNS·홈페이지·광고문·자료 링크 보관 / 매물은 운영부 기록을 참조' },
+  { dept: '개발부',        kind: '본사',   menus: ['audit', 'ai-center'], refs: ['listing', 'contract'], note: 'SaaS 수정·자동화·오류/검산·변경이력·배포' },
+  { dept: '브리즈디자인',  kind: '계열사', menus: ['brand'], refs: [], note: '브랜드·캐릭터·홍보물·굿즈 / 고객 개인정보 공유 안 함' },
+  { dept: '브리즈아카데미', kind: '계열사', menus: ['guide'], refs: [], note: '실무교육·매뉴얼·강의·평가 / 고객 개인정보 공유 안 함' },
+];
+function deptOf(menuId){ const d = DEPT_MAP.find(x => x.menus.indexOf(menuId) >= 0); return d ? d.dept : ''; }
+function portalToday(){ return todayStr(); }
+function portalNum(n){ return Number(n||0).toLocaleString('ko-KR'); }
+function portalMoney(n){ const v = Math.round(Number(n)||0); return v >= 10000 ? Math.round(v/10000).toLocaleString('ko-KR') + '만원' : portalNum(v) + '원'; }
+
+/* 모듈마다 숫자를 모은다 — 이미 화면이 쓰는 자료만 쓴다(서버 호출 없음) */
+function portalStats(){
+  const t = portalToday(), mon = ym(), me = crmWho();
+  const active = listings.filter(l => !/계약완료|임대중|거래완료/.test(String(l.status||'')));
+  const audit = (typeof auditLastGet === 'function') ? auditLastGet() : null;
+  const myVisits = visits.filter(v => v.kind === '임장' && String(v.at||'').slice(0,10) === t);
+  const monthCon = contracts.filter(c => String(c.start||'').slice(0,7) === mon);
+  const mine = monthCon.filter(c => !c.agent || c.agent === me);
+  const sum = arr => arr.reduce((a,c) => { const p = payoutCalc(c); return a + (p.hold ? 0 : p.net); }, 0);
+  return {
+    listActive: active.length,
+    listVerified: active.filter(l => String(l.verified||'') === 'Y').length,
+    listWarn: audit ? auditWarnCount(audit) : null,
+    listNoBldg: active.filter(l => !String(l.aprDate||'').trim() && !String(l.totalFloor||'').trim()).length,
+    custActive: customers.filter(c => (c.progressStatus||'진행중') !== '종료').length,
+    custToday: customers.filter(c => c.nextContact && String(c.nextContact).slice(0,10) <= t).length,
+    visitToday: myVisits.length,
+    attend: visits.some(v => v.kind === '출근' && String(v.at||'').slice(0,10) === t) ? '출근 완료' : '출근 전',
+    conMonth: monthCon.length, conMine: mine.length,
+    payNet: sum(monthCon), payMine: sum(mine),
+    riskCnt: contracts.filter(c => c.riskGrade === 'RED' || c.riskGrade === 'AMBER' || /CANCELLED|REGISTRY_DELAY|REPORT_MISSING/.test(String(c.trackState||''))).length,
+    adViews: listings.reduce((a,l) => a + (parseInt(l.adViews,10)||0), 0),
+    expSoon: (typeof get6m === 'function') ? get6m().length : 0,
+    adOn: listings.filter(l => String(l.adList||'').trim() || String(l.adsFlat||'').trim()).length,
+    adInq: listings.reduce((a,l) => a + (parseInt(l.adInq,10)||0), 0),
+    brandCnt: (typeof brandAssets !== 'undefined' && brandAssets.length) ? brandAssets.length : null,
+    brandOk: (typeof brandAssets !== 'undefined' && brandAssets.length) ? brandAssets.filter(b => b.status === '승인' || b.status === '사용').length : null,
+    guideMenus: (typeof GUIDE_TEXT === 'object') ? Object.keys(GUIDE_TEXT).length : 0,
+    month: mon,
+  };
+}
+function portalCard(code, color, title, go_, rows, note){
+  return `<div class="mod-card" style="border-left-color:${color}" onclick="go('${go_}')">
+    <span class="mod-code" style="background:${color}">${gEsc(code)}</span>
+    <div class="mod-title">${gEsc(title)}</div>
+    ${rows.map(r => `<div class="mod-kv"><span>${gEsc(r[0])}</span><b${r[2]?` style="color:${r[2]}"`:''}>${r[1]}</b></div>`).join('')}
+    ${note?`<div class="mod-note">${gEsc(note)}</div>`:''}
+  </div>`;
+}
+function portalRender(){
+  const box = document.getElementById('dash-portal'); if(!box) return;
+  const admin = window.__crmRole === 'admin';
+  const s = portalStats();
+  const who = crmWho();
+  const office = (window.__crmOffice || localStorage.getItem('crm_office') || '브리즈부동산중개');
+  const ver = (document.getElementById('appVer')||{}).textContent || '';
+  const bar = `<div class="mod-bar">
+      <div><div style="font-size:16px;font-weight:800">${gEsc(office)}</div>
+        <div style="font-size:11.5px;opacity:.9">${gEsc(portalToday())} · ${gEsc(who)} · ${admin?'대표실(통합 보고·지시·승인)':'직원 화면'} · 버전 ${gEsc(ver)}</div></div>
+      <div class="mod-bar-r">${admin
+        ? `<span title="이상거래 RED·AMBER·추적">⚖ 위험 계약 <b>${s.riskCnt}</b></span><span title="중복·호수·대장·외부망">🧹 검수 경고 <b>${s.listWarn === null ? '–' : s.listWarn}</b></span><span>⏰ 만기 <b>${s.expSoon}</b></span>`
+        : `<span>📍 오늘 임장 <b>${s.visitToday}</b></span><span>📞 오늘 연락 <b>${s.custToday}</b></span><span>${gEsc(s.attend)}</span>`}</div>
+    </div>`;
+  /* 🏢 부서 체계(사장님 확정 2026-09-08): 대표실(위 띠) + 본사 4부서 + 계열사 2.
+     🔴 부서는 '업무 분장'이고 계정 권한은 따로다 — 여기서 카드를 감추는 것은 편의일 뿐, 진짜 차단은 서버가 한다. */
+  const cards = admin ? [
+    portalCard('관리부', '#B45309', '인사 · 회계 · 결재', 'payout',
+      [['이 달 계약', portalNum(s.conMonth)], ['세후 지급 예정', portalMoney(s.payNet)], ['만기 임박', portalNum(s.expSoon), s.expSoon?'#B91C1C':'']],
+      '직원 · 수당 정산 · 일정 · 전자결재 · 업무보고 취합'),
+    portalCard('운영부', '#0F6E56', '영업 · 매물 · 계약', 'listing',
+      [['진행 매물', portalNum(s.listActive)], ['오늘 연락할 손님', portalNum(s.custToday), s.custToday?'#B91C1C':''], ['오늘 임장', portalNum(s.visitToday)]],
+      '상담 → 매물·고객·임대인 → 매칭 → 임장 → 계약'),
+    portalCard('마케팅부', '#7C3AED', '광고 · 콘텐츠', 'ads',
+      [['광고 중인 매물', portalNum(s.adOn)], ['광고 조회', portalNum(s.adViews)], ['문의', portalNum(s.adInq)]],
+      '매물 광고 · 블로그/SNS · 홈페이지 · 광고문·썸네일'),
+    portalCard('개발부', '#0EA5E9', '시스템 · 검산 · 배포', 'audit',
+      [['검수 경고', s.listWarn === null ? '미실행' : portalNum(s.listWarn), s.listWarn?'#B91C1C':''], ['위험 계약', portalNum(s.riskCnt), s.riskCnt?'#B91C1C':''], ['대장 미조회', portalNum(s.listNoBldg)]],
+      'SaaS 수정 · 외부 연결 · 오류/검산 · 변경이력 · 배포'),
+    portalCard('브리즈디자인', '#DB2777', '브랜드 · 제작 (계열사)', 'brand',
+      [['등록 자산', s.brandCnt === null ? '열어보기' : portalNum(s.brandCnt)], ['승인본', s.brandOk === null ? '–' : portalNum(s.brandOk)]],
+      '캐릭터 · 홍보물 · 영상 · 굿즈 · 고객 개인정보는 공유하지 않음'),
+    portalCard('브리즈아카데미', '#059669', '교육 · 매뉴얼 (계열사)', 'guide',
+      [['매뉴얼 화면', portalNum(s.guideMenus)], ['자동 갱신', '켜짐']],
+      '실무교육 · 매뉴얼 · 강의 · 평가 · 고객 개인정보는 공유하지 않음'),
+  ] : [
+    portalCard('운영부', '#0F6E56', '오늘 연락할 손님', 'customer',
+      [['연락 예정', portalNum(s.custToday), s.custToday?'#B91C1C':''], ['진행 고객', portalNum(s.custActive)]], '문의 → 매칭 → 문자 → 방문'),
+    portalCard('운영부', '#0F6E56', '매물 보기', 'listing',
+      [['진행 매물', portalNum(s.listActive)], ['안내 가능(검증)', portalNum(s.listVerified)]], '🔒 미검증 매물은 연락처가 가려집니다'),
+    portalCard('운영부', '#7C3AED', '내 임장 · 근태', 'visit',
+      [['오늘 임장', portalNum(s.visitToday)], ['근태', gEsc(s.attend)]], '나가기 전 체크인, 돌아와 체크아웃'),
+    portalCard('관리부', '#B45309', '내 계약 · 수당', 'payout',
+      [['이 달 내 계약', portalNum(s.conMine)], ['내 세후 예정', portalMoney(s.payMine)]], '내가 담당한 계약만 · 회사 전체 금액은 안 보입니다'),
+  ];
+  box.innerHTML = bar + '<div class="mod-grid">' + cards.join('') + '</div>';
+}
+
 /* ═══ 🥕 매물 수집 (당근·오일장) — 2026-09-07 신설, 대표(마스터) 전용 ═══
    서버(GAS)가 직접 받아온다. PC를 켜 둘 필요가 없다.
    🔴 여기서 메뉴를 감추는 것은 '보조'일 뿐이다. 진짜 차단은 서버의 colAdmin_ 이 한다.
@@ -9379,11 +9509,12 @@ async function gatherMenuSetup(){
   try{
     const r = await fetch(`${url}?action=ping&t=${Date.now()}${tokQ()}`);
     const j = await r.json();
-    if(j && j.ok){ show = (j.role === 'admin'); window.__crmWho = String(j.who||''); try{ localStorage.setItem('crm_role', show ? 'admin' : 'staff'); localStorage.setItem('crm_who', window.__crmWho); }catch(e){} }
+    if(j && j.ok){ show = (j.role === 'admin'); window.__crmWho = String(j.who||''); window.__crmOffice = String(j.title||'').replace(/\s*(통합매물장|매물장|CRM)\s*$/,'').trim() || undefined; try{ if(window.__crmOffice) localStorage.setItem('crm_office', window.__crmOffice); }catch(e2){} try{ localStorage.setItem('crm_role', show ? 'admin' : 'staff'); localStorage.setItem('crm_who', window.__crmWho); }catch(e){} }
     else if(j && /인증 실패/.test(String(j.error||''))){ show = false; try{ localStorage.removeItem('crm_role'); }catch(e){} }
   }catch(e){ show = null; }
   if(show === null) return;                     // 판단 불가 → 지난 상태 그대로
   window.__crmRole = show ? 'admin' : 'staff';   // ⚖ 이상거래 RED 게이트 등이 참고 (모르면 직원 취급)
+  try{ if(typeof portalRender === 'function') portalRender(); }catch(e){}   // 🏢 역할이 정해지면 포털(대표/직원)을 다시 그린다
   btns.forEach(b => { b.style.display = show ? '' : 'none'; });
 }
 
@@ -10059,7 +10190,7 @@ function dashExtraStats(){
   if(v){ const t = todayStr(); v.textContent = visits.filter(x => x.kind === '임장' && String(x.at||'').slice(0,10) === t).length; }
   if(a && typeof auditLastGet === 'function'){ const last = auditLastGet(); const n = last ? auditWarnCount(last) : null; a.textContent = n === null ? '-' : n; const sb = document.getElementById('sb-audit'); if(sb){ sb.textContent = n || 0; sb.style.display = n ? '' : 'none'; } }
 }
-setTimeout(() => { try { dashExtraStats(); } catch(e){} }, 0);
+setTimeout(() => { try { dashExtraStats(); portalRender(); } catch(e){} }, 0);
 
 
 async function gsCall(action, payload){
