@@ -1,0 +1,40 @@
+# 노션 → 깃허브 docs 자동 동기화 — 2026-09-08 (지시어②)
+#   저장소: eya170823-rgb/crm (main = 사이트). 이 파일은 .github/workflows/docs-sync.yml 로 올라간다.
+#   언제: 매일 06:10(KST) · 수동 실행 · main 에 push 될 때(docs/ 자체 변경은 제외 — 무한 반복 방지)
+#   비밀값 2개(Settings → Secrets and variables → Actions): NOTION_TOKEN, NOTION_DATABASE_ID
+#   비밀값이 없으면 notion-sync.js 가 "건너뜀"으로 정상 종료한다(사이트 배포에 영향 없음).
+name: docs-sync
+on:
+  schedule:
+    - cron: '10 21 * * *'        # 21:10 UTC = 06:10 KST
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+permissions:
+  contents: write
+concurrency:
+  group: docs-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 노션 → docs/*.md
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: node notion-sync.js
+      - name: 바뀐 문서만 커밋·푸시
+        run: |
+          git config user.name  "docs-sync bot"
+          git config user.email "docs-sync@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git commit -m "📝 docs: 노션 동기화 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
