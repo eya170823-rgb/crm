@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:29</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 06:46</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1093,6 +1093,7 @@ body{padding-bottom:46px}
         <div class="sx-grp-h">법무팀<em>계약·보증금·위험</em></div>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'법무팀')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>계약서 작성·검토</button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="jeonse" onclick="sxGo('jeonse',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>전세 안전도<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="docreq" onclick="sxGo('docreq',0,'법무팀')">공부 발급</button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="guar" onclick="sxGo('guar',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>보증보험 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>등기 변동 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>문서 작성 · 브리핑<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
@@ -1270,6 +1271,11 @@ body{padding-bottom:46px}
       <div class="page-hd"><div><div class="page-title">채널 안내</div>
         <div class="page-sub">어디에 어떻게 내보내는지</div></div></div>
       <div class="dd-wrap" id="chan-body"></div>
+    </div>
+    <div class="panel" id="p-docreq">
+      <div class="page-hd"><div><div class="page-title">공부 발급</div>
+        <div class="page-sub">등기부·건축물대장·토지대장 발급 요청과 진행 상태</div></div></div>
+      <div class="dd-wrap" id="docreq-body"></div>
     </div>
     <div class="panel" id="p-nomore">
       <div class="page-hd"><div><div class="page-title">그만 받을 번호</div>
@@ -11260,7 +11266,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"listing","items":[{"sub":"매물"},{"label":"매물장","id":"listing"},{"sub":"광고"},{"label":"광고 관리","id":"ads"},{"sub":"사진"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","act":"chanGo('thumb')"},{"sub":"고객"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 명부","id":"customer"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"listing","items":[{"sub":"매물"},{"label":"매물장","id":"listing"},{"sub":"광고"},{"label":"광고 관리","id":"ads"},{"sub":"사진"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","act":"chanGo('thumb')"},{"sub":"고객"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 명부","id":"customer"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"공부 발급","id":"docreq"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -13424,6 +13430,92 @@ function kMount(){
 const NM_BIZ = /매물|임대|오피|원룸|투룸|빌라|아파트|상가|건물주|공실|부동산|계약|입주|호$|호\)/;
 let nmRows = null, nmPick = {};
 
+/* ══ 📄 공부 발급 (2026-09-09 대표 지시로 점검하다 만듦) ══
+   요청한 것이 어디까지 갔는지 보여 준다.
+   🔴 이 화면은 발급을 실행하지 않는다 — 실제 발급은 사무실 PC 프로그램이 한다. */
+let drRows = null;
+
+function drRender(){
+  const el = document.getElementById('docreq-body'); if(!el) return;
+  if(!drRows){
+    el.innerHTML = '<div class="dd-c"><div class="dd-h">불러오는 중…</div></div>';
+    drLoad(); return;
+  }
+  if(drRows.error){
+    el.innerHTML = '<div class="dd-c pz-red"><div class="card-title">불러오지 못했습니다</div>'
+      + '<div class="s">' + gEsc(drRows.error) + '<br>⚙️ 구글 시트 설정에 API 토큰이 들어 있는지 보세요.</div></div>';
+    return;
+  }
+  const rows = drRows.rows || [];
+  const wait = rows.filter(r => String(r.status || '') === '대기');
+  const done = rows.filter(r => String(r.status || '') === '완료');
+  const t = ddToday();
+  const days = (iso) => {
+    const d = String(iso || '').slice(0, 10);
+    if(!d) return '';
+    const n = Math.round((new Date(t + 'T00:00:00') - new Date(d + 'T00:00:00')) / 86400000);
+    return n > 0 ? (n + '일째') : '오늘';
+  };
+  el.innerHTML =
+    '<div class="dd-kpi">'
+    + ddCard('발급 대기', wait.length, wait.length ? '아직 발급 안 된 것' : '밀린 것 없음')
+    + ddCard('발급 완료', done.length, '')
+    + ddCard('전체 요청', rows.length, '')
+    + ddCard('가장 오래 기다린 것', wait.length ? days(wait.map(r => r.requestedAt).sort()[0]) : '-', '') + '</div>'
+
+    + '<div class="dd-c pz-amber"><div class="card-title">어떻게 돌아가는지</div>'
+    + '<div style="font-size:12.5px;color:#7C3F0A;line-height:1.9">'
+    + '① 매물장에서 매물을 열고 <b>[📄 공부발급]</b> 을 누르면 여기에 <b>대기</b> 로 올라옵니다.<br>'
+    + '② 실제 발급은 사무실 컴퓨터의 <b>[아파트 공적자료 자동발급 시스템]</b> 이 합니다 '
+    + '(등기부·건축물대장·토지대장·지적도·토지이용계획).<br>'
+    + '🔴 지금은 <b>이 목록과 그 프로그램이 이어져 있지 않습니다</b> — 프로그램에 주소를 직접 넣어 뽑아야 합니다. '
+    + '이어 붙이는 것은 대표 승인 뒤에 합니다.</div></div>'
+
+    + '<div class="dd-c"><div class="dd-h">발급 요청</div>'
+    + (rows.length
+      ? '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
+        + '<th>매물</th><th>주소</th><th>서류</th><th>상태</th><th>요청일</th><th>기다린 날</th></tr></thead><tbody>'
+        + rows.slice().sort((a, b) => String(b.requestedAt || '').localeCompare(String(a.requestedAt || ''))).map(r => {
+            const st = String(r.status || '');
+            const cls = st === '대기' ? 'pz-row-red' : '';
+            return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>'
+              + '<td>' + gEsc((r.apt || '') + ' ' + (r.addr2 || '')) + '</td>'
+              + '<td>' + gEsc(String(r.addr || '').replace('제주특별자치도 ', '')) + '</td>'
+              + '<td style="font-size:11.5px">' + gEsc(r.docTypes || '') + '</td>'
+              + '<td><b style="color:' + (st === '대기' ? '#B91C1C' : st === '완료' ? '#0F6E56' : 'var(--t3)') + '">'
+              + gEsc(st || '-') + '</b></td>'
+              + '<td>' + gEsc(String(r.requestedAt || '').slice(0, 10)) + '</td>'
+              + '<td>' + (st === '대기' ? gEsc(days(r.requestedAt)) : '') + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div>'
+      : '<div class="dd-empty">아직 요청한 것이 없습니다</div>')
+    + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn btn-sm" onclick="drRefresh()">다시 불러오기</button>'
+    + '<button class="btn btn-sm" onclick="sxGo(&#39;listing&#39;,0,&#39;운영부&#39;)">매물장에서 요청하기</button>'
+    + '</div></div>'
+
+    + ddLink([
+        { n: '계약서 작성·검토', w: '뽑은 서류로 확인설명서', go: 'contract-writer', dept: '법무팀' },
+        { n: '전세 안전도', w: '등기부로 보증금 위험 계산', go: 'jeonse', dept: '법무팀' },
+        { n: '매물장', w: '매물 열고 [📄 공부발급]', go: 'listing', dept: '운영부' },
+      ]);
+}
+
+function drRefresh(){ drRows = null; drRender(); }
+
+function drLoad(){
+  const url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if(!url){ drRows = { error: '구글 시트 주소가 없습니다' }; drRender(); return; }
+  fetch(url + '?action=docReqList&t=' + Date.now() + tokQ())
+    .then(r => r.json())
+    .then(j => {
+      if(!j || !j.ok){ drRows = { error: (j && j.error) || '알 수 없는 오류' }; }
+      else { drRows = { rows: (j.result || j.data || []) }; }
+      drRender();
+    })
+    .catch(e => { drRows = { error: String(e && e.message || e) }; drRender(); });
+}
+
 function nmBizWarn(r){
   // 🔴 막으면 되돌릴 수 없는 일이라, 조금이라도 업무 같으면 말린다(놓치는 것보다 낫다)
   const nm = String(r.name || '');
@@ -14496,6 +14588,7 @@ function sxInit(){
     if(id === 'gather'){ gxMount(); gxPhoneHelp(); gxWatch(); }
     if(id === 'customer') nmMount();
     if(id === 'nomore') nmRender();
+    if(id === 'docreq') drRender();
     if(id === 'contract') kMount();
     if(id === 'ads') adsPlatBar();
     if(id === 'match') matchRender();
