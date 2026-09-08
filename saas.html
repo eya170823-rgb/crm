@@ -994,7 +994,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 03:53</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:08</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13544,6 +13544,29 @@ function nmMount(){
    접수일은 매물번호에 이미 들어 있다(B260907-01 = 2026-09-07 접수).
    CSS 로는 글자로 고를 수 없어 여기서 표시를 붙인다. 카드가 다시 그려질 때마다 자동으로 다시 한다.
    🔴 자료를 지우지 않는다 — 카드에서만 감춘다. */
+/* 🔎 매물 수집 — 어디를 긁고 어디는 못 긁는지 화면에 적는다 (2026-09-09 실측)
+   🔴 되는 것처럼 꾸미지 않는다. 네이버는 브라우저 창이 떠야 해서 웹에서는 못 한다. */
+function gxMount(){
+  const host = document.getElementById('p-gather'); if(!host) return;
+  if(document.getElementById('gx-src')) return;
+  const box = document.createElement('div');
+  box.id = 'gx-src'; box.className = 'dd-c'; box.style.margin = '0 0 12px';
+  const SRC = [
+    ['🥕 당근부동산', 'on', '연결됨 — 지도 격자로 훑어 받아옵니다',
+     '2026-09-09 실측: 응답 정상, 값이 실제 매물 화면과 일치'],
+    ['🍊 제주오일장', 'on', '연결됨 — 목록·상세를 읽어 받아옵니다',
+     '2026-09-09 실측: 응답 정상 · 가격 빠지던 것 고침(GAS v127)'],
+    ['🇳 네이버부동산', 'pc', 'PC 프로그램 연결 필요 — 웹에서는 못 합니다',
+     '네이버는 창 없는 접속을 막습니다. 바탕화면 [네이버부동산_매물필터_수집] 을 컴퓨터에서 실행하세요'],
+  ];
+  box.innerHTML = '<div class="dd-h">어디에서 받아오나</div>'
+    + SRC.map(x => '<div class="dd-ch"><b>' + gEsc(x[0]) + '<em>' + gEsc(x[3]) + '</em></b>'
+        + '<span class="dd-st" style="background:' + (x[1] === 'on' ? '#DCFCE7;color:#0F6E56' : '#FEF3C7;color:#92400E')
+        + '">' + gEsc(x[2].split(' — ')[0]) + '</span></div>').join('')
+    + '<div class="s">🔴 받아온 것은 <b>참고 자료</b>입니다. 우리 매물장으로 옮길 때는 대표가 확인하고 옮깁니다.</div>';
+  const hd = host.querySelector('.page-hd');
+  if(hd && hd.nextSibling) host.insertBefore(box, hd.nextSibling); else host.insertBefore(box, host.firstChild);
+}
 function lxCardTrim(){
   const box = document.getElementById('listing-cards'); if(!box) return;
   box.querySelectorAll('.l-info-item').forEach(function(el){
@@ -14299,6 +14322,7 @@ function sxInit(){
     if(id === 'pref') prefRender();
     if(id === 'paste') pzRender();
     if(id === 'listing'){ pzMount(); lxWatch(); }
+    if(id === 'gather') gxMount();
     if(id === 'customer') nmMount();
     if(id === 'nomore') nmRender();
     if(id === 'contract') kMount();
