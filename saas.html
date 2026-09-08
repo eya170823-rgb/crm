@@ -882,11 +882,12 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 18:49</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 18:58</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
         
+    <span id="sb-warn" hidden></span><span id="sb-exp" hidden></span>
     <div class="sx-rail">
       <button class="sx-rail-b" data-co="head" data-dept="홈" data-home="home" onclick="sxRail('홈')" title="홈 · 대시보드">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v10h12V10"/></svg></i><span>홈</span>
@@ -12747,7 +12748,7 @@ function ddRender(id){
       + '<button class="dd-go" onclick="sxGo(&#39;changelog&#39;)">변경 이력 →</button> '
       + '<button class="dd-go" onclick="sxGo(&#39;deploy&#39;)">배포 관리 →</button> '
       + '<button class="dd-go" onclick="sxGo(&#39;ops&#39;)">자동화 현황 →</button> '
-      + '<button class="dd-go" onclick="sxGo(&#39;ver&#39;)">버전 정보 →</button></div></div>';
+      + '<button class="dd-go" onclick="sxGo(&#39;pref&#39;)">버전 · 환경 설정 →</button></div></div>';
   }
   else if(id === 'dash-design'){
     // 🏗 브리즈디자인(인테리어) — 아직 껍데기다. 숫자를 지어내지 않는다.
@@ -12802,6 +12803,138 @@ function cwDoc(){
     }
   }, 450);
 }
+/* ── 🎙 회의 녹음 · 빠른 음성 메모 살리기 (2026-09-08) ──
+   🔴 원본 CRM 의 이 화면은 단추 5개가 부르는 함수가 **아예 없어서** 눌러도 아무 일도 일어나지
+      않았다(콘솔 오류만). 원본은 건드리지 않기로 했으므로 여기(새 화면)에서 만든다.
+   · 녹음은 이 기기 마이크로만 한다. 어디로도 올리지 않는다 — 파일로 내려받는 것까지가 끝.
+   · 받아쓰기는 브라우저가 해 준다(크롬·엣지). 안 되는 기기에서는 직접 적으면 된다.
+   · 메모는 기존 CRM 이 쓰던 자리(crm_voiceMemos)에 그대로 저장한다. */
+let vmRec = null, vmChunks = [], vmT0 = 0, vmTimer = null, vmSR = null, vmOn = false;
+function vmStatus(t, color){
+  const el = document.getElementById('vm-record-status');
+  if(el){ el.textContent = t; el.style.color = color || 'var(--t3)'; }
+}
+function vmStartRecording(){
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    vmStatus('이 기기는 녹음을 지원하지 않습니다', '#B91C1C'); return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+    vmChunks = [];
+    vmRec = new MediaRecorder(stream);
+    vmRec.ondataavailable = function(e){ if(e.data && e.data.size) vmChunks.push(e.data); };
+    vmRec.onstop = function(){
+      try{ stream.getTracks().forEach(t => t.stop()); }catch(e){}
+      const blob = new Blob(vmChunks, { type: vmRec.mimeType || 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      const title = (document.getElementById('vm-meeting-title') || {}).value || '회의';
+      const nm = title.trim().replace(/[^가-힣A-Za-z0-9 _-]/g, '') || '회의';
+      const box = document.getElementById('vm-record-result');
+      if(box){
+        box.style.display = 'block';
+        box.innerHTML = '<audio controls style="width:100%" src="' + url + '"></audio>'
+          + '<div style="margin-top:8px;font-size:12px;color:var(--t2)">길이 약 ' + vmMin() + ' · 크기 '
+          + Math.round(blob.size / 1024) + 'KB</div>'
+          + '<a class="btn btn-sm" style="margin-top:8px;display:inline-block" download="' + gAttr(nm) + '_' + todayStr() + '.webm" href="' + url + '">파일로 저장</a>'
+          + '<div style="font-size:11.5px;color:var(--t3);margin-top:8px">🔴 이 녹음은 어디로도 올라가지 않습니다. 저장을 눌러 이 기기에 보관하세요.</div>';
+      }
+      vmStatus('녹음이 끝났습니다 — 아래에서 듣고 저장하세요', '#0B5040');
+    };
+    vmRec.start();
+    vmT0 = Date.now();
+    vmTimer = setInterval(function(){ vmStatus('녹음 중 ' + vmMin(), '#B91C1C'); }, 1000);
+    const a = document.getElementById('vm-record-start'), b = document.getElementById('vm-record-stop');
+    if(a) a.disabled = true;
+    if(b) b.disabled = false;
+    vmStatus('녹음 중 0:00', '#B91C1C');
+  }).catch(function(){
+    vmStatus('마이크를 쓸 수 없습니다 — 브라우저에서 마이크 사용을 허용해 주세요', '#B91C1C');
+  });
+}
+function vmMin(){
+  const s = Math.floor((Date.now() - vmT0) / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+function vmStopRecording(){
+  try{ if(vmRec && vmRec.state !== 'inactive') vmRec.stop(); }catch(e){}
+  if(vmTimer){ clearInterval(vmTimer); vmTimer = null; }
+  const a = document.getElementById('vm-record-start'), b = document.getElementById('vm-record-stop');
+  if(a) a.disabled = false;
+  if(b) b.disabled = true;
+}
+function vmToggleSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const st = document.getElementById('vm-speech-status');
+  const btn = document.getElementById('vm-speech-btn');
+  const setSt = (t, c) => { if(st){ st.textContent = t; st.style.color = c || 'var(--t3)'; } };
+  if(!SR){ setSt('이 기기는 받아쓰기를 지원하지 않습니다 — 아래 칸에 직접 적어 주세요', '#B45309'); return; }
+  if(vmOn){
+    try{ vmSR.stop(); }catch(e){}
+    vmOn = false;
+    if(btn) btn.textContent = '🎤 말하기 시작';
+    setSt('멈췄습니다');
+    return;
+  }
+  vmSR = new SR();
+  vmSR.lang = 'ko-KR';
+  vmSR.continuous = true;
+  vmSR.interimResults = true;
+  vmSR.onresult = function(e){
+    const t = document.getElementById('vm-text'); if(!t) return;
+    let fin = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      if(e.results[i].isFinal) fin += e.results[i][0].transcript;
+    }
+    if(fin) t.value = (t.value ? t.value + ' ' : '') + fin.trim();
+  };
+  vmSR.onerror = function(ev){ setSt('받아쓰기 오류 (' + (ev.error || '') + ') — 직접 적어 주세요', '#B91C1C'); };
+  vmSR.onend = function(){ if(vmOn){ try{ vmSR.start(); }catch(e){} } };
+  try{ vmSR.start(); }catch(e){ setSt('시작하지 못했습니다', '#B91C1C'); return; }
+  vmOn = true;
+  if(btn) btn.textContent = '■ 말하기 멈추기';
+  setSt('듣고 있습니다 — 말씀하세요', '#B91C1C');
+}
+function vmSaveQuickMemo(){
+  const t = document.getElementById('vm-text');
+  const v = String(t ? t.value : '').trim();
+  if(!v){ showToast('적을 내용이 없습니다'); if(t) t.focus(); return; }
+  const title = (document.getElementById('vm-title') || {}).value || '';
+  const cid = (document.getElementById('vm-customer') || {}).value || '';
+  let who = '';
+  try{ const c = customers.find(x => x.id === cid); if(c) who = c.name || ''; }catch(e){}
+  const memo = { id: 'VM' + Date.now(), title: String(title).trim() || '음성 메모', text: v,
+    customerId: cid, customerName: who, at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    by: (typeof crmWho === 'function') ? crmWho() : '' };
+  try{
+    if(typeof voiceMemos === 'undefined' || !Array.isArray(voiceMemos)) window.voiceMemos = [];
+    voiceMemos.unshift(memo);
+    localStorage.setItem('crm_voiceMemos', JSON.stringify(voiceMemos));
+  }catch(e){ showToast('저장하지 못했습니다'); return; }
+  if(t) t.value = '';
+  vmRenderMemos();
+  showToast('메모를 남겼습니다' + (who ? ' · ' + who : '') + ' (이 기기에 저장)');
+}
+function vmRenderMemos(){
+  const el = document.getElementById('vm-memo-list'); if(!el) return;
+  let list = [];
+  try{ list = (typeof voiceMemos !== 'undefined' && Array.isArray(voiceMemos)) ? voiceMemos : []; }catch(e){}
+  el.innerHTML = list.length
+    ? list.slice(0, 30).map(m => '<div class="ch-line" style="align-items:flex-start">'
+        + '<span style="flex:1"><b>' + gEsc(m.title || '음성 메모') + '</b>'
+        + (m.customerName ? ' <span class="badge bb">' + gEsc(m.customerName) + '</span>' : '')
+        + '<br><span style="color:var(--t2);white-space:pre-wrap">' + gEsc(m.text || '') + '</span>'
+        + '<br><span style="font-size:11px;color:var(--t3)">' + gEsc(m.at || '') + (m.by ? ' · ' + gEsc(m.by) : '') + '</span></span>'
+        + '<button class="btn btn-xs" onclick="vmDelMemo(&#39;' + gAttr(m.id) + '&#39;)">지우기</button></div>').join('')
+    : '<div style="color:var(--t3);font-size:12.5px;padding:10px 0">아직 남긴 메모가 없습니다.</div>';
+}
+function vmDelMemo(id){
+  if(!confirm('이 메모를 지울까요?')) return;
+  try{
+    window.voiceMemos = (voiceMemos || []).filter(x => x.id !== id);
+    localStorage.setItem('crm_voiceMemos', JSON.stringify(voiceMemos));
+  }catch(e){}
+  vmRenderMemos();
+}
+
 /* ── 🧰 사무실 프로그램 목록 (2026-09-08 실측: 바탕화면 압축파일 14개를 열어 확인) ── */
 const PROGS = [
   { n: '매물자동입력', k: '구글시트', w: '카톡 매물 글을 시트 항목에 맞춰 자동 입력',
