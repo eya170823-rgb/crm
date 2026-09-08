@@ -882,7 +882,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 17:52</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 18:02</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -997,6 +997,7 @@ body{padding-bottom:46px}
           <div class="sx-sub" data-co="head" data-grp="운영부">매물관리</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-listing" onclick="sxGo('dash-listing',0,'운영부')">매물장 현황</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')">매물장</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="paste" onclick="sxGo('paste',0,'운영부')">붙여넣어 매물 만들기</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="map" onclick="sxGo('map',0,'운영부')">지도로 보기</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="apt" onclick="sxGo('apt',0,'운영부')">시세 조회(참고)</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="adcopy" onclick="sxGo('adcopy',0,'운영부')">광고문구 만들기</button>
@@ -1023,6 +1024,7 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="csched" onclick="sxGo('csched',0,'운영부')">일정관리</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="vito" onclick="sxGo('vito',0,'운영부')">상담내역</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="match" onclick="sxGo('match',0,'운영부')">맞춤매물</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="paste" onclick="sxGo('paste',0,'운영부')">붙여넣어 고객 만들기<span class="sx-tag ref">참조</span></button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms5" onclick="sxGo('sms5',0,'운영부')">문자 고르기</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms" onclick="sxGo('sms',0,'운영부')">문자 발송</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="visit" onclick="sxGo('visit',0,'운영부')">임장<span class="sx-tag ref">참조</span></button>
@@ -1094,6 +1096,7 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ai-center" data-admin="1" onclick="sxGo('ai-center',0,'개발부')">AI 직원 배치</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="guide" data-admin="1" onclick="sxGo('guide',0,'개발부')">화면·메뉴 설계<span class="sx-tag ref">참조</span></button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">요구사항·로드맵</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="prompt" data-admin="1" onclick="sxGo('prompt',0,'개발부')">프롬프트 모음</button>
           <div class="sx-sub" data-co="head" data-grp="개발부">개발</div>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
@@ -1363,6 +1366,16 @@ body{padding-bottom:46px}
       <div class="page-hd"><div><div class="page-title">교육 현황</div>
         <div class="page-sub">매뉴얼·이수</div></div></div>
       <div class="dd-wrap" id="dd-dash-edu"></div>
+    </div>
+    <div class="panel" id="p-paste">
+      <div class="page-hd"><div><div class="page-title">붙여넣어 만들기</div>
+        <div class="page-sub">카톡·문자 글에서 매물·고객 항목을 뽑습니다</div></div></div>
+      <div class="dd-wrap" id="pz-body"></div>
+    </div>
+    <div class="panel" id="p-prompt">
+      <div class="page-hd"><div><div class="page-title">프롬프트 모음</div>
+        <div class="page-sub">쓰던 지시문을 모아 둡니다</div></div></div>
+      <div class="dd-wrap" id="pr-body"></div>
     </div>
     <div class="panel" id="p-pref">
       <div class="page-hd"><div><div class="page-title">화면 설정</div>
@@ -11287,7 +11300,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"일정관리 · 만기알림","id":"dash-expiry","ref":true},{"label":"만기·일정 목록","id":"expiry","ref":true},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links","ref":true},{"label":"업무 자료실","id":"ref"},{"label":"직원 매뉴얼","id":"guide"},{"label":"메모·요구사항","id":"memo","ref":true},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"사무·인사·회계·결재·경영","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"사무관리"},{"label":"만기 현황","id":"dash-expiry"},{"label":"만기·일정 목록","id":"expiry"},{"label":"자료 링크","id":"links","ref":true},{"label":"문서함"},{"sub":"계약관리"},{"label":"계약 원장","id":"contract"},{"label":"공부데이터 자동입력","act":"cwDoc()"},{"label":"계약서 관리·출력","id":"contract-writer","ref":true},{"label":"위수탁계약"},{"label":"연동·토큰 설정","act":"openGsSetup()"},{"label":"버전 정보","id":"ver"},{"label":"화면 설정","id":"pref"},{"sub":"인사관리 (근태·급여·퇴직)"},{"label":"근태·임장","id":"visit","ref":true},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"급여·퇴직"},{"label":"교육 이력","id":"guide","ref":true},{"sub":"회계관리 (자금·금융·세무)"},{"label":"회계·정산","id":"payout"},{"label":"세금 계산기","act":"window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')"},{"label":"매출·비용"},{"label":"자금·금융서비스 연계"},{"label":"세무 신고 자료"},{"sub":"전자결재"},{"label":"승인·보고함","id":"approval"},{"label":"보고 취합"},{"label":"메모·요구사항","id":"memo","ref":true},{"sub":"경영관리"},{"label":"광고 성과","id":"dash-ads","ref":true},{"label":"경영 통계","id":"stats","adminOnly":true,"ref":true},{"label":"대표 홈","id":"chief","adminOnly":true,"ref":true}]},{"dept":"운영부","desc":"매물·광고·사진·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물관리"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"지도로 보기","id":"map"},{"label":"시세 조회(참고)","id":"apt"},{"label":"광고문구 만들기","id":"adcopy"},{"label":"매물 위험 점검","id":"dash-legal","ref":true},{"label":"매물 수집","id":"gather","ref":true,"adminOnly":true},{"sub":"광고관리 (플랫폼별)"},{"label":"광고 현황","id":"dash-ads"},{"label":"당근마켓","act":"adPlat('daangn')"},{"label":"이실장","act":"adPlat('isj')"},{"label":"직방","act":"adPlat('zigbang')"},{"label":"다방","act":"adPlat('dabang')"},{"label":"한방"},{"label":"그 밖의 채널","act":"adPlat('naver')"},{"label":"광고 원장 전체","id":"ads"},{"sub":"사진관리"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","id":"exthumb"},{"sub":"고객관리"},{"label":"고객 현황","id":"dash-cust"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 전체","id":"customer"},{"label":"일정관리","id":"csched"},{"label":"상담내역","id":"vito"},{"label":"맞춤매물","id":"match"},{"label":"문자 고르기","id":"sms5"},{"label":"문자 발송","id":"sms"},{"label":"임장","id":"visit","ref":true},{"label":"계약 원장","id":"contract","ref":true},{"label":"만기 현황","id":"dash-expiry","ref":true},{"sub":"임대인관리"},{"label":"임대인 명부","id":"landlord"},{"label":"공실 확인 문자","id":"sms","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"sub":"자사 채널"},{"label":"홈페이지","id":"exhome"},{"label":"홈페이지 노출 매물","id":"listing","ref":true},{"sub":"네이버 (무료)"},{"label":"네이버 블로그","id":"exblog"},{"label":"스마트플레이스"},{"label":"네이버 카페"},{"label":"지식iN"},{"label":"검색 순위","id":"exrank"},{"sub":"영상 (무료)"},{"label":"유튜브","id":"exyt"},{"label":"유튜브 쇼츠","id":"exyt","ref":true},{"sub":"SNS (무료)"},{"label":"인스타그램"},{"label":"스레드"},{"label":"페이스북"},{"label":"네이버 밴드"},{"sub":"동네 · 메신저 (무료)"},{"label":"당근 동네생활"},{"label":"카카오채널"},{"label":"문자·알림톡","id":"sms","ref":true},{"sub":"콘텐츠 재료"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"매물장 현황","id":"dash-listing","ref":true},{"label":"광고 현황","id":"dash-ads","ref":true},{"label":"사진·썸네일","id":"exthumb","ref":true},{"label":"광고문구","id":"adcopy","ref":true},{"label":"자료 링크","id":"links"},{"label":"광고 원장","id":"ads","ref":true}]},{"dept":"법무팀","desc":"계약·권리·분쟁","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"sub":"계약서 검토"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"계약 원장","id":"contract","ref":true},{"label":"만기 현황","id":"dash-expiry","ref":true},{"label":"중개대상물 확인설명서"},{"sub":"위험 점검"},{"label":"만기·갱신 기한","id":"expiry","ref":true},{"label":"데이터 위험(검수)","id":"audit","ref":true},{"label":"건축물대장 확인","id":"listing","ref":true},{"label":"광고 표시 점검","id":"ads","ref":true},{"label":"등기 변동 확인","id":"reg"},{"sub":"법률 자문 · 분쟁"},{"label":"문서 작성 · 브리핑","id":"doc"},{"label":"법률 자문 기록"},{"label":"분쟁·클레임"},{"label":"보증보험 확인","id":"guar"},{"label":"공제·보증 증서"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"sub":"설계"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"화면·메뉴 설계","id":"guide","ref":true},{"label":"요구사항·로드맵","id":"memo"},{"sub":"개발"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"검산 결과"},{"sub":"운영"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 연결","id":"ops","ref":true},{"label":"AI 실행이력","id":"changelog","ref":true},{"label":"AI 승인대기","id":"approval","ref":true},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"일정관리 · 만기알림","id":"dash-expiry","ref":true},{"label":"만기·일정 목록","id":"expiry","ref":true},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links","ref":true},{"label":"업무 자료실","id":"ref"},{"label":"직원 매뉴얼","id":"guide"},{"label":"메모·요구사항","id":"memo","ref":true},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"사무·인사·회계·결재·경영","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"사무관리"},{"label":"만기 현황","id":"dash-expiry"},{"label":"만기·일정 목록","id":"expiry"},{"label":"자료 링크","id":"links","ref":true},{"label":"문서함"},{"sub":"계약관리"},{"label":"계약 원장","id":"contract"},{"label":"공부데이터 자동입력","act":"cwDoc()"},{"label":"계약서 관리·출력","id":"contract-writer","ref":true},{"label":"위수탁계약"},{"label":"연동·토큰 설정","act":"openGsSetup()"},{"label":"버전 정보","id":"ver"},{"label":"화면 설정","id":"pref"},{"sub":"인사관리 (근태·급여·퇴직)"},{"label":"근태·임장","id":"visit","ref":true},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"급여·퇴직"},{"label":"교육 이력","id":"guide","ref":true},{"sub":"회계관리 (자금·금융·세무)"},{"label":"회계·정산","id":"payout"},{"label":"세금 계산기","act":"window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')"},{"label":"매출·비용"},{"label":"자금·금융서비스 연계"},{"label":"세무 신고 자료"},{"sub":"전자결재"},{"label":"승인·보고함","id":"approval"},{"label":"보고 취합"},{"label":"메모·요구사항","id":"memo","ref":true},{"sub":"경영관리"},{"label":"광고 성과","id":"dash-ads","ref":true},{"label":"경영 통계","id":"stats","adminOnly":true,"ref":true},{"label":"대표 홈","id":"chief","adminOnly":true,"ref":true}]},{"dept":"운영부","desc":"매물·광고·사진·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물관리"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 매물 만들기","id":"paste"},{"label":"지도로 보기","id":"map"},{"label":"시세 조회(참고)","id":"apt"},{"label":"광고문구 만들기","id":"adcopy"},{"label":"매물 위험 점검","id":"dash-legal","ref":true},{"label":"매물 수집","id":"gather","ref":true,"adminOnly":true},{"sub":"광고관리 (플랫폼별)"},{"label":"광고 현황","id":"dash-ads"},{"label":"당근마켓","act":"adPlat('daangn')"},{"label":"이실장","act":"adPlat('isj')"},{"label":"직방","act":"adPlat('zigbang')"},{"label":"다방","act":"adPlat('dabang')"},{"label":"한방"},{"label":"그 밖의 채널","act":"adPlat('naver')"},{"label":"광고 원장 전체","id":"ads"},{"sub":"사진관리"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","id":"exthumb"},{"sub":"고객관리"},{"label":"고객 현황","id":"dash-cust"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 전체","id":"customer"},{"label":"일정관리","id":"csched"},{"label":"상담내역","id":"vito"},{"label":"맞춤매물","id":"match"},{"label":"붙여넣어 고객 만들기","id":"paste","ref":true},{"label":"문자 고르기","id":"sms5"},{"label":"문자 발송","id":"sms"},{"label":"임장","id":"visit","ref":true},{"label":"계약 원장","id":"contract","ref":true},{"label":"만기 현황","id":"dash-expiry","ref":true},{"sub":"임대인관리"},{"label":"임대인 명부","id":"landlord"},{"label":"공실 확인 문자","id":"sms","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"sub":"자사 채널"},{"label":"홈페이지","id":"exhome"},{"label":"홈페이지 노출 매물","id":"listing","ref":true},{"sub":"네이버 (무료)"},{"label":"네이버 블로그","id":"exblog"},{"label":"스마트플레이스"},{"label":"네이버 카페"},{"label":"지식iN"},{"label":"검색 순위","id":"exrank"},{"sub":"영상 (무료)"},{"label":"유튜브","id":"exyt"},{"label":"유튜브 쇼츠","id":"exyt","ref":true},{"sub":"SNS (무료)"},{"label":"인스타그램"},{"label":"스레드"},{"label":"페이스북"},{"label":"네이버 밴드"},{"sub":"동네 · 메신저 (무료)"},{"label":"당근 동네생활"},{"label":"카카오채널"},{"label":"문자·알림톡","id":"sms","ref":true},{"sub":"콘텐츠 재료"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"매물장 현황","id":"dash-listing","ref":true},{"label":"광고 현황","id":"dash-ads","ref":true},{"label":"사진·썸네일","id":"exthumb","ref":true},{"label":"광고문구","id":"adcopy","ref":true},{"label":"자료 링크","id":"links"},{"label":"광고 원장","id":"ads","ref":true}]},{"dept":"법무팀","desc":"계약·권리·분쟁","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"sub":"계약서 검토"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"계약 원장","id":"contract","ref":true},{"label":"만기 현황","id":"dash-expiry","ref":true},{"label":"중개대상물 확인설명서"},{"sub":"위험 점검"},{"label":"만기·갱신 기한","id":"expiry","ref":true},{"label":"데이터 위험(검수)","id":"audit","ref":true},{"label":"건축물대장 확인","id":"listing","ref":true},{"label":"광고 표시 점검","id":"ads","ref":true},{"label":"등기 변동 확인","id":"reg"},{"sub":"법률 자문 · 분쟁"},{"label":"문서 작성 · 브리핑","id":"doc"},{"label":"법률 자문 기록"},{"label":"분쟁·클레임"},{"label":"보증보험 확인","id":"guar"},{"label":"공제·보증 증서"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"sub":"설계"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"화면·메뉴 설계","id":"guide","ref":true},{"label":"요구사항·로드맵","id":"memo"},{"label":"프롬프트 모음","id":"prompt"},{"sub":"개발"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"검산 결과"},{"sub":"운영"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 연결","id":"ops","ref":true},{"label":"AI 실행이력","id":"changelog","ref":true},{"label":"AI 승인대기","id":"approval","ref":true},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -12920,13 +12933,14 @@ function docRender(){
         + '<button class="dd-go" onclick="sxPop(&#39;sx-memo&#39;)">메모로 남기기</button></div>'
       : '<div class="dd-empty">고른 것이 없습니다</div>')
     + '<div class="s">🔴 빈 칸은 <b>확인 필요</b>로 적습니다. 없는 값을 지어내지 않습니다.</div></div>'
-    + '<div class="dd-c" style="border-color:#FDE68A;background:#FFFBEB"><div class="card-title">공유받은 문서 프로그램 — 확인 필요</div>'
+    + '<div class="dd-c" style="border-color:#FDE68A;background:#FFFBEB"><div class="card-title">PC 프로그램 연결 필요 — 원클릭 브리핑자료</div>'
     + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">'
-    + '대표가 공유받으셨다는 문서 프로그램이 <b>무엇인지 아직 확인하지 못했습니다</b>. '
-    + '이름과 있는 곳(또는 주소)을 알려 주시면 여기에 붙이겠습니다.<br>'
-    + 'PC 프로그램이면 웹에서 바로 열 수 없어 「PC 프로그램 연결 필요」로 안내만 하고, '
-    + '웹 서비스라면 바로 열리게 하겠습니다.</div>'
-    + '<button class="dd-go" onclick="sxPop(&#39;sx-memo&#39;)">프로그램 이름 메모하기</button></div>'
+    + '바탕화면에서 찾았습니다 · <code style="font-size:11.5px">원클릭브리핑자료_배포판.zip</code> (실행파일 프로그램)<br>'
+    + '하는 일 · 카카오 지도 캡처 + 위치 좌표 + 표지·지도가 들어간 <b>PDF 브리핑 자료</b> 만들기<br>'
+    + '🔴 웹에서 바로 열 수 없습니다. 사무실 컴퓨터에서 압축을 풀고 실행합니다. '
+    + '실행 전에 .env 에 열쇠(API 키)를 넣어야 합니다.<br>'
+    + '위 미리보기는 <b>글자 자료</b>입니다. 지도·사진이 들어간 PDF 가 필요하면 그 프로그램을 씁니다.</div>'
+    + '<button class="dd-go" onclick="sxPop(&#39;sx-memo&#39;)">메모 남기기</button></div>'
     + ddLink([
         { n: '계약서 작성·검토', w: '실제 계약서 만들기', go: 'contract-writer', dept: '법무팀' },
         { n: '보증보험 확인', w: '보증금 안전 점검', go: 'guar', dept: '법무팀' },
@@ -13060,6 +13074,11 @@ function cschedRender(){
 /* ── 🎯 맞춤매물 ── */
 let matchCid = '';
 function matchSet(v){ matchCid = v; matchRender(); }
+const PZ_REQ = [
+  { k: '주차', re: /주차/ }, { k: '엘리베이터', re: /엘리베이터|엘베|EV/i },
+  { k: '반려동물', re: /반려|애견|펫|고양이/ }, { k: '즉시입주', re: /즉시입주|바로입주/ },
+  { k: '풀옵션', re: /풀옵션|full/i }, { k: '신축', re: /신축|새건물|리모델링/ },
+];
 function matchScore(c, l){
   let sc = 0; const why = [];
   const ct = String(c.propType || '').trim(), lt = String(l.type || '').trim() + ' ' + String(l.kind || '').trim();
@@ -13069,6 +13088,10 @@ function matchScore(c, l){
   if(cr && cr.length >= 2 && la.indexOf(cr) >= 0){ sc += 3; why.push('지역'); }
   if(ddLive(l)){ sc += 1; why.push('거래 가능'); }
   if(ddAdOn(l)){ sc += 0.5; }
+  // 고객 글에 적힌 '꼭 필요한 것'이 매물 설명에도 있으면 가점 (「물건분석기」의 요구조건 채점)
+  const cw = [c.note, c.budget, c.nextAction].filter(Boolean).join(' ');
+  const lw = [l.note, l.desc, l.options, l.parking].filter(Boolean).join(' ');
+  PZ_REQ.forEach(r => { if(r.re.test(cw) && r.re.test(lw)){ sc += 1; why.push(r.k); } });
   return { sc: sc, why: why.join(' · ') };
 }
 function matchRender(){
@@ -13300,6 +13323,269 @@ function refRender(){
     + '통째로 지우면 그것들이 멈춥니다.<br>'
     + '지울 때는 ① 참조 검색 ② 예약 실행 확인 ③ 전체 검산 ④ 사본 보관 을 마친 뒤 '
     + '<b>보관 폴더로 옮기는 방식</b>으로 합니다. 바로 지우지 않습니다.</div></div></div>';
+}
+/* ── 📋 붙여넣어 매물·고객 만들기 (2026-09-08) ──
+   카톡·문자로 온 매물 글을 붙여넣으면 항목을 뽑아 등록 창에 채워 준다.
+   가져온 규칙(대표 지시로 분석):
+     · 바탕화면 「매물자동입력」 — 항목 목록에 맞춰 뽑고, 이미 분류된 값은 메모에서 뺀다
+     · 통합매물장 정리 — 동+지번으로 주소를 잡고, 본문에서 방수·욕실·방향·관리비를 뽑는다
+   🔴 AI 를 쓰지 않는다(규칙으로만 뽑는다). 못 뽑은 칸은 비워 두고 지어내지 않는다.
+   🔴 저절로 저장하지 않는다 — 등록 창을 열어 채워 줄 뿐, 저장은 사람이 누른다. */
+const PZ_OPT = ['에어컨','TV','냉장고','인덕션','가스레인지','전자레인지','세탁기','건조기','침대','옷장',
+                '책상','식기세척기','신발장','싱크대','비데','붙박이장','인터넷','CCTV','도어락'];
+function pzNum(x){ return String(x || '').replace(/[^0-9]/g, ''); }
+function pzMan(v){
+  // 3.5억 · 3억5천 · 350 · 3,500 을 만원 숫자로
+  const s = String(v || '').replace(/\s/g, '');
+  let m = s.match(/(\d+(?:\.\d+)?)억(?:(\d+(?:,\d+)?)(?:천|만)?)?/);
+  if(m){
+    let v2 = Math.round(parseFloat(m[1]) * 10000);
+    if(m[2]){ const t = parseInt(m[2].replace(/,/g, ''), 10);
+      v2 += (m[2].length <= 1 ? t * 1000 : t); }
+    return String(v2);
+  }
+  m = s.match(/(\d[\d,]*)\s*만/);
+  if(m) return pzNum(m[1]);
+  m = s.match(/\d[\d,]*/);
+  return m ? pzNum(m[0]) : '';
+}
+function pzParse(t, mode){
+  const txt = String(t || '');
+  const out = {}, used = [];
+  const take = (re, fn) => { const m = txt.match(re); if(m){ used.push(m[0]); return fn ? fn(m) : m[1]; } return ''; };
+
+  // 전화
+  out.phone = take(/01[016-9][-. ]?\d{3,4}[-. ]?\d{4}/, m => m[0].replace(/[.\s]/g, '-'));
+  // 주소: 동/리/가 + 지번
+  const ad = txt.match(/([가-힣]{1,6}(?:동|리|가))\s*(산\s*)?(\d+(?:-\d+)?)/);
+  if(ad){ out.addr = (ad[1] + ' ' + (ad[2] ? '산' : '') + ad[3]).replace(/\s+/g, ' '); used.push(ad[0]); }
+  // 호수
+  out.addr2 = take(/(\d{3,5})\s*호/, m => m[1] + '호');
+  // 층 / 총층
+  // 12층 중 8층 · 8층/12층 을 모두 본다 — 작은 쪽이 해당층, 큰 쪽이 총층
+  const fl = txt.match(/(\d{1,2})\s*층\s*(?:중|\/)\s*(지하\s*)?(\d{1,2})\s*층/);
+  if(fl){
+    const fa = parseInt(fl[1], 10), fb = parseInt(fl[3], 10);
+    out.floor = (fl[2] ? '지하 ' : '') + Math.min(fa, fb) + '층';
+    out.totalFloor = Math.max(fa, fb) + '층';
+    used.push(fl[0]);
+  }
+  else out.floor = take(/(지하\s*)?(\d{1,2})\s*층/, m => (m[1] ? '지하 ' : '') + m[2] + '층');
+  // 금액: 300/45 · 보증금 300 월세 45 · 전세 3억
+  const mm = txt.match(/(\d[\d,]*(?:\.\d+)?\s*억?\s*(?:\d+천)?)\s*[\/／]\s*(\d[\d,]*)/);
+  if(mm){ out.price = pzMan(mm[1]); out.rent = pzNum(mm[2]); used.push(mm[0]); }
+  else {
+    const b = txt.match(/보증(?:금)?\s*[:：]?\s*([\d,.억천만\s]+)/);
+    if(b){ out.price = pzMan(b[1]); used.push(b[0]); }
+    const r = txt.match(/월\s*(?:세|임대료)?\s*[:：]?\s*(\d[\d,]*)/);
+    if(r){ out.rent = pzNum(r[1]); used.push(r[0]); }
+    const j = txt.match(/(전세|매매)\s*[:：]?\s*([\d,.억천만\s]+)/);
+    if(j && !out.price){ out.price = pzMan(j[2]); out.type = j[1]; used.push(j[0]); }
+  }
+  if(!out.type) out.type = /전세/.test(txt) ? '전세' : /매매/.test(txt) ? '매매' : (out.rent ? '월세' : '');
+  // 관리비
+  out.mgmt = take(/관리비\s*[:：]?\s*(\d[\d,]*)/, m => pzNum(m[1]));
+  // 면적
+  const ar = txt.match(/(\d+(?:\.\d+)?)\s*(㎡|m2|m²|평)/i);
+  if(ar){
+    out.area = ar[1] + (/평/.test(ar[2]) ? '평' : '㎡');
+    const py = pzPyeong(out.area);
+    if(py) out.area += ' (' + py + ')';
+    used.push(ar[0]);
+  }
+  // 방향
+  out.direction = take(/(남동|남서|북동|북서|남|북|동|서)\s*향/, m => m[1] + '향');
+  // 방·욕실
+  out.rooms = take(/방\s*(\d)\s*개?/, m => m[1]) || take(/(\d)\s*룸/, m => m[1]);
+  out.baths = take(/(?:욕실|화장실)\s*(\d)\s*개?/, m => m[1]);
+  // 옵션
+  const opt = PZ_OPT.filter(o => txt.indexOf(o) >= 0);
+  if(opt.length) out.options = opt.join(', ');
+  // 입주
+  out.move = take(/입주\s*(?:가능)?\s*(?:시기|일)?\s*[:：]?\s*([^\n,·]{2,20})/, m => m[1].trim())
+          || (/즉시\s*입주/.test(txt) ? '즉시입주' : '');
+  // 주차·엘리베이터
+  out.parking = take(/주차\s*[:：]?\s*([^\n,·]{1,14})/, m => m[1].trim());
+  // 건물명: 지번 뒤에 붙는 이름
+  if(ad){
+    const after = txt.slice(txt.indexOf(ad[0]) + ad[0].length, txt.indexOf(ad[0]) + ad[0].length + 40);
+    const nm = after.match(/^[\s,]*([가-힣A-Za-z][가-힣A-Za-z0-9 ]{1,18}?)(?=\s*\d{3,5}\s*호|\s*[\n,·]|$)/);
+    if(nm && nm[1].trim().length >= 2) out.apt = nm[1].trim();
+  }
+  if(!out.apt){
+    const nm2 = txt.match(/(?:건물명|아파트|단지)\s*[:：]\s*([^\n,·]{2,20})/);
+    if(nm2){ out.apt = nm2[1].trim(); used.push(nm2[0]); }
+  }
+  // 이름 (고객 모드)
+  out.name = take(/(?:성함|이름|담당자)\s*[:：]\s*([가-힣]{2,4})/, m => m[1]);
+  // 희망 지역·유형 (고객 모드)
+  out.region = take(/(?:희망\s*지역|지역)\s*[:：]\s*([^\n,·]{2,20})/, m => m[1].trim())
+            || (ad ? ad[1] : '');
+  out.propType = take(/(?:희망\s*유형|유형)\s*[:：]\s*([^\n,·]{2,20})/, m => m[1].trim())
+              || (/오피스텔/.test(txt) ? '오피스텔' : /아파트/.test(txt) ? '아파트'
+                 : /원룸/.test(txt) ? '원룸' : /투룸/.test(txt) ? '투룸'
+                 : /상가/.test(txt) ? '상가' : /토지/.test(txt) ? '토지' : '');
+  out.budget = take(/예산\s*[:：]?\s*([^\n]{2,30})/, m => m[1].trim());
+  // 메모: 이미 뽑아 쓴 조각을 지운 나머지 (매물자동입력의 메모 규칙)
+  let rest = txt;
+  used.forEach(u => { rest = rest.split(u).join(' '); });
+  // 뽑아 놓은 값 자체도 메모에서 뺀다 (「매물자동입력」의 메모 규칙)
+  Object.keys(out).forEach(f => {
+    if(f === 'note') return;
+    String(out[f] || '').split(/[,\s]+/).forEach(v => {
+      if(v && v.length >= 2) rest = rest.split(v).join(' ');
+    });
+  });
+  rest = rest.split(/\n/)
+             .map(x => x.replace(/^[\s\-·✔■●*]+/, '').replace(/^[가-힣]{2,5}\s*[:：]\s*/, '').trim())
+             .filter(x => (x.match(/[가-힣]/g) || []).length >= 4)
+             .join(' / ').replace(/\s{2,}/g, ' ').replace(/(\s*\/\s*){2,}/g, ' / ').trim();
+  out.note = rest.slice(0, 600);
+  return out;
+}
+/* 여러 건을 한 번에 — 「물건분석기」의 나누는 방식을 가져왔다.
+   빈 줄 두 개 · "출처 URL:" 줄 · "1." 처럼 번호가 붙은 줄을 경계로 본다. */
+function pzSplit(t){
+  const raw = String(t == null ? "" : t).trim();
+  if(!raw) return [];
+  const url = raw.split(/(?=^\s*출처\s*URL\s*[:：])/m).map(x => x.trim()).filter(Boolean);
+  if(url.length > 1) return url;
+  const no = raw.split(/(?=^\s*\d{1,2}\.\s+\S)/m).map(x => x.trim()).filter(Boolean);
+  if(no.length > 1) return no;
+  const bl = raw.split(/\n{2,}/).map(x => x.trim()).filter(x => x.length > 12);
+  return bl.length > 1 ? bl : [raw];
+}
+/* ㎡ ↔ 평 (물건분석기와 같은 상수) */
+const PZ_PY = 3.305785;
+function pzPyeong(a){
+  const m = String(a || "").match(/(\d+(?:\.\d+)?)\s*(㎡|m2|m²)/i);
+  if(!m) return "";
+  return (Math.round(parseFloat(m[1]) / PZ_PY * 10) / 10) + "평";
+}
+const PZ_FIELD = {
+  listing: [['apt','건물명','l-apt'], ['addr','주소(동·지번)','l-addr'], ['addr2','호수','l-addr2'],
+    ['type','거래유형','l-type'], ['price','보증금/매매(만)','l-price'], ['rent','월세(만)','l-rent'],
+    ['area','면적','l-area'], ['floor','층','l-floor'], ['direction','향','l-direction'],
+    ['rooms','방','l-rooms'], ['baths','욕실','l-baths'], ['options','옵션','l-options'],
+    ['parking','주차','l-parking'], ['phone','연락처','l-cphone'], ['note','메모','l-note']],
+  customer: [['name','이름','c-name'], ['phone','연락처','c-phone'], ['propType','희망 유형','c-type'],
+    ['region','희망 지역',''], ['budget','예산','c-budget'], ['move','입주 시기','c-deadline'],
+    ['note','상담 내용','']],
+};
+let pzMode = 'listing', pzData = null;
+function pzSetMode(m){ pzMode = m; pzData = null; pzRender(); }
+let pzList = [], pzPick = 0;
+function pzRun(){
+  const t = document.getElementById('pz-in');
+  const v = String(t ? t.value : '').trim();
+  if(!v){ showToast('붙여넣을 글이 없습니다'); if(t) t.focus(); return; }
+  const parts = pzSplit(v);
+  pzList = parts.map(x => pzParse(x, pzMode));
+  pzPick = 0;
+  pzData = pzList[0] || null;
+  pzRender();
+  const got = pzData ? PZ_FIELD[pzMode].filter(f => String(pzData[f[0]] || '').trim()).length : 0;
+  showToast(parts.length > 1 ? (parts.length + '건으로 나눴습니다 · 첫 건 ' + got + '칸') : (got + '칸을 뽑았습니다'));
+}
+function pzPickSet(i){ pzPick = i; pzData = pzList[i] || null; pzRender(); }
+function pzClear(){ const t = document.getElementById('pz-in'); if(t) t.value = ''; pzData = null; pzList = []; pzPick = 0; pzRender(); }
+function pzFill(){
+  if(!pzData){ showToast('먼저 [뽑아보기]를 누르세요'); return; }
+  const fields = PZ_FIELD[pzMode];
+  try{
+    if(pzMode === 'listing') openModal('listing', null); else openModal('customer', null);
+  }catch(e){ showToast('등록 창을 열지 못했습니다'); return; }
+  setTimeout(function(){
+    let n = 0;
+    fields.forEach(f => {
+      if(!f[2]) return;
+      const el = document.getElementById(f[2]);
+      const v = String(pzData[f[0]] || '').trim();
+      if(el && v && !String(el.value || '').trim()){ el.value = v; n++; }
+    });
+    showToast(n + '칸을 채웠습니다 — 확인하고 저장하세요');
+  }, 380);
+}
+function pzCopy(){
+  if(!pzData){ showToast('먼저 [뽑아보기]를 누르세요'); return; }
+  const txt = PZ_FIELD[pzMode].map(f => f[1] + ' : ' + (pzData[f[0]] || '')).join(NLC);
+  try{ navigator.clipboard.writeText(txt); showToast('뽑은 내용을 복사했습니다'); }
+  catch(e){ showToast('글자를 직접 복사하세요'); }
+}
+function pzRender(){
+  const el = document.getElementById('pz-body'); if(!el) return;
+  const keep = (document.getElementById('pz-in') || {}).value || '';
+  const fields = PZ_FIELD[pzMode];
+  const rows = pzData ? fields.map(f => [f[1], pzData[f[0]] || '']) : [];
+  const got = pzData ? rows.filter(r => String(r[1]).trim()).length : 0;
+  el.innerHTML =
+    '<div class="dd-c"><div class="dd-h">무엇을 만들까요</div><div class="gw-apps" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">'
+    + '<button class="gw-app" style="' + (pzMode === 'listing' ? 'border-color:var(--navy);color:var(--navy);font-weight:700' : '') + '" onclick="pzSetMode(&#39;listing&#39;)">매물 만들기</button>'
+    + '<button class="gw-app" style="' + (pzMode === 'customer' ? 'border-color:var(--navy);color:var(--navy);font-weight:700' : '') + '" onclick="pzSetMode(&#39;customer&#39;)">고객·상담 만들기</button>'
+    + '</div><div class="s">카톡·문자로 받은 글을 그대로 붙여넣으세요. 규칙으로 항목을 뽑습니다 (AI 를 쓰지 않습니다).</div></div>'
+    + '<div class="dd-c"><div class="dd-h">붙여넣기</div>'
+    + '<textarea class="sx-memo-t" id="pz-in" rows="9" placeholder="예) 연동 251-9 에코힐튼 810호 / 400-74-8 / 12층 중 8층 / 26㎡ / 남향 / 에어컨 냉장고 세탁기 / 010-0000-0011">' + gEsc(keep) + '</textarea>'
+    + '<div style="margin-top:9px"><button class="sx-memo-s" onclick="pzRun()">뽑아보기</button> '
+    + '<button class="dd-go" onclick="pzClear()">지우기</button></div></div>'
+    + (pzList.length > 1
+      ? '<div class="dd-c"><div class="dd-h">나눈 매물 ' + pzList.length + '건</div><div class="gw-apps" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr))">'
+        + pzList.map((x, i) => '<button class="gw-app" style="' + (i === pzPick ? 'border-color:var(--navy);color:var(--navy);font-weight:700' : '')
+            + '" onclick="pzPickSet(' + i + ')">' + (i + 1) + '. ' + gEsc((x.apt || x.addr || '이름 없음').slice(0, 12)) + '</button>').join('')
+        + '</div><div class="s">한 건씩 골라 확인하고 등록 창에 채웁니다. 한꺼번에 저장하지 않습니다.</div></div>'
+      : '')
+    + (pzData
+      ? '<div class="dd-c"><div class="dd-h">뽑은 것 · ' + got + ' / ' + fields.length + '칸</div>'
+        + '<div class="dd-tw"><table class="dd-t"><tbody>'
+        + rows.map(r => '<tr><td class="k">' + gEsc(r[0]) + '</td><td>' + (String(r[1]).trim() ? gEsc(String(r[1])) : '<span style="color:var(--t3)">못 뽑음</span>') + '</td></tr>').join('')
+        + '</tbody></table></div>'
+        + '<div style="margin-top:9px"><button class="sx-memo-s" onclick="pzFill()">등록 창에 채우기</button> '
+        + '<button class="dd-go" onclick="pzCopy()">글자로 복사</button></div>'
+        + '<div class="s">🔴 못 뽑은 칸은 비워 둡니다 — 지어내지 않습니다. 등록 창에서 확인하고 저장하세요. 저절로 저장되지 않습니다.</div></div>'
+      : '')
+    + '<div class="dd-c"><div class="dd-h">어디서 가져온 규칙인가</div><div class="s">'
+    + '· 「매물자동입력」 프로그램 — 정해진 항목에 맞춰 뽑고, 이미 분류된 값은 메모에서 빼는 방식<br>'
+    + '· 통합매물장 정리 기록 — 동+지번으로 주소를 잡고 본문에서 방수·욕실·향·관리비를 뽑던 규칙<br>'
+    + '🔴 그 프로그램은 구글 시트에서 AI(제미나이)로 뽑습니다. 우리는 <b>제미나이를 쓰지 않기로</b> 했으므로 '
+    + '같은 결과를 규칙으로 뽑도록 다시 만들었습니다. 문장이 특이하면 못 뽑을 수 있습니다.</div></div>';
+}
+
+/* ── 🧪 프롬프트 모음 ── */
+const PROMPTS = [
+  { k: 'wm', n: '사진 워터마크 지우기', w: '매물 사진에 박힌 워터마크·글자만 지울 때', body: [
+      'Please remove only the watermark and overlay text from this image.',
+      '',
+      '[Requirements]',
+      '1. Watermark Removal: Cleanly remove any semi-transparent or opaque watermark text, logos,',
+      '   or photographer stamps overlaid on the image. Inpaint and restore the covered background',
+      '   area seamlessly to match the surrounding texture, lighting, and structure.',
+      '2. False-Positive Protection: DO NOT remove or modify any real, in-scene text',
+      '   (e.g., signs, document labels, appliance brand names, posters, or reflections).',
+      '3. Preserve Originality: Keep everything else 100% identical to the original - do not alter',
+      '   the room structure, furniture layout, colors, lighting, perspective, crop, or overall quality.',
+    ].join(NLC) },
+];
+function prCopy(k){
+  const p = PROMPTS.find(x => x.k === k); if(!p) return;
+  try{ navigator.clipboard.writeText(p.body); showToast('프롬프트를 복사했습니다'); }
+  catch(e){ showToast('글자를 직접 복사하세요'); }
+}
+function prRender(){
+  const el = document.getElementById('pr-body'); if(!el) return;
+  el.innerHTML = PROMPTS.map(p => '<div class="dd-c"><div class="dd-h">' + gEsc(p.n) + '</div>'
+      + '<div class="s" style="margin:0 0 8px">언제 · ' + gEsc(p.w) + '</div>'
+      + '<pre class="doc-pre">' + gEsc(p.body) + '</pre>'
+      + '<div style="margin-top:9px"><button class="dd-go" onclick="prCopy(&#39;' + p.k + '&#39;)">복사</button></div></div>').join('')
+    + '<div class="dd-c" style="border-color:#FDE68A;background:#FFFBEB"><div class="card-title">쓰는 법</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">'
+    + '복사한 뒤 쓰시는 이미지 도구에 사진과 함께 붙여넣습니다. '
+    + '<b>이 화면에서 사진을 고치지 않습니다</b> — 지시문만 보관합니다.<br>'
+    + '🔴 남의 사진에서 워터마크를 지우는 것은 저작권 문제가 될 수 있습니다. '
+    + '우리가 찍었거나 임대인에게 받은 사진에만 쓰세요.</div></div>'
+    + ddLink([
+        { n: '사진 편집기', w: '썸네일·워터마크 프로그램', go: 'exthumb', dept: '운영부' },
+        { n: '메모·요구사항', w: '새 프롬프트 적어 두기', go: 'memo', dept: '개발부' },
+        { n: '브랜드 스튜디오', w: '쓸 수 있는 이미지', go: 'brand', dept: '마케팅부' },
+      ]);
 }
 /* ── ⚙ 화면 설정 ── */
 const SKINS = [
@@ -13630,6 +13916,8 @@ function sxInit(){
     if(id === 'guar') guarRender();
     if(id === 'doc') docRender();
     if(id === 'pref') prefRender();
+    if(id === 'paste') pzRender();
+    if(id === 'prompt') prRender();
     if(id === 'match') matchRender();
     if(id === 'ops') opsRender();
     if(id === 'changelog') clRender();
