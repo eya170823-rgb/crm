@@ -501,6 +501,97 @@ table td,table th{font-size:12.5px}
 .fl-next{margin-top:8px;background:#FFF4E6;color:#9A5B12;border-radius:7px;padding:5px 8px;font-size:11.5px;font-weight:600}
 .fl-src{font-size:10px;color:var(--t3);margin-top:5px}
 .fl-note{font-size:11.5px;color:var(--t3);margin-top:12px}
+/* 📊 부서 현황 대시보드 — 각 부서 첫 화면 (2026-09-08 대표 지시) */
+.dd-wrap{display:grid;gap:14px}
+.dd-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.dd-row{display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start}
+.dd-row3{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.dd-c{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 15px;box-shadow:var(--sh)}
+.dd-c .n{font-size:12px;color:var(--t2);font-weight:700}
+.dd-c .v{font-size:29px;font-weight:800;margin-top:5px;line-height:1.05;font-variant-numeric:tabular-nums;color:var(--navy)}
+.dd-c .v.off{font-size:15px;font-weight:700;color:var(--t3);padding:9px 0 6px}
+.dd-c .s{font-size:11.5px;color:var(--t3);margin-top:5px;line-height:1.6}
+.dd-go{margin-top:8px;border:1px solid var(--border);background:#fff;border-radius:9px;padding:4px 9px;font-size:11.5px;color:var(--t2);cursor:pointer}
+.dd-go:hover{border-color:var(--navy);color:var(--navy)}
+.dd-h{font-size:13px;font-weight:800;color:var(--navy);margin-bottom:11px}
+.dd-bar{display:grid;grid-template-columns:96px 1fr 42px;gap:9px;align-items:center;margin-bottom:8px;font-size:12.5px;color:var(--t2)}
+.dd-bar>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-bt{display:block;background:var(--bg3);border-radius:5px;height:10px;overflow:hidden}
+.dd-bt i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#3E82C4,#1B4F8A)}
+.dd-bar b{text-align:right;font-variant-numeric:tabular-nums;color:#1A1D21}
+.dd-do{width:148px;height:148px;border-radius:50%;margin:4px auto 10px;display:flex;align-items:center;justify-content:center}
+.dd-do-i{width:92px;height:92px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dd-do-i b{font-size:24px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+.dd-do-i span{font-size:11px;color:var(--t3)}
+.dd-lg{font-size:12px;display:flex;flex-direction:column;gap:6px;color:var(--t2)}
+.dd-lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:middle}
+.dd-empty{font-size:12.5px;color:var(--t3);padding:18px 2px;text-align:center}
+.dd-rk{display:grid;grid-template-columns:11px 1fr auto auto;gap:10px;align-items:center;border-top:1px solid var(--bg3);padding:10px 2px;font-size:12.5px}
+.dd-rk:first-of-type{border-top:0}
+.dd-rk i{width:9px;height:9px;border-radius:50%;background:#CBD5E1}
+.dd-rk.hi i{background:#B91C1C}
+.dd-rk.md i{background:#B45309}
+.dd-rk.ok i{background:#0F6E56}
+.dd-rk .t{color:#1A1D21;font-weight:600}
+.dd-rk .w{font-size:11.5px;color:var(--t3);font-weight:400;display:block;margin-top:2px}
+.dd-rk .c{font-weight:800;font-variant-numeric:tabular-nums;color:#B91C1C}
+.dd-rk.ok .c{color:#0F6E56}
+.dd-rk.off .c{color:var(--t3);font-weight:600;font-size:11.5px}
+.dd-ch{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border-top:1px solid var(--bg3);padding:9px 2px;font-size:12.5px}
+.dd-ch:first-of-type{border-top:0}
+.dd-ch b{font-weight:600;color:#1A1D21}
+.dd-ch em{font-style:normal;font-size:11.5px;color:var(--t3);display:block;margin-top:2px}
+.dd-st{font-size:11px;font-weight:700;border-radius:11px;padding:3px 9px;white-space:nowrap}
+.dd-st.on{background:#E7F6F0;color:#0B5040}
+.dd-st.pc{background:#FEF6E0;color:#B45309}
+.dd-st.no{background:var(--bg3);color:var(--t3)}
+@media(max-width:1100px){.dd-row{grid-template-columns:1fr}.dd-kpi{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.dd-kpi{grid-template-columns:1fr 1fr}.dd-row3{grid-template-columns:1fr}}
+
+/* 메모칸 */
+.sx-memo-w{padding:10px 12px 12px}
+.sx-memo-t{width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 10px;font:inherit;font-size:13px;resize:vertical;min-height:62px;color:#1A1D21;background:#fff}
+.sx-memo-t:focus{outline:0;border-color:var(--navy)}
+.sx-memo-b{display:flex;gap:7px;margin-top:8px}
+.sx-memo-k{flex:1;border:1px solid var(--border);border-radius:9px;padding:6px 8px;font:inherit;font-size:12px;background:#fff;color:var(--t2)}
+.sx-memo-s{border:0;background:var(--navy);color:#fff;border-radius:9px;padding:7px 16px;font-size:12.5px;font-weight:700;cursor:pointer}
+.sx-memo-s:hover{background:#12305B}
+.sx-memo-l{margin-top:10px;max-height:230px;overflow-y:auto}
+.sx-memo-i{border-top:1px solid var(--bg3);padding:9px 2px;font-size:12.5px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+.sx-memo-i .tx{color:#1A1D21;white-space:pre-wrap;word-break:break-word;line-height:1.6}
+.sx-memo-i .mt{font-size:11px;color:var(--t3);margin-top:3px}
+.sx-memo-x{border:0;background:none;color:var(--t3);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px}
+.sx-memo-x:hover{color:#B91C1C}
+.sx-memo-note{font-size:10.5px;color:var(--t3);line-height:1.7;margin-top:10px;border-top:1px dashed var(--border);padding-top:8px}
+#sx-memo{width:340px}
+@media(max-width:520px){#sx-memo{width:calc(100vw - 24px)}}
+/* 표 · 선그래프 · 누적띠 · 단계 다이어그램 */
+.dd-tw{overflow-x:auto;margin:0 -3px}
+.dd-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.dd-t th{text-align:left;font-size:11.5px;font-weight:700;color:var(--t3);border-bottom:1px solid var(--border);padding:7px 8px;white-space:nowrap}
+.dd-t td{border-bottom:1px solid var(--bg3);padding:8px;color:var(--t2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dd-t td.k{color:#1A1D21;font-weight:600;white-space:normal;min-width:120px}
+.dd-t tbody tr:hover{background:var(--navy-l)}
+.dd-ln{width:100%;height:96px;display:block;overflow:visible}
+.dd-ln .l{fill:none;stroke:#1B4F8A;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.dd-ln .a{fill:rgba(44,111,181,.14);stroke:none}
+.dd-ln .p{fill:#fff;stroke:#1B4F8A;stroke-width:2}
+.dd-ln line{stroke:var(--border);stroke-width:1}
+.dd-ax{display:flex;justify-content:space-between;font-size:10.5px;color:var(--t3);margin-top:5px;padding:0 4px}
+.dd-ax.v{color:var(--navy);font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px}
+.dd-sk{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--bg3)}
+.dd-sk i{display:block;height:100%}
+.dd-fl{display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding-bottom:4px}
+.dd-fs{flex:1;min-width:104px;border:1px solid var(--border);border-radius:12px;padding:11px 10px;background:#fff;display:flex;flex-direction:column;gap:3px;cursor:pointer}
+.dd-fs:hover{border-color:var(--navy);background:var(--navy-l)}
+.dd-fs.off{background:var(--bg3);cursor:default;border-style:dashed}
+.dd-fs.off:hover{border-color:var(--border);background:var(--bg3)}
+.dd-fs .no{font-size:10.5px;font-weight:800;color:var(--navy);opacity:.6}
+.dd-fs .nm{font-size:12px;font-weight:600;color:#1A1D21;line-height:1.35}
+.dd-fs b{font-size:20px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;margin-top:2px}
+.dd-fs.off b{font-size:12px;font-weight:700;color:var(--t3)}
+.dd-fa{align-self:center;color:var(--t3);font-size:16px}
+@media(max-width:620px){.dd-fl{display:grid;grid-template-columns:1fr 1fr}.dd-fa{display:none}}
 /* 그룹웨어 메인포털 */
 .gw-wrap{display:grid;grid-template-columns:190px 1fr 260px;gap:14px;align-items:start}
 .gw-left{display:flex;flex-direction:column;gap:10px}
@@ -707,14 +798,15 @@ table td,table th{font-size:12.5px}
   <div class="sx-logo"><i>B</i> <span>브리즈 SaaS</span></div>
   <div class="sx-co"><select id="sx-co" onchange="sxCompany(this.value)">
     <option value="head">브리즈부동산중개</option>
-    <option value="design">브리즈디자인 (계열사)</option>
-    <option value="academy">브리즈아카데미 (계열사)</option>
+    <option value="design">브리즈디자인</option>
+    <option value="academy">브리즈아카데미</option>
   </select></div>
   <div class="sx-search"><input id="sx-q" placeholder="매물·고객·임대인·계약 통합검색" autocomplete="off"
     oninput="sxSearch(this.value)" onfocus="sxSearch(this.value)"><div class="sx-res" id="sx-res"></div></div>
   <div class="sx-right">
     <button class="sx-btn" onclick="sxPop('sx-new')" title="빠른등록">＋ 빠른등록</button>
     <button class="sx-btn" onclick="sxPop('sx-cal')" title="오늘 일정">오늘 일정</button>
+    <button class="sx-btn" onclick="sxPop('sx-memo')" title="메모 — 생각나면 바로 적기">메모</button>
     <button class="sx-btn" onclick="sxAi()" title="AI 직원">AI 직원</button>
     <button class="sx-ico" onclick="sxPop('sx-noti')" title="알림">🔔<span class="sx-dot" id="sx-noti-n" style="display:none">0</span></button>
     <div class="sx-me" onclick="sxPop('sx-acc')"><div class="sx-av" id="sx-av">브</div>
@@ -727,161 +819,269 @@ table td,table th{font-size:12.5px}
     <button onclick="sxGo('visit');sxPop('sx-new')">임장 체크인</button></div>
   <div class="sx-pop" id="sx-cal"><h4>오늘 일정</h4><div id="sx-cal-body"></div></div>
   <div class="sx-pop" id="sx-noti"><h4>알림</h4><div id="sx-noti-body"></div></div>
+  <div class="sx-pop" id="sx-memo"><h4>메모 <span id="sx-memo-n" style="font-weight:400;color:var(--t3);font-size:11.5px"></span></h4>
+    <div class="sx-memo-w">
+      <textarea id="sx-memo-t" class="sx-memo-t" rows="3" placeholder="생각난 것을 그대로 적으세요. 아이디어·할 일·전화 내용 무엇이든."></textarea>
+      <div class="sx-memo-b">
+        <select id="sx-memo-k" class="sx-memo-k">
+          <option>아이디어</option><option>할 일</option><option>고객</option><option>매물</option><option>고칠 것</option><option>기타</option>
+        </select>
+        <button class="sx-memo-s" onclick="memoAdd()">저장</button>
+      </div>
+      <div id="sx-memo-l" class="sx-memo-l"></div>
+      <div class="sx-memo-note">🔴 지금은 <b>이 기기에만</b> 저장됩니다(서버 연결 전). 폰에서 적은 메모는 사무실 컴퓨터에 오지 않습니다.<br>모아 보기는 개발부 → 요구사항·로드맵.</div>
+    </div></div>
   <div class="sx-pop" id="sx-acc"><h4>내 계정</h4><div id="sx-acc-body"></div></div>
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 16:48</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 17:19</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
         
     <div class="sx-rail">
-      <button class="sx-rail-b" data-co="head" data-dept="홈" onclick="sxRail('홈')" title="홈 · 대시보드">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg></i><span>홈</span>
+      <button class="sx-rail-b" data-co="head" data-dept="홈" data-home="home" onclick="sxRail('홈')" title="홈 · 대시보드">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v10h12V10"/></svg></i><span>홈</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="그룹웨어" onclick="sxRail('그룹웨어')" title="그룹웨어 · 포털·일정·결재·소통">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="7" rx="1.6"/><rect x="13" y="4" width="8" height="7" rx="1.6"/><rect x="3" y="13" width="8" height="7" rx="1.6"/><rect x="13" y="13" width="8" height="7" rx="1.6"/></svg></i><span>그룹웨어</span>
+      <button class="sx-rail-b" data-co="head" data-dept="그룹웨어" data-home="gw" onclick="sxRail('그룹웨어')" title="그룹웨어 · 포털·일정·결재·소통">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></i><span>그룹웨어</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="관리부" onclick="sxRail('관리부')" title="관리부 · 사무·인사·회계·결재·경영">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></i><span>관리부</span>
+      <button class="sx-rail-b" data-co="head" data-dept="관리부" data-home="dash-admin" onclick="sxRail('관리부')" title="관리부 · 사무·인사·회계·결재·경영">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg></i><span>관리부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="운영부" onclick="sxRail('운영부')" title="운영부 · 매물·광고·사진·고객·임대인">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/><path d="M17 21h4V12l-4-3"/></svg></i><span>운영부</span>
+      <button class="sx-rail-b" data-co="head" data-dept="운영부" data-home="dash-ops" onclick="sxRail('운영부')" title="운영부 · 매물·광고·사진·고객·임대인">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l7-3v17"/><path d="M11 21V10l9 3v8"/><path d="M7 10h1M7 14h1M15 15h1"/></svg></i><span>운영부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="마케팅부" onclick="sxRail('마케팅부')" title="마케팅부 · 블로그·SNS·콘텐츠">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l6 4V6l-6 4H4z"/><path d="M18 9a4 4 0 0 1 0 6"/></svg></i><span>마케팅부</span>
+      <button class="sx-rail-b" data-co="head" data-dept="마케팅부" data-home="dash-mk" onclick="sxRail('마케팅부')" title="마케팅부 · 노출 채널 · 자동화">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10v4h3l6 4V6l-6 4H5Z"/><path d="M18 9a4 4 0 0 1 0 6"/></svg></i><span>마케팅부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="개발부" data-admin="1" onclick="sxRail('개발부')" title="개발부 · 시스템·검산·배포">
+      <button class="sx-rail-b" data-co="head" data-dept="법무팀" data-home="dash-legal" onclick="sxRail('법무팀')" title="법무팀 · 계약·권리·분쟁">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v15"/><path d="M6 8h12"/><path d="M6 8 4 13h4Z"/><path d="M18 8l-2 5h4Z"/></svg></i><span>법무팀</span>
+      </button>
+      <button class="sx-rail-b" data-co="head" data-dept="개발부" data-admin="1" data-home="dash-dev" onclick="sxRail('개발부')" title="개발부 · 설계·개발·운영">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8 5 12l4 4"/><path d="M15 8l4 4-4 4"/></svg></i><span>개발부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="AI 본부" data-admin="1" onclick="sxRail('AI 본부')" title="AI 본부 · 부서별 AI 직원">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 4v3"/><circle cx="9" cy="13" r="1.3"/><circle cx="15" cy="13" r="1.3"/></svg></i><span>AI 본부</span>
+      <button class="sx-rail-b" data-co="design" data-dept="디자인영업" data-home="dash-design" onclick="sxRail('디자인영업')" title="디자인영업 · 상담·견적·수주">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 20V9l5-4 5 4v11"/><path d="M11 20v-4h2v4"/></svg></i><span>디자인영업</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="설정 · 도움말" onclick="sxRail('설정 · 도움말')" title="설정 · 도움말 · 연동·매뉴얼">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></svg></i><span>설정</span>
+      <button class="sx-rail-b" data-co="design" data-dept="설계·시공" data-home="" onclick="sxRail('설계·시공')" title="설계·시공 · 현장·공정·품질">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V11h5v9"/><path d="M13 20V5h5v15"/></svg></i><span>설계·시공</span>
       </button>
-      <button class="sx-rail-b" data-co="design" data-dept="제작" onclick="sxRail('제작')" title="제작 · 브랜드·홍보물">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.4 5.6 6 .5-4.6 4 1.4 5.9L12 16l-5.2 3 1.4-5.9-4.6-4 6-.5z"/></svg></i><span>제작</span>
+      <button class="sx-rail-b" data-co="design" data-dept="자재·협력" data-home="" onclick="sxRail('자재·협력')" title="자재·협력 · 자재·업체·정산">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 4 8l8 4 8-4Z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg></i><span>자재·협력</span>
       </button>
-      <button class="sx-rail-b" data-co="academy" data-dept="교육" onclick="sxRail('교육')" title="교육 · 매뉴얼·강의">
-        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-4 9 4-9 4z"/><path d="M7 11v5c0 1.5 2.2 2.5 5 2.5s5-1 5-2.5v-5"/></svg></i><span>교육</span>
+      <button class="sx-rail-b" data-co="design" data-dept="포트폴리오" data-home="" onclick="sxRail('포트폴리오')" title="포트폴리오 · 시공 사례·홍보">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2"/><path d="M3 12h18"/></svg></i><span>포트폴리오</span>
+      </button>
+      <button class="sx-rail-b" data-co="academy" data-dept="교육운영" data-home="dash-edu" onclick="sxRail('교육운영')" title="교육운영 · 과정·일정·자료">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5 3 9l9 4 9-4Z"/><path d="M7 11v4c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4"/></svg></i><span>교육운영</span>
+      </button>
+      <button class="sx-rail-b" data-co="academy" data-dept="수강생" data-home="" onclick="sxRail('수강생')" title="수강생 · 등록·출결·수료">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M4 20a5 5 0 0 1 10 0"/><path d="M17 9h4M17 13h4"/></svg></i><span>수강생</span>
+      </button>
+      <button class="sx-rail-b" data-co="academy" data-dept="강사·정산" data-home="" onclick="sxRail('강사·정산')" title="강사·정산 · 강사·수강료">
+        <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="10" rx="1.5"/><path d="M8 8h8M8 11h5"/><path d="M12 14v6M9 20h6"/></svg></i><span>강사·정산</span>
       </button>
     </div>
     <div class="sx-find"><input id="sx-find" placeholder="메뉴 찾기" autocomplete="off" oninput="sxFind(this.value)"></div>
     <div class="sx-list" id="sx-list">
       <div class="sx-grp" data-co="head" data-dept="홈">
         <div class="sx-grp-h">홈<em>대시보드</em></div>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="home" onclick="sxGo('home')">대시보드</button>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="flow" onclick="sxGo('flow')">오늘의 내 업무(8단계)</button>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="chief" data-admin="1" onclick="sxGo('chief')">대표 홈</button>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="stats" data-admin="1" onclick="sxGo('stats')">경영 통계</button>
+          <button class="sx-item" data-co="head" data-grp="홈" data-menu="home" onclick="sxGo('home',0,'홈')">대시보드</button>
+          <button class="sx-item" data-co="head" data-grp="홈" data-menu="flow" onclick="sxGo('flow',0,'홈')">오늘의 내 업무(8단계)</button>
+          <button class="sx-item" data-co="head" data-grp="홈" data-menu="chief" data-admin="1" onclick="sxGo('chief',0,'홈')">대표 홈</button>
+          <button class="sx-item" data-co="head" data-grp="홈" data-menu="stats" data-admin="1" onclick="sxGo('stats',0,'홈')">경영 통계</button>
+          <button class="sx-item" data-co="head" data-grp="홈" data-menu="guide" onclick="sxGo('guide',0,'홈')">이용 가이드<span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="그룹웨어">
         <div class="sx-grp-h">그룹웨어<em>포털·일정·결재·소통</em></div>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="gw" onclick="sxGo('gw')">메인포털</button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="expiry" onclick="sxGo('expiry')">일정관리<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="approval" onclick="sxGo('approval')">전자결재<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="links" onclick="sxGo('links')">자료실<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="gw" onclick="sxGo('gw',0,'그룹웨어')">메인포털</button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="expiry" onclick="sxGo('expiry',0,'그룹웨어')">일정관리<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="approval" onclick="sxGo('approval',0,'그룹웨어')">전자결재<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="links" onclick="sxGo('links',0,'그룹웨어')">자료실<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="guide" onclick="sxGo('guide',0,'그룹웨어')">직원 매뉴얼</button>
           <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('협업메신저')">협업메신저<span class="sx-tag soon">준비 중</span></button>
           <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('게시판')">게시판<span class="sx-tag soon">준비 중</span></button>
           <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('이메일')">이메일<span class="sx-tag soon">준비 중</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
         <div class="sx-grp-h">관리부<em>사무·인사·회계·결재·경영</em></div>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="dash-admin" onclick="sxGo('dash-admin',0,'관리부')">관리부 현황</button>
           <div class="sx-sub" data-co="head" data-grp="관리부">사무관리</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="expiry" onclick="sxGo('expiry')">일정·만기</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="links" onclick="sxGo('links')">자료 링크<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="expiry" onclick="sxGo('expiry',0,'관리부')">일정·만기</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="links" onclick="sxGo('links',0,'관리부')">자료 링크<span class="sx-tag ref">참조</span></button>
           <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('문서함')">문서함<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="" onclick="openGsSetup()">연동·토큰 설정</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="ver" onclick="sxGo('ver',0,'관리부')">버전 정보</button>
           <div class="sx-sub" data-co="head" data-grp="관리부">인사관리 (근태·급여·퇴직)</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="visit" onclick="sxGo('visit')">근태·임장<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="staff" data-admin="1" onclick="sxGo('staff')">인사·직원</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="visit" onclick="sxGo('visit',0,'관리부')">근태·임장<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="staff" data-admin="1" onclick="sxGo('staff',0,'관리부')">인사·직원</button>
           <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('급여·퇴직')">급여·퇴직<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="guide" onclick="sxGo('guide')">교육 이력<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="guide" onclick="sxGo('guide',0,'관리부')">교육 이력<span class="sx-tag ref">참조</span></button>
           <div class="sx-sub" data-co="head" data-grp="관리부">회계관리 (자금·금융·세무)</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="payout" onclick="sxGo('payout')">회계·정산</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="payout" onclick="sxGo('payout',0,'관리부')">회계·정산</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="" onclick="window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')">세금 계산기</button>
           <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('매출·비용')">매출·비용<span class="sx-tag soon">준비 중</span></button>
           <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('자금·금융서비스 연계')">자금·금융서비스 연계<span class="sx-tag soon">준비 중</span></button>
           <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('세무 신고 자료')">세무 신고 자료<span class="sx-tag soon">준비 중</span></button>
           <div class="sx-sub" data-co="head" data-grp="관리부">전자결재</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="approval" onclick="sxGo('approval')">승인·보고함</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="approval" onclick="sxGo('approval',0,'관리부')">승인·보고함</button>
           <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('보고 취합')">보고 취합<span class="sx-tag soon">준비 중</span></button>
           <div class="sx-sub" data-co="head" data-grp="관리부">경영관리</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="stats" data-admin="1" onclick="sxGo('stats')">경영 통계</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="chief" data-admin="1" onclick="sxGo('chief')">대표 홈<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="stats" data-admin="1" onclick="sxGo('stats',0,'관리부')">경영 통계<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="chief" data-admin="1" onclick="sxGo('chief',0,'관리부')">대표 홈<span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="운영부">
         <div class="sx-grp-h">운영부<em>매물·광고·사진·고객·임대인</em></div>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-ops" onclick="sxGo('dash-ops',0,'운영부')">운영부 현황</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">매물관리</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing')">매물</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="map" onclick="sxGo('map')">매물 지도</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="apt" onclick="sxGo('apt')">시세 조회</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="gather" data-admin="1" onclick="sxGo('gather')">매물 수집</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="audit" onclick="sxGo('audit')">매물 검수<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')">매물</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="map" onclick="sxGo('map',0,'운영부')">매물 지도</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="apt" onclick="sxGo('apt',0,'운영부')">시세 조회</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'운영부')">매물 수집</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="audit" onclick="sxGo('audit',0,'운영부')">매물 검수<span class="sx-tag ref">참조</span></button>
           <div class="sx-sub" data-co="head" data-grp="운영부">광고관리</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads')">광고 관리</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="adcopy" onclick="sxGo('adcopy')">광고문구 생성</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads')">광고 성과<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing')">홈페이지 노출<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 관리</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="adcopy" onclick="sxGo('adcopy',0,'운영부')">광고문구 생성</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 성과<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')">홈페이지 노출<span class="sx-tag ref">참조</span></button>
           <div class="sx-sub" data-co="head" data-grp="운영부">사진관리</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="exthumb" onclick="sxGo('exthumb')">사진·썸네일</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing')">매물 사진<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="exthumb" onclick="sxGo('exthumb',0,'운영부')">사진·썸네일</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')">매물 사진<span class="sx-tag ref">참조</span></button>
           <div class="sx-sub" data-co="head" data-grp="운영부">고객관리</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer')">고객</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer')">문의 인입<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms" onclick="sxGo('sms')">문자 발송</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="vito" onclick="sxGo('vito')">상담·통화요약</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="visit" onclick="sxGo('visit')">임장<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="contract" onclick="sxGo('contract')">계약</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="contract-writer" onclick="sxGo('contract-writer')">계약서 작성</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="expiry" onclick="sxGo('expiry')">만기<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')">고객</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')">문의 인입<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms" onclick="sxGo('sms',0,'운영부')">문자 발송</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="vito" onclick="sxGo('vito',0,'운영부')">상담·통화요약</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="visit" onclick="sxGo('visit',0,'운영부')">임장<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="contract" onclick="sxGo('contract',0,'운영부')">계약</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'운영부')">계약서 작성<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="expiry" onclick="sxGo('expiry',0,'운영부')">만기<span class="sx-tag ref">참조</span></button>
           <div class="sx-sub" data-co="head" data-grp="운영부">임대인관리</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="landlord" onclick="sxGo('landlord')">임대인 명부</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms" onclick="sxGo('sms')">공실 확인 문자<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="landlord" onclick="sxGo('landlord',0,'운영부')">임대인 명부</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms" onclick="sxGo('sms',0,'운영부')">공실 확인 문자<span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="마케팅부">
-        <div class="sx-grp-h">마케팅부<em>블로그·SNS·콘텐츠</em></div>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="exblog" onclick="sxGo('exblog')">블로그 발행</button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('SNS·숏폼')">SNS·숏폼<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="listing" onclick="sxGo('listing')">홈페이지 콘텐츠<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="links" onclick="sxGo('links')">자료 링크</button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="ads" onclick="sxGo('ads')">광고 관리<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="adcopy" onclick="sxGo('adcopy')">광고문구<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="exthumb" onclick="sxGo('exthumb')">사진·썸네일<span class="sx-tag ref">참조</span></button>
+        <div class="sx-grp-h">마케팅부<em>노출 채널 · 자동화</em></div>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="dash-mk" onclick="sxGo('dash-mk',0,'마케팅부')">마케팅부 현황</button>
+          <div class="sx-sub" data-co="head" data-grp="마케팅부">자사 채널</div>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="exhome" onclick="sxGo('exhome',0,'마케팅부')">홈페이지</button>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="exblog" onclick="sxGo('exblog',0,'마케팅부')">네이버 블로그</button>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="exrank" onclick="sxGo('exrank',0,'마케팅부')">검색 순위</button>
+          <div class="sx-sub" data-co="head" data-grp="마케팅부">SNS · 영상</div>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="exyt" onclick="sxGo('exyt',0,'마케팅부')">유튜브</button>
+          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('인스타그램')">인스타그램<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('스레드')">스레드<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('카카오채널')">카카오채널<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="head" data-grp="마케팅부">콘텐츠 재료</div>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="brand" onclick="sxGo('brand',0,'마케팅부')">브랜드 스튜디오</button>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="brand" onclick="sxGo('brand',0,'마케팅부')">캐릭터 기준표<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="exthumb" onclick="sxGo('exthumb',0,'마케팅부')">사진·썸네일<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="adcopy" onclick="sxGo('adcopy',0,'마케팅부')">광고문구<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="links" onclick="sxGo('links',0,'마케팅부')">자료 링크</button>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="ads" onclick="sxGo('ads',0,'마케팅부')">광고 원장<span class="sx-tag ref">참조</span></button>
+      </div>
+      <div class="sx-grp" data-co="head" data-dept="법무팀">
+        <div class="sx-grp-h">법무팀<em>계약·권리·분쟁</em></div>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="dash-legal" onclick="sxGo('dash-legal',0,'법무팀')">위험 신호 현황</button>
+          <div class="sx-sub" data-co="head" data-grp="법무팀">계약서 검토</div>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'법무팀')">계약서 작성·검토</button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract" onclick="sxGo('contract',0,'법무팀')">계약 원장<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('중개대상물 확인설명서')">중개대상물 확인설명서<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="head" data-grp="법무팀">위험 점검</div>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="expiry" onclick="sxGo('expiry',0,'법무팀')">만기·갱신 기한<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="audit" onclick="sxGo('audit',0,'법무팀')">데이터 위험(검수)<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="listing" onclick="sxGo('listing',0,'법무팀')">건축물대장 확인<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('등기·권리분석')">등기·권리분석<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="head" data-grp="법무팀">법률 자문 · 분쟁</div>
+          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('법률 자문 기록')">법률 자문 기록<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('분쟁·클레임')">분쟁·클레임<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('공제·보증 증서')">공제·보증 증서<span class="sx-tag soon">준비 중</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="개발부" data-admin="1">
-        <div class="sx-grp-h">개발부<em>시스템·검산·배포</em></div>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit')">오류·검산</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops')">자동화 현황</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops')">프로그램 연결<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog')">변경 이력</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy')">배포 관리</button>
+        <div class="sx-grp-h">개발부<em>설계·개발·운영</em></div>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="dash-dev" data-admin="1" onclick="sxGo('dash-dev',0,'개발부')">개발부 현황</button>
+          <div class="sx-sub" data-co="head" data-grp="개발부">설계</div>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ai-center" data-admin="1" onclick="sxGo('ai-center',0,'개발부')">AI 직원 배치</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="guide" data-admin="1" onclick="sxGo('guide',0,'개발부')">화면·메뉴 설계<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">요구사항·로드맵</button>
+          <div class="sx-sub" data-co="head" data-grp="개발부">개발</div>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
+          <button class="sx-item soon" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="sxSoon('검산 결과')">검산 결과<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="head" data-grp="개발부">운영</div>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">자동화 현황</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">프로그램 연결<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">AI 실행이력<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="approval" data-admin="1" onclick="sxGo('approval',0,'개발부')">AI 승인대기<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="location.href='index.html'">기존 화면으로</button>
       </div>
-      <div class="sx-grp" data-co="head" data-dept="AI 본부" data-admin="1">
-        <div class="sx-grp-h">AI 본부<em>부서별 AI 직원</em></div>
-          <button class="sx-item" data-co="head" data-grp="AI 본부" data-menu="ai-center" data-admin="1" onclick="sxGo('ai-center')">AI 직원 현황</button>
-          <button class="sx-item" data-co="head" data-grp="AI 본부" data-menu="approval" data-admin="1" onclick="sxGo('approval')">대표 승인대기<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="AI 본부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog')">자동화 실행이력<span class="sx-tag ref">참조</span></button>
+      <div class="sx-grp" data-co="design" data-dept="디자인영업">
+        <div class="sx-grp-h">디자인영업<em>상담·견적·수주</em></div>
+          <button class="sx-item" data-co="design" data-grp="디자인영업" data-menu="dash-design" onclick="sxGo('dash-design',0,'디자인영업')">디자인 현황</button>
+          <div class="sx-sub" data-co="design" data-grp="디자인영업">상담 · 수주</div>
+          <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('견적 요청 접수')">견적 요청 접수<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('상담 일지')">상담 일지<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('견적서 작성')">견적서 작성<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('수주 계약')">수주 계약<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="design" data-grp="디자인영업">고객</div>
+          <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('고객 명부')">고객 명부<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('A/S 접수')">A/S 접수<span class="sx-tag soon">준비 중</span></button>
       </div>
-      <div class="sx-grp" data-co="head" data-dept="설정 · 도움말">
-        <div class="sx-grp-h">설정 · 도움말<em>연동·매뉴얼</em></div>
-          <button class="sx-item" data-co="head" data-grp="설정 · 도움말" data-menu="" onclick="openGsSetup()">연동·토큰 설정</button>
-          <button class="sx-item" data-co="head" data-grp="설정 · 도움말" data-menu="guide" onclick="sxGo('guide')">직원 매뉴얼</button>
-          <button class="sx-item" data-co="head" data-grp="설정 · 도움말" data-menu="" onclick="location.href='index.html'">기존 화면으로</button>
+      <div class="sx-grp" data-co="design" data-dept="설계·시공">
+        <div class="sx-grp-h">설계·시공<em>현장·공정·품질</em></div>
+          <div class="sx-sub" data-co="design" data-grp="설계·시공">설계</div>
+          <button class="sx-item soon" data-co="design" data-grp="설계·시공" data-menu="" onclick="sxSoon('도면·3D 시안')">도면·3D 시안<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="설계·시공" data-menu="" onclick="sxSoon('마감재 선정')">마감재 선정<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="design" data-grp="설계·시공">시공</div>
+          <button class="sx-item soon" data-co="design" data-grp="설계·시공" data-menu="" onclick="sxSoon('현장 보드')">현장 보드<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="설계·시공" data-menu="" onclick="sxSoon('공정표')">공정표<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="설계·시공" data-menu="" onclick="sxSoon('현장 사진')">현장 사진<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="설계·시공" data-menu="" onclick="sxSoon('준공·검수')">준공·검수<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="design" data-grp="설계·시공">품질</div>
+          <button class="sx-item soon" data-co="design" data-grp="설계·시공" data-menu="" onclick="sxSoon('하자 관리')">하자 관리<span class="sx-tag soon">준비 중</span></button>
       </div>
-      <div class="sx-grp" data-co="design" data-dept="제작">
-        <div class="sx-grp-h">제작<em>브랜드·홍보물</em></div>
-          <button class="sx-item" data-co="design" data-grp="제작" data-menu="brand" onclick="sxGo('brand')">브랜드 스튜디오</button>
-          <button class="sx-item" data-co="design" data-grp="제작" data-menu="brand" onclick="sxGo('brand')">캐릭터 기준표<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item soon" data-co="design" data-grp="제작" data-menu="" onclick="sxSoon('굿즈 시안')">굿즈 시안<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="design" data-grp="제작" data-menu="" onclick="sxSoon('영상·애니메이션')">영상·애니메이션<span class="sx-tag soon">준비 중</span></button>
+      <div class="sx-grp" data-co="design" data-dept="자재·협력">
+        <div class="sx-grp-h">자재·협력<em>자재·업체·정산</em></div>
+          <button class="sx-item soon" data-co="design" data-grp="자재·협력" data-menu="" onclick="sxSoon('자재 단가표')">자재 단가표<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="자재·협력" data-menu="" onclick="sxSoon('발주·입고')">발주·입고<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="자재·협력" data-menu="" onclick="sxSoon('협력업체 명부')">협력업체 명부<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="자재·협력" data-menu="" onclick="sxSoon('현장 원가')">현장 원가<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="자재·협력" data-menu="" onclick="sxSoon('대금 지급')">대금 지급<span class="sx-tag soon">준비 중</span></button>
       </div>
-      <div class="sx-grp" data-co="academy" data-dept="교육">
-        <div class="sx-grp-h">교육<em>매뉴얼·강의</em></div>
-          <button class="sx-item" data-co="academy" data-grp="교육" data-menu="guide" onclick="sxGo('guide')">직원 매뉴얼</button>
-          <button class="sx-item soon" data-co="academy" data-grp="교육" data-menu="" onclick="sxSoon('강의 자료')">강의 자료<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="academy" data-grp="교육" data-menu="" onclick="sxSoon('평가·이수')">평가·이수<span class="sx-tag soon">준비 중</span></button>
+      <div class="sx-grp" data-co="design" data-dept="포트폴리오">
+        <div class="sx-grp-h">포트폴리오<em>시공 사례·홍보</em></div>
+          <button class="sx-item soon" data-co="design" data-grp="포트폴리오" data-menu="" onclick="sxSoon('시공 사례')">시공 사례<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="design" data-grp="포트폴리오" data-menu="" onclick="sxSoon('사례 사진첩')">사례 사진첩<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item" data-co="design" data-grp="포트폴리오" data-menu="brand" onclick="sxGo('brand',0,'포트폴리오')">브랜드 자료<span class="sx-tag ref">참조</span></button>
+      </div>
+      <div class="sx-grp" data-co="academy" data-dept="교육운영">
+        <div class="sx-grp-h">교육운영<em>과정·일정·자료</em></div>
+          <button class="sx-item" data-co="academy" data-grp="교육운영" data-menu="dash-edu" onclick="sxGo('dash-edu',0,'교육운영')">교육 현황</button>
+          <div class="sx-sub" data-co="academy" data-grp="교육운영">과정</div>
+          <button class="sx-item soon" data-co="academy" data-grp="교육운영" data-menu="" onclick="sxSoon('과정 개설')">과정 개설<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="교육운영" data-menu="" onclick="sxSoon('강의 일정')">강의 일정<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="교육운영" data-menu="" onclick="sxSoon('강의 자료')">강의 자료<span class="sx-tag soon">준비 중</span></button>
+          <div class="sx-sub" data-co="academy" data-grp="교육운영">사내 교육</div>
+          <button class="sx-item" data-co="academy" data-grp="교육운영" data-menu="guide" onclick="sxGo('guide',0,'교육운영')">사내 매뉴얼<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="교육운영" data-menu="" onclick="sxSoon('신입 교육 과정')">신입 교육 과정<span class="sx-tag soon">준비 중</span></button>
+      </div>
+      <div class="sx-grp" data-co="academy" data-dept="수강생">
+        <div class="sx-grp-h">수강생<em>등록·출결·수료</em></div>
+          <button class="sx-item soon" data-co="academy" data-grp="수강생" data-menu="" onclick="sxSoon('수강 신청')">수강 신청<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="수강생" data-menu="" onclick="sxSoon('수강생 명부')">수강생 명부<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="수강생" data-menu="" onclick="sxSoon('출결 관리')">출결 관리<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="수강생" data-menu="" onclick="sxSoon('평가·시험')">평가·시험<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="수강생" data-menu="" onclick="sxSoon('수료증 발급')">수료증 발급<span class="sx-tag soon">준비 중</span></button>
+      </div>
+      <div class="sx-grp" data-co="academy" data-dept="강사·정산">
+        <div class="sx-grp-h">강사·정산<em>강사·수강료</em></div>
+          <button class="sx-item soon" data-co="academy" data-grp="강사·정산" data-menu="" onclick="sxSoon('강사 명부')">강사 명부<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="강사·정산" data-menu="" onclick="sxSoon('강사료 정산')">강사료 정산<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="강사·정산" data-menu="" onclick="sxSoon('수강료 수납')">수강료 수납<span class="sx-tag soon">준비 중</span></button>
+          <button class="sx-item soon" data-co="academy" data-grp="강사·정산" data-menu="" onclick="sxSoon('매출 현황')">매출 현황<span class="sx-tag soon">준비 중</span></button>
       </div>
     </div>
     <div class="sb-footer">
@@ -1005,6 +1205,66 @@ table td,table th{font-size:12.5px}
     </div>
 
     <!-- 자동화 현황 -->
+    <div class="panel" id="p-exhome">
+      <div class="page-hd"><div><div class="page-title">홈페이지</div>
+        <div class="page-sub">매물·블로그 글이 홈페이지로 나가는 통로</div></div></div>
+      <div id="ex-body3"></div>
+    </div>
+    <div class="panel" id="p-exrank">
+      <div class="page-hd"><div><div class="page-title">검색 순위</div>
+        <div class="page-sub">네이버 키워드·플레이스 순위 추적</div></div></div>
+      <div id="ex-body4"></div>
+    </div>
+    <div class="panel" id="p-exyt">
+      <div class="page-hd"><div><div class="page-title">유튜브</div>
+        <div class="page-sub">쇼츠 원고와 업로드</div></div></div>
+      <div id="ex-body5"></div>
+    </div>
+    <div class="panel" id="p-dash-admin">
+      <div class="page-hd"><div><div class="page-title">관리부 현황</div>
+        <div class="page-sub">만기·결재·정산을 숫자로</div></div></div>
+      <div class="dd-wrap" id="dd-dash-admin"></div>
+    </div>
+    <div class="panel" id="p-dash-ops">
+      <div class="page-hd"><div><div class="page-title">운영부 현황</div>
+        <div class="page-sub">매물·고객·계약을 숫자로</div></div></div>
+      <div class="dd-wrap" id="dd-dash-ops"></div>
+    </div>
+    <div class="panel" id="p-dash-mk">
+      <div class="page-hd"><div><div class="page-title">마케팅부 현황</div>
+        <div class="page-sub">채널별 노출 상태</div></div></div>
+      <div class="dd-wrap" id="dd-dash-mk"></div>
+    </div>
+    <div class="panel" id="p-dash-legal">
+      <div class="page-hd"><div><div class="page-title">법무팀 현황</div>
+        <div class="page-sub">계약·위험·만기</div></div></div>
+      <div class="dd-wrap" id="dd-dash-legal"></div>
+    </div>
+    <div class="panel" id="p-dash-dev">
+      <div class="page-hd"><div><div class="page-title">개발부 현황</div>
+        <div class="page-sub">화면 연결·검수·배포</div></div></div>
+      <div class="dd-wrap" id="dd-dash-dev"></div>
+    </div>
+    <div class="panel" id="p-dash-design">
+      <div class="page-hd"><div><div class="page-title">제작 현황</div>
+        <div class="page-sub">브랜드 자산</div></div></div>
+      <div class="dd-wrap" id="dd-dash-design"></div>
+    </div>
+    <div class="panel" id="p-dash-edu">
+      <div class="page-hd"><div><div class="page-title">교육 현황</div>
+        <div class="page-sub">매뉴얼·이수</div></div></div>
+      <div class="dd-wrap" id="dd-dash-edu"></div>
+    </div>
+    <div class="panel" id="p-memo">
+      <div class="page-hd"><div><div class="page-title">메모 · 요구사항</div>
+        <div class="page-sub">상단 메모 단추로 적은 것이 여기 모입니다</div></div></div>
+      <div id="memo-body"></div>
+    </div>
+    <div class="panel" id="p-ver">
+      <div class="page-hd"><div><div class="page-title">버전 정보</div>
+        <div class="page-sub">지금 쓰는 화면이 최신인지 확인합니다</div></div></div>
+      <div id="ver-body"></div>
+    </div>
     <div class="panel" id="p-ops">
       <div class="page-hd"><div><div class="page-title">자동화 현황</div>
         <div class="page-sub">백업·감시·수집이 도는지 봅니다 (보기 전용)</div></div>
@@ -10878,7 +11138,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","items":[{"label":"메인포털","id":"gw"},{"label":"일정관리","id":"expiry","ref":true},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links","ref":true},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"사무·인사·회계·결재·경영","items":[{"sub":"사무관리"},{"label":"일정·만기","id":"expiry"},{"label":"자료 링크","id":"links","ref":true},{"label":"문서함"},{"sub":"인사관리 (근태·급여·퇴직)"},{"label":"근태·임장","id":"visit","ref":true},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"급여·퇴직"},{"label":"교육 이력","id":"guide","ref":true},{"sub":"회계관리 (자금·금융·세무)"},{"label":"회계·정산","id":"payout"},{"label":"세금 계산기","act":"window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')"},{"label":"매출·비용"},{"label":"자금·금융서비스 연계"},{"label":"세무 신고 자료"},{"sub":"전자결재"},{"label":"승인·보고함","id":"approval"},{"label":"보고 취합"},{"sub":"경영관리"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"대표 홈","id":"chief","adminOnly":true,"ref":true}]},{"dept":"운영부","desc":"매물·광고·사진·고객·임대인","items":[{"sub":"매물관리"},{"label":"매물","id":"listing"},{"label":"매물 지도","id":"map"},{"label":"시세 조회","id":"apt"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"매물 검수","id":"audit","ref":true},{"sub":"광고관리"},{"label":"광고 관리","id":"ads"},{"label":"광고문구 생성","id":"adcopy"},{"label":"광고 성과","id":"ads","ref":true},{"label":"홈페이지 노출","id":"listing","ref":true},{"sub":"사진관리"},{"label":"사진·썸네일","id":"exthumb"},{"label":"매물 사진","id":"listing","ref":true},{"sub":"고객관리"},{"label":"고객","id":"customer"},{"label":"문의 인입","id":"customer","ref":true},{"label":"문자 발송","id":"sms"},{"label":"상담·통화요약","id":"vito"},{"label":"임장","id":"visit","ref":true},{"label":"계약","id":"contract"},{"label":"계약서 작성","id":"contract-writer"},{"label":"만기","id":"expiry","ref":true},{"sub":"임대인관리"},{"label":"임대인 명부","id":"landlord"},{"label":"공실 확인 문자","id":"sms","ref":true}]},{"dept":"마케팅부","desc":"블로그·SNS·콘텐츠","items":[{"label":"블로그 발행","id":"exblog"},{"label":"SNS·숏폼"},{"label":"홈페이지 콘텐츠","id":"listing","ref":true},{"label":"자료 링크","id":"links"},{"label":"광고 관리","id":"ads","ref":true},{"label":"광고문구","id":"adcopy","ref":true},{"label":"사진·썸네일","id":"exthumb","ref":true}]},{"dept":"개발부","desc":"시스템·검산·배포","adminOnly":true,"items":[{"label":"오류·검산","id":"audit"},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 연결","id":"ops","ref":true},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"}]},{"dept":"AI 본부","desc":"부서별 AI 직원","adminOnly":true,"items":[{"label":"AI 직원 현황","id":"ai-center"},{"label":"대표 승인대기","id":"approval","ref":true},{"label":"자동화 실행이력","id":"changelog","ref":true}]},{"dept":"설정 · 도움말","desc":"연동·매뉴얼","items":[{"label":"연동·토큰 설정","act":"openGsSetup()"},{"label":"직원 매뉴얼","id":"guide"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사","depts":[{"dept":"제작","desc":"브랜드·홍보물","items":[{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"굿즈 시안"},{"label":"영상·애니메이션"}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사","depts":[{"dept":"교육","desc":"매뉴얼·강의","items":[{"label":"직원 매뉴얼","id":"guide"},{"label":"강의 자료"},{"label":"평가·이수"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"일정관리","id":"expiry","ref":true},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links","ref":true},{"label":"직원 매뉴얼","id":"guide"},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"사무·인사·회계·결재·경영","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"사무관리"},{"label":"일정·만기","id":"expiry"},{"label":"자료 링크","id":"links","ref":true},{"label":"문서함"},{"label":"연동·토큰 설정","act":"openGsSetup()"},{"label":"버전 정보","id":"ver"},{"sub":"인사관리 (근태·급여·퇴직)"},{"label":"근태·임장","id":"visit","ref":true},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"급여·퇴직"},{"label":"교육 이력","id":"guide","ref":true},{"sub":"회계관리 (자금·금융·세무)"},{"label":"회계·정산","id":"payout"},{"label":"세금 계산기","act":"window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')"},{"label":"매출·비용"},{"label":"자금·금융서비스 연계"},{"label":"세무 신고 자료"},{"sub":"전자결재"},{"label":"승인·보고함","id":"approval"},{"label":"보고 취합"},{"sub":"경영관리"},{"label":"경영 통계","id":"stats","adminOnly":true,"ref":true},{"label":"대표 홈","id":"chief","adminOnly":true,"ref":true}]},{"dept":"운영부","desc":"매물·광고·사진·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물관리"},{"label":"매물","id":"listing"},{"label":"매물 지도","id":"map"},{"label":"시세 조회","id":"apt"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"매물 검수","id":"audit","ref":true},{"sub":"광고관리"},{"label":"광고 관리","id":"ads"},{"label":"광고문구 생성","id":"adcopy"},{"label":"광고 성과","id":"ads","ref":true},{"label":"홈페이지 노출","id":"listing","ref":true},{"sub":"사진관리"},{"label":"사진·썸네일","id":"exthumb"},{"label":"매물 사진","id":"listing","ref":true},{"sub":"고객관리"},{"label":"고객","id":"customer"},{"label":"문의 인입","id":"customer","ref":true},{"label":"문자 발송","id":"sms"},{"label":"상담·통화요약","id":"vito"},{"label":"임장","id":"visit","ref":true},{"label":"계약","id":"contract"},{"label":"계약서 작성","id":"contract-writer","ref":true},{"label":"만기","id":"expiry","ref":true},{"sub":"임대인관리"},{"label":"임대인 명부","id":"landlord"},{"label":"공실 확인 문자","id":"sms","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"sub":"자사 채널"},{"label":"홈페이지","id":"exhome"},{"label":"네이버 블로그","id":"exblog"},{"label":"검색 순위","id":"exrank"},{"sub":"SNS · 영상"},{"label":"유튜브","id":"exyt"},{"label":"인스타그램"},{"label":"스레드"},{"label":"카카오채널"},{"sub":"콘텐츠 재료"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"사진·썸네일","id":"exthumb","ref":true},{"label":"광고문구","id":"adcopy","ref":true},{"label":"자료 링크","id":"links"},{"label":"광고 원장","id":"ads","ref":true}]},{"dept":"법무팀","desc":"계약·권리·분쟁","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"sub":"계약서 검토"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"계약 원장","id":"contract","ref":true},{"label":"중개대상물 확인설명서"},{"sub":"위험 점검"},{"label":"만기·갱신 기한","id":"expiry","ref":true},{"label":"데이터 위험(검수)","id":"audit","ref":true},{"label":"건축물대장 확인","id":"listing","ref":true},{"label":"등기·권리분석"},{"sub":"법률 자문 · 분쟁"},{"label":"법률 자문 기록"},{"label":"분쟁·클레임"},{"label":"공제·보증 증서"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"sub":"설계"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"화면·메뉴 설계","id":"guide","ref":true},{"label":"요구사항·로드맵","id":"memo"},{"sub":"개발"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"검산 결과"},{"sub":"운영"},{"label":"오류·데이터 검수","id":"audit"},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 연결","id":"ops","ref":true},{"label":"AI 실행이력","id":"changelog","ref":true},{"label":"AI 승인대기","id":"approval","ref":true},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -10892,33 +11152,58 @@ function sxDrawer(open){                       /* ① 폰 좌측 메뉴 서랍 *
 /* ③ 뒤로가기: 메뉴 이동을 브라우저 기록에 남긴다 — 폰에서 뒤로가기를 눌러도 앱 밖으로 안 나간다 */
 window.__sxHistory = true;
 let sxSkipPush = false;
-function sxGo(id, fromPop){
-  go(id); sxCrumb(id);
+function sxAdminId(id){
+  // 그 화면이 걸린 자리가 **전부** 대표 전용이면 대표 전용 화면이다
+  let seen = false, all = true;
+  for(const c of SX_NAV) for(const d of c.depts) for(const it of d.items){
+    if(it.id !== id) continue;
+    seen = true;
+    if(!(it.adminOnly || d.adminOnly)) all = false;
+  }
+  return seen && all;
+}
+function sxGo(id, fromPop, dept){
+  // 🔴 직원은 대표 전용 화면을 열 수 없다 — 아이콘·주소창·뒤로가기 어느 쪽으로 와도 막는다
+  if(sxAdminId(id) && !sxAdmin()){
+    showToast('대표 전용 화면입니다');
+    return;
+  }
+  // 🔴 dept = 누른 메뉴가 속한 부서. 같은 화면이 여러 부서에 참조로 걸려 있어도
+  //    왼쪽 목록이 다른 부서로 튀지 않게 한다 (2026-09-08 대표 지적 수정).
+  go(id); sxCrumb(id, dept);
   try{ localStorage.setItem('sx_last', id); }catch(e){}
   sxDrawer(false);
   if(!fromPop && !sxSkipPush){
     try{
       const cur = (history.state && history.state.sx) || null;
-      if(cur !== id) history.pushState({ sx: id }, '', '#' + id);
+      if(cur !== id || (history.state && history.state.dept) !== dept) history.pushState({ sx: id, dept: dept || '' }, '', '#' + id);
     }catch(e){}
   }
 }
 function sxBack(){ try{ history.back(); }catch(e){} }
 window.addEventListener('popstate', function(e){
   const id = (e.state && e.state.sx) || (location.hash || '').replace(/^#/, '');
-  if(id && document.getElementById('p-' + id)) sxGo(id, true);
+  const dp = (e.state && e.state.dept) || '';
+  if(id && document.getElementById('p-' + id)) sxGo(id, true, dp);
 });
-function sxMenuLabel(id){
+function sxMenuLabel(id, dept){
+  // 누른 부서를 알면 그 부서 안에서 먼저 찾는다 — 참조로 걸린 화면도 제자리에 표시된다
+  if(dept){
+    for(const c of SX_NAV) for(const d of c.depts) if(d.dept === dept)
+      for(const it of d.items) if(it.id === id) return { co: c.coName, dept: d.dept, label: it.label };
+  }
   for(const c of SX_NAV) for(const d of c.depts) for(const it of d.items) if(it.id === id && !it.ref) return { co: c.coName, dept: d.dept, label: it.label };
   for(const c of SX_NAV) for(const d of c.depts) for(const it of d.items) if(it.id === id) return { co: c.coName, dept: d.dept, label: it.label };
   return { co: '브리즈부동산중개', dept: '', label: id };
 }
-function sxCrumb(id){
+function sxCrumb(id, dept){
   const el = document.getElementById('sx-crumb'); if(!el) return;
-  const m = sxMenuLabel(id);
+  const dp = dept || sxDeptOf(id);
+  const m = sxMenuLabel(id, dp);
   el.innerHTML = gEsc(m.co) + ' <span>›</span> ' + gEsc(m.dept) + ' <span>›</span> <b>' + gEsc(m.label) + '</b>';
-  document.querySelectorAll('.sx-item').forEach(b => b.classList.toggle('on', b.getAttribute('data-menu') === id));
-  const dp = sxDeptOf(id);
+  // 같은 화면이 여러 부서에 있으면 **지금 부서 것만** 불이 켜진다
+  document.querySelectorAll('.sx-item').forEach(b => b.classList.toggle('on',
+    b.getAttribute('data-menu') === id && (!dp || b.getAttribute('data-grp') === dp)));
   if(dp && !document.querySelector('.sx-grp[data-dept="' + dp + '"].on')) sxRail(dp, true);
 }
 function sxCompany(co){
@@ -10958,7 +11243,7 @@ function sxPop(id){
   const el = document.getElementById(id); if(!el) return;
   const open = el.style.display === 'block';
   document.querySelectorAll('.sx-pop').forEach(p => p.style.display = 'none');
-  if(!open){ el.style.display = 'block'; if(id === 'sx-noti') sxNotiRender(); if(id === 'sx-acc') sxAccRender(); if(id === 'sx-cal') sxCalRender(); }
+  if(!open){ el.style.display = 'block'; if(id === 'sx-noti') sxNotiRender(); if(id === 'sx-acc') sxAccRender(); if(id === 'sx-memo') memoRender(); if(id === 'sx-cal') sxCalRender(); }
 }
 document.addEventListener('click', e => { if(!e.target.closest('.sx-pop') && !e.target.closest('.sx-ico') && !e.target.closest('.sx-me')) document.querySelectorAll('.sx-pop').forEach(p => p.style.display = 'none'); }, true);
 function sxNotiList(){
@@ -10992,6 +11277,7 @@ function sxAccRender(){
   b.innerHTML = '<a style="color:var(--t3)">' + gEsc(crmWho()) + ' · ' + (admin ? '대표(모든 부서)' : '직원(운영부 중심)') + '</a>'
     + '<button onclick="openGsSetup();sxPop(\'sx-acc\')">연동·토큰 설정</button>'
     + '<button onclick="sxGo(\'guide\');sxPop(\'sx-acc\')">이용 가이드</button>'
+    + '<button onclick="sxGo(\'ver\');sxPop(\'sx-acc\')">버전 정보 · ' + gEsc(((document.getElementById('appVer')||{}).textContent||'').trim()) + '</button>'
     + (admin ? '<button onclick="sxGo(\'staff\');sxPop(\'sx-acc\')">직원 계정 관리</button>' : '')
     + '<button onclick="location.href=\'index.html\'">기존 화면으로 돌아가기</button>'
     + '<button onclick="sxLogout()" style="color:#B91C1C">로그아웃</button>';
@@ -11285,7 +11571,8 @@ function dpRender(){
 
 /* ── PC 프로그램 연결 필요 (마케팅부 블로그·썸네일) ── */
 function exRender(kind){
-  const el = document.getElementById(kind === 'thumb' ? 'ex-body2' : 'ex-body'); if(!el) return;
+  const BOX = { blog: 'ex-body', thumb: 'ex-body2', home: 'ex-body3', rank: 'ex-body4', yt: 'ex-body5' };
+  const el = document.getElementById(BOX[kind] || 'ex-body'); if(!el) return;
   const t = document.getElementById('ex-title');
   const items = {
     blog: { title: '블로그 자동작성 · 발행', where: 'G: /  / 내 드라이브 /  / 07_자동화프롬테크 /  / 네이버블로그_자동화_샘플 /  / ',
@@ -11294,13 +11581,27 @@ function exRender(kind){
     thumb: { title: '사진 · 썸네일', where: 'G: /  / 내 드라이브 /  / 07_자동화프롬테크 /  / 네이버블로그_자동화_샘플 /  / 썸네일_생성기.html',
       what: ['브랜드색 썸네일 제작 (브라우저에서 단독 실행)', '매물 사진 워터마크 (crm-tools /  / watermark-run.ps1)'],
       state: '썸네일 제작기와 워터마크는 PC에서 동작합니다.' },
+    home: { title: '홈페이지', ok: true, where: '서버(구글 시트)에서 바로 나갑니다 — PC 프로그램이 필요 없습니다.',
+      what: ['매물 노출: 매물마다 노출 칸을 숨김으로 두면 홈페이지에서 빠집니다',
+             '계약완료·임대중·거래완료·보류 매물은 자동으로 빠집니다',
+             '새소식·게시판: 네이버 블로그 글을 읽어 홈페이지에 표시합니다'],
+      state: '노출 여부는 [운영부 → 매물] 에서 매물별로 켜고 끕니다.' },
+    rank: { title: '검색 순위', where: 'G: /  / 내 드라이브 /  / 07_자동화프롬테크 /  / 네이버블로그_자동화_샘플 /  / 블로그모니터링',
+      what: ['키워드 블로그 순위 추적', '글 색인 반영 확인', '플레이스 상위 노출 확인', '네이버 공개 API 사용'],
+      state: 'PC에서 동작합니다. 결과를 이 화면으로 가져오는 통로는 아직 없습니다.' },
+    yt: { title: '유튜브', where: 'G: /  / 내 드라이브 /  / 07_자동화프롬테크 /  / 유튜브영상',
+      what: ['완성 쇼츠와 제목·설명·해시태그 원고가 있습니다', '업로드는 사람이 직접 합니다'],
+      state: '업로드 자동화는 없습니다. 파일 선택창을 자동으로 다룰 수 없어 API 연결이 필요합니다.' },
   }[kind] || null;
   if(!items){ el.innerHTML = ''; return; }
   if(t && kind === 'blog') t.textContent = items.title;
-  el.innerHTML = '<div class="card" style="border-color:#FDE68A;background:#FFFBEB">'
+  el.innerHTML = (items.ok
+      ? '<div class="card" style="border-color:#BBF7D0;background:#F0FDF4"><div class="card-title">연결되어 동작 중</div>'
+        + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">' + gEsc(items.where) + '</div></div>'
+      : '<div class="card" style="border-color:#FDE68A;background:#FFFBEB">'
     + '<div class="card-title">PC 프로그램 연결 필요</div>'
     + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">이 업무는 <b>PC에 있는 프로그램</b>이 합니다. 웹 화면에서 바로 열 수 없습니다.<br>'
-    + '위치: <code style="font-size:11.5px">' + gEsc(items.where) + '</code></div></div>'
+    + '위치: <code style="font-size:11.5px">' + gEsc(items.where) + '</code></div></div>')
     + '<div class="card" style="margin-top:10px"><div class="card-title">있는 기능</div><div style="font-size:12.5px;color:var(--t2);line-height:1.9">'
     + items.what.map(x => '· ' + gEsc(x)).join('<br>') + '</div>'
     + '<div style="font-size:12px;color:#B45309;margin-top:8px">' + gEsc(items.state) + '</div></div>';
@@ -11809,6 +12110,427 @@ function gwNotiRender(){
     + '<div class="gw-note">알림은 지금 불러온 자료에서 만듭니다. 메일·쪽지·게시판은 아직 연결하지 않았습니다.</div>';
 }
 
+/* ══ 📊 부서 현황 대시보드 (2026-09-08 대표 지시) ══
+   각 부서를 고르면 먼저 이 화면이 열린다 — 숫자와 그래프로 부서 상태를 한 장에.
+   🔴 숫자는 **지금 브라우저에 불러온 실제 자료**에서만 센다.
+      서버에서 받아야 아는 값은 0 으로 꾸미지 않고 '미연결'로 적는다.
+   🔴 여기서 문자·광고·삭제·배포를 실행하지 않는다. 버튼은 해당 화면으로 보내기만 한다. */
+const DD_C = ['#1B4F8A', '#2C6FB5', '#0F6E56', '#5B8FD0', '#9AB6DA', '#C7D5E8'];
+const DD_OFF = ['계약완료', '임대중', '거래완료', '보류'];
+function ddArr(n){
+  // 🔴 index.html 의 자료는 let 으로 선언돼 window 에 붙지 않는다.
+  //    window[n] 으로 찾으면 항상 빈 배열이라 대시보드 숫자가 전부 0 이 된다 (2026-09-08 검수에서 잡음).
+  try{
+    switch(n){
+      case 'listings':  return (typeof listings  !== 'undefined' && Array.isArray(listings))  ? listings  : [];
+      case 'customers': return (typeof customers !== 'undefined' && Array.isArray(customers)) ? customers : [];
+      case 'contracts': return (typeof contracts !== 'undefined' && Array.isArray(contracts)) ? contracts : [];
+      case 'landlords': return (typeof landlords !== 'undefined' && Array.isArray(landlords)) ? landlords : [];
+      case 'visits':    return (typeof visits    !== 'undefined' && Array.isArray(visits))    ? visits    : [];
+    }
+    const v = window[n]; return Array.isArray(v) ? v : [];
+  }catch(e){ return []; }
+}
+function ddDay(x){ return String(x || '').slice(0, 10); }
+function ddToday(){ try{ return todayStr(); }catch(e){ return new Date().toISOString().slice(0, 10); } }
+function ddShift(d, n){ const t = new Date(d + 'T00:00:00'); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); }
+function ddLive(l){ return DD_OFF.indexOf(String(l.status || '')) < 0; }
+function ddAdOn(l){ return !!(String(l.adList || '').trim() || String(l.adsFlat || '').trim()); }
+function ddTop(arr, get, n){
+  const m = {};
+  arr.forEach(x => { const k = String(get(x) || '').trim() || '미기재'; m[k] = (m[k] || 0) + 1; });
+  return Object.keys(m).map(k => ({ n: k, v: m[k] })).sort((a, b) => b.v - a.v).slice(0, n || 6);
+}
+function ddMonths(arr, get){
+  const out = [], now = ddToday();
+  for(let i = 5; i >= 0; i--){
+    const dt = new Date(now + 'T00:00:00'); dt.setMonth(dt.getMonth() - i);
+    const k = dt.toISOString().slice(0, 7);
+    out.push({ n: k.slice(2).replace('-', '.'), v: arr.filter(x => ddDay(get(x)).slice(0, 7) === k).length });
+  }
+  return out;
+}
+/* ── 그리는 방법 6가지: 숫자카드 · 막대 · 도넛 · 선 · 누적띠 · 표 ── */
+function ddCard(n, v, s, go){
+  const off = (v === null || v === undefined);
+  return '<div class="dd-c"><div class="n">' + gEsc(n) + '</div>'
+    + '<div class="v' + (off ? ' off' : '') + '">' + gEsc(off ? '미연결' : String(v)) + '</div>'
+    + (s ? '<div class="s">' + gEsc(s) + '</div>' : '')
+    + (go ? '<button class="dd-go" onclick="sxGo(&#39;' + go + '&#39;)">열기 →</button>' : '') + '</div>';
+}
+function ddBars(title, rows, note){
+  const max = rows.reduce((a, b) => Math.max(a, b.v), 0) || 1;
+  return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div>'
+    + (rows.length ? rows.map(r => '<div class="dd-bar"><span title="' + gAttr(r.n) + '">' + gEsc(r.n) + '</span>'
+        + '<span class="dd-bt"><i style="width:' + Math.max(2, Math.round(r.v / max * 100)) + '%"></i></span>'
+        + '<b>' + gEsc(String(r.v)) + '</b></div>').join('')
+      : '<div class="dd-empty">셀 자료가 아직 없습니다</div>')
+    + (note ? '<div class="s">' + gEsc(note) + '</div>' : '') + '</div>';
+}
+function ddDonut(title, parts, unit){
+  const rows = parts.filter(p => p.v > 0);
+  const tot = rows.reduce((a, b) => a + b.v, 0);
+  if(!tot) return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div><div class="dd-empty">셀 자료가 아직 없습니다</div></div>';
+  let acc = 0;
+  const seg = rows.map((p, i) => { const a = acc; acc += p.v / tot * 360;
+    return DD_C[i % DD_C.length] + ' ' + a.toFixed(2) + 'deg ' + acc.toFixed(2) + 'deg'; }).join(',');
+  return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div>'
+    + '<div class="dd-do" style="background:conic-gradient(' + seg + ')"><div class="dd-do-i"><b>' + tot + '</b><span>' + gEsc(unit || '건') + '</span></div></div>'
+    + '<div class="dd-lg">' + rows.map((p, i) => '<div><i style="background:' + DD_C[i % DD_C.length] + '"></i>'
+        + gEsc(p.n) + ' <b>' + p.v + '</b> · ' + Math.round(p.v / tot * 100) + '%</div>').join('') + '</div></div>';
+}
+/* 선 그래프 — 흐름(추이)을 볼 때 */
+function ddLine(title, rows, note){
+  const max = rows.reduce((a, b) => Math.max(a, b.v), 0);
+  if(!rows.length) return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div><div class="dd-empty">셀 자료가 아직 없습니다</div></div>';
+  const W = 320, H = 96, pad = 6;
+  const x = i => pad + i * (W - pad * 2) / Math.max(1, rows.length - 1);
+  const y = v => H - pad - (max ? v / max : 0) * (H - pad * 2);
+  const pts = rows.map((r, i) => x(i).toFixed(1) + ',' + y(r.v).toFixed(1)).join(' ');
+  const area = 'M' + pad + ',' + (H - pad) + ' L' + rows.map((r, i) => x(i).toFixed(1) + ',' + y(r.v).toFixed(1)).join(' L') + ' L' + (W - pad) + ',' + (H - pad) + ' Z';
+  return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div>'
+    + '<svg class="dd-ln" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img">'
+    + '<line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - pad) + '" y2="' + (H - pad) + '"/>'
+    + '<path class="a" d="' + area + '"/><polyline class="l" points="' + pts + '"/>'
+    + rows.map((r, i) => '<circle class="p" cx="' + x(i).toFixed(1) + '" cy="' + y(r.v).toFixed(1) + '" r="3"/>').join('')
+    + '</svg>'
+    + '<div class="dd-ax">' + rows.map(r => '<span>' + gEsc(r.n) + '</span>').join('') + '</div>'
+    + '<div class="dd-ax v">' + rows.map(r => '<span>' + r.v + '</span>').join('') + '</div>'
+    + (note ? '<div class="s">' + gEsc(note) + '</div>' : '') + '</div>';
+}
+/* 누적 띠 — 전체 중 비중을 한 줄로 */
+function ddStack(title, parts, note){
+  const rows = parts.filter(p => p.v > 0);
+  const tot = rows.reduce((a, b) => a + b.v, 0);
+  if(!tot) return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div><div class="dd-empty">셀 자료가 아직 없습니다</div></div>';
+  return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div>'
+    + '<div class="dd-sk">' + rows.map((p, i) => '<i style="width:' + (p.v / tot * 100).toFixed(2) + '%;background:' + DD_C[i % DD_C.length] + '" title="' + gAttr(p.n + ' ' + p.v) + '"></i>').join('') + '</div>'
+    + '<div class="dd-lg" style="flex-direction:row;flex-wrap:wrap;gap:12px;margin-top:9px">'
+    + rows.map((p, i) => '<span><i style="background:' + DD_C[i % DD_C.length] + '"></i>' + gEsc(p.n) + ' <b>' + p.v + '</b></span>').join('') + '</div>'
+    + (note ? '<div class="s">' + gEsc(note) + '</div>' : '') + '</div>';
+}
+/* 표 — 실제 건을 눈으로 확인할 때 */
+function ddTable(title, cols, rows, note, go){
+  return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div>'
+    + (rows.length
+      ? '<div class="dd-tw"><table class="dd-t"><thead><tr>' + cols.map(c => '<th>' + gEsc(c) + '</th>').join('') + '</tr></thead><tbody>'
+        + rows.map(r => '<tr>' + r.map((v, i) => '<td' + (i ? '' : ' class="k"') + '>' + gEsc(String(v == null || v === '' ? '-' : v)) + '</td>').join('') + '</tr>').join('')
+        + '</tbody></table></div>'
+      : '<div class="dd-empty">해당하는 건이 없습니다</div>')
+    + (note ? '<div class="s">' + gEsc(note) + '</div>' : '')
+    + (go ? '<button class="dd-go" onclick="sxGo(&#39;' + go + '&#39;)">전체 보기 →</button>' : '') + '</div>';
+}
+/* 단계 다이어그램 — 일이 흘러가는 순서 */
+function ddFlow(title, steps, note){
+  return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div>'
+    + '<div class="dd-fl">' + steps.map((st, i) => '<div class="dd-fs' + (st.v === null || st.v === undefined ? ' off' : '') + '"'
+        + (st.go ? ' onclick="sxGo(&#39;' + st.go + '&#39;)" role="button" tabindex="0"' : '')
+        + '><span class="no">' + (i + 1) + '</span><span class="nm">' + gEsc(st.n) + '</span>'
+        + '<b>' + gEsc(st.v === null || st.v === undefined ? '준비 중' : String(st.v)) + '</b></div>').join('<span class="dd-fa">›</span>')
+    + '</div>' + (note ? '<div class="s">' + gEsc(note) + '</div>' : '') + '</div>';
+}
+/* 🤖 부서 AI 직원 — 상단 AI 버튼·AI 직원 센터의 배치표를 부서마다 그대로 보여준다 */
+function ddAi(dept){
+  let d = null;
+  try{ d = (typeof AI_DEPARTMENTS !== 'undefined' ? AI_DEPARTMENTS : []).find(x => x.name === dept) || null; }catch(e){}
+  const head = '<div class="dd-c"><div class="dd-h">🤖 ' + gEsc(dept) + ' AI 직원</div>';
+  if(!d) return head + '<div class="s">아직 배치되지 않았습니다 — <b>확인 필요</b>. 개발부 · AI 직원 배치에서 역할을 정하면 여기에 나타납니다.</div>'
+    + '<button class="dd-go" onclick="sxGo(&#39;ai-center&#39;)">AI 직원 배치 →</button></div>';
+  return head + '<div class="s" style="line-height:1.9;color:var(--t2)">'
+    + '<b>담당 업무</b> · ' + gEsc(d.role) + '<br><b>보는 자료</b> · ' + gEsc(d.data)
+    + '<br><b>승인 경계</b> · <span style="color:#B91C1C">' + gEsc(d.guard) + '</span>'
+    + '<br><b>현재 상태</b> · 코드완료·검증대기 (AI 실행은 연결 전이라 돌지 않습니다)</div>'
+    + '<button class="dd-go" onclick="sxGo(&#39;ai-center&#39;)">업무 지시 초안 →</button></div>';
+}
+/* ⚖ 위험 신호 한 줄 */
+function ddRiskRow(r){
+  const off = (r.v === null || r.v === undefined);
+  const lv = off ? 'off' : r.v === 0 ? 'ok' : (r.hi ? 'hi' : 'md');
+  return '<div class="dd-rk ' + lv + '"><i></i><span class="t">' + gEsc(r.n) + '<span class="w">' + gEsc(r.w) + '</span></span>'
+    + '<span class="c">' + gEsc(off ? '미연결' : (r.v + '건')) + '</span>'
+    + (r.go ? '<button class="dd-go" style="margin:0" onclick="sxGo(&#39;' + r.go + '&#39;)">보기 →</button>' : '<span></span>') + '</div>';
+}
+function ddRender(id){
+  const el = document.getElementById('dd-' + id); if(!el) return;
+  const L = ddArr('listings'), C = ddArr('customers'), K = ddArr('contracts'), LD = ddArr('landlords'), V = ddArr('visits');
+  const t = ddToday(), d30 = ddShift(t, 30);
+  const live = L.filter(ddLive);
+  let h = '';
+
+  if(id === 'dash-ops'){
+    const ad = live.filter(ddAdOn).length;
+    const web = live.filter(l => String(l.web || '') !== '숨김').length;
+    const mon = t.slice(0, 7);
+    const recent = L.slice().sort((a, b) => ddDay(b.recvDate).localeCompare(ddDay(a.recvDate))).slice(0, 6)
+      .map(l => [l.apt || '-', l.type || '-', l.price || '-', l.status || '접수', ddAdOn(l) ? '광고중' : '-', ddDay(l.recvDate) || '-']);
+    h = '<div class="dd-kpi">'
+      + ddCard('거래 가능 매물', live.length, '전체 ' + L.length + '건 중 계약·임대·보류 제외', 'listing')
+      + ddCard('광고중', ad, live.length ? Math.round(ad / live.length * 100) + '% 노출' : '', 'ads')
+      + ddCard('고객', C.length, '이번 달 접수 ' + C.filter(c => ddDay(c.recvDate).slice(0, 7) === mon).length + '건', 'customer')
+      + ddCard('임대인', LD.length, '', 'landlord') + '</div>'
+      + ddFlow('영업이 흘러가는 순서', [
+          { n: '매물 확보', v: live.length, go: 'listing' },
+          { n: '광고 노출', v: ad, go: 'ads' },
+          { n: '문의 고객', v: C.length, go: 'customer' },
+          { n: '임장', v: V.filter(v => v.kind === '임장').length, go: 'visit' },
+          { n: '계약', v: K.length, go: 'contract' },
+        ], '각 칸을 누르면 그 화면으로 갑니다. 숫자는 지금 불러온 자료에서 셉니다.')
+      + '<div class="dd-row">' + ddBars('매물 유형별', ddTop(live, l => l.type, 7))
+      + ddDonut('매물 상태', [
+          { n: '접수·상담중', v: live.length },
+          { n: '계약완료', v: L.filter(l => l.status === '계약완료').length },
+          { n: '임대중', v: L.filter(l => l.status === '임대중').length },
+          { n: '거래완료·보류', v: L.filter(l => l.status === '거래완료' || l.status === '보류').length },
+        ]) + '</div>'
+      + '<div class="dd-row3">' + ddLine('최근 6개월 매물 접수', ddMonths(L, l => l.recvDate)) + ddAi('운영부') + '</div>'
+      + ddStack('홈페이지 노출', [{ n: '노출', v: web }, { n: '숨김', v: live.length - web }], '노출 여부는 매물마다 켜고 끕니다.')
+      + ddTable('최근 등록 매물', ['매물', '유형', '금액', '상태', '광고', '접수일'], recent, '', 'listing');
+  }
+  else if(id === 'dash-admin'){
+    const exp = K.filter(c => ddDay(c.end) >= t && ddDay(c.end) <= d30);
+    const vis = V.filter(v => v.kind === '임장' && ddDay(v.at) === t);
+    const mon = t.slice(0, 7);
+    let ap = null;
+    try{ if(typeof apData !== 'undefined' && apData && apData.counts) ap = apData.counts['요청'] || 0; }catch(e){}
+    const expRows = exp.slice().sort((a, b) => ddDay(a.end).localeCompare(ddDay(b.end))).slice(0, 6).map(c => {
+      const dd = Math.round((new Date(ddDay(c.end) + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000);
+      return [c.apt || '-', c.type || '-', (c.landlordName || '-') + ' → ' + (c.tenantName || '-'), ddDay(c.end), 'D-' + dd];
+    });
+    h = '<div class="dd-kpi">'
+      + ddCard('30일 내 만기', exp.length, '연락·갱신을 챙길 계약', 'expiry')
+      + ddCard('오늘 임장·근태', vis.length, '', 'visit')
+      + ddCard('이번 달 계약', K.filter(c => ddDay(c.start).slice(0, 7) === mon).length, '', 'contract')
+      + ddCard('결재 대기', ap, ap === null ? '서버 연결 후 표시' : '대표 승인을 기다리는 건', 'approval') + '</div>'
+      + '<div class="dd-row">' + ddLine('최근 6개월 계약', ddMonths(K, c => c.start))
+      + ddDonut('만기까지 남은 기간', [
+          { n: '7일 이내', v: K.filter(c => ddDay(c.end) >= t && ddDay(c.end) <= ddShift(t, 7)).length },
+          { n: '8~30일', v: K.filter(c => ddDay(c.end) > ddShift(t, 7) && ddDay(c.end) <= d30).length },
+          { n: '31~90일', v: K.filter(c => ddDay(c.end) > d30 && ddDay(c.end) <= ddShift(t, 90)).length },
+          { n: '90일 초과', v: K.filter(c => ddDay(c.end) > ddShift(t, 90)).length },
+        ]) + '</div>'
+      + ddTable('곧 만기되는 계약', ['매물', '유형', '임대인 → 임차인', '만기일', '남은 날'], expRows, '', 'expiry')
+      + '<div class="dd-row3">' + ddBars('계약 유형별', ddTop(K, c => c.type, 5)) + ddAi('관리부') + '</div>'
+      + '<div class="dd-c"><div class="dd-h">아직 연결 전</div><div class="s">급여·퇴직, 매출·비용, 자금·금융서비스 연계, 세무 신고 자료, 문서함, 보고 취합은 화면만 있고 자료가 붙지 않았습니다. 숫자를 지어내지 않으려고 비워 둡니다.</div></div>';
+  }
+  else if(id === 'dash-mk'){
+    const web = live.filter(l => String(l.web || '') !== '숨김');
+    const ad = live.filter(ddAdOn).length;
+    const CH = [
+      ['홈페이지', '매물·새소식이 서버에서 바로 나갑니다', '연결됨', 'on'],
+      ['네이버 블로그', '원고 생성·발행 (2026-08-25부터 멈춤)', 'PC 프로그램', 'pc'],
+      ['검색 순위', '키워드·플레이스 순위 추적', 'PC 프로그램', 'pc'],
+      ['유튜브', '쇼츠 원고만 있고 업로드는 사람이', 'PC 프로그램', 'pc'],
+      ['인스타그램', '아직 코드가 없습니다', '준비 중', 'no'],
+      ['스레드', '아직 코드가 없습니다', '준비 중', 'no'],
+      ['카카오채널', '아직 코드가 없습니다', '준비 중', 'no'],
+    ];
+    h = '<div class="dd-kpi">'
+      + ddCard('홈페이지 노출 매물', web.length, '거래 가능 ' + live.length + '건 중', 'exhome')
+      + ddCard('광고중 매물', ad, '', 'ads')
+      + ddCard('연결된 채널', '1 / 7', '홈페이지만 CRM 안에서 됩니다', 'exhome')
+      + ddCard('블로그 발행 기록', null, 'PC 프로그램이 멈춰 있어 셀 수 없음', 'exblog') + '</div>'
+      + ddStack('채널 연결 상태', [
+          { n: '연결됨', v: CH.filter(c => c[3] === 'on').length },
+          { n: 'PC 프로그램', v: CH.filter(c => c[3] === 'pc').length },
+          { n: '준비 중', v: CH.filter(c => c[3] === 'no').length },
+        ], '연결됨 = CRM 안에서 바로 · PC 프로그램 = 사무실 컴퓨터에서 · 준비 중 = 아직 코드 없음')
+      + ddTable('채널별 상태', ['채널', '하는 일', '상태'], CH.map(c => [c[0], c[1], c[2]]))
+      + '<div class="dd-row">' + ddBars('노출 매물 유형별', ddTop(web, l => l.type, 6))
+      + ddDonut('홈페이지 노출', [{ n: '노출', v: web.length }, { n: '숨김', v: live.length - web.length }]) + '</div>'
+      + '<div class="dd-row3">' + ddLine('최근 6개월 매물 접수(노출 후보)', ddMonths(live, l => l.recvDate)) + ddAi('마케팅부') + '</div>';
+  }
+  else if(id === 'dash-legal'){
+    const past = K.filter(c => c.end && ddDay(c.end) < t);
+    const soon = K.filter(c => ddDay(c.end) >= t && ddDay(c.end) <= ddShift(t, 7));
+    const noTerm = K.filter(c => !c.start || !c.end);
+    const noParty = K.filter(c => !String(c.landlordName || '').trim() || !String(c.tenantName || '').trim());
+    const noPhone = live.filter(l => !String(l.phone || '').trim() && !String(l.cphone || '').trim());
+    const hasVer = L.some(l => Object.prototype.hasOwnProperty.call(l, 'verified'));
+    const noVer = hasVer ? live.filter(l => String(l.verified || '') !== 'Y').length : null;
+    const rows = past.concat(soon).concat(noTerm).concat(noParty)
+      .filter((c, i, a) => a.indexOf(c) === i).slice(0, 8)
+      .map(c => {
+        const why = [];
+        if(c.end && ddDay(c.end) < t) why.push('만기 지남');
+        if(ddDay(c.end) >= t && ddDay(c.end) <= ddShift(t, 7)) why.push('7일 내 만기');
+        if(!c.start || !c.end) why.push('기간 빈칸');
+        if(!String(c.landlordName || '').trim() || !String(c.tenantName || '').trim()) why.push('당사자 빈칸');
+        return [c.apt || '-', c.type || '-', ddDay(c.start) || '-', ddDay(c.end) || '-', why.join(' · ')];
+      });
+    h = '<div class="dd-kpi">'
+      + ddCard('만기 지난 계약', past.length, '종료·갱신 처리가 남았는지 확인', 'expiry')
+      + ddCard('7일 내 만기', soon.length, '갱신 통지 기한', 'expiry')
+      + ddCard('기간 빠진 계약', noTerm.length, '시작일·종료일 중 빈 칸', 'contract')
+      + ddCard('대장 미확인 매물', noVer, hasVer ? '건축물대장으로 확인하지 않은 매물' : '검수 화면을 열면 확인됩니다', 'listing') + '</div>'
+      + '<div class="dd-c"><div class="dd-h">⚖ 지금 위험한 것</div>'
+      + [
+          { n: '만기가 지났는데 정리 안 된 계약', w: '보증금 반환·명도 분쟁으로 번질 수 있습니다', v: past.length, hi: true, go: 'expiry' },
+          { n: '7일 안에 끝나는 계약', w: '갱신 통지 기한을 놓치면 묵시적 갱신이 됩니다', v: soon.length, hi: true, go: 'expiry' },
+          { n: '계약 기간이 비어 있는 건', w: '계약서 필수 기재사항 누락', v: noTerm.length, hi: true, go: 'contract' },
+          { n: '당사자 이름이 비어 있는 건', w: '임대인·임차인 표시 누락', v: noParty.length, hi: false, go: 'contract' },
+          { n: '연락처 없는 거래 가능 매물', w: '본인 확인 없이 광고가 나갈 위험', v: noPhone.length, hi: false, go: 'listing' },
+          { n: '건축물대장으로 확인하지 않은 매물', w: '면적·용도·위반건축물 여부를 못 봤습니다', v: noVer, hi: false, go: 'listing' },
+          { n: '중복·주소 없음 등 데이터 경고', w: '검수 화면에서 계산합니다', v: null, hi: false, go: 'audit' },
+          { n: '등기·권리분석, 확인설명서 점검', w: '아직 코드가 없습니다 — 준비 중', v: null, hi: false, go: '' },
+        ].map(ddRiskRow).join('')
+      + '<div class="s">법률 판단이 아니라 <b>빠진 것·기한이 임박한 것</b>을 알려 주는 점검표입니다. 숫자는 지금 불러온 계약·매물 자료에서 바로 셉니다.</div></div>'
+      + ddTable('손봐야 할 계약', ['매물', '유형', '시작', '종료', '이유'], rows, '', 'contract')
+      + '<div class="dd-row">' + ddBars('계약 유형별', ddTop(K, c => c.type, 6))
+      + ddDonut('계약 상태', [
+          { n: '진행 중', v: K.filter(c => ddDay(c.end) >= t).length },
+          { n: '만기 지남', v: past.length },
+          { n: '기간 미기재', v: noTerm.length },
+        ]) + '</div>'
+      + '<div class="dd-row3">' + ddLine('최근 6개월 계약', ddMonths(K, c => c.start)) + ddAi('법무팀') + '</div>';
+  }
+  else if(id === 'dash-dev'){
+    let menu = 0, soon = 0, dept = 0, ref = 0;
+    const per = [], tbl = [];
+    try{ SX_NAV.forEach(c => c.depts.forEach(d => { dept++;
+      let o = 0, r = 0, s2 = 0;
+      d.items.forEach(it => { if(it.sub) return; menu++;
+        if(!it.id && !it.act){ soon++; s2++; } else if(it.ref){ ref++; r++; } else o++; });
+      per.push({ n: d.dept, v: o + r + s2 });
+      tbl.push([d.dept, o, r, s2, (o + r + s2) ? Math.round(o / (o + r + s2) * 100) + '%' : '-']);
+    })); }catch(e){}
+    h = '<div class="dd-kpi">'
+      + ddCard('전체 메뉴', menu, '회사 ' + (function(){ try{ return SX_NAV.length; }catch(e){ return '?'; } })() + ' · 부서 ' + dept)
+      + ddCard('연결된 메뉴', menu - soon, menu ? Math.round((menu - soon) / menu * 100) + '% 연결' : '')
+      + ddCard('준비 중', soon, '눌러도 실행되지 않게 막아 둔 항목')
+      + ddCard('검수 경고', null, '오류·데이터 검수 화면에서 계산', 'audit') + '</div>'
+      + ddStack('메뉴 연결 상태', [{ n: '이 부서가 주인', v: menu - soon - ref }, { n: '다른 부서 참조', v: ref }, { n: '준비 중', v: soon }],
+          '참조는 화면을 복제한 것이 아니라 같은 화면을 가리킵니다.')
+      + '<div class="dd-row">' + ddBars('부서별 메뉴 수', per, '메뉴가 몰린 부서는 화면을 더 나눌 후보입니다')
+      + ddDonut('연결 · 준비 중', [{ n: '연결됨', v: menu - soon }, { n: '준비 중', v: soon }], '개') + '</div>'
+      + ddTable('부서별 연결 현황', ['부서', '주인', '참조', '준비 중', '연결률'], tbl)
+      + '<div class="dd-row3">' + ddAi('개발부')
+      + '<div class="dd-c"><div class="dd-h">운영 점검</div><div class="s">변경 이력·배포 관리·자동화 현황은 서버에서 받아 옵니다. 화면을 열면 그때 실제 값이 표시됩니다.</div>'
+      + '<button class="dd-go" onclick="sxGo(&#39;changelog&#39;)">변경 이력 →</button> '
+      + '<button class="dd-go" onclick="sxGo(&#39;deploy&#39;)">배포 관리 →</button> '
+      + '<button class="dd-go" onclick="sxGo(&#39;ops&#39;)">자동화 현황 →</button> '
+      + '<button class="dd-go" onclick="sxGo(&#39;ver&#39;)">버전 정보 →</button></div></div>';
+  }
+  else if(id === 'dash-design'){
+    // 🏗 브리즈디자인(인테리어) — 아직 껍데기다. 숫자를 지어내지 않는다.
+    const STEP = ['견적 요청 접수', '현장 실측·상담', '도면·3D 시안', '견적서 제출', '수주 계약', '자재 발주', '시공·공정 관리', '준공 검수', '하자 A/S'];
+    h = '<div class="dd-kpi">'
+      + ddCard('진행 중 현장', null, '시공 관리 자료가 아직 없습니다')
+      + ddCard('견적 대기', null, '견적 요청 접수 화면 준비 중')
+      + ddCard('이번 달 수주', null, '수주 계약 화면 준비 중')
+      + ddCard('하자·A/S', null, 'A/S 접수 화면 준비 중') + '</div>'
+      + ddFlow('인테리어 일이 흘러갈 순서 (예정)', STEP.map(n => ({ n: n, v: null })),
+          '부동산 쪽과 같은 구성입니다 — 왼쪽 부서 아이콘 · 부서 첫 화면은 현황 · 목록은 필터·검색·본문·실행 순서. 먼저 쓸 화면을 정해 주시면 그것부터 붙입니다.')
+      + ddTable('세울 화면 목록', ['단계', '화면', '상태'], STEP.map((n, i) => [i + 1, n, '준비 중']))
+      + '<div class="dd-row3">' + ddAi('브리즈디자인')
+      + '<div class="dd-c"><div class="dd-h">지금 되는 것</div><div class="s">브랜드 자산(로고·캐릭터)은 부동산 본사 <b>마케팅부 → 브랜드 스튜디오</b>로 옮겼습니다. 여기서는 참조로만 봅니다.</div>'
+      + '<button class="dd-go" onclick="sxGo(&#39;brand&#39;)">브랜드 자료 보기 →</button></div></div>';
+  }
+  else if(id === 'dash-edu'){
+    // 🎓 브리즈아카데미(교육) — 사내 매뉴얼만 실제로 있고 나머지는 껍데기다.
+    let menu = 0;
+    try{ SX_NAV.forEach(c => c.depts.forEach(d => d.items.forEach(it => { if(!it.sub && it.id) menu++; }))); }catch(e){}
+    const STEP = ['과정 개설', '강의 일정 편성', '수강 신청', '수강료 수납', '출결 관리', '평가·시험', '수료증 발급', '강사료 정산'];
+    h = '<div class="dd-kpi">'
+      + ddCard('개설 과정', null, '과정 개설 화면 준비 중')
+      + ddCard('수강생', null, '수강생 명부 준비 중')
+      + ddCard('이번 달 강의', null, '강의 일정 준비 중')
+      + ddCard('사내 매뉴얼 화면', menu, '화면이 바뀌면 매뉴얼도 다시 만듭니다', 'guide') + '</div>'
+      + ddFlow('교육 일이 흘러갈 순서 (예정)', STEP.map(n => ({ n: n, v: null })),
+          '부동산 쪽과 같은 구성입니다. 먼저 쓸 화면을 정해 주시면 그것부터 붙입니다.')
+      + ddTable('세울 화면 목록', ['단계', '화면', '상태'], STEP.map((n, i) => [i + 1, n, '준비 중']))
+      + '<div class="dd-row3">' + ddAi('브리즈아카데미')
+      + '<div class="dd-c"><div class="dd-h">지금 되는 것</div><div class="s">직원 매뉴얼(이용 가이드)은 부동산 본사와 같은 화면을 참조합니다. 신입 교육 과정·강의 자료는 아직 코드가 없습니다.</div>'
+      + '<button class="dd-go" onclick="sxGo(&#39;guide&#39;)">직원 매뉴얼 →</button></div></div>';
+  }
+  el.innerHTML = h || '<div class="dd-empty">준비 중</div>';
+  if(id === 'dash-admin' && (typeof apData === 'undefined' || !apData) && typeof apRender === 'function' && !window.__ddAp){
+    window.__ddAp = true; apRender().then(() => { try{ ddRender('dash-admin'); }catch(e){} });
+  }
+}
+/* ── 📝 메모 — 생각나면 바로 적는다 ── */
+const MEMO_K = 'sx_memo';
+function memoLoad(){ try{ return JSON.parse(localStorage.getItem(MEMO_K) || '[]'); }catch(e){ return []; } }
+function memoSave(a){ try{ localStorage.setItem(MEMO_K, JSON.stringify(a)); }catch(e){ showToast('저장 공간이 가득 찼습니다'); } }
+function memoAdd(){
+  const t = document.getElementById('sx-memo-t'), k = document.getElementById('sx-memo-k');
+  const v = String(t ? t.value : '').trim();
+  if(!v){ showToast('적을 내용을 넣어 주세요'); if(t) t.focus(); return; }
+  const a = memoLoad();
+  a.unshift({ id: 'M' + Date.now(), k: k ? k.value : '기타', t: v, at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    who: (typeof crmWho === 'function') ? crmWho() : '' });
+  memoSave(a);
+  if(t) t.value = '';
+  memoRender(); memoPanelRender();
+  showToast('메모를 적었습니다 (이 기기에 저장)');
+}
+function memoDel(id){
+  if(!confirm('이 메모를 지울까요?')) return;
+  memoSave(memoLoad().filter(x => x.id !== id));
+  memoRender(); memoPanelRender();
+}
+function memoRender(){
+  const el = document.getElementById('sx-memo-l'); if(!el) return;
+  const a = memoLoad();
+  const n = document.getElementById('sx-memo-n');
+  if(n) n.textContent = a.length ? a.length + '개' : '';
+  el.innerHTML = a.length ? a.slice(0, 20).map(x => '<div class="sx-memo-i"><div><div class="tx">' + gEsc(x.t) + '</div>'
+      + '<div class="mt">' + gEsc(x.k) + ' · ' + gEsc(x.at) + (x.who ? ' · ' + gEsc(x.who) : '') + '</div></div>'
+      + '<button class="sx-memo-x" onclick="memoDel(&#39;' + gAttr(x.id) + '&#39;)" title="지우기">×</button></div>').join('')
+    : '<div class="sx-memo-note" style="border:0;padding:12px 0 0">아직 적은 메모가 없습니다.</div>';
+}
+function memoPanelRender(){
+  const el = document.getElementById('memo-body'); if(!el) return;
+  const a = memoLoad();
+  const kinds = ['아이디어', '할 일', '고객', '매물', '고칠 것', '기타'];
+  const cnt = kinds.map(k => ({ n: k, v: a.filter(x => x.k === k).length })).filter(x => x.v);
+  el.innerHTML = '<div class="dd-wrap">'
+    + '<div class="dd-kpi">' + ddCard('적어 둔 메모', a.length, '이 기기에 저장된 것만')
+      + ddCard('아이디어', a.filter(x => x.k === '아이디어').length, '')
+      + ddCard('할 일', a.filter(x => x.k === '할 일').length, '')
+      + ddCard('고칠 것', a.filter(x => x.k === '고칠 것').length, '') + '</div>'
+    + (cnt.length ? ddStack('종류별', cnt) : '')
+    + ddTable('적어 둔 것', ['종류', '내용', '적은 때', '적은 사람'],
+        a.slice(0, 60).map(x => [x.k, x.t, x.at, x.who || '-']),
+        '🔴 이 기기에만 저장됩니다. 서버(구글 시트)에 모으는 기능은 아직 연결하지 않았습니다.')
+    + '<div class="dd-c"><div class="dd-h">내보내기</div><div class="s">글자로 복사해 두면 다른 기기·문서로 옮길 수 있습니다.</div>'
+    + '<button class="dd-go" onclick="memoCopy()">전부 글자로 복사</button> '
+    + '<button class="dd-go" onclick="memoClear()" style="color:#B91C1C">전부 지우기</button></div></div>';
+}
+function memoCopy(){
+  const a = memoLoad();
+  if(!a.length){ showToast('적은 메모가 없습니다'); return; }
+  const txt = a.map(x => '[' + x.k + '] ' + x.t + '  (' + x.at + (x.who ? ' · ' + x.who : '') + ')').join(String.fromCharCode(10));
+  try{ navigator.clipboard.writeText(txt); showToast('메모 ' + a.length + '개를 복사했습니다'); }
+  catch(e){ prompt('아래 글자를 복사하세요', txt); }
+}
+function memoClear(){
+  if(!confirm('적어 둔 메모를 전부 지울까요? 되돌릴 수 없습니다.')) return;
+  memoSave([]); memoRender(); memoPanelRender(); showToast('메모를 모두 지웠습니다');
+}
+/* ── 🏷 버전 정보 (직원도 봅니다) ── */
+function verRender(){
+  const el = document.getElementById('ver-body'); if(!el) return;
+  const cur = (document.getElementById('appVer') || {}).textContent.trim() || '확인 필요';
+  el.innerHTML = '<div class="card" style="margin-bottom:10px"><div class="card-title">이 기기에서 쓰는 화면</div>'
+    + '<div class="ch-line"><span>화면 버전</span><b>' + gEsc(cur) + '</b></div>'
+    + '<div class="ch-line"><span>주소</span><b>' + gEsc(location.pathname.split('/').pop() || 'saas.html') + '</b></div>'
+    + '<div class="ch-line"><span>서버 최신</span><b id="ver-live">확인 중…</b></div></div>'
+    + '<div class="card" style="margin-bottom:10px"><div class="card-title">최신이 아닐 때</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">아래 단추를 누르면 저장된 옛 화면을 지우고 새로 받습니다. '
+    + '자료는 서버(구글 시트)에 있으므로 지워지지 않습니다.</div>'
+    + '<button class="dd-go" style="margin-top:9px" onclick="verManual()">최신으로 맞추기</button></div>'
+    + '<div class="card"><div class="card-title">서버(구글 시트) 연결</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">기기마다 토큰을 한 번 넣어야 자료를 불러옵니다. '
+    + '불러오기가 0건이면 대부분 이 토큰이 비어 있는 경우입니다.</div>'
+    + '<button class="dd-go" style="margin-top:9px" onclick="openGsSetup()">연동·토큰 설정 →</button></div>';
+  fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(j => {
+    const b = document.getElementById('ver-live'); if(!b) return;
+    const live = String(j.build || j.version || '').trim();
+    b.textContent = live || '확인 필요';
+    b.style.color = (live && live !== cur) ? '#B91C1C' : '#0B5040';
+    if(live && live !== cur) b.textContent = live + ' (다름 — 최신으로 맞추세요)';
+  }).catch(() => { const b = document.getElementById('ver-live'); if(b){ b.textContent = '확인 필요 (인터넷·주소 확인)'; b.style.color = 'var(--t3)'; } });
+}
 /* ── 오늘 일정 ── */
 function sxRail(dept, keep){
   // 왼쪽 아이콘을 누르면 그 옆 목록이 그 부서 화면들로 바뀐다
@@ -11817,6 +12539,10 @@ function sxRail(dept, keep){
   try{ localStorage.setItem('sx_dept', dept); }catch(e){}
   sxRole();
   if(!keep){
+    // 🏠 부서를 고르면 그 부서 첫 화면(현황 대시보드)을 연다 — 대표 지시 2026-09-08
+    const rb = document.querySelector('.sx-rail-b[data-dept="' + dept + '"][data-co="' + sxCo + '"]');
+    const hm = rb ? rb.getAttribute('data-home') : '';
+    if(hm && document.getElementById('p-' + hm) && !(sxAdminId(hm) && !sxAdmin())) sxGo(hm, 0, dept);
     const first = document.querySelector('.sx-grp.on .sx-item[data-menu]:not([data-menu=""])');
     if(first && window.innerWidth > 900) first.focus({ preventScroll: true });
   }
@@ -11847,8 +12573,16 @@ function sxFindGo(id, grp){
   if(id) sxGo(id); else showToast('준비 중인 화면입니다');
 }
 function sxDeptOf(menuId){
-  const b = document.querySelector('.sx-item[data-menu="' + menuId + '"]');
-  return b ? b.getAttribute('data-grp') : '';
+  // 🔴 '참조'로 걸린 곳이 아니라 **주인 부서**를 고른다. 지금 보고 있는 부서에 그 화면이 있으면 그대로 둔다.
+  const all = Array.from(document.querySelectorAll('.sx-item[data-menu="' + menuId + '"]'))
+    .filter(b => b.getAttribute('data-co') === sxCo);
+  if(!all.length) return '';
+  const cur = document.querySelector('.sx-grp.on');
+  const here = cur ? cur.getAttribute('data-dept') : '';
+  const stay = all.find(b => b.getAttribute('data-grp') === here);
+  if(stay) return here;
+  const own = all.find(b => (b.textContent || '').indexOf('참조') < 0);
+  return (own || all[0]).getAttribute('data-grp');
 }
 function sxCalRender(){
   const el = document.getElementById('sx-cal-body'); if(!el) return;
@@ -11896,6 +12630,12 @@ function sxInit(){
     if(id === 'adcopy') acRender();
     if(id === 'exblog') exRender('blog');
     if(id === 'exthumb') exRender('thumb');
+    if(id === 'exhome') exRender('home');
+    if(id === 'exrank') exRender('rank');
+    if(id === 'exyt') exRender('yt');
+    if(id.indexOf('dash-') === 0) ddRender(id);
+    if(id === 'ver') verRender();
+    if(id === 'memo') memoPanelRender();
     if(id === 'ops') opsRender();
     if(id === 'changelog') clRender();
     if(id === 'deploy') dpRender();
