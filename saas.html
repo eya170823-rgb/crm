@@ -932,7 +932,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 22:08</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 03:12</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1207,6 +1207,11 @@ body{padding-bottom:46px}
       <div class="page-hd"><div><div class="page-title">채널 안내</div>
         <div class="page-sub">어디에 어떻게 내보내는지</div></div></div>
       <div class="dd-wrap" id="chan-body"></div>
+    </div>
+    <div class="panel" id="p-nomore">
+      <div class="page-hd"><div><div class="page-title">그만 받을 번호</div>
+        <div class="page-sub">인입함에 쌓인 번호를 골라 다음부터 안 들어오게 합니다</div></div></div>
+      <div class="dd-wrap" id="nomore-body"></div>
     </div>
     <div class="panel" id="p-paste">
       <div class="page-hd"><div><div class="page-title">붙여넣어 만들기</div>
@@ -13261,6 +13266,182 @@ function kMount(){
   const hd = host.querySelector('.page-hd');
   if(hd && hd.nextSibling) host.insertBefore(b, hd.nextSibling); else host.insertBefore(b, host.firstChild);
 }
+/* ══ 🚫 그만 받을 번호 (2026-09-09 대표 지시) ══
+   인입함에 쌓인 '보낸 사람'을 건수 순으로 보여 주고, 체크한 것만 제외번호에 올린다.
+   🔴 무엇이 필요 없는지는 화면이 정하지 않는다 — 세어 주고, 업무로 보이면 빨갛게 말린다. */
+const NM_BIZ = /매물|임대|오피|원룸|투룸|빌라|아파트|상가|건물주|공실|부동산|계약|입주|호$|호\)/;
+let nmRows = null, nmPick = {};
+
+function nmBizWarn(r){
+  // 🔴 막으면 되돌릴 수 없는 일이라, 조금이라도 업무 같으면 말린다(놓치는 것보다 낫다)
+  const nm = String(r.name || '');
+  if(/^(개인|친구)/.test(nm)) return '';                       // 사적 연락처는 말리지 않는다
+  if(NM_BIZ.test(nm)) return '업무 이름이 붙어 있습니다';
+  const t = (typeof todayStr === 'function') ? todayStr() : '';
+  const d30 = t ? new Date(new Date(t + 'T00:00:00').getTime() - 30 * 86400000).toISOString().slice(0, 10) : '';
+  const fresh = d30 && String(r.last || '') >= d30;
+  const mobile = /^01[016-9]/.test(String(r.phone || '').replace(/[^0-9]/g, ''));
+  if(mobile && fresh) return '최근에도 연락이 온 휴대폰입니다';
+  if(/문자|sms/i.test(String(r.kinds || '')) && r.n >= 3) return '문자가 여러 번 왔습니다';
+  if(String(r.kinds || '').indexOf('통화녹음') >= 0 && r.n >= 3) return '통화가 여러 번 있었습니다';
+  if(mobile && r.n >= 3) return '휴대폰에서 여러 번 들어왔습니다';
+  return '';
+}
+function nmRender(){
+  const el = document.getElementById('nomore-body'); if(!el) return;
+  if(!sxAdmin()){
+    el.innerHTML = '<div class="dd-c"><div class="dd-h">대표만 쓰는 화면입니다</div>'
+      + '<div class="s">번호를 막으면 손님 문의가 통째로 안 들어올 수 있어 대표 계정에서만 바꿉니다.</div></div>';
+    return;
+  }
+  if(!nmRows){
+    el.innerHTML = '<div class="dd-c"><div class="dd-h">인입함에서 번호를 모으는 중…</div>'
+      + '<div class="s">인입함 전체를 읽어 번호별로 묶습니다. 잠시 걸립니다.</div></div>';
+    nmLoad(); return;
+  }
+  if(nmRows.error){
+    el.innerHTML = '<div class="dd-c pz-red"><div class="card-title">불러오지 못했습니다</div>'
+      + '<div class="s">' + gEsc(nmRows.error) + '<br>⚙️ 구글 시트 설정에 API 토큰이 들어 있는지 보세요.</div></div>';
+    return;
+  }
+  const rows = nmRows.senders || [];
+  const on   = rows.filter(r => r.already);
+  const off  = rows.filter(r => !r.already);
+  const nPick = Object.keys(nmPick).filter(k => nmPick[k]).length;
+
+  el.innerHTML =
+    '<div class="dd-c pz-amber"><div class="card-title">먼저 읽어 주세요</div>'
+    + '<div style="font-size:12.5px;color:#7C3F0A;line-height:1.9">'
+    + '여기서 고른 번호는 <b>다음부터 인입함에 들어오지 않습니다</b>(서버가 10분 안에 반영).<br>'
+    + '이미 쌓여 있던 <b>그 번호의 인입함 줄도 함께 정리</b>됩니다. 되돌려도 지난 기록은 돌아오지 않습니다.<br>'
+    + '🔴 손님 번호를 막으면 문의가 통째로 사라집니다 — 이름과 건수를 보고 고르세요.</div></div>'
+
+    + '<div class="dd-kpi">'
+    + ddCard('인입함에 있는 번호', rows.length, '보낸 사람 기준으로 묶음')
+    + ddCard('이미 막은 것', on.length, '아래에서 되돌릴 수 있습니다')
+    + ddCard('고른 것', nPick, nPick ? '아래 [고른 번호 그만 받기] 를 누르세요' : '체크해서 고르세요')
+    + ddCard('인입함 전체', nmRows.total || 0, '지금까지 쌓인 줄 수') + '</div>'
+
+    + '<div class="dd-c"><div class="dd-h">인입함에 자주 들어오는 번호</div>'
+    + '<div class="s" style="margin:-6px 0 10px">건수가 많은 순입니다. 빨간 줄은 업무로 보이니 조심하세요.</div>'
+    + '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
+    + '<th style="width:34px"></th><th>이름</th><th>번호</th><th style="text-align:right">건수</th>'
+    + '<th>어떻게 들어왔나</th><th>마지막</th><th>주의</th></tr></thead><tbody>'
+    + (off.length ? off.map(r => {
+        const warn = nmBizWarn(r);
+        return '<tr' + (warn ? ' class="pz-row-red"' : '') + '>'
+          + '<td><input type="checkbox" ' + (nmPick[r.key] ? 'checked ' : '')
+          + 'onchange="nmToggle(&#39;' + gAttr(r.key) + '&#39;,this.checked)"></td>'
+          + '<td>' + gEsc(r.name || '(이름 없음)') + '</td>'
+          + '<td>' + gEsc(r.phone || '-') + '</td>'
+          + '<td style="text-align:right"><b>' + r.n + '</b></td>'
+          + '<td>' + gEsc(r.kinds || '-') + '</td>'
+          + '<td>' + gEsc(r.last || '-') + '</td>'
+          + '<td>' + (warn ? '<b style="color:#B91C1C">' + gEsc(warn) + '</b>' : '') + '</td></tr>';
+      }).join('') : '<tr><td colspan="7" class="dd-empty">막을 수 있는 번호가 없습니다</td></tr>')
+    + '</tbody></table></div>'
+    + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn btn-sm" onclick="nmSubmit()"' + (nPick ? '' : ' disabled')
+    + '>고른 번호 그만 받기' + (nPick ? ' (' + nPick + ')' : '') + '</button>'
+    + '<button class="btn btn-sm" onclick="nmRefresh()">다시 세기</button></div></div>'
+
+    + '<div class="dd-c"><div class="dd-h">이미 막아 둔 것 · ' + on.length + '개</div>'
+    + (on.length ? '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
+        + '<th>이름·번호</th><th style="text-align:right">지난 건수</th><th>마지막</th><th></th></tr></thead><tbody>'
+        + on.map(r => '<tr><td>' + gEsc(r.name || r.phone || r.key) + '</td>'
+            + '<td style="text-align:right">' + r.n + '</td><td>' + gEsc(r.last || '-') + '</td>'
+            + '<td><button class="dd-go" style="margin:0" onclick="nmUndo(&#39;' + gAttr(r.key) + '&#39;)">다시 받기</button></td></tr>').join('')
+        + '</tbody></table></div>'
+      : '<div class="s">아직 막아 둔 번호가 없습니다.</div>')
+    + (nmRows.extra && nmRows.extra.length
+        ? '<div class="s" style="margin-top:10px">시트에만 적혀 있고 인입함에는 없는 것 · '
+          + gEsc(nmRows.extra.map(x => x.key).join(' · ')) + '</div>' : '')
+    + '</div>';
+}
+
+function nmToggle(k, on){ nmPick[k] = !!on; nmRender(); }
+function nmRefresh(){ nmRows = null; nmPick = {}; nmRender(); }
+
+function nmLoad(){
+  const url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  const tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  if(!url || !tok){ nmRows = { error: '구글 시트 주소나 토큰이 없습니다' }; nmRender(); return; }
+  const q = url + '?action=inboxSenders&token=' + encodeURIComponent(tok);
+  fetch(q).then(r => r.json()).then(j => {
+    if(!j || !j.ok){ nmRows = { error: (j && j.error) || '알 수 없는 오류' }; nmRender(); return; }
+    const res = j.result || {};
+    return fetch(url + '?action=excludeList&token=' + encodeURIComponent(tok))
+      .then(r2 => r2.json()).then(j2 => {
+        const list = (j2 && j2.ok && j2.result && j2.result.rows) ? j2.result.rows : [];
+        const inbox = res.rows || [];
+        const keys = {}; inbox.forEach(r => { keys[r.key] = 1; });
+        nmRows = { senders: inbox, total: res.count || inbox.length,
+                   extra: list.filter(x => !keys[String(x.key).replace(/[^0-9A-Za-z가-힣]/g, '')]) };
+        nmRender();
+      });
+  }).catch(e => { nmRows = { error: String(e && e.message || e) }; nmRender(); });
+}
+
+function nmSubmit(){
+  const picked = Object.keys(nmPick).filter(k => nmPick[k]);
+  if(!picked.length) return;
+  const rows = (nmRows && nmRows.senders) || [];
+  const warn = picked.filter(k => { const r = rows.find(x => x.key === k); return r && nmBizWarn(r); });
+  // 줄바꿈은 문자코드로 만든다 — 이 코드는 템플릿 문자열 안에 들어가서 역슬래시가 한 겹 먹힌다
+  const nl = String.fromCharCode(10);
+  const msg = [
+    picked.length + '개 번호를 앞으로 받지 않습니다.', '',
+    '· 다음부터 인입함에 안 들어옵니다 (서버가 10분 안에 반영)',
+    '· 이미 쌓인 그 번호의 인입함 줄도 함께 정리됩니다',
+  ].concat(warn.length ? ['', '🔴 그중 ' + warn.length + '개는 업무로 보입니다. 그래도 막을까요?'] : [])
+   .concat(['', '계속할까요?']).join(nl);
+  if(!confirm(msg)) return;
+  const url = getGsUrl(), tok = getGsTok();
+  let done = 0, fail = 0;
+  // 한 건씩 차례로 보낸다 — 한꺼번에 보내면 시트 잠금에 걸린다
+  const one = (i) => {
+    if(i >= picked.length){
+      showToast('그만 받기 ' + done + '건 등록' + (fail ? ' · 실패 ' + fail + '건' : ''));
+      nmRefresh(); return;
+    }
+    const r = rows.find(x => x.key === picked[i]) || {};
+    const key = r.phone || r.name || picked[i];
+    fetch(url + '?action=excludeAdd&token=' + encodeURIComponent(tok)
+      + '&key=' + encodeURIComponent(key)
+      + '&memo=' + encodeURIComponent('인입함에서 고름 · ' + (r.name || '') + ' · 지난 ' + (r.n || 0) + '건'))
+      .then(x => x.json())
+      .then(j => { if(j && j.ok && j.result && j.result.added) done++; else fail++; one(i + 1); })
+      .catch(() => { fail++; one(i + 1); });
+  };
+  one(0);
+}
+
+function nmUndo(k){
+  const rows = (nmRows && nmRows.senders) || [];
+  const r = rows.find(x => x.key === k) || {};
+  const nl = String.fromCharCode(10);
+  const msg = ['다시 받겠습니까?', '', (r.name || r.phone || k), '', '지난 기록은 돌아오지 않습니다.'].join(nl);
+  if(!confirm(msg)) return;
+  fetch(getGsUrl() + '?action=excludeDel&token=' + encodeURIComponent(getGsTok())
+    + '&key=' + encodeURIComponent(r.phone || r.name || k))
+    .then(x => x.json()).then(j => {
+      showToast(j && j.ok ? '다시 받습니다' : '되돌리지 못했습니다');
+      nmRefresh();
+    }).catch(() => showToast('되돌리지 못했습니다'));
+}
+
+/* 🚫 고객 화면(인입함이 있는 곳)에 '그만 받을 번호' 버튼을 붙인다 — 메뉴는 늘리지 않는다 */
+function nmMount(){
+  const host = document.getElementById('p-customer'); if(!host) return;
+  if(document.getElementById('nm-mount') || !sxAdmin()) return;
+  const b = document.createElement('button');
+  b.id = 'nm-mount'; b.className = 'btn btn-sm'; b.type = 'button';
+  b.textContent = '🚫 그만 받을 번호';
+  b.title = '인입함에 쌓인 번호를 골라 다음부터 안 들어오게 합니다 (대표만)';
+  b.onclick = function(){ sxGo('nomore', 0, '운영부'); };
+  const hd = host.querySelector('.page-hd');
+  if(hd && hd.nextSibling) host.insertBefore(b, hd.nextSibling); else host.insertBefore(b, host.firstChild);
+}
 function pzMount(){
   const host = document.getElementById('p-listing'); if(!host) return;
   if(document.getElementById('pz-mount')) return;
@@ -13964,6 +14145,8 @@ function sxInit(){
     if(id === 'pref') prefRender();
     if(id === 'paste') pzRender();
     if(id === 'listing') pzMount();
+    if(id === 'customer') nmMount();
+    if(id === 'nomore') nmRender();
     if(id === 'contract') kMount();
     if(id === 'ads') adsPlatBar();
     if(id === 'match') matchRender();
