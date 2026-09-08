@@ -649,6 +649,7 @@ table td,table th{font-size:12.5px}
   <div class="sx-right">
     <button class="sx-btn" onclick="sxPop('sx-new')" title="빠른등록">＋ 빠른등록</button>
     <button class="sx-btn" onclick="sxPop('sx-cal')" title="오늘 일정">오늘 일정</button>
+    <button class="sx-btn" onclick="sxAi()" title="AI 직원">AI 직원</button>
     <button class="sx-ico" onclick="sxPop('sx-noti')" title="알림">🔔<span class="sx-dot" id="sx-noti-n" style="display:none">0</span></button>
     <div class="sx-me" onclick="sxPop('sx-acc')"><div class="sx-av" id="sx-av">브</div>
       <div><b id="sx-who">대표</b><br><span id="sx-role">대표 계정</span></div></div>
@@ -664,7 +665,7 @@ table td,table th{font-size:12.5px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 15:04</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 16:13</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -812,6 +813,14 @@ table td,table th{font-size:12.5px}
         <div class="ch-rep" id="chief-report"></div>
         <div class="ch-rep" id="chief-risk"></div>
       </div>
+      <div class="ch-row">
+        <div class="ch-rep" id="chief-hot"></div>
+        <div class="ch-rep" id="chief-week"></div>
+      </div>
+      <div class="ch-row">
+        <div class="ch-rep" id="chief-staff"></div>
+        <div class="ch-rep" id="chief-decide"></div>
+      </div>
     </div>
 
     <!-- 오늘의 영업 8단계 -->
@@ -821,7 +830,9 @@ table td,table th{font-size:12.5px}
         <div class="row" style="gap:6px"><div class="ap-tabs" id="fl-scope" style="border:0;padding:0;margin:0"></div>
           <button class="btn btn-sm" onclick="flowRender()">새로고침</button></div>
       </div>
+      <div class="kpi-row" id="fl-kpi"></div>
       <div id="fl-body"></div>
+      <div class="card" id="fl-staff" style="display:none;margin-top:14px"></div>
     </div>
 
     <!-- 승인·보고함 -->
@@ -10847,7 +10858,17 @@ function sxAccRender(){
     + '<button onclick="openGsSetup();sxPop(\'sx-acc\')">연동·토큰 설정</button>'
     + '<button onclick="sxGo(\'guide\');sxPop(\'sx-acc\')">이용 가이드</button>'
     + (admin ? '<button onclick="sxGo(\'staff\');sxPop(\'sx-acc\')">직원 계정 관리</button>' : '')
-    + '<button onclick="location.href=\'index.html\'">기존 화면으로 돌아가기</button>';
+    + '<button onclick="location.href=\'index.html\'">기존 화면으로 돌아가기</button>'
+    + '<button onclick="sxLogout()" style="color:#B91C1C">로그아웃</button>';
+}
+function sxAi(){
+  if(sxAdmin()) sxGo('ai-center');
+  else showToast('AI 직원은 대표만 봅니다. 부서 AI 는 연결 전이라 실행되지 않습니다');
+}
+function sxLogout(){
+  if(!confirm('로그아웃할까요? 다시 들어올 때 비밀번호를 입력해야 합니다.')) return;
+  try{ localStorage.removeItem('crm_session'); }catch(e){}
+  location.reload();
 }
 function sxSearch(q){
   q = String(q||'').trim(); const box = document.getElementById('sx-res'); if(!box) return;
@@ -10887,6 +10908,16 @@ function chiefRender(){
       + line('부서별 업무보고 취합', '', true)
       + '<div style="font-size:11px;color:var(--t3);margin-top:10px">숫자는 이 기기에 불러온 자료 기준입니다. 부서별 업무보고 자동 취합은 아직 연결하지 않았습니다 — 매일 자동 보고는 검증 후에 켭니다.</div>';
   }
+  const hot = document.getElementById('chief-hot');
+  if(hot) hot.innerHTML = '<h3>계약 가능성 높은 고객 5</h3>' + hotHtml();
+  const wk = document.getElementById('chief-week');
+  if(wk) wk.innerHTML = '<h3>오늘 · 이번 주 일정</h3>' + weekHtml();
+  const sf = document.getElementById('chief-staff');
+  if(sf) sf.innerHTML = '<h3>직원별 담당 · 재접촉 · 계약률</h3>' + staffBoardHtml();
+  const dc = document.getElementById('chief-decide');
+  if(dc) dc.innerHTML = '<h3>오늘 대표가 결정할 일</h3>' + decideHtml()
+    + '<div class="ch-line"><span>오전 8시 AI 경영보고</span><b class="ch-na">미연결</b></div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:6px">부서 보고 자동 취합은 아직 연결하지 않았습니다. 검증 전에는 자동으로 돌리지 않습니다.</div>';
   const rk = document.getElementById('chief-risk');
   if(rk){
     const list = sxNotiList();
@@ -11159,7 +11190,7 @@ function flowScopeSet(v){ try{ localStorage.setItem('sx_scope', v); }catch(e){} 
 function flowWho(){ return (typeof crmWho === 'function') ? crmWho() : ''; }
 function flowOwned(rec, ownerFields){
   const scope = flowMine();
-  if(scope === 'all') return true;
+  if(scope === 'all' || scope === 'staff') return true;   // 직원별 보기는 전체를 놓고 아래 표로 나눈다
   const me = flowWho();
   for(const f of ownerFields){ const v = String(rec[f] || '').trim(); if(v) return v === me; }
   return scope === 'mine' ? false : true;   // 담당자 칸이 비어 있으면 '내 것'에는 넣지 않는다
@@ -11261,10 +11292,16 @@ function flowRender(){
   const el = document.getElementById('fl-body'); if(!el) return;
   const d = flowCompute(), m = d._meta;
   const sc = document.getElementById('fl-scope');
-  if(sc){ sc.innerHTML = [['mine', '내 담당'], ['all', sxAdmin() ? '회사 전체' : '전체 보기']]
+  const opts = sxAdmin() ? [['mine', '내 담당'], ['staff', '직원별'], ['all', '회사 전체']] : [['mine', '내 담당'], ['all', '전체 보기']];
+  if(sc){ sc.innerHTML = opts
     .map(o => '<button class="ap-tab' + (m.scope === o[0] ? ' on' : '') + '" onclick="flowScopeSet(&#39;' + o[0] + '&#39;)">' + o[1] + '</button>').join(''); }
   const sub = document.getElementById('fl-sub');
   if(sub) sub.textContent = m.today + ' · ' + (m.scope === 'all' ? '회사 전체' : m.me + ' 담당') + ' · 오늘 임장 ' + m.visitToday + '건';
+  try{ flowKpiRender(); }catch(e){}
+  const sb = document.getElementById('fl-staff');
+  if(sb){ const on = (m.scope === 'staff');
+    sb.style.display = on ? '' : 'none';
+    if(on) sb.innerHTML = '<div class="card-title">직원별 업무</div>' + staffBoardHtml(); }
   el.innerHTML = '<div class="fl-grid">' + FLOW_STEPS.map(s => flowCard(s, d[s.key] || { n: 0, rows: [] })).join('') + '</div>'
     + '<div class="fl-note">담당자가 비어 있는 자료: 임대인 ' + m.unassigned.landlord + '건 · 고객 ' + m.unassigned.customer + '건'
     + ' — 담당자를 넣어야 [내 담당]에 잡힙니다.</div>'
@@ -11311,7 +11348,142 @@ function chiefMineRender(){
         return '<div class="mine-i" onclick="sxGo(&#39;' + s.go + '&#39;)"><span>' + s.no + '. ' + gEsc(s.name) + '</span><b>' + (x.na ? '–' : x.n) + '</b></div>'; }).join('') + '</div>';
 }
 
-/* ── 부서 접기 · 오늘 일정 ── */
+/* ══ 🧭 2차 보강 (2026-09-08) ══
+   직원 상단 핵심카드 6 · 대표 보기 3종(내 담당/직원별/회사 전체) · 대표 본문 누락 영역
+   🔴 숫자는 전부 지금 불러온 실제 자료에서 센다. 없는 것은 '미연결'로 적고 0 으로 꾸미지 않는다. */
+
+/* ── 직원 상단 핵심카드 6 ── */
+function flowKpi(){
+  const d = flowCompute(), t = flowToday();
+  const V = (typeof visits !== 'undefined' ? visits : []);
+  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const me = flowWho(), scope = flowMine();
+  const mineK = K.filter(c => scope === 'all' || !c.agent || c.agent === me);
+  const weekEnd = new Date(new Date(t).getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const sched = V.filter(v => v.kind === '임장' && String(v.at || '').slice(0, 10) === t).length
+    + mineK.filter(c => c.start && String(c.start).slice(0, 10) >= t && String(c.start).slice(0, 10) <= weekEnd).length;
+  // 오늘 최우선 = 지연이 있는 단계 중 가장 앞 단계
+  let top = null;
+  for(const st of FLOW_STEPS){ const x = d[st.key] || {}; if((x.late || 0) > 0){ top = st.name + ' ' + x.late + '건 지연'; break; } }
+  if(!top){ for(const st of FLOW_STEPS){ const x = d[st.key] || {}; if((x.n || 0) > 0){ top = st.name + ' ' + x.n + '건'; break; } } }
+  return [
+    { k: '오늘 최우선 업무', v: top || '없음', go: 'flow', wide: true },
+    { k: '확인할 신규 공실', v: d.vacancy.n, go: 'listing' },
+    { k: '연락할 임대인', v: d.landlord.n, go: 'landlord', warn: d.landlord.late > 0 },
+    { k: '고적합 매칭 고객', v: d.match.na ? '미연결' : d.match.n, go: 'customer', na: d.match.na },
+    { k: '오늘 재접촉', v: d.recall.n, go: 'customer', warn: d.recall.late > 0 },
+    { k: '방문·계약 일정', v: sched, go: 'visit' },
+  ];
+}
+function flowKpiRender(){
+  const el = document.getElementById('fl-kpi'); if(!el) return;
+  el.innerHTML = flowKpi().map(c => '<div class="kpi' + (c.warn ? ' warn' : '') + (c.wide ? ' wide' : '') + '" onclick="sxGo(&#39;' + c.go + '&#39;)">'
+    + '<div class="kpi-k">' + gEsc(c.k) + '</div><div class="kpi-v' + (c.na || c.wide ? ' na' : '') + '">' + gEsc(String(c.v)) + '</div></div>').join('');
+}
+
+/* ── 대표: 직원별 업무 ── */
+function staffBoard(){
+  const C = (typeof customers !== 'undefined' ? customers : []);
+  const D = (typeof landlords !== 'undefined' ? landlords : []);
+  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const t = flowToday(), by = {};
+  const put = (who, f) => { const w = String(who || '').trim() || '(미배정)'; (by[w] = by[w] || { cust: 0, land: 0, recall: 0, con: 0 })[f]++; };
+  C.forEach(c => { put(c.ownerName, 'cust'); if(c.nextContact && String(c.nextContact).slice(0, 10) <= t) put(c.ownerName, 'recall'); });
+  D.forEach(l => put(l.ownerName, 'land'));
+  K.forEach(c => put(c.agent, 'con'));
+  return Object.keys(by).sort().map(w => {
+    const x = by[w];
+    const rate = x.cust ? Math.round(x.con / x.cust * 100) : null;
+    return { who: w, cust: x.cust, land: x.land, recall: x.recall, con: x.con, rate: rate };
+  });
+}
+function staffBoardHtml(){
+  const rows = staffBoard();
+  if(!rows.length) return '<div style="font-size:12.5px;color:var(--t3)">담당자 자료가 없습니다</div>';
+  return '<div class="tbl-wrap"><table><thead><tr><th>담당</th><th>고객</th><th>임대인</th><th>재접촉</th><th>계약</th><th>계약률</th></tr></thead><tbody>'
+    + rows.map(r => '<tr><td style="font-weight:600">' + gEsc(r.who) + '</td><td>' + r.cust + '</td><td>' + r.land + '</td>'
+      + '<td' + (r.recall ? ' style="color:#B91C1C;font-weight:700"' : '') + '>' + r.recall + '</td><td>' + r.con + '</td>'
+      + '<td>' + (r.rate === null ? '<span class="ch-na">–</span>' : r.rate + '%') + '</td></tr>').join('')
+    + '</tbody></table></div><div style="font-size:10.5px;color:var(--t3);margin-top:6px">계약률 = 담당 계약 ÷ 담당 고객. 담당자 칸이 빈 자료는 (미배정)으로 묶입니다.</div>';
+}
+
+/* ── 대표: 계약 가능성 높은 5건 ── */
+function hotList(){
+  const C = (typeof customers !== 'undefined' ? customers : []);
+  const V = (typeof visits !== 'undefined' ? visits : []);
+  const t = flowToday(), out = [];
+  C.forEach(c => {
+    if(/종료|취소/.test(String(c.progressStatus || ''))) return;
+    let sc = 0, why = [];
+    const vs = V.filter(v => v.customerId === c.id && v.kind === '임장');
+    if(vs.length){ sc += 30; why.push('임장 ' + vs.length + '회'); }
+    const good = vs.find(v => v.prob === '높음');
+    if(good){ sc += 30; why.push('가능성 높음'); }
+    const star = vs.reduce((a, v) => Math.max(a, parseInt(v.rating, 10) || 0), 0);
+    if(star >= 4){ sc += 15; why.push('반응 ★' + star); }
+    if(String(c.step || '') >= '3'){ sc += 15; why.push('단계 ' + c.step); }
+    if(c.nextContact && String(c.nextContact).slice(0, 10) <= t){ sc += 10; why.push('오늘 연락'); }
+    if(typeof custMatchListings === 'function' && (c.region || c.propType)){
+      try{ const r = custMatchListings(c.region, c.propType, c.type, c.areaSize);
+        const n = (r && r.matches) ? r.matches.length : 0; if(n){ sc += Math.min(20, n * 4); why.push('맞는 매물 ' + n); } }catch(e){}
+    }
+    if(sc > 0) out.push({ id: c.id, name: c.name || '', who: c.ownerName || '미배정', sc: sc, why: why.join(' · ') });
+  });
+  return out.sort((a, b) => b.sc - a.sc).slice(0, 5);
+}
+function hotHtml(){
+  const rows = hotList();
+  if(!rows.length) return '<div style="font-size:12.5px;color:var(--t3)">임장·매칭 기록이 쌓이면 여기에 뜹니다</div>';
+  return rows.map(r => '<div class="ch-line"><span><b>' + gEsc(r.name) + '</b> <span style="font-size:11px;color:var(--t3)">' + gEsc(r.who) + '</span>'
+    + '<div style="font-size:11px;color:var(--t2)">' + gEsc(r.why) + '</div></span>'
+    + '<b><button class="btn btn-xs" onclick="openModal(&#39;customer&#39;,&#39;' + gAttr(r.id) + '&#39;)">열기</button></b></div>').join('')
+    + '<div style="font-size:10.5px;color:var(--t3);margin-top:6px">임장 기록·반응·단계·맞는 매물 수로 매긴 순서입니다.</div>';
+}
+
+/* ── 대표: 오늘·이번 주 일정 ── */
+function weekHtml(){
+  const t = flowToday();
+  const end = new Date(new Date(t).getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const V = (typeof visits !== 'undefined' ? visits : []);
+  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const C = (typeof customers !== 'undefined' ? customers : []);
+  const rows = [];
+  V.filter(v => v.kind === '임장' && String(v.at || '').slice(0, 10) === t)
+    .forEach(v => rows.push([t, '임장', (v.listingName || '') + ' ' + (v.customerName || ''), 'visit']));
+  K.filter(c => c.start && String(c.start).slice(0, 10) >= t && String(c.start).slice(0, 10) <= end)
+    .forEach(c => rows.push([String(c.start).slice(0, 10), '계약', c.apt || '', 'contract']));
+  K.filter(c => c.end && String(c.end).slice(0, 10) >= t && String(c.end).slice(0, 10) <= end)
+    .forEach(c => rows.push([String(c.end).slice(0, 10), '만기', c.apt || '', 'expiry']));
+  C.filter(c => c.nextContact && String(c.nextContact).slice(0, 10) >= t && String(c.nextContact).slice(0, 10) <= end)
+    .slice(0, 8).forEach(c => rows.push([String(c.nextContact).slice(0, 10), '연락', c.name || '', 'customer']));
+  rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  if(!rows.length) return '<div style="font-size:12.5px;color:var(--t3)">이번 주 잡힌 일정이 없습니다</div>';
+  return rows.slice(0, 12).map(r => '<div class="ch-line"><span><span class="sx-tag ref">' + gEsc(r[1]) + '</span> ' + gEsc(r[2]) + '</span>'
+    + '<b style="font-size:11.5px">' + gEsc(r[0]) + '</b></div>').join('');
+}
+
+/* ── 대표: 오늘 직접 결정할 업무 ── */
+function decideHtml(){
+  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const L = (typeof listings !== 'undefined' ? listings : []);
+  const out = [];
+  const wait = (typeof apData !== 'undefined' && apData && apData.counts) ? (apData.counts['요청'] || 0) : null;
+  if(wait === null) out.push(['결재', '승인 대기 건수를 아직 못 읽었습니다', 'approval', true]);
+  else if(wait) out.push(['결재', '결재 대기 ' + wait + '건', 'approval', false]);
+  const red = K.filter(c => c.riskGrade === 'RED').length;
+  if(red) out.push(['이상거래', 'RED 계약 ' + red + '건 — 진행 여부 결정', 'contract', false]);
+  const track = K.filter(c => /CANCELLED|REGISTRY_DELAY|REPORT_MISSING/.test(String(c.trackState || ''))).length;
+  if(track) out.push(['계약 추적', '해제·등기지연·신고없음 ' + track + '건', 'contract', false]);
+  const nv = L.filter(l => String(l.verified || '') === 'N' && !/계약완료|임대중|거래완료/.test(String(l.status || ''))).length;
+  if(nv) out.push(['매물 검수', '미검증 ' + nv + '건 — 직원 화면에서 연락처가 가려집니다', 'audit', false]);
+  const noFee = K.filter(c => String(c.start || '').slice(0, 7) === ((typeof ym === 'function') ? ym() : '') && !String(c.feeAmt || '').trim()).length;
+  if(noFee) out.push(['정산', '이 달 중개보수 미입력 ' + noFee + '건', 'payout', false]);
+  if(!out.length) return '<div style="font-size:12.5px;color:var(--t3)">오늘 대표가 직접 결정할 일이 없습니다</div>';
+  return out.map(o => '<div class="ch-line' + (o[3] ? '' : ' ch-warn') + '"><span><b>' + gEsc(o[0]) + '</b> ' + gEsc(o[1]) + '</span>'
+    + '<b><button class="btn btn-xs" onclick="sxGo(&#39;' + o[2] + '&#39;)">보기</button></b></div>').join('');
+}
+
+/* ── 오늘 일정 ── */
 function sxRail(dept, keep){
   // 왼쪽 아이콘을 누르면 그 옆 목록이 그 부서 화면들로 바뀐다
   document.querySelectorAll('.sx-rail-b').forEach(b => b.classList.toggle('on', b.getAttribute('data-dept') === dept));
