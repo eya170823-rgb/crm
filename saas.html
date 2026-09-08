@@ -894,7 +894,6 @@ body{padding-bottom:46px}
     oninput="sxSearch(this.value)" onfocus="sxSearch(this.value)"><div class="sx-res" id="sx-res"></div></div>
   <div class="sx-right">
     <button class="sx-btn" onclick="sxPop('sx-new')" title="빠른등록">＋ 빠른등록</button>
-    <button class="sx-btn" onclick="sxPop('sx-cal')" title="오늘 일정">오늘 일정</button>
     <button class="sx-btn" onclick="sxGo('home')" title="처음 화면으로">홈</button>
     <button class="sx-btn sx-rec" id="sx-rec-b" onclick="recToggle()" title="녹음 — 상담·회의를 이 기기에 남깁니다">
       <span class="sx-rec-dot"></span><span id="sx-rec-t">녹음</span>
@@ -934,7 +933,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 20:59</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 21:44</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -944,25 +943,25 @@ body{padding-bottom:46px}
       <button class="sx-rail-b" data-co="head" data-dept="홈" data-home="home" onclick="sxRail('홈')" title="홈 · 대시보드">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v10h12V10"/></svg></i><span>홈</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="그룹웨어" data-home="gw" onclick="sxRail('그룹웨어')" title="그룹웨어 · 포털·일정·결재·소통">
+      <button class="sx-rail-b" data-co="head" data-dept="그룹웨어" data-home="minutes" onclick="sxRail('그룹웨어')" title="그룹웨어 · 회의록·자료실">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></i><span>그룹웨어</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="관리부" data-home="dash-admin" onclick="sxRail('관리부')" title="관리부 · 만기·계약·인사·회계">
+      <button class="sx-rail-b" data-co="head" data-dept="관리부" data-home="contract" onclick="sxRail('관리부')" title="관리부 · 계약·인사·회계·결재">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg></i><span>관리부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="운영부" data-home="dash-ops" onclick="sxRail('운영부')" title="운영부 · 매물·광고·고객·임대인">
+      <button class="sx-rail-b" data-co="head" data-dept="운영부" data-home="listing" onclick="sxRail('운영부')" title="운영부 · 매물·광고·고객·임대인">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l7-3v17"/><path d="M11 21V10l9 3v8"/><path d="M7 10h1M7 14h1M15 15h1"/></svg></i><span>운영부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="마케팅부" data-home="dash-mk" onclick="sxRail('마케팅부')" title="마케팅부 · 노출 채널 · 자동화">
+      <button class="sx-rail-b" data-co="head" data-dept="마케팅부" data-home="chan" onclick="sxRail('마케팅부')" title="마케팅부 · 노출 채널 · 자동화">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10v4h3l6 4V6l-6 4H5Z"/><path d="M18 9a4 4 0 0 1 0 6"/></svg></i><span>마케팅부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="법무팀" data-home="dash-legal" onclick="sxRail('법무팀')" title="법무팀 · 계약·보증금·위험">
+      <button class="sx-rail-b" data-co="head" data-dept="법무팀" data-home="contract-writer" onclick="sxRail('법무팀')" title="법무팀 · 계약·보증금·위험">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v15"/><path d="M6 8h12"/><path d="M6 8 4 13h4Z"/><path d="M18 8l-2 5h4Z"/></svg></i><span>법무팀</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="개발부" data-admin="1" data-home="dash-dev" onclick="sxRail('개발부')" title="개발부 · 설계·개발·운영">
+      <button class="sx-rail-b" data-co="head" data-dept="개발부" data-admin="1" data-home="memo" onclick="sxRail('개발부')" title="개발부 · 설계·개발·운영">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8 5 12l4 4"/><path d="M15 8l4 4-4 4"/></svg></i><span>개발부</span>
       </button>
-      <button class="sx-rail-b" data-co="design" data-dept="디자인영업" data-home="dash-design" onclick="sxRail('디자인영업')" title="디자인영업 · 상담·견적·수주">
+      <button class="sx-rail-b" data-co="design" data-dept="디자인영업" data-home="" onclick="sxRail('디자인영업')" title="디자인영업 · 상담·견적·수주">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 20V9l5-4 5 4v11"/><path d="M11 20v-4h2v4"/></svg></i><span>디자인영업</span>
       </button>
       <button class="sx-rail-b" data-co="design" data-dept="설계·시공" data-home="" onclick="sxRail('설계·시공')" title="설계·시공 · 현장·공정·품질">
@@ -974,7 +973,7 @@ body{padding-bottom:46px}
       <button class="sx-rail-b" data-co="design" data-dept="포트폴리오" data-home="" onclick="sxRail('포트폴리오')" title="포트폴리오 · 시공 사례·홍보">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5h6v2"/><path d="M3 12h18"/></svg></i><span>포트폴리오</span>
       </button>
-      <button class="sx-rail-b" data-co="academy" data-dept="교육운영" data-home="dash-edu" onclick="sxRail('교육운영')" title="교육운영 · 과정·일정·자료">
+      <button class="sx-rail-b" data-co="academy" data-dept="교육운영" data-home="" onclick="sxRail('교육운영')" title="교육운영 · 과정·일정·자료">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5 3 9l9 4 9-4Z"/><path d="M7 11v4c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-4"/></svg></i><span>교육운영</span>
       </button>
       <button class="sx-rail-b" data-co="academy" data-dept="수강생" data-home="" onclick="sxRail('수강생')" title="수강생 · 등록·출결·수료">
@@ -990,43 +989,31 @@ body{padding-bottom:46px}
       <div class="sx-grp" data-co="head" data-dept="홈">
         <div class="sx-grp-h">홈<em>대시보드</em></div>
           <button class="sx-item" data-co="head" data-grp="홈" data-menu="home" onclick="sxGo('home',0,'홈')"><span class="sx-pri p1" title="매일 여는 것">1</span>대시보드<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="flow" onclick="sxGo('flow',0,'홈')"><span class="sx-pri p1" title="매일 여는 것">1</span>오늘의 내 업무(8단계)<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="chief" data-admin="1" onclick="sxGo('chief',0,'홈')">대표 홈</button>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="stats" data-admin="1" onclick="sxGo('stats',0,'홈')">경영 통계</button>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="guide" onclick="sxGo('guide',0,'홈')"><span class="sx-pri p3" title="필요할 때">3</span>이용 가이드<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="홈" data-menu="csched" onclick="sxGo('csched',0,'홈')">일정관리</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="그룹웨어">
-        <div class="sx-grp-h">그룹웨어<em>포털·일정·결재·소통</em></div>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="gw" onclick="sxGo('gw',0,'그룹웨어')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>메인포털<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
+        <div class="sx-grp-h">그룹웨어<em>회의록·자료실</em></div>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="minutes" onclick="sxGo('minutes',0,'그룹웨어')">회의록</button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="links" onclick="sxGo('links',0,'그룹웨어')">자료실</button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="guide" onclick="sxGo('guide',0,'그룹웨어')"><span class="sx-pri p3" title="필요할 때">3</span>직원 매뉴얼</button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="ref" onclick="sxGo('ref',0,'그룹웨어')">자료실</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
-        <div class="sx-grp-h">관리부<em>만기·계약·인사·회계</em></div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="dash-admin" onclick="sxGo('dash-admin',0,'관리부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>관리부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">만기 · 계약</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="dash-expiry" onclick="sxGo('dash-expiry',0,'관리부')"><span class="sx-pri p1" title="매일 여는 것">1</span>만기 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract" onclick="sxGo('contract',0,'관리부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>계약 원장</button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">인사 · 회계</div>
+        <div class="sx-grp-h">관리부<em>계약·인사·회계·결재</em></div>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract" onclick="sxGo('contract',0,'관리부')">계약관리</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="staff" data-admin="1" onclick="sxGo('staff',0,'관리부')">인사·직원</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="payout" onclick="sxGo('payout',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>회계·정산</button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">결재 · 설정</div>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="stats" data-admin="1" onclick="sxGo('stats',0,'관리부')">경영 통계</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="approval" onclick="sxGo('approval',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>승인·보고함</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="pref" onclick="sxGo('pref',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>환경 설정</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="운영부">
         <div class="sx-grp-h">운영부<em>매물·광고·고객·임대인</em></div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-ops" onclick="sxGo('dash-ops',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>운영부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <div class="sx-sub" data-co="head" data-grp="운영부">매물</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-listing" onclick="sxGo('dash-listing',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>매물장 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>매물장</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="paste" onclick="sxGo('paste',0,'운영부')">붙여넣어 만들기</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">광고</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-ads" onclick="sxGo('dash-ads',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>광고 현황</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 원장</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 관리</button>
+          <div class="sx-sub" data-co="head" data-grp="운영부">사진</div>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p3" title="필요할 때">3</span>매물 사진<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="chanGo('thumb')"><span class="sx-pri p3" title="필요할 때">3</span>사진 편집기</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">고객</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-cust" onclick="sxGo('dash-cust',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>고객 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임대인')"><span class="sx-pri p3" title="필요할 때">3</span>매도·임대인</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임차인')"><span class="sx-pri p3" title="필요할 때">3</span>매수·임차인</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('문의')"><span class="sx-pri p3" title="필요할 때">3</span>문의 고객</button>
@@ -1036,33 +1023,30 @@ body{padding-bottom:46px}
       </div>
       <div class="sx-grp" data-co="head" data-dept="마케팅부">
         <div class="sx-grp-h">마케팅부<em>노출 채널 · 자동화</em></div>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="dash-mk" onclick="sxGo('dash-mk',0,'마케팅부')"><span class="sx-pri p3" title="필요할 때">3</span>마케팅부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('home')">채널 안내</button>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="brand" onclick="sxGo('brand',0,'마케팅부')">브랜드 스튜디오</button>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="adcopy" onclick="sxGo('adcopy',0,'마케팅부')">광고문구<span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="법무팀">
         <div class="sx-grp-h">법무팀<em>계약·보증금·위험</em></div>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="dash-legal" onclick="sxGo('dash-legal',0,'법무팀')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>위험 신호 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'법무팀')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>계약서 작성·검토</button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="jeonse" onclick="sxGo('jeonse',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>전세 안전도<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="guar" onclick="sxGo('guar',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>보증보험 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>등기 변동 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>문서 작성 · 브리핑<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="개발부" data-admin="1">
         <div class="sx-grp-h">개발부<em>설계·개발·운영</em></div>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="dash-dev" data-admin="1" onclick="sxGo('dash-dev',0,'개발부')">개발부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">메모 · 요구사항</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'개발부')">매물 수집</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">자동화 현황</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ai-center" data-admin="1" onclick="sxGo('ai-center',0,'개발부')">AI 직원 배치</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="location.href='index.html'">기존 화면으로</button>
       </div>
       <div class="sx-grp" data-co="design" data-dept="디자인영업">
         <div class="sx-grp-h">디자인영업<em>상담·견적·수주</em></div>
-          <button class="sx-item" data-co="design" data-grp="디자인영업" data-menu="dash-design" onclick="sxGo('dash-design',0,'디자인영업')">디자인 현황</button>
           <div class="sx-sub" data-co="design" data-grp="디자인영업">상담 · 수주</div>
           <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('견적 요청 접수')">견적 요청 접수<span class="sx-tag soon">준비 중</span></button>
           <button class="sx-item soon" data-co="design" data-grp="디자인영업" data-menu="" onclick="sxSoon('상담 일지')">상담 일지<span class="sx-tag soon">준비 중</span></button>
@@ -1101,7 +1085,6 @@ body{padding-bottom:46px}
       </div>
       <div class="sx-grp" data-co="academy" data-dept="교육운영">
         <div class="sx-grp-h">교육운영<em>과정·일정·자료</em></div>
-          <button class="sx-item" data-co="academy" data-grp="교육운영" data-menu="dash-edu" onclick="sxGo('dash-edu',0,'교육운영')">교육 현황</button>
           <div class="sx-sub" data-co="academy" data-grp="교육운영">과정</div>
           <button class="sx-item soon" data-co="academy" data-grp="교육운영" data-menu="" onclick="sxSoon('과정 개설')">과정 개설<span class="sx-tag soon">준비 중</span></button>
           <button class="sx-item soon" data-co="academy" data-grp="교육운영" data-menu="" onclick="sxSoon('강의 일정')">강의 일정<span class="sx-tag soon">준비 중</span></button>
@@ -1171,20 +1154,6 @@ body{padding-bottom:46px}
     </div>
 
     <!-- 그룹웨어 메인포털 -->
-    <div class="panel" id="p-gw">
-      <div class="page-hd"><div><div class="page-title">그룹웨어 · 메인포털</div>
-        <div class="page-sub">일정·결재·알림을 한 화면에</div></div></div>
-      <div class="gw-wrap">
-        <div class="gw-left">
-          <div class="gw-me" id="gw-me"></div>
-          <div class="gw-apps" id="gw-apps"></div>
-        </div>
-        <div class="gw-grid" id="gw-tiles"></div>
-        <div class="gw-side" id="gw-noti"></div>
-      </div>
-    </div>
-
-    <!-- 홈 대시보드 -->
     <div class="panel" id="p-home">
       <div class="hm-hero">
         <div class="hm-hi" id="hm-hi"></div>
@@ -1239,61 +1208,6 @@ body{padding-bottom:46px}
       <div class="page-hd"><div><div class="page-title">채널 안내</div>
         <div class="page-sub">어디에 어떻게 내보내는지</div></div></div>
       <div class="dd-wrap" id="chan-body"></div>
-    </div>
-    <div class="panel" id="p-dash-cust">
-      <div class="page-hd"><div><div class="page-title">고객 현황</div>
-        <div class="page-sub">매도·임대인 / 매수·임차인 / 문의 고객</div></div></div>
-      <div class="dd-wrap" id="dd-dash-cust"></div>
-    </div>
-    <div class="panel" id="p-dash-expiry">
-      <div class="page-hd"><div><div class="page-title">만기 현황</div>
-        <div class="page-sub">언제 무엇이 끝나는지 한눈에</div></div></div>
-      <div class="dd-wrap" id="dd-dash-expiry"></div>
-    </div>
-    <div class="panel" id="p-dash-ads">
-      <div class="page-hd"><div><div class="page-title">광고 현황</div>
-        <div class="page-sub">플랫폼마다 몇 건이 올라가 있는지</div></div></div>
-      <div class="dd-wrap" id="dd-dash-ads"></div>
-    </div>
-    <div class="panel" id="p-dash-listing">
-      <div class="page-hd"><div><div class="page-title">매물장 현황</div>
-        <div class="page-sub">지금 가진 매물을 숫자와 그림으로</div></div></div>
-      <div class="dd-wrap" id="dd-dash-listing"></div>
-    </div>
-    <div class="panel" id="p-dash-admin">
-      <div class="page-hd"><div><div class="page-title">관리부 현황</div>
-        <div class="page-sub">만기·결재·정산을 숫자로</div></div></div>
-      <div class="dd-wrap" id="dd-dash-admin"></div>
-    </div>
-    <div class="panel" id="p-dash-ops">
-      <div class="page-hd"><div><div class="page-title">운영부 현황</div>
-        <div class="page-sub">매물·고객·계약을 숫자로</div></div></div>
-      <div class="dd-wrap" id="dd-dash-ops"></div>
-    </div>
-    <div class="panel" id="p-dash-mk">
-      <div class="page-hd"><div><div class="page-title">마케팅부 현황</div>
-        <div class="page-sub">채널별 노출 상태</div></div></div>
-      <div class="dd-wrap" id="dd-dash-mk"></div>
-    </div>
-    <div class="panel" id="p-dash-legal">
-      <div class="page-hd"><div><div class="page-title">법무팀 현황</div>
-        <div class="page-sub">계약·위험·만기</div></div></div>
-      <div class="dd-wrap" id="dd-dash-legal"></div>
-    </div>
-    <div class="panel" id="p-dash-dev">
-      <div class="page-hd"><div><div class="page-title">개발부 현황</div>
-        <div class="page-sub">화면 연결·검수·배포</div></div></div>
-      <div class="dd-wrap" id="dd-dash-dev"></div>
-    </div>
-    <div class="panel" id="p-dash-design">
-      <div class="page-hd"><div><div class="page-title">제작 현황</div>
-        <div class="page-sub">브랜드 자산</div></div></div>
-      <div class="dd-wrap" id="dd-dash-design"></div>
-    </div>
-    <div class="panel" id="p-dash-edu">
-      <div class="page-hd"><div><div class="page-title">교육 현황</div>
-        <div class="page-sub">매뉴얼·이수</div></div></div>
-      <div class="dd-wrap" id="dd-dash-edu"></div>
     </div>
     <div class="panel" id="p-paste">
       <div class="page-hd"><div><div class="page-title">붙여넣어 만들기</div>
@@ -11228,7 +11142,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"회의록","id":"minutes"},{"label":"자료실","id":"links"},{"label":"직원 매뉴얼","id":"guide"}]},{"dept":"관리부","desc":"만기·계약·인사·회계","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"만기 · 계약"},{"label":"만기 현황","id":"dash-expiry"},{"label":"계약 원장","id":"contract"},{"sub":"인사 · 회계"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"sub":"결재 · 설정"},{"label":"승인·보고함","id":"approval"},{"label":"환경 설정","id":"pref"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 만들기","id":"paste"},{"sub":"광고"},{"label":"광고 현황","id":"dash-ads"},{"label":"광고 원장","id":"ads"},{"sub":"고객"},{"label":"고객 현황","id":"dash-cust"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 명부","id":"customer"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"listing","items":[{"sub":"매물"},{"label":"매물장","id":"listing"},{"sub":"광고"},{"label":"광고 관리","id":"ads"},{"sub":"사진"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","act":"chanGo('thumb')"},{"sub":"고객"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 명부","id":"customer"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -11339,13 +11253,17 @@ document.addEventListener('click', e => { if(!e.target.closest('.sx-pop') && !e.
 function sxNotiList(){
   const t = todayStr(), out = [];
   const risk = contracts.filter(c => c.riskGrade === 'RED' || c.riskGrade === 'AMBER' || /CANCELLED|REGISTRY_DELAY|REPORT_MISSING/.test(String(c.trackState||'')));
-  if(risk.length) out.push({ k: '위험', t: '이상거래·추적 계약 ' + risk.length + '건', go: 'contract' });
+  if(risk.length) out.unshift({ k: '위험', t: '이상거래·추적 계약 ' + risk.length + '건', go: 'contract', hot: true });
   const a = (typeof auditLastGet === 'function') ? auditLastGet() : null;
   if(a && auditWarnCount(a)) out.push({ k: '검수', t: '매물 검수 경고 ' + auditWarnCount(a) + '건', go: 'audit' });
   const call = customers.filter(c => c.nextContact && String(c.nextContact).slice(0,10) <= t);
-  if(call.length) out.push({ k: '고객', t: '오늘 연락할 손님 ' + call.length + '명', go: 'customer' });
-  const exp = (typeof get6m === 'function') ? get6m() : [];
-  if(exp.length) out.push({ k: '만기', t: '6개월 내 만기 ' + exp.length + '건', go: 'expiry' });
+  if(call.length) out.push({ k: '고객', t: '오늘 연락할 손님 ' + call.length + '명', go: 'customer', hot: true });
+  // 🔴 6개월은 늘 켜져 있어 알림 뜻이 없다 — 30일 안쪽만 알린다 (2026-09-08)
+  const d30 = new Date(new Date(t + 'T00:00:00').getTime() + 30 * 86400000).toISOString().slice(0, 10);
+  const exp = contracts.filter(c => { const e = String(c.end || '').slice(0, 10); return e && e >= t && e <= d30; });
+  const past = contracts.filter(c => { const e = String(c.end || '').slice(0, 10); return e && e < t; });
+  if(past.length) out.unshift({ k: '만기', t: '만기 지난 계약 ' + past.length + '건 — 정리 필요', go: 'expiry', hot: true });
+  if(exp.length) out.push({ k: '만기', t: '30일 안에 만기 ' + exp.length + '건', go: 'expiry' });
   if(apData && apData.counts){
     const over = apData.counts['기한초과'] || 0, wait = apData.counts['요청'] || 0;
     if(over) out.unshift({ k: '결재', t: '기한 지난 결재 ' + over + '건', go: 'approval' });
@@ -12071,39 +11989,78 @@ function homeRender(){
   const c1 = homeCard('오늘 일정', att, attSub,
     '<button class="btn btn-sm" onclick="sxGo(&#39;csched&#39;)">일정 보기</button>');
 
-  // 2) 매물 검수 진도
-  const act = L.filter(l => !/계약완료|임대중|거래완료/.test(String(l.status || '')));
-  const okN = act.filter(l => String(l.verified || '') === 'Y').length;
-  const pct = act.length ? okN / act.length * 100 : 0;
-  const c2 = homeCard('매물 검수', '진행 매물 <b>' + act.length + '</b>건 중 <b>' + okN + '</b>건 검증 통과',
-    homeBar(pct, 'var(--g)') + '<div class="hm-s">' + Math.round(pct) + '% · 미검증은 직원 화면에서 연락처가 가려집니다</div>',
-    '<button class="btn btn-sm" onclick="sxGo(&#39;audit&#39;)">검수 화면</button>');
+  // 2) 부서별 취합 — 대시보드는 여기 하나뿐이다 (2026-09-08 대표 지시)
+  //    각 카드는 그 부서에서 지금 손봐야 할 것을 한 줄로 말하고, 바로 그 화면으로 보낸다.
+  const LD = (typeof landlords !== 'undefined' ? landlords : []);
+  const isLive = l => !/계약완료|임대중|거래완료|보류/.test(String(l.status || ''));
+  const adDone = l => { try{ if(typeof PLATFORMS !== 'undefined' && typeof adOn === 'function')
+      return PLATFORMS.some(p => adOn(l, p.key)); }catch(e){}
+    return !!(String(l.adList || '').trim() || String(l.adsFlat || '').trim()); };
+  const liveL  = L.filter(isLive);
+  const noAd   = liveL.filter(l => !adDone(l));
+  const noPic  = liveL.filter(l => !String(l.photo || '').trim());
+  const rc     = C.filter(c => c.nextContact && String(c.nextContact).slice(0, 10) <= t);
+  const past   = K.filter(c => c.end && String(c.end).slice(0, 10) < t);
+  const soon30 = K.filter(c => String(c.end || '').slice(0, 10) >= t
+                           && String(c.end || '').slice(0, 10) <= new Date(new Date(t + 'T00:00:00').getTime() + 30 * 86400000).toISOString().slice(0, 10));
+  const noTerm = K.filter(c => !c.start || !c.end);
+  const hmBtn = (id, dept, n) => '<button class="btn btn-sm" onclick="sxGo(&#39;' + id + '&#39;,0,&#39;' + dept + '&#39;)">' + n + '</button>';
 
-  // 4) 재접촉
-  const rc = C.filter(c => c.nextContact && String(c.nextContact).slice(0, 10) <= t);
-  const c4 = homeCard('재접촉', '오늘 연락할 손님 <b>' + rc.length + '</b>명',
-    '<div class="hm-s">' + (rc.slice(0, 3).map(c => gEsc(c.name || '')).join(' · ') || '없음') + '</div>',
-    '<button class="btn btn-sm" onclick="sxGo(&#39;customer&#39;)">고객 화면</button>');
+  // 운영부 — 매물·광고·고객
+  const c2 = homeCard('운영부 · 매물 · 광고 · 고객',
+    '거래 가능 <b>' + liveL.length + '</b>건 · 광고 안 냄 <b>' + noAd.length + '</b>건',
+    homeBar(liveL.length ? (liveL.length - noAd.length) / liveL.length * 100 : 0, 'var(--navy)')
+    + '<div class="hm-s">고객 ' + C.length + '명 · 오늘 연락할 손님 ' + rc.length + '명 · 임대인 ' + LD.length + '명'
+    + (noPic.length ? '<br>사진 없는 매물 ' + noPic.length + '건' : '') + '</div>',
+    hmBtn('listing', '운영부', '매물장') + hmBtn('ads', '운영부', '광고 관리') + hmBtn('customer', '운영부', '고객'));
 
-  // 5) 계약·정산
-  const mon = (typeof ym === 'function') ? ym() : t.slice(0, 7);
-  const mk = K.filter(c => String(c.start || '').slice(0, 7) === mon);
-  let fee = 0, noFee = 0;
-  mk.forEach(c => { try{ const p = payoutCalc(c); if(!p.hold) fee += p.fee; if(!String(c.feeAmt || '').trim()) noFee++; }catch(e){} });
-  const c5 = homeCard('계약·정산', '이 달 계약 <b>' + mk.length + '</b>건',
-    '<div class="hm-s">중개보수 ' + (typeof portalMoney === 'function' ? portalMoney(fee) : fee)
-      + (noFee ? ' · 미입력 ' + noFee + '건' : '') + '</div>',
-    '<button class="btn btn-sm" onclick="sxGo(&#39;payout&#39;)">정산 화면</button>');
+  // 관리부 — 계약·만기·정산
+  const mon0 = (typeof ym === 'function') ? ym() : t.slice(0, 7);
+  const mk0 = K.filter(c => String(c.start || '').slice(0, 7) === mon0);
+  let fee0 = 0, noFee0 = 0;
+  mk0.forEach(c => { try{ const p = payoutCalc(c); if(!p.hold) fee0 += p.fee; if(!String(c.feeAmt || '').trim()) noFee0++; }catch(e){} });
+  const c3 = homeCard('관리부 · 계약 · 만기 · 정산',
+    '계약 <b>' + K.length + '</b>건 · 30일 내 만기 <b>' + soon30.length + '</b>건',
+    '<div class="hm-s">이 달 계약 ' + mk0.length + '건 · 중개보수 '
+    + (typeof portalMoney === 'function' ? portalMoney(fee0) : fee0)
+    + (noFee0 ? ' · 보수 미입력 ' + noFee0 + '건' : '') + '</div>',
+    hmBtn('contract', '관리부', '계약관리') + hmBtn('payout', '관리부', '정산') + hmBtn('csched', '홈', '일정'));
 
-  // 6) 광고 성과
-  const views = L.reduce((a, l) => a + (parseInt(l.adViews, 10) || 0), 0);
-  const inq = L.reduce((a, l) => a + (parseInt(l.adInq, 10) || 0), 0);
-  const onAd = L.filter(l => String(l.adList || '').trim()).length;
-  const c6 = homeCard('광고', '광고 중인 매물 <b>' + onAd + '</b>건',
-    '<div class="hm-s">조회 ' + views + ' · 문의 ' + inq + ' <span class="hm-na">(광고주 화면에서 손으로 옮겨 적은 값)</span></div>',
-    '<button class="btn btn-sm" onclick="sxGo(&#39;ads&#39;)">광고 관리</button>');
+  // 법무팀 — 지금 위험한 것
+  const riskN = past.length + noTerm.length;
+  const c4 = homeCard('법무팀 · 위험 신호',
+    riskN ? '손봐야 할 계약 <b>' + riskN + '</b>건' : '<b>지금 걸리는 계약은 없습니다</b>',
+    '<div class="hm-s">만기 지남 ' + past.length + '건 · 기간 빈칸 ' + noTerm.length + '건'
+    + '<br>법률 판단이 아니라 빠진 것·기한을 알려 주는 점검입니다.</div>',
+    hmBtn('contract-writer', '법무팀', '계약서 검토') + hmBtn('jeonse', '법무팀', '전세 안전도'));
 
-  el.innerHTML = c1 + c2 + c4 + c5 + c6;
+  // 마케팅부 — 노출
+  const webN = liveL.filter(l => String(l.web || '') !== '숨김').length;
+  const c5 = homeCard('마케팅부 · 노출',
+    '홈페이지 노출 <b>' + webN + '</b>건 · 광고중 <b>' + (liveL.length - noAd.length) + '</b>건',
+    '<div class="hm-s">블로그·순위·유튜브는 사무실 PC 프로그램이 붙어야 셀 수 있습니다 — <b>확인 필요</b></div>',
+    hmBtn('chan', '마케팅부', '채널 안내') + hmBtn('brand', '마케팅부', '브랜드'));
+
+  // 들어온 것 — 문자·통화·녹음
+  const c6 = homeCard('들어온 것',
+    '문자 · 부재중 · 통화요약이 인입함에 쌓입니다',
+    '<div class="hm-s">🔴 인입함 건수는 서버에서 받아 옵니다 — 열면 그 자리에서 셉니다.</div>',
+    '<button class="btn btn-sm" onclick="inboxGo()">인입함</button>'
+    + '<button class="btn btn-sm" onclick="recToggle()">🎙 녹음</button>'
+    + hmBtn('paste', '운영부', '붙여넣어 만들기'));
+
+  // 🔴 대표에게만: 대표 홈의 고유한 세 가지(계약 가능성 높은 고객·직원별 담당·결정할 일)로 가는 길
+  const chiefLink = sxAdmin()
+    ? '<div class="hm-card" style="grid-column:1 / -1"><div class="hm-t">대표만 보는 것</div>'
+      + '<div class="dd-lk" style="margin-top:8px">'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;chief&#39;)"><b>계약 가능성 높은 고객</b><em>임장·반응·단계로 매긴 순서</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;chief&#39;)"><b>직원별 담당</b><em>누가 무엇을 맡고 있는지</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;chief&#39;)"><b>오늘 결정할 일</b><em>승인·위험·누락</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;stats&#39;)"><b>경영 통계</b><em>계약률·매출</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;memo&#39;,0,&#39;개발부&#39;)"><b>개발부</b><em>메모·검수·배포</em></button>'
+      + '</div></div>'
+    : '';
+  el.innerHTML = c1 + c2 + c3 + c4 + c5 + c6 + chiefLink;
 
   // 오른쪽 위젯
   const w = document.getElementById('hm-side');
@@ -12128,10 +12085,10 @@ function homeRender(){
    🔴 숫자는 연결된 것만 센다. 연결 안 된 타일은 숫자 대신 '준비 중'을 적고 눌러도 실행되지 않는다. */
 const GW_TILES = [
   { k: 'approval', n: '결재',      go: 'approval' },
-  { k: 'sched',    n: '일정·만기',  go: 'dash-expiry' },
+  { k: 'sched',    n: '일정·만기',  go: 'csched' },
   { k: 'visit',    n: '오늘 임장', go: 'visit' },
   { k: 'recall',   n: '재접촉',    go: 'customer' },
-  { k: 'doc',      n: '자료실',    go: 'links' },
+  { k: 'doc',      n: '자료실',    go: 'ref' },
   { k: 'board',    n: '게시판' },
   { k: 'mail',     n: '이메일' },
   { k: 'msg',      n: '쪽지·메신저' },
@@ -12228,20 +12185,12 @@ function ddDay(x){ return String(x || '').slice(0, 10); }
 function ddToday(){ try{ return todayStr(); }catch(e){ return new Date().toISOString().slice(0, 10); } }
 function ddShift(d, n){ const t = new Date(d + 'T00:00:00'); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); }
 function ddLive(l){ return DD_OFF.indexOf(String(l.status || '')) < 0; }
-function ddAdOn(l){ return !!(String(l.adList || '').trim() || String(l.adsFlat || '').trim()); }
-function ddTop(arr, get, n){
-  const m = {};
-  arr.forEach(x => { const k = String(get(x) || '').trim() || '미기재'; m[k] = (m[k] || 0) + 1; });
-  return Object.keys(m).map(k => ({ n: k, v: m[k] })).sort((a, b) => b.v - a.v).slice(0, n || 6);
-}
-function ddMonths(arr, get){
-  const out = [], now = ddToday();
-  for(let i = 5; i >= 0; i--){
-    const dt = new Date(now + 'T00:00:00'); dt.setMonth(dt.getMonth() - i);
-    const k = dt.toISOString().slice(0, 7);
-    out.push({ n: k.slice(2).replace('-', '.'), v: arr.filter(x => ddDay(get(x)).slice(0, 7) === k).length });
-  }
-  return out;
+function ddAdOn(l){
+  // 🔴 실제 저장형식은 l.ads[플랫폼].on 이다. 원본 판정 함수(adOn)를 그대로 쓴다.
+  //    adList/adsFlat 만 보면 이미 올라간 광고를 '안 냄'으로 세어 숫자가 틀린다 (2026-09-08 실브라우저 검수에서 잡음).
+  try{ if(typeof PLATFORMS !== 'undefined' && typeof adOn === 'function')
+    return PLATFORMS.some(p => adOn(l, p.key)); }catch(e){}
+  return !!(String(l.adList || '').trim() || String(l.adsFlat || '').trim());
 }
 /* ── 그리는 방법 6가지: 숫자카드 · 막대 · 도넛 · 선 · 누적띠 · 표 ── */
 function ddCard(n, v, s, go){
@@ -12273,24 +12222,6 @@ function ddDonut(title, parts, unit){
         + gEsc(p.n) + ' <b>' + p.v + '</b> · ' + Math.round(p.v / tot * 100) + '%</div>').join('') + '</div></div>';
 }
 /* 선 그래프 — 흐름(추이)을 볼 때 */
-function ddLine(title, rows, note){
-  const max = rows.reduce((a, b) => Math.max(a, b.v), 0);
-  if(!rows.length) return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div><div class="dd-empty">셀 자료가 아직 없습니다</div></div>';
-  const W = 320, H = 96, pad = 6;
-  const x = i => pad + i * (W - pad * 2) / Math.max(1, rows.length - 1);
-  const y = v => H - pad - (max ? v / max : 0) * (H - pad * 2);
-  const pts = rows.map((r, i) => x(i).toFixed(1) + ',' + y(r.v).toFixed(1)).join(' ');
-  const area = 'M' + pad + ',' + (H - pad) + ' L' + rows.map((r, i) => x(i).toFixed(1) + ',' + y(r.v).toFixed(1)).join(' L') + ' L' + (W - pad) + ',' + (H - pad) + ' Z';
-  return '<div class="dd-c"><div class="dd-h">' + gEsc(title) + '</div>'
-    + '<svg class="dd-ln" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img">'
-    + '<line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - pad) + '" y2="' + (H - pad) + '"/>'
-    + '<path class="a" d="' + area + '"/><polyline class="l" points="' + pts + '"/>'
-    + rows.map((r, i) => '<circle class="p" cx="' + x(i).toFixed(1) + '" cy="' + y(r.v).toFixed(1) + '" r="3"/>').join('')
-    + '</svg>'
-    + '<div class="dd-ax">' + rows.map(r => '<span>' + gEsc(r.n) + '</span>').join('') + '</div>'
-    + '<div class="dd-ax v">' + rows.map(r => '<span>' + r.v + '</span>').join('') + '</div>'
-    + (note ? '<div class="s">' + gEsc(note) + '</div>' : '') + '</div>';
-}
 /* 누적 띠 — 전체 중 비중을 한 줄로 */
 function ddStack(title, parts, note){
   const rows = parts.filter(p => p.v > 0);
@@ -12323,18 +12254,6 @@ function ddFlow(title, steps, note){
     + '</div>' + (note ? '<div class="s">' + gEsc(note) + '</div>' : '') + '</div>';
 }
 /* 🤖 부서 AI 직원 — 상단 AI 버튼·AI 직원 센터의 배치표를 부서마다 그대로 보여준다 */
-function ddAi(dept){
-  let d = null;
-  try{ d = (typeof AI_DEPARTMENTS !== 'undefined' ? AI_DEPARTMENTS : []).find(x => x.name === dept) || null; }catch(e){}
-  const head = '<div class="dd-c"><div class="dd-h">🤖 ' + gEsc(dept) + ' AI 직원</div>';
-  if(!d) return head + '<div class="s">아직 배치되지 않았습니다 — <b>확인 필요</b>. 개발부 · AI 직원 배치에서 역할을 정하면 여기에 나타납니다.</div>'
-    + '<button class="dd-go" onclick="sxGo(&#39;ai-center&#39;)">AI 직원 배치 →</button></div>';
-  return head + '<div class="s" style="line-height:1.9;color:var(--t2)">'
-    + '<b>담당 업무</b> · ' + gEsc(d.role) + '<br><b>보는 자료</b> · ' + gEsc(d.data)
-    + '<br><b>승인 경계</b> · <span style="color:#B91C1C">' + gEsc(d.guard) + '</span>'
-    + '<br><b>현재 상태</b> · 코드완료·검증대기 (AI 실행은 연결 전이라 돌지 않습니다)</div>'
-    + '<button class="dd-go" onclick="sxGo(&#39;ai-center&#39;)">업무 지시 초안 →</button></div>';
-}
 /* 🔗 여기서 이어지는 일 — 다른 부서 화면으로 넘겨준다(복제 아님) */
 function ddLink(rows){
   return '<div class="dd-c"><div class="dd-h">🔗 여기서 이어지는 일</div><div class="dd-lk">'
@@ -12349,413 +12268,6 @@ function ddRiskRow(r){
   return '<div class="dd-rk ' + lv + '"><i></i><span class="t">' + gEsc(r.n) + '<span class="w">' + gEsc(r.w) + '</span></span>'
     + '<span class="c">' + gEsc(off ? '미연결' : (r.v + '건')) + '</span>'
     + (r.go ? '<button class="dd-go" style="margin:0" onclick="sxGo(&#39;' + r.go + '&#39;)">보기 →</button>' : '<span></span>') + '</div>';
-}
-function ddRender(id){
-  const el = document.getElementById('dd-' + id); if(!el) return;
-  const L = ddArr('listings'), C = ddArr('customers'), K = ddArr('contracts'), LD = ddArr('landlords'), V = ddArr('visits');
-  const t = ddToday(), d30 = ddShift(t, 30);
-  const live = L.filter(ddLive);
-  let h = '';
-
-  if(id === 'dash-cust'){
-    // 👥 고객 현황 — 자주 쓰는 것 위로, 그래프는 꼭 필요한 하나만 (2026-09-08 단순화)
-    const owner = C.filter(c => String(c.role || '') === '임대인');
-    const buyer = C.filter(c => String(c.role || '') === '임차인');
-    const ask = C.filter(c => { const r = String(c.role || '').trim(); return !r || (r !== '임대인' && r !== '임차인'); });
-    const due = C.filter(c => c.nextContact && ddDay(c.nextContact) <= t);
-    const rows = C.slice().sort((x, y) => ddDay(y.recvDate).localeCompare(ddDay(x.recvDate))).slice(0, 10)
-      .map(c => [c.name || '-', c.role || '문의', c.propType || '-', c.region || '-',
-                 c.progressStatus || '-', ddDay(c.nextContact) || '-']);
-    h = '<div class="dd-kpi">'
-      + ddCard('매도·임대인', owner.length, '집을 내놓는 쪽')
-      + ddCard('매수·임차인', buyer.length, '집을 찾는 쪽')
-      + ddCard('문의 고객', ask.length, '아직 구분 안 함')
-      + ddCard('오늘까지 연락', due.length, '약속한 날이 지났거나 오늘') + '</div>'
-      + '<div class="dd-c"><div class="dd-h">바로 가기</div><div class="dd-lk">'
-      + '<button class="dd-lkb" onclick="inboxGo()"><b>📥 문의 인입함</b><em>문자·통화가 자동으로 쌓입니다</em></button>'
-      + '<button class="dd-lkb" onclick="custRole(&#39;임대인&#39;)"><b>매도·임대인만</b><em>집을 내놓는 쪽</em></button>'
-      + '<button class="dd-lkb" onclick="custRole(&#39;임차인&#39;)"><b>매수·임차인만</b><em>집을 찾는 쪽</em></button>'
-      + '<button class="dd-lkb" onclick="custRole(&#39;문의&#39;)"><b>문의 고객만</b><em>아직 구분 안 한 고객</em></button>'
-      + '</div></div>'
-      + '<div class="dd-row">'
-      + ddStack('구분', [{ n: '매도·임대인', v: owner.length }, { n: '매수·임차인', v: buyer.length }, { n: '문의', v: ask.length }])
-      + ddDonut('진행 상태', [
-          { n: '진행중', v: C.filter(c => String(c.progressStatus || '') === '진행중').length },
-          { n: '종료', v: C.filter(c => String(c.progressStatus || '') === '종료').length },
-          { n: '표시 없음', v: C.filter(c => !String(c.progressStatus || '').trim()).length },
-        ]) + '</div>'
-      + ddTable('최근 고객', ['이름', '구분', '유형', '지역', '진행', '다음 연락'], rows,
-          '이름만 보입니다. 연락처는 고객 명부에서 확인하세요.', 'customer')
-      + ddLink([
-          { n: '고객 명부', w: '고치고 등록하기', go: 'customer', dept: '운영부' },
-          { n: '상담내역', w: '지난 통화·상담', go: 'vito', dept: '운영부' },
-          { n: '맞춤매물', w: '조건에 맞는 방', go: 'match', dept: '운영부' },
-          { n: '일정관리', w: '언제 연락할지', go: 'csched', dept: '운영부' },
-          { n: '문자 고르기', w: '접수·매물·미팅 문안', go: 'sms5', dept: '운영부' },
-          { n: '임장', w: '보여 줄 날 잡기', go: 'visit', dept: '운영부' },
-        ]);
-  }
-  else if(id === 'dash-expiry'){
-    // ⏰ 만기 현황 — 계약 종료일에서만 센다
-    const d7 = ddShift(t, 7), d90 = ddShift(t, 90);
-    const past = K.filter(c => c.end && ddDay(c.end) < t);
-    const w7 = K.filter(c => ddDay(c.end) >= t && ddDay(c.end) <= d7);
-    const w30 = K.filter(c => ddDay(c.end) > d7 && ddDay(c.end) <= d30);
-    const w90 = K.filter(c => ddDay(c.end) > d30 && ddDay(c.end) <= d90);
-    const rows = K.filter(c => c.end).slice()
-      .sort((a, b) => ddDay(a.end).localeCompare(ddDay(b.end)))
-      .filter(c => ddDay(c.end) <= d90).slice(0, 12)
-      .map(c => {
-        const dd = Math.round((new Date(ddDay(c.end) + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000);
-        return [c.apt || '-', c.type || '-', (c.landlordName || '-') + ' → ' + (c.tenantName || '-'),
-                ddDay(c.end), dd < 0 ? '지남 ' + (-dd) + '일' : 'D-' + dd];
-      });
-    const months = [];
-    for(let i = 0; i < 6; i++){
-      const dt = new Date(t + 'T00:00:00'); dt.setMonth(dt.getMonth() + i);
-      const k2 = dt.toISOString().slice(0, 7);
-      months.push({ n: k2.slice(2).replace('-', '.'), v: K.filter(c => ddDay(c.end).slice(0, 7) === k2).length });
-    }
-    h = '<div class="dd-kpi">'
-      + ddCard('만기 지남', past.length, '종료·갱신 처리가 남았는지 확인', 'expiry')
-      + ddCard('7일 이내', w7.length, '갱신 통지 기한', 'expiry')
-      + ddCard('30일 이내', w30.length, '', 'expiry')
-      + ddCard('90일 이내', w90.length, '', 'expiry') + '</div>'
-      + ddFlow('만기까지 남은 기간', [
-          { n: '지남', v: past.length, go: 'expiry' }, { n: '7일', v: w7.length, go: 'expiry' },
-          { n: '30일', v: w30.length, go: 'expiry' }, { n: '90일', v: w90.length, go: 'expiry' },
-          { n: '그 뒤', v: K.filter(c => ddDay(c.end) > d90).length, go: 'expiry' },
-        ], '칸을 누르면 만기·일정 목록으로 갑니다.')
-      + '<div class="dd-row">' + ddLine('앞으로 6개월 만기 수', months)
-      + ddDonut('만기 구간', [{ n: '지남', v: past.length }, { n: '7일', v: w7.length },
-          { n: '30일', v: w30.length }, { n: '90일', v: w90.length }]) + '</div>'
-      + ddTable('90일 안에 끝나는 계약', ['매물', '유형', '임대인 → 임차인', '만기일', '남은 날'], rows,
-          '', 'expiry')
-      + '<div class="dd-c"><div class="dd-h">할 일</div><div class="s">만기 연락은 고객·임대인에게 문자로 나갑니다. '
-      + '🔴 문자는 대표 승인 없이 자동으로 보내지 않습니다.</div>'
-      + '<button class="dd-go" onclick="sxGo(&#39;expiry&#39;)">만기·일정 목록 →</button> '
-      + '<button class="dd-go" onclick="sxGo(&#39;sms&#39;)">문자 발송 →</button></div>'
-      + ddLink([
-          { n: '고객 현황', w: '재계약 상대 찾기', go: 'dash-cust', dept: '운영부' },
-          { n: '위험 신호', w: '기한을 넘긴 건', go: 'dash-legal', dept: '법무팀' },
-          { n: '계약서 작성', w: '갱신 계약서', go: 'contract-writer', dept: '법무팀' },
-          { n: '매물장 현황', w: '다시 내놓을 방', go: 'dash-listing', dept: '운영부' },
-        ]);
-  }
-  else if(id === 'dash-ads'){
-    // 📣 플랫폼별 광고 현황 — 원본 광고 원장에서 그대로 센다
-    const PL = (typeof PLATFORMS !== 'undefined') ? PLATFORMS : [];
-    const on = (o, k) => { try{ return adOn(o, k); }catch(e){ return false; } };
-    const rows = PL.map(p => ({ n: p.label, v: live.filter(l => on(l, p.key)).length }));
-    const none = live.filter(l => !PL.some(p => on(l, p.key))).length;
-    let stale = 0, expire = 0;
-    try{
-      stale = live.filter(l => PL.some(p => adStale(l, p.key))).length;
-      expire = live.filter(l => PL.some(p => { const d = adExpireDays(l, p.key); return d !== null && d <= 7; })).length;
-    }catch(e){ stale = null; expire = null; }
-    const tbl = PL.map(p => {
-      const c = live.filter(l => on(l, p.key)).length;
-      return [p.label, c, live.length ? Math.round(c / live.length * 100) + '%' : '-',
-        p.validDays ? p.validDays + '일' : '기한 없음', p.bulk ? '한꺼번에 올리기' : '한 건씩'];
-    });
-    h = '<div class="dd-kpi">'
-      + ddCard('거래 가능 매물', live.length, '광고를 올릴 수 있는 매물', 'listing')
-      + ddCard('한 곳도 안 올린 매물', none, live.length ? Math.round(none / live.length * 100) + '%' : '', 'ads')
-      + ddCard('오래된 게시', stale, stale === null ? '광고 원장을 열면 계산됩니다' : '내용이 바뀐 뒤 다시 안 올린 건', 'ads')
-      + ddCard('7일 내 만료', expire, expire === null ? '광고 원장을 열면 계산됩니다' : '', 'ads') + '</div>'
-      + '<div class="dd-row">' + ddBars('플랫폼별 게시 건수', rows, '숫자를 누르지 말고 왼쪽 메뉴에서 플랫폼을 고르면 그 열로 갑니다')
-      + ddDonut('올린 곳이 있는가', [{ n: '한 곳 이상', v: live.length - none }, { n: '아직 없음', v: none }]) + '</div>'
-      + ddTable('플랫폼별', ['플랫폼', '게시', '비율', '유효기간', '올리는 방법'], tbl)
-      + '<div class="dd-c"><div class="dd-h">플랫폼 안내</div><div class="s">'
-      + '한방(한국공인중개사협회)은 아직 코드가 없습니다 — <b>준비 중</b>.<br>'
-      + '🔴 당근은 지운 뒤 다시 올리지 않습니다(계정 제재). 항상 수정 또는 거래완료로 처리합니다.<br>'
-      + '실제 게시·수정은 광고 원장 화면에서 하고, 대표 승인 없이 자동으로 올리지 않습니다.</div>'
-      + '<button class="dd-go" onclick="sxGo(&#39;ads&#39;)">광고 원장 전체 →</button></div>'
-    + '<div class="dd-c"><div class="dd-h">플랫폼 골라 보기</div><div class="dd-lk">'
-    + [['daangn', '당근마켓', '동네 광고 · 지웠다 다시 올리지 않기'], ['isj', '이실장', '매경 이실장'],
-       ['zigbang', '직방', '원룸·오피스텔'], ['dabang', '다방', '원룸·투룸'],
-       ['naver', '그 밖의 채널', '네이버·피터팬·블로그']]
-        .map(x => '<button class="dd-lkb" onclick="adPlat(&#39;' + x[0] + '&#39;)"><b>' + gEsc(x[1])
-          + '</b><em>' + gEsc(x[2]) + '</em></button>').join('')
-    + '<button class="dd-lkb" style="cursor:default;background:var(--bg3)"><b>한방</b>'
-    + '<em>아직 코드가 없습니다 — 준비 중</em></button>'
-    + '</div><div class="s">누르면 광고 원장의 그 플랫폼 칸으로 갑니다.</div></div>'
-      + ddLink([
-          { n: '매물장 현황', w: '올릴 매물 고르기', go: 'dash-listing', dept: '운영부' },
-          { n: '광고문구 만들기', w: '문구 뽑기', go: 'adcopy', dept: '운영부' },
-          { n: '사진·썸네일', w: '올릴 사진', go: 'chan', dept: '운영부' },
-          { n: '무료 채널', w: '돈 안 드는 노출', go: 'dash-mk', dept: '마케팅부' },
-        ]);
-  }
-  else if(id === 'dash-listing'){
-    // 🏠 매물장만 놓고 보는 현황 — 숫자는 지금 불러온 매물에서만 센다
-    const ad = live.filter(ddAdOn).length;
-    const web = live.filter(l => String(l.web || '') !== '숨김').length;
-    const hasVer = L.some(l => Object.prototype.hasOwnProperty.call(l, 'verified'));
-    const noAddr = L.filter(l => !String(l.addr || '').trim()).length;
-    const noPhone = live.filter(l => !String(l.phone || '').trim() && !String(l.cphone || '').trim()).length;
-    const rows = L.slice().sort((a, b) => ddDay(b.recvDate).localeCompare(ddDay(a.recvDate))).slice(0, 10)
-      .map(l => [l.apt || '-', l.type || '-', l.price || '-', l.floor || '-', l.status || '접수',
-                 ddAdOn(l) ? '광고중' : '-', String(l.web || '') === '숨김' ? '숨김' : '노출', ddDay(l.recvDate) || '-']);
-    h = '<div class="dd-kpi">'
-      + ddCard('거래 가능', live.length, '전체 ' + L.length + '건 중 계약·임대·보류 제외', 'listing')
-      + ddCard('광고중', ad, live.length ? Math.round(ad / live.length * 100) + '% 노출' : '', 'ads')
-      + ddCard('홈페이지 노출', web, '숨김 ' + (live.length - web) + '건', 'exhome')
-      + ddCard('대장 확인', hasVer ? live.filter(l => String(l.verified || '') === 'Y').length : null,
-          hasVer ? '건축물대장으로 맞춰 본 매물' : '검수 화면을 열면 확인됩니다', 'listing') + '</div>'
-      + '<div class="dd-row">' + ddBars('유형별', ddTop(live, l => l.type, 7))
-      + ddDonut('상태', [
-          { n: '접수·상담중', v: live.length },
-          { n: '계약완료', v: L.filter(l => l.status === '계약완료').length },
-          { n: '임대중', v: L.filter(l => l.status === '임대중').length },
-          { n: '거래완료·보류', v: L.filter(l => l.status === '거래완료' || l.status === '보류').length },
-        ]) + '</div>'
-      + '<div class="dd-row3">' + ddLine('최근 6개월 접수', ddMonths(L, l => l.recvDate))
-      + ddBars('층별', ddTop(live, l => l.floor, 6)) + '</div>'
-      + ddStack('광고 노출', [{ n: '광고중', v: ad }, { n: '광고 안 함', v: live.length - ad }])
-      + '<div class="dd-c"><div class="dd-h">채워야 할 칸</div>'
-      + [{ n: '주소가 비어 있는 매물', w: '검수·지도·홈페이지에서 빠집니다', v: noAddr, hi: true, go: 'listing' },
-         { n: '연락처 없는 거래 가능 매물', w: '본인 확인 없이 광고가 나갈 위험', v: noPhone, hi: false, go: 'listing' },
-         { n: '건축물대장 미확인', w: '면적·용도·위반건축물 여부', v: hasVer ? live.filter(l => String(l.verified || '') !== 'Y').length : null, hi: false, go: 'listing' },
-        ].map(ddRiskRow).join('')
-      + '<div class="s">더 자세한 검수(중복·호수 없음 등)는 법무팀 → 데이터 위험, 수집 상태는 개발부 → 매물 수집에서 봅니다.</div></div>'
-      + ddTable('최근 매물', ['매물', '유형', '금액', '층', '상태', '광고', '홈페이지', '접수일'], rows, '', 'listing')
-      + ddLink([
-          { n: '지도로 보기', w: '위치로 훑어보기', go: 'map', dept: '운영부' },
-          { n: '시세 조회', w: '실거래가 확인', go: 'apt', dept: '운영부' },
-          { n: '광고 현황', w: '이 매물들을 어디에 올렸는지', go: 'dash-ads', dept: '운영부' },
-          { n: '위험 점검', w: '대장 미확인·연락처 없음 등', go: 'dash-legal', dept: '법무팀' },
-          { n: '홈페이지 노출', w: '어떤 매물이 밖에 보이는지', go: 'chan', dept: '마케팅부' },
-          { n: '매물 수집', w: '어디서 들어왔는지(대표)', go: 'gather', dept: '개발부' },
-        ]);
-  }
-  else if(id === 'dash-ops'){
-    const ad = live.filter(ddAdOn).length;
-    const web = live.filter(l => String(l.web || '') !== '숨김').length;
-    const mon = t.slice(0, 7);
-    const recent = L.slice().sort((a, b) => ddDay(b.recvDate).localeCompare(ddDay(a.recvDate))).slice(0, 6)
-      .map(l => [l.apt || '-', l.type || '-', l.price || '-', l.status || '접수', ddAdOn(l) ? '광고중' : '-', ddDay(l.recvDate) || '-']);
-    h = '<div class="dd-kpi">'
-      + ddCard('거래 가능 매물', live.length, '전체 ' + L.length + '건 중 계약·임대·보류 제외', 'listing')
-      + ddCard('광고중', ad, live.length ? Math.round(ad / live.length * 100) + '% 노출' : '', 'ads')
-      + ddCard('고객', C.length, '이번 달 접수 ' + C.filter(c => ddDay(c.recvDate).slice(0, 7) === mon).length + '건', 'customer')
-      + ddCard('임대인', LD.length, '', 'landlord') + '</div>'
-      + ddFlow('영업이 흘러가는 순서', [
-          { n: '매물 확보', v: live.length, go: 'dash-listing' },
-          { n: '광고 노출', v: ad, go: 'ads' },
-          { n: '문의 고객', v: C.length, go: 'customer' },
-          { n: '임장', v: V.filter(v => v.kind === '임장').length, go: 'visit' },
-          { n: '계약', v: K.length, go: 'contract' },
-        ], '각 칸을 누르면 그 화면으로 갑니다. 숫자는 지금 불러온 자료에서 셉니다.')
-      + '<div class="dd-row">' + ddBars('매물 유형별', ddTop(live, l => l.type, 7))
-      + ddDonut('매물 상태', [
-          { n: '접수·상담중', v: live.length },
-          { n: '계약완료', v: L.filter(l => l.status === '계약완료').length },
-          { n: '임대중', v: L.filter(l => l.status === '임대중').length },
-          { n: '거래완료·보류', v: L.filter(l => l.status === '거래완료' || l.status === '보류').length },
-        ]) + '</div>'
-      + '<div class="dd-row3">' + ddLine('최근 6개월 매물 접수', ddMonths(L, l => l.recvDate)) + ddAi('운영부') + '</div>'
-      + ddStack('홈페이지 노출', [{ n: '노출', v: web }, { n: '숨김', v: live.length - web }], '노출 여부는 매물마다 켜고 끕니다.')
-      + ddTable('최근 등록 매물', ['매물', '유형', '금액', '상태', '광고', '접수일'], recent, '', 'listing')
-      + ddLink([
-          { n: '매물장 현황', w: '매물만 놓고 보기', go: 'dash-listing', dept: '운영부' },
-          { n: '고객 현황', w: '누가 무엇을 찾는지', go: 'dash-cust', dept: '운영부' },
-          { n: '만기 현황', w: '곧 끝나는 계약', go: 'dash-expiry', dept: '관리부' },
-          { n: '위험 신호', w: '지금 조심할 것', go: 'dash-legal', dept: '법무팀' },
-          { n: '채널 노출', w: '어디에 보이는지', go: 'dash-mk', dept: '마케팅부' },
-        ]);
-  }
-  else if(id === 'dash-admin'){
-    const exp = K.filter(c => ddDay(c.end) >= t && ddDay(c.end) <= d30);
-    const vis = V.filter(v => v.kind === '임장' && ddDay(v.at) === t);
-    const mon = t.slice(0, 7);
-    let ap = null;
-    try{ if(typeof apData !== 'undefined' && apData && apData.counts) ap = apData.counts['요청'] || 0; }catch(e){}
-    const expRows = exp.slice().sort((a, b) => ddDay(a.end).localeCompare(ddDay(b.end))).slice(0, 6).map(c => {
-      const dd = Math.round((new Date(ddDay(c.end) + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000);
-      return [c.apt || '-', c.type || '-', (c.landlordName || '-') + ' → ' + (c.tenantName || '-'), ddDay(c.end), 'D-' + dd];
-    });
-    h = '<div class="dd-kpi">'
-      + ddCard('30일 내 만기', exp.length, '연락·갱신을 챙길 계약', 'expiry')
-      + ddCard('오늘 임장·근태', vis.length, '', 'visit')
-      + ddCard('이번 달 계약', K.filter(c => ddDay(c.start).slice(0, 7) === mon).length, '', 'contract')
-      + ddCard('결재 대기', ap, ap === null ? '서버 연결 후 표시' : '대표 승인을 기다리는 건', 'approval') + '</div>'
-      + '<div class="dd-row">' + ddLine('최근 6개월 계약', ddMonths(K, c => c.start))
-      + ddDonut('만기까지 남은 기간', [
-          { n: '7일 이내', v: K.filter(c => ddDay(c.end) >= t && ddDay(c.end) <= ddShift(t, 7)).length },
-          { n: '8~30일', v: K.filter(c => ddDay(c.end) > ddShift(t, 7) && ddDay(c.end) <= d30).length },
-          { n: '31~90일', v: K.filter(c => ddDay(c.end) > d30 && ddDay(c.end) <= ddShift(t, 90)).length },
-          { n: '90일 초과', v: K.filter(c => ddDay(c.end) > ddShift(t, 90)).length },
-        ]) + '</div>'
-      + ddTable('곧 만기되는 계약', ['매물', '유형', '임대인 → 임차인', '만기일', '남은 날'], expRows, '', 'expiry')
-      + '<div class="dd-row3">' + ddBars('계약 유형별', ddTop(K, c => c.type, 5)) + ddAi('관리부') + '</div>'
-      + '<div class="dd-c"><div class="dd-h">아직 연결 전</div><div class="s">급여·퇴직, 매출·비용, 자금·금융서비스 연계, 세무 신고 자료, 문서함, 보고 취합은 화면만 있고 자료가 붙지 않았습니다. 숫자를 지어내지 않으려고 비워 둡니다.</div></div>'
-      + ddLink([
-          { n: '만기 현황', w: '이번 달 챙길 것', go: 'dash-expiry', dept: '관리부' },
-          { n: '승인·보고함', w: '대표 결재', go: 'approval', dept: '관리부' },
-          { n: '회계·정산', w: '수당 나누기', go: 'payout', dept: '관리부' },
-          { n: '운영부 현황', w: '현장에서 무슨 일이', go: 'dash-ops', dept: '운영부' },
-          { n: '광고 성과', w: '돈이 어디서 왔는지', go: 'dash-ads', dept: '운영부' },
-        ]);
-  }
-  else if(id === 'dash-mk'){
-    const web = live.filter(l => String(l.web || '') !== '숨김');
-    const ad = live.filter(ddAdOn).length;
-    // 🔴 전부 '돈 안 드는' 채널이다. 상태는 실제 코드가 있는지로만 적는다.
-    const CH = [
-      ['홈페이지', '자사', '매물·새소식이 서버에서 바로 나갑니다', '연결됨', 'on'],
-      ['네이버 블로그', '네이버', '원고 생성·발행 프로그램 (2026-08-25부터 멈춤)', 'PC 프로그램', 'pc'],
-      ['검색 순위', '네이버', '키워드·플레이스 순위 추적', 'PC 프로그램', 'pc'],
-      ['유튜브', '영상', '쇼츠 원고만 있고 업로드는 사람이', 'PC 프로그램', 'pc'],
-      ['문자·알림톡', '메신저', '고객에게 직접 보내는 길 (대표 승인 후)', '연결됨', 'on'],
-      ['스마트플레이스', '네이버', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['네이버 카페', '네이버', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['지식iN', '네이버', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['인스타그램', 'SNS', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['스레드', 'SNS', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['페이스북', 'SNS', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['네이버 밴드', 'SNS', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['당근 동네생활', '동네', '아직 코드가 없습니다', '준비 중', 'no'],
-      ['카카오채널', '메신저', '아직 코드가 없습니다', '준비 중', 'no'],
-    ];
-    h = '<div class="dd-kpi">'
-      + ddCard('홈페이지 노출 매물', web.length, '거래 가능 ' + live.length + '건 중', 'chan')
-      + ddCard('광고중 매물', ad, '', 'ads')
-      + ddCard('연결된 채널', CH.filter(c => c[4] === 'on').length + ' / ' + CH.length, 'CRM 안에서 바로 되는 것', 'exhome')
-      + ddCard('블로그 발행 기록', null, 'PC 프로그램이 멈춰 있어 셀 수 없음', 'exblog') + '</div>'
-      + ddStack('채널 연결 상태', [
-          { n: '연결됨', v: CH.filter(c => c[4] === 'on').length },
-          { n: 'PC 프로그램', v: CH.filter(c => c[4] === 'pc').length },
-          { n: '준비 중', v: CH.filter(c => c[4] === 'no').length },
-        ], '연결됨 = CRM 안에서 바로 · PC 프로그램 = 사무실 컴퓨터에서 · 준비 중 = 아직 코드 없음')
-      + ddBars('묶음별 채널 수', (function(){
-          const m = {}; CH.forEach(c => { m[c[1]] = (m[c[1]] || 0) + 1; });
-          return Object.keys(m).map(k => ({ n: k, v: m[k] })); })())
-      + ddTable('돈 안 드는 노출 채널', ['채널', '묶음', '하는 일', '상태'], CH.map(c => [c[0], c[1], c[2], c[3]]),
-          '🔴 어느 채널도 자동으로 올리지 않습니다. 글·사진은 사람이 확인하고 올립니다.')
-      + '<div class="dd-row">' + ddBars('노출 매물 유형별', ddTop(web, l => l.type, 6))
-      + ddDonut('홈페이지 노출', [{ n: '노출', v: web.length }, { n: '숨김', v: live.length - web.length }]) + '</div>'
-      + '<div class="dd-row3">' + ddLine('최근 6개월 매물 접수(노출 후보)', ddMonths(live, l => l.recvDate)) + ddAi('마케팅부') + '</div>'
-      + ddLink([
-          { n: '매물장 현황', w: '내보낼 매물', go: 'dash-listing', dept: '운영부' },
-          { n: '광고 현황', w: '유료 플랫폼 쪽', go: 'dash-ads', dept: '운영부' },
-          { n: '브랜드 스튜디오', w: '쓸 수 있는 이미지', go: 'brand', dept: '마케팅부' },
-          { n: '사진·썸네일', w: '올릴 그림 만들기', go: 'chan', dept: '운영부' },
-        ]);
-  }
-  else if(id === 'dash-legal'){
-    const past = K.filter(c => c.end && ddDay(c.end) < t);
-    const soon = K.filter(c => ddDay(c.end) >= t && ddDay(c.end) <= ddShift(t, 7));
-    const noTerm = K.filter(c => !c.start || !c.end);
-    const noParty = K.filter(c => !String(c.landlordName || '').trim() || !String(c.tenantName || '').trim());
-    const noPhone = live.filter(l => !String(l.phone || '').trim() && !String(l.cphone || '').trim());
-    const hasVer = L.some(l => Object.prototype.hasOwnProperty.call(l, 'verified'));
-    const noVer = hasVer ? live.filter(l => String(l.verified || '') !== 'Y').length : null;
-    const rows = past.concat(soon).concat(noTerm).concat(noParty)
-      .filter((c, i, a) => a.indexOf(c) === i).slice(0, 8)
-      .map(c => {
-        const why = [];
-        if(c.end && ddDay(c.end) < t) why.push('만기 지남');
-        if(ddDay(c.end) >= t && ddDay(c.end) <= ddShift(t, 7)) why.push('7일 내 만기');
-        if(!c.start || !c.end) why.push('기간 빈칸');
-        if(!String(c.landlordName || '').trim() || !String(c.tenantName || '').trim()) why.push('당사자 빈칸');
-        return [c.apt || '-', c.type || '-', ddDay(c.start) || '-', ddDay(c.end) || '-', why.join(' · ')];
-      });
-    h = '<div class="dd-kpi">'
-      + ddCard('만기 지난 계약', past.length, '종료·갱신 처리가 남았는지 확인', 'expiry')
-      + ddCard('7일 내 만기', soon.length, '갱신 통지 기한', 'expiry')
-      + ddCard('기간 빠진 계약', noTerm.length, '시작일·종료일 중 빈 칸', 'contract')
-      + ddCard('대장 미확인 매물', noVer, hasVer ? '건축물대장으로 확인하지 않은 매물' : '검수 화면을 열면 확인됩니다', 'listing') + '</div>'
-      + '<div class="dd-c"><div class="dd-h">⚖ 지금 위험한 것</div>'
-      + [
-          { n: '만기가 지났는데 정리 안 된 계약', w: '보증금 반환·명도 분쟁으로 번질 수 있습니다', v: past.length, hi: true, go: 'expiry' },
-          { n: '7일 안에 끝나는 계약', w: '갱신 통지 기한을 놓치면 묵시적 갱신이 됩니다', v: soon.length, hi: true, go: 'expiry' },
-          { n: '계약 기간이 비어 있는 건', w: '계약서 필수 기재사항 누락', v: noTerm.length, hi: true, go: 'contract' },
-          { n: '당사자 이름이 비어 있는 건', w: '임대인·임차인 표시 누락', v: noParty.length, hi: false, go: 'contract' },
-          { n: '연락처 없는 거래 가능 매물', w: '본인 확인 없이 광고가 나갈 위험', v: noPhone.length, hi: false, go: 'listing' },
-          { n: '건축물대장으로 확인하지 않은 매물', w: '면적·용도·위반건축물 여부를 못 봤습니다', v: noVer, hi: false, go: 'listing' },
-          { n: '중복·주소 없음 등 데이터 경고', w: '검수 화면에서 계산합니다', v: null, hi: false, go: 'audit' },
-          { n: '등기·권리분석, 확인설명서 점검', w: '아직 코드가 없습니다 — 준비 중', v: null, hi: false, go: '' },
-        ].map(ddRiskRow).join('')
-      + '<div class="s">법률 판단이 아니라 <b>빠진 것·기한이 임박한 것</b>을 알려 주는 점검표입니다. 숫자는 지금 불러온 계약·매물 자료에서 바로 셉니다.</div></div>'
-      + ddTable('손봐야 할 계약', ['매물', '유형', '시작', '종료', '이유'], rows, '', 'contract')
-      + '<div class="dd-row">' + ddBars('계약 유형별', ddTop(K, c => c.type, 6))
-      + ddDonut('계약 상태', [
-          { n: '진행 중', v: K.filter(c => ddDay(c.end) >= t).length },
-          { n: '만기 지남', v: past.length },
-          { n: '기간 미기재', v: noTerm.length },
-        ]) + '</div>'
-      + '<div class="dd-row3">' + ddLine('최근 6개월 계약', ddMonths(K, c => c.start)) + ddAi('법무팀') + '</div>'
-      + ddLink([
-          { n: '계약 원장', w: '계약 원본 고치기', go: 'contract', dept: '관리부' },
-          { n: '만기 현황', w: '기한 관리', go: 'dash-expiry', dept: '관리부' },
-          { n: '매물장', w: '대장·연락처 채우기', go: 'listing', dept: '운영부' },
-          { n: '데이터 검수', w: '중복·주소 없음', go: 'audit', dept: '개발부' },
-        ]);
-  }
-  else if(id === 'dash-dev'){
-    let menu = 0, soon = 0, dept = 0, ref = 0;
-    const per = [], tbl = [];
-    try{ SX_NAV.forEach(c => c.depts.forEach(d => { dept++;
-      let o = 0, r = 0, s2 = 0;
-      d.items.forEach(it => { if(it.sub) return; menu++;
-        if(!it.id && !it.act){ soon++; s2++; } else if(it.ref){ ref++; r++; } else o++; });
-      per.push({ n: d.dept, v: o + r + s2 });
-      tbl.push([d.dept, o, r, s2, (o + r + s2) ? Math.round(o / (o + r + s2) * 100) + '%' : '-']);
-    })); }catch(e){}
-    h = '<div class="dd-kpi">'
-      + ddCard('전체 메뉴', menu, '회사 ' + (function(){ try{ return SX_NAV.length; }catch(e){ return '?'; } })() + ' · 부서 ' + dept)
-      + ddCard('연결된 메뉴', menu - soon, menu ? Math.round((menu - soon) / menu * 100) + '% 연결' : '')
-      + ddCard('준비 중', soon, '눌러도 실행되지 않게 막아 둔 항목')
-      + ddCard('검수 경고', null, '오류·데이터 검수 화면에서 계산', 'audit') + '</div>'
-      + ddStack('메뉴 연결 상태', [{ n: '이 부서가 주인', v: menu - soon - ref }, { n: '다른 부서 참조', v: ref }, { n: '준비 중', v: soon }],
-          '참조는 화면을 복제한 것이 아니라 같은 화면을 가리킵니다.')
-      + '<div class="dd-row">' + ddBars('부서별 메뉴 수', per, '메뉴가 몰린 부서는 화면을 더 나눌 후보입니다')
-      + ddDonut('연결 · 준비 중', [{ n: '연결됨', v: menu - soon }, { n: '준비 중', v: soon }], '개') + '</div>'
-      + ddTable('부서별 연결 현황', ['부서', '주인', '참조', '준비 중', '연결률'], tbl)
-      + '<div class="dd-row3">' + ddAi('개발부')
-      + '<div class="dd-c"><div class="dd-h">운영 점검</div><div class="s">변경 이력·배포 관리·자동화 현황은 서버에서 받아 옵니다. 화면을 열면 그때 실제 값이 표시됩니다.</div>'
-      + '<button class="dd-go" onclick="sxGo(&#39;changelog&#39;)">변경 이력 →</button> '
-      + '<button class="dd-go" onclick="sxGo(&#39;deploy&#39;)">배포 관리 →</button> '
-      + '<button class="dd-go" onclick="sxGo(&#39;ops&#39;)">자동화 현황 →</button> '
-      + '<button class="dd-go" onclick="sxGo(&#39;pref&#39;)">버전 · 환경 설정 →</button></div></div>';
-  }
-  else if(id === 'dash-design'){
-    // 🏗 브리즈디자인(인테리어) — 아직 껍데기다. 숫자를 지어내지 않는다.
-    const STEP = ['견적 요청 접수', '현장 실측·상담', '도면·3D 시안', '견적서 제출', '수주 계약', '자재 발주', '시공·공정 관리', '준공 검수', '하자 A/S'];
-    h = '<div class="dd-kpi">'
-      + ddCard('진행 중 현장', null, '시공 관리 자료가 아직 없습니다')
-      + ddCard('견적 대기', null, '견적 요청 접수 화면 준비 중')
-      + ddCard('이번 달 수주', null, '수주 계약 화면 준비 중')
-      + ddCard('하자·A/S', null, 'A/S 접수 화면 준비 중') + '</div>'
-      + ddFlow('인테리어 일이 흘러갈 순서 (예정)', STEP.map(n => ({ n: n, v: null })),
-          '부동산 쪽과 같은 구성입니다 — 왼쪽 부서 아이콘 · 부서 첫 화면은 현황 · 목록은 필터·검색·본문·실행 순서. 먼저 쓸 화면을 정해 주시면 그것부터 붙입니다.')
-      + ddTable('세울 화면 목록', ['단계', '화면', '상태'], STEP.map((n, i) => [i + 1, n, '준비 중']))
-      + '<div class="dd-row3">' + ddAi('브리즈디자인')
-      + '<div class="dd-c"><div class="dd-h">지금 되는 것</div><div class="s">브랜드 자산(로고·캐릭터)은 부동산 본사 <b>마케팅부 → 브랜드 스튜디오</b>로 옮겼습니다. 여기서는 참조로만 봅니다.</div>'
-      + '<button class="dd-go" onclick="sxGo(&#39;brand&#39;)">브랜드 자료 보기 →</button></div></div>';
-  }
-  else if(id === 'dash-edu'){
-    // 🎓 브리즈아카데미(교육) — 사내 매뉴얼만 실제로 있고 나머지는 껍데기다.
-    let menu = 0;
-    try{ SX_NAV.forEach(c => c.depts.forEach(d => d.items.forEach(it => { if(!it.sub && it.id) menu++; }))); }catch(e){}
-    const STEP = ['과정 개설', '강의 일정 편성', '수강 신청', '수강료 수납', '출결 관리', '평가·시험', '수료증 발급', '강사료 정산'];
-    h = '<div class="dd-kpi">'
-      + ddCard('개설 과정', null, '과정 개설 화면 준비 중')
-      + ddCard('수강생', null, '수강생 명부 준비 중')
-      + ddCard('이번 달 강의', null, '강의 일정 준비 중')
-      + ddCard('사내 매뉴얼 화면', menu, '화면이 바뀌면 매뉴얼도 다시 만듭니다', 'guide') + '</div>'
-      + ddFlow('교육 일이 흘러갈 순서 (예정)', STEP.map(n => ({ n: n, v: null })),
-          '부동산 쪽과 같은 구성입니다. 먼저 쓸 화면을 정해 주시면 그것부터 붙입니다.')
-      + ddTable('세울 화면 목록', ['단계', '화면', '상태'], STEP.map((n, i) => [i + 1, n, '준비 중']))
-      + '<div class="dd-row3">' + ddAi('브리즈아카데미')
-      + '<div class="dd-c"><div class="dd-h">지금 되는 것</div><div class="s">직원 매뉴얼(이용 가이드)은 부동산 본사와 같은 화면을 참조합니다. 신입 교육 과정·강의 자료는 아직 코드가 없습니다.</div>'
-      + '<button class="dd-go" onclick="sxGo(&#39;guide&#39;)">직원 매뉴얼 →</button></div></div>';
-  }
-  el.innerHTML = h || '<div class="dd-empty">준비 중</div>';
-  if(id === 'dash-admin' && (typeof apData === 'undefined' || !apData) && typeof apRender === 'function' && !window.__ddAp){
-    window.__ddAp = true; apRender().then(() => { try{ ddRender('dash-admin'); }catch(e){} });
-  }
 }
 /* ── 📋 공부데이터 자동입력 (계약서 작성 화면의 기능으로 보낸다) ── */
 function cwDoc(){
@@ -12924,7 +12436,7 @@ const PROGS = [
   { n: '네이버부동산 매물필터 수집', k: 'PC 실행파일', w: '지역·조건으로 네이버 매물 목록 수집',
     use: '경쟁 매물 살펴보기', go: '', st: 'pc' },
   { n: '네이버부동산 광고순위 모니터링', k: 'PC 실행파일', w: '내 광고가 몇 위인지·경쟁 층·최저가 추적',
-    use: '광고 관리에서 순위를 봐야 할 때', go: 'dash-ads', st: 'pc' },
+    use: '광고 관리에서 순위를 봐야 할 때', go: 'ads', st: 'pc' },
   { n: '네이버 매물 시세 모니터링', k: 'PC + 깃허브', w: '관심 단지 매매 최저가 하락·전세 신규를 매일 카톡 알림',
     use: '아침 시세 확인. 구글시트를 거쳐 돕니다', go: 'apt', st: 'pc' },
   { n: '직방 매물관리', k: 'PC 실행파일', w: '직방 매물 조회·일괄 거래종료',
@@ -13259,7 +12771,7 @@ function cschedRender(){
         { n: '고객 명부', w: '다음 연락 날짜 고치기', go: 'customer', dept: '운영부' },
         { n: '상담내역', w: '지난 통화·상담 내용', go: 'vito', dept: '운영부' },
         { n: '문자 고르기', w: '미팅·일정 문자', go: 'sms5', dept: '운영부' },
-        { n: '만기 현황', w: '계약 쪽 기한', go: 'dash-expiry', dept: '관리부' },
+        { n: '만기 현황', w: '계약 쪽 기한', go: 'csched', dept: '관리부' },
       ]);
 }
 /* ── 🎯 맞춤매물 ── */
@@ -13512,6 +13024,10 @@ function refRender(){
         REF_RULES.map(r => [r.n, r.w, r.now, r.done ? '적용' : '아직']),
         '🔴 아직 옮기지 않은 규칙은 그렇게 적어 둡니다. 옮긴 것처럼 보이게 하지 않습니다.')
     + pgCards()
+    + ddLink([
+        { n: '기존 자료실', w: '예전 화면에 모아 둔 문서·링크', go: 'links', dept: '그룹웨어' },
+        { n: '회의록', w: '녹음으로 남긴 회의', go: 'minutes', dept: '그룹웨어' },
+      ])
     + '<div class="dd-c"><div class="dd-h">원본이 있는 곳</div><div class="s">'
     + '통합매물장 정리 기록 · <code style="font-size:11.5px">G: / 내 드라이브 / 07_자동화프롬테크 / 구글시트매물장정리</code><br>'
     + '문서 6개, 파이썬 64개, 캐시·백업 다수. 웹에서는 열 수 없습니다.</div></div>'
@@ -13736,6 +13252,37 @@ function pzCopy(){
   try{ navigator.clipboard.writeText(txt); showToast('뽑은 내용을 복사했습니다'); }
   catch(e){ showToast('글자를 직접 복사하세요'); }
 }
+/* 📋 붙여넣어 만들기 — 메뉴에서 빼고 매물장 안에서 연다 (2026-09-08 대표 지시) */
+/* 📋 계약관리 화면 도구 — 공부데이터 자동입력 (2026-09-08 대표 지시) */
+function kMount(){
+  const host = document.getElementById('p-contract'); if(!host) return;
+  if(document.getElementById('k-mount')) return;
+  const b = document.createElement('button');
+  b.id = 'k-mount'; b.className = 'btn btn-sm'; b.type = 'button';
+  b.textContent = '📋 공부데이터 자동입력';
+  b.title = '등기·건축물대장 값을 계약서 화면에서 채웁니다';
+  b.onclick = cwDoc;
+  const hd = host.querySelector('.page-hd');
+  if(hd && hd.nextSibling) host.insertBefore(b, hd.nextSibling); else host.insertBefore(b, host.firstChild);
+}
+function pzMount(){
+  const host = document.getElementById('p-listing'); if(!host) return;
+  if(document.getElementById('pz-mount')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'pz-mount';
+  wrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px';
+  // 매물장에서 바로 쓰는 도구만 모은다 (메뉴를 늘리지 않는다)
+  [['📋 붙여넣어 만들기', '카톡·문자 글에서 매물 칸 채우기', function(){ sxGo('paste', 0, '운영부'); }],
+   ['🗺 지도로 보기', '매물 위치를 지도에서', function(){ sxGo('map', 0, '운영부'); }],
+   ['📈 시세 조회', '아파트 실거래가', function(){ sxGo('apt', 0, '운영부'); }]].forEach(function(x){
+    const b = document.createElement('button');
+    b.className = 'btn btn-sm'; b.type = 'button'; b.textContent = x[0]; b.title = x[1];
+    b.onclick = x[2]; wrap.appendChild(b);
+  });
+  const hd = host.querySelector('.page-hd');
+  if(hd && hd.nextSibling) host.insertBefore(wrap, hd.nextSibling);
+  else host.insertBefore(wrap, host.firstChild);
+}
 function pzRender(){
   const el = document.getElementById('pz-body'); if(!el) return;
   const keep = (document.getElementById('pz-in') || {}).value || '';
@@ -13815,7 +13362,6 @@ function prCopy(k){
   try{ navigator.clipboard.writeText(p.body); showToast('프롬프트를 복사했습니다'); }
   catch(e){ showToast('글자를 직접 복사하세요'); }
 }
-function prRender(){ memoPanelRender(); }
 function prCards(){
   return PROMPTS.map(p => '<div class="dd-c"><div class="dd-h">' + gEsc(p.n) + '</div>'
       + '<div class="s" style="margin:0 0 8px">언제 · ' + gEsc(p.w) + '</div>'
@@ -13892,8 +13438,7 @@ function prefRender(){
     + '화면 색과 바로가기는 이 컴퓨터·이 폰에만 남습니다. 다른 기기에서 열면 기본 화면으로 시작합니다. '
     + '자료(매물·고객·계약)는 서버에 있으므로 그대로입니다.</div></div>'
     + ddLink([
-        { n: '연동·토큰 설정', w: '자료를 불러오는 열쇠', go: 'ver', dept: '관리부' },
-        { n: '버전 정보', w: '최신 화면인지 확인', go: 'ver', dept: '관리부' },
+        { n: '연동·토큰 설정', w: '자료를 불러오는 열쇠', go: 'pref', dept: '관리부' },
         { n: '이용 가이드', w: '화면 사용법', go: 'guide', dept: '그룹웨어' },
         { n: '메모·요구사항', w: '바꾸고 싶은 것 적기', go: 'memo', dept: '개발부' },
       ]);
@@ -13950,6 +13495,31 @@ function custRole(kind){
   }, 420);
 }
 /* ── 📣 플랫폼별로 광고 원장 열기 ── */
+/* 🏷 광고 관리 위에 붙는 플랫폼 카드 (2026-09-08 대표 지시: 플랫폼별로 나눠 달라)
+   각 플랫폼에 몇 건 올라가 있고 몇 건이 빠졌는지 실제 원장에서 센다.
+   🔴 여기서 광고를 올리거나 지우지 않는다 — 그 플랫폼 열로 데려다 줄 뿐이다. */
+function adsPlatBar(){
+  const host = document.getElementById('p-ads'); if(!host) return;
+  let box = document.getElementById('ads-platbar');
+  if(!box){
+    box = document.createElement('div'); box.id = 'ads-platbar'; box.className = 'dd-c';
+    box.style.margin = '0 0 12px';
+    const hd = host.querySelector('.page-hd');
+    if(hd && hd.nextSibling) host.insertBefore(box, hd.nextSibling); else host.insertBefore(box, host.firstChild);
+  }
+  let PL = []; try{ PL = PLATFORMS || []; }catch(e){ PL = []; }
+  const L = ddArr('listings').filter(ddLive);
+  const cells = PL.map(p => {
+    let on = 0;
+    L.forEach(l => { try{ if(adOn(l, p.key)) on++; }catch(e){} });
+    return '<button class="dd-lkb" onclick="adPlat(&#39;' + p.key + '&#39;)" title="' + gAttr(p.label + ' 열로 이동') + '">'
+      + '<b><span style="color:' + p.color + '">' + gEsc(p.icon) + '</span> ' + gEsc(p.label) + '</b>'
+      + '<em>' + on + ' / ' + L.length + '건 올림' + (L.length - on ? ' · 남은 ' + (L.length - on) + '건' : '') + '</em></button>';
+  }).join('');
+  box.innerHTML = '<div class="dd-h">플랫폼별로 보기</div><div class="dd-lk">' + cells + '</div>'
+    + '<div class="s">누르면 아래 원장에서 그 플랫폼 칸으로 갑니다. 거래 가능 매물 ' + L.length + '건 기준입니다.<br>'
+    + '🔴 올리고 내리는 것은 각 플랫폼 화면에서 사람이 합니다. 여기서 자동으로 게시하지 않습니다.</div>';
+}
 function adPlat(key){
   sxGo('ads', 0, '운영부');
   setTimeout(function(){
@@ -14263,7 +13833,6 @@ function memoClear(){
   memoSave([]); memoRender(); memoPanelRender(); showToast('메모를 모두 지웠습니다');
 }
 /* ── 🏷 버전 정보 (직원도 봅니다) ── */
-function verRender(){ prefRender(); }
 function verCard(){
   const cur = (document.getElementById('appVer') || {}).textContent.trim() || '확인 필요';
   setTimeout(verLive, 60);
@@ -14289,6 +13858,7 @@ function verLive(){
     if(live && live !== cur) b.textContent = live + ' (다름 — 최신으로 맞추세요)';
   }).catch(() => { const b = document.getElementById('ver-live'); if(b){ b.textContent = '확인 필요 (인터넷·주소 확인)'; b.style.color = 'var(--t3)'; } });
 }
+
 /* ── 오늘 일정 ── */
 function sxRail(dept, keep){
   // 왼쪽 아이콘을 누르면 그 옆 목록이 그 부서 화면들로 바뀐다
@@ -14381,13 +13951,11 @@ function sxInit(){
   const _go = go;
   window.go = function(id){ _go(id);
     if(id === 'home') homeRender();
-    if(id === 'gw') gwRender();
     if(id === 'flow') flowRender();
     if(id === 'chief') chiefRender();
     if(id === 'approval') approvalRender();
     if(id === 'adcopy') acRender();
     if(id === 'chan') exRender();
-    if(id.indexOf('dash-') === 0) ddRender(id);
     if(id === 'memo') memoPanelRender();
     if(id === 'minutes') minRender();
     if(id === 'sms5') sms5Render();
@@ -14399,6 +13967,9 @@ function sxInit(){
     if(id === 'jeonse') jsRender();
     if(id === 'pref') prefRender();
     if(id === 'paste') pzRender();
+    if(id === 'listing') pzMount();
+    if(id === 'contract') kMount();
+    if(id === 'ads') adsPlatBar();
     if(id === 'match') matchRender();
     if(id === 'ops') opsRender();
     if(id === 'changelog') clRender();
