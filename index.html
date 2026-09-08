@@ -472,7 +472,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:08</span></div>
+      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:18</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -682,9 +682,9 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="상태순">진행상태순</option>
           <option value="유형순">유형순</option>
         </select>
-        <select id="l-view" onchange="renderListings()">
+        <select id="l-view" onchange="listingViewSave();renderListings()" title="기본은 테이블. 바꾸면 이 기기에 기억됩니다">
+          <option value="table" selected>테이블 보기</option>
           <option value="card">카드 보기</option>
-          <option value="table">테이블 보기</option>
         </select>
       </div>
 
@@ -3720,10 +3720,25 @@ function getListingDupSets(){
   };
 }
 
+// 📋 매물장 보기 방식 — 2026-09-09 사장님 "매물장은 늘 테이블보기로".
+//   종전에는 select 의 첫 옵션(카드)이 기본이라 화면을 열 때마다 카드로 돌아갔다.
+//   이제 기본은 테이블이고, 바꾸면 이 기기(localStorage)에 기억한다. 값이 이상하면 테이블.
+const LISTING_VIEW_KEY='crm_listing_view';
+function listingViewGet(){
+  let v='table';
+  try{ v=localStorage.getItem(LISTING_VIEW_KEY)||'table'; }catch(e){}
+  if(v!=='card'&&v!=='table') v='table';
+  const sel=document.getElementById('l-view'); if(sel&&sel.value!==v) sel.value=v;
+  return v;
+}
+function listingViewSave(){
+  const sel=document.getElementById('l-view'); if(!sel) return;
+  try{ localStorage.setItem(LISTING_VIEW_KEY, sel.value==='card'?'card':'table'); }catch(e){}
+}
 function renderListings(){
   const list=getFilteredListings();
   const dup=getListingDupSets();
-  const view=document.getElementById('l-view')?.value||'card';
+  const view=listingViewGet();
   const el=document.getElementById('listing-cards');
   const sub=document.getElementById('listing-count-sub');
   if(sub) sub.textContent=`전체 ${listings.length}건 중 ${list.length}건 표시`;

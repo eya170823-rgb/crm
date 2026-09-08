@@ -994,7 +994,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:08</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:18</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1513,9 +1513,9 @@ body{padding-bottom:46px}
           <option value="상태순">진행상태순</option>
           <option value="유형순">유형순</option>
         </select>
-        <select id="l-view" onchange="renderListings()">
+        <select id="l-view" onchange="listingViewSave();renderListings()" title="기본은 테이블. 바꾸면 이 기기에 기억됩니다">
+          <option value="table" selected>테이블 보기</option>
           <option value="card">카드 보기</option>
-          <option value="table">테이블 보기</option>
         </select>
       </div>
 
@@ -4551,10 +4551,25 @@ function getListingDupSets(){
   };
 }
 
+// 📋 매물장 보기 방식 — 2026-09-09 사장님 "매물장은 늘 테이블보기로".
+//   종전에는 select 의 첫 옵션(카드)이 기본이라 화면을 열 때마다 카드로 돌아갔다.
+//   이제 기본은 테이블이고, 바꾸면 이 기기(localStorage)에 기억한다. 값이 이상하면 테이블.
+const LISTING_VIEW_KEY='crm_listing_view';
+function listingViewGet(){
+  let v='table';
+  try{ v=localStorage.getItem(LISTING_VIEW_KEY)||'table'; }catch(e){}
+  if(v!=='card'&&v!=='table') v='table';
+  const sel=document.getElementById('l-view'); if(sel&&sel.value!==v) sel.value=v;
+  return v;
+}
+function listingViewSave(){
+  const sel=document.getElementById('l-view'); if(!sel) return;
+  try{ localStorage.setItem(LISTING_VIEW_KEY, sel.value==='card'?'card':'table'); }catch(e){}
+}
 function renderListings(){
   const list=getFilteredListings();
   const dup=getListingDupSets();
-  const view=document.getElementById('l-view')?.value||'card';
+  const view=listingViewGet();
   const el=document.getElementById('listing-cards');
   const sub=document.getElementById('listing-count-sub');
   if(sub) sub.textContent=`전체 ${listings.length}건 중 ${list.length}건 표시`;
@@ -11639,6 +11654,23 @@ async function clRender(force){
 }
 
 /* ── 자동화 현황 (개발부) — 읽기 전용. 실행 버튼 없음 ── */
+/* 🕗 아침 자동수집 예약 걸기 — 대표만 (2026-09-09)
+   🔴 여기서 수집을 바로 돌리지 않는다. 예약만 건다. */
+async function opsTrgOn(){
+  const url = getGsUrl(); if(!url){ showToast('구글 시트 연동이 먼저입니다'); return; }
+  const nl = String.fromCharCode(10);
+  const msg = ['아침 8시에 당근·오일장 매물을 자동으로 받아오도록 예약합니다.', '',
+    '· 수집은 한 번에 여러 번 나눠 돌아 시간이 걸립니다',
+    '· 요일은 구글 스크립트 속성 DAILY_OPS_GATHER_DAYS 로 정합니다(기본 월요일)',
+    '', '예약을 걸까요?'].join(nl);
+  if(!confirm(msg)) return;
+  try{
+    const j = await gsFetchJson(url + '?action=installDailyOpsTrigger&t=' + Date.now() + tokQ(), {}, '예약 걸기');
+    showToast(j && j.ok ? '예약을 걸었습니다 — 아침 8시' : ('실패: ' + ((j && j.error) || '알 수 없음')));
+  }catch(e){ showToast('실패: ' + e.message); }
+  opsRender(true);
+}
+
 async function opsRender(force){
   const el = document.getElementById('ops-body'); if(!el) return;
   const url = getGsUrl();
@@ -11649,12 +11681,33 @@ async function opsRender(force){
       return j.ok ? (j.result !== undefined ? j.result : j.data) : { error: j.error }; }
     catch(e){ return { error: e.message }; }
   };
-  const [backup, guard, collect] = await Promise.all([get('backupStatus', '백업'), get('guardCheck', '매물 감시'), get('collectStatus', '문자 수집')]);
+  const [backup, guard, collect, trg] = await Promise.all([
+    get('backupStatus', '백업'), get('guardCheck', '매물 감시'),
+    get('collectStatus', '문자 수집'), get('triggerList', '예약'),
+  ]);
   const box = (title, obj, note) => '<div class="card" style="margin-bottom:10px"><div class="card-title">' + gEsc(title) + '</div>'
     + (obj && obj.error ? '<div style="color:#B91C1C;font-size:12px">확인 불가: ' + gEsc(obj.error) + '</div>'
       : '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">' + gEsc(JSON.stringify(obj).slice(0, 400)) + '</div>')
     + (note ? '<div style="font-size:11px;color:var(--t3);margin-top:6px">' + gEsc(note) + '</div>' : '') + '</div>';
-  el.innerHTML = '<div style="font-size:11.5px;color:var(--t3);margin-bottom:10px">읽기만 합니다. 여기서 자동화를 켜거나 끄지 않습니다.</div>'
+  // 🕗 아침 8시 자동수집 — 지금 실제로 걸려 있는지 그대로 보여 주고, 없으면 켤 수 있게 한다
+  const on = !!(trg && trg.hasDailyOps);
+  const hr = (trg && trg.dailyOpsHour != null) ? trg.dailyOpsHour : 8;
+  const trgBox = (trg && trg.error)
+    ? '<div class="card" style="margin-bottom:10px"><div class="card-title">🕗 아침 자동수집</div>'
+      + '<div style="color:#B91C1C;font-size:12px">확인 불가: ' + gEsc(trg.error) + '</div></div>'
+    : '<div class="card" style="margin-bottom:10px;border-color:' + (on ? '#BBF7D0' : '#FCA5A5') + '">'
+      + '<div class="card-title">🕗 아침 ' + hr + '시 매물 자동수집</div>'
+      + '<div style="font-size:12.5px;line-height:1.9;color:var(--t2)">'
+      + (on ? '<b style="color:#0F6E56">예약이 걸려 있습니다</b> — 아침 ' + hr + '시에 당근·오일장을 받아옵니다.'
+            : '<b style="color:#B91C1C">아직 예약이 걸려 있지 않습니다</b> — 아래 단추를 한 번 누르세요.')
+      + '<br>지금 걸린 예약 ' + ((trg && trg.count) || 0) + '개'
+      + '<br>🔴 수집 요일은 구글 스크립트 속성 <b>DAILY_OPS_GATHER_DAYS</b> 로 정합니다'
+      + ' (0=일 … 6=토, <b>*</b> 면 매일). 지금 기본값은 <b>월요일</b>입니다.</div>'
+      + '<div style="margin-top:10px"><button class="btn btn-sm" onclick="opsTrgOn()">'
+      + (on ? '예약 다시 걸기' : '아침 ' + hr + '시 자동수집 켜기') + '</button></div></div>';
+
+  el.innerHTML = '<div style="font-size:11.5px;color:var(--t3);margin-bottom:10px">읽기만 합니다. 아래 [자동수집 켜기] 만 예외입니다.</div>'
+    + trgBox
     + box('시트 백업', backup, '매일 새벽 3시 · 30일 보관')
     + box('매물 소실 감시', guard, '매물 수가 갑자기 줄면 알립니다')
     + box('문자 수집', collect, '폰 → 구글 서버 → 인입함')
