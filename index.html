@@ -472,7 +472,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 03:23</span></div>
+      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 03:44</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -816,12 +816,13 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
           <option value="단계순">진행단계순</option>
           <option value="다음액션순">🔔 다음 액션 임박순</option>
           <option value="리드점수순">🎯 리드 점수순</option>
+          <option value="추천매물순">🏠 추천매물 매칭률순</option>
         </select>
       </div>
 
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>이름</th><th>구분</th><th>유형</th><th>연락처</th><th>접수일/완료시점</th><th>예산</th><th>진행단계</th><th>상태/계약정보</th><th>메모</th><th>수정/삭제</th></tr></thead>
+          <thead><tr><th>이름</th><th>구분</th><th>유형</th><th>연락처</th><th>접수일/완료시점</th><th>예산</th><th title="저장된 희망조건(거래유형·물건종류·지역·면적)으로 매물장을 자동 대조한 결과 — 클릭하면 상세">🏠 추천매물</th><th>진행단계</th><th>상태/계약정보</th><th>메모</th><th>수정/삭제</th></tr></thead>
           <tbody id="cust-tbody"></tbody>
         </table>
       </div>
@@ -5140,6 +5141,33 @@ function custCopyListingInfo(id){
     .then(()=>showToast('📋 복사했습니다 — 카카오톡 등에 붙여넣으세요'))
     .catch(()=>alert('클립보드 복사 권한이 없어 자동으로 못 담았습니다. 아래 문구를 직접 복사하세요:\n\n'+text));
 }
+// 🏠 고객 목록용 추천매물 요약(2026-09-09) — 사장님 지시 "접수고객이 찾는 물건을 매물장에서 적합한
+//   퍼센티지로 표시해서 자동으로 추천매물 확인되도록". 09-01 매칭률은 고객 수정창 안에서만 보여
+//   손님마다 열어봐야 했다 → 목록을 그릴 때 저장된 조건으로 자동 대조해 건수·최고 매칭률을 칸에 띄운다.
+//   임대인·종료 고객은 대상이 아니고(null), 조건이 하나도 없으면 계산하지 않는다(null).
+function custMatchSummary(c){
+  if(!c || c.role==='임대인' || (c.progressStatus||'진행중')==='종료') return null;
+  const region=String(c.region||''),propType=String(c.propType||''),type=String(c.type||''),areaSize=String(c.areaSize||'');
+  if(!region.trim() && !propType.trim() && !type.trim() && !areaSize.trim()) return null;
+  const {matches}=custMatchListings(region,propType,type,areaSize);
+  return {count:matches.length, best:matches.length?(matches[0].matchPct||0):0, top:matches.slice(0,3)};
+}
+function custMatchCell(c,s){
+  const ec=v=>String(v===undefined||v===null?'':v).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  if(s===undefined) s=custMatchSummary(c);
+  if(!s) return `<span style="font-size:10px;color:var(--t3)" title="임대인·종료 고객이거나 희망조건이 없어 대조하지 않음">-</span>`;
+  if(!s.count) return `<span class="badge bgr" style="font-size:10px" title="저장된 조건에 맞는 매물이 아직 없음">🏠 0건</span>`;
+  const cls=s.best>=80?'bg':s.best>=50?'ba':'bgr';
+  const line=l=>`${l.apt||l.addr||''} ${l.addr2||''} ${l.type||''} ${[l.price,l.rentAmt].filter(Boolean).join('/')} (${l.matchPct}%)`.replace(/\s+/g,' ').trim();
+  const tip=s.top.map(line).join('\n');
+  const first=s.top[0]?`<div style="font-size:10px;color:var(--t2);margin-top:2px;max-width:150px;overflow:hidden;text-overflow:ellipsis">${ec((s.top[0].apt||s.top[0].addr||'')+' '+(s.top[0].addr2||''))}</div>`:'';
+  return `<button class="btn btn-xs" style="padding:1px 6px" title="${ec(tip)}" onclick="event.stopPropagation();custOpenMatches('${ec(c.id)}')"><span class="badge ${cls}" style="font-size:10px">🎯${s.best}%</span> ${s.count}건</button>${first}`;
+}
+function custOpenMatches(id){
+  openModal('customer', id);
+  custRenderMatches();
+  setTimeout(()=>{ const el=document.getElementById('c-match-results'); if(el && el.scrollIntoView) el.scrollIntoView({block:'center',behavior:'smooth'}); },80);
+}
 function custRenderMatches(){
   const el=document.getElementById('c-match-results'); if(!el) return;
   const region=document.getElementById('c-region')?.value||'';
@@ -5209,6 +5237,13 @@ function renderCustomers(){
   if(sort==='단계순')      list.sort((a,b)=>(parseInt(a.step)||0)-(parseInt(b.step)||0));
   if(sort==='다음액션순')  list.sort((a,b)=>(a.nextAction?daysLeft(a.nextAction):99999)-(b.nextAction?daysLeft(b.nextAction):99999));
   if(sort==='리드점수순')  list.sort((a,b)=>custLeadScore(b)-custLeadScore(a));
+  // 🏠 추천매물(2026-09-09) — 목록을 그릴 때 손님마다 한 번씩만 계산해 정렬·칸 표시에 같이 쓴다
+  //   (고객 수십 명 × 매물 수십 건이라 즉석 계산으로 충분. 저장하지 않는다 — 매물장이 바뀌면 다음 렌더에 반영)
+  const matchMap=new Map(list.map(c=>[c.id,custMatchSummary(c)]));
+  if(sort==='추천매물순') list.sort((a,b)=>{
+    const A=matchMap.get(a.id),B=matchMap.get(b.id);
+    return ((B?B.best:-1)-(A?A.best:-1))||((B?B.count:0)-(A?A.count:0));
+  });
 
   // 건수 표시
   const sub=document.getElementById('customer-count-sub');
@@ -5216,7 +5251,7 @@ function renderCustomers(){
 
   const tb=document.getElementById('cust-tbody');
   if(!list.length){
-    tb.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="es-icon">👥</div>${q?`'${q}' 검색 결과가 없습니다`:'조건에 맞는 고객이 없습니다'}</div></td></tr>`;
+    tb.innerHTML=`<tr><td colspan="11"><div class="empty-state"><div class="es-icon">👥</div>${q?`'${q}' 검색 결과가 없습니다`:'조건에 맞는 고객이 없습니다'}</div></td></tr>`;
     return;
   }
 
@@ -5252,6 +5287,7 @@ function renderCustomers(){
       <td style="color:var(--b);white-space:nowrap">${telA(c.phone)||hl(c.phone)}</td>
       <td style="font-size:11px;white-space:nowrap">${c.recvDate||'-'}${deadline}<div style="margin-top:2px">${naBadge}</div></td>
       <td style="font-size:11px">${hl(c.budget)||'-'}</td>
+      <td style="white-space:nowrap">${custMatchCell(c,matchMap.get(c.id))}</td>
       <td>
         <div class="mini-prog">${mp}</div>
         <div style="font-size:10px;color:var(--t3);margin-top:2px">${STEP_NAMES[Math.min(cur,STEP_NAMES.length-1)]} ${scoreBadge}</div>
