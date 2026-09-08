@@ -835,7 +835,7 @@ table td,table th{font-size:12.5px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 17:19</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 17:22</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -936,11 +936,10 @@ table td,table th{font-size:12.5px}
         <div class="sx-grp-h">운영부<em>매물·광고·사진·고객·임대인</em></div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-ops" onclick="sxGo('dash-ops',0,'운영부')">운영부 현황</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">매물관리</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')">매물</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="map" onclick="sxGo('map',0,'운영부')">매물 지도</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="apt" onclick="sxGo('apt',0,'운영부')">시세 조회</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'운영부')">매물 수집</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="audit" onclick="sxGo('audit',0,'운영부')">매물 검수<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-listing" onclick="sxGo('dash-listing',0,'운영부')">매물장 현황</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')">매물장</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="map" onclick="sxGo('map',0,'운영부')">지도로 보기</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="apt" onclick="sxGo('apt',0,'운영부')">시세 조회(참고)</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">광고관리</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 관리</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="adcopy" onclick="sxGo('adcopy',0,'운영부')">광고문구 생성</button>
@@ -1012,6 +1011,7 @@ table td,table th{font-size:12.5px}
           <button class="sx-item soon" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="sxSoon('검산 결과')">검산 결과<span class="sx-tag soon">준비 중</span></button>
           <div class="sx-sub" data-co="head" data-grp="개발부">운영</div>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'개발부')">매물 수집</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">자동화 현황</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">프로그램 연결<span class="sx-tag ref">참조</span></button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">AI 실행이력<span class="sx-tag ref">참조</span></button>
@@ -1219,6 +1219,11 @@ table td,table th{font-size:12.5px}
       <div class="page-hd"><div><div class="page-title">유튜브</div>
         <div class="page-sub">쇼츠 원고와 업로드</div></div></div>
       <div id="ex-body5"></div>
+    </div>
+    <div class="panel" id="p-dash-listing">
+      <div class="page-hd"><div><div class="page-title">매물장 현황</div>
+        <div class="page-sub">지금 가진 매물을 숫자와 그림으로</div></div></div>
+      <div class="dd-wrap" id="dd-dash-listing"></div>
     </div>
     <div class="panel" id="p-dash-admin">
       <div class="page-hd"><div><div class="page-title">관리부 현황</div>
@@ -11138,7 +11143,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"일정관리","id":"expiry","ref":true},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links","ref":true},{"label":"직원 매뉴얼","id":"guide"},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"사무·인사·회계·결재·경영","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"사무관리"},{"label":"일정·만기","id":"expiry"},{"label":"자료 링크","id":"links","ref":true},{"label":"문서함"},{"label":"연동·토큰 설정","act":"openGsSetup()"},{"label":"버전 정보","id":"ver"},{"sub":"인사관리 (근태·급여·퇴직)"},{"label":"근태·임장","id":"visit","ref":true},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"급여·퇴직"},{"label":"교육 이력","id":"guide","ref":true},{"sub":"회계관리 (자금·금융·세무)"},{"label":"회계·정산","id":"payout"},{"label":"세금 계산기","act":"window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')"},{"label":"매출·비용"},{"label":"자금·금융서비스 연계"},{"label":"세무 신고 자료"},{"sub":"전자결재"},{"label":"승인·보고함","id":"approval"},{"label":"보고 취합"},{"sub":"경영관리"},{"label":"경영 통계","id":"stats","adminOnly":true,"ref":true},{"label":"대표 홈","id":"chief","adminOnly":true,"ref":true}]},{"dept":"운영부","desc":"매물·광고·사진·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물관리"},{"label":"매물","id":"listing"},{"label":"매물 지도","id":"map"},{"label":"시세 조회","id":"apt"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"매물 검수","id":"audit","ref":true},{"sub":"광고관리"},{"label":"광고 관리","id":"ads"},{"label":"광고문구 생성","id":"adcopy"},{"label":"광고 성과","id":"ads","ref":true},{"label":"홈페이지 노출","id":"listing","ref":true},{"sub":"사진관리"},{"label":"사진·썸네일","id":"exthumb"},{"label":"매물 사진","id":"listing","ref":true},{"sub":"고객관리"},{"label":"고객","id":"customer"},{"label":"문의 인입","id":"customer","ref":true},{"label":"문자 발송","id":"sms"},{"label":"상담·통화요약","id":"vito"},{"label":"임장","id":"visit","ref":true},{"label":"계약","id":"contract"},{"label":"계약서 작성","id":"contract-writer","ref":true},{"label":"만기","id":"expiry","ref":true},{"sub":"임대인관리"},{"label":"임대인 명부","id":"landlord"},{"label":"공실 확인 문자","id":"sms","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"sub":"자사 채널"},{"label":"홈페이지","id":"exhome"},{"label":"네이버 블로그","id":"exblog"},{"label":"검색 순위","id":"exrank"},{"sub":"SNS · 영상"},{"label":"유튜브","id":"exyt"},{"label":"인스타그램"},{"label":"스레드"},{"label":"카카오채널"},{"sub":"콘텐츠 재료"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"사진·썸네일","id":"exthumb","ref":true},{"label":"광고문구","id":"adcopy","ref":true},{"label":"자료 링크","id":"links"},{"label":"광고 원장","id":"ads","ref":true}]},{"dept":"법무팀","desc":"계약·권리·분쟁","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"sub":"계약서 검토"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"계약 원장","id":"contract","ref":true},{"label":"중개대상물 확인설명서"},{"sub":"위험 점검"},{"label":"만기·갱신 기한","id":"expiry","ref":true},{"label":"데이터 위험(검수)","id":"audit","ref":true},{"label":"건축물대장 확인","id":"listing","ref":true},{"label":"등기·권리분석"},{"sub":"법률 자문 · 분쟁"},{"label":"법률 자문 기록"},{"label":"분쟁·클레임"},{"label":"공제·보증 증서"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"sub":"설계"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"화면·메뉴 설계","id":"guide","ref":true},{"label":"요구사항·로드맵","id":"memo"},{"sub":"개발"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"검산 결과"},{"sub":"운영"},{"label":"오류·데이터 검수","id":"audit"},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 연결","id":"ops","ref":true},{"label":"AI 실행이력","id":"changelog","ref":true},{"label":"AI 승인대기","id":"approval","ref":true},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"일정관리","id":"expiry","ref":true},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links","ref":true},{"label":"직원 매뉴얼","id":"guide"},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"사무·인사·회계·결재·경영","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"사무관리"},{"label":"일정·만기","id":"expiry"},{"label":"자료 링크","id":"links","ref":true},{"label":"문서함"},{"label":"연동·토큰 설정","act":"openGsSetup()"},{"label":"버전 정보","id":"ver"},{"sub":"인사관리 (근태·급여·퇴직)"},{"label":"근태·임장","id":"visit","ref":true},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"급여·퇴직"},{"label":"교육 이력","id":"guide","ref":true},{"sub":"회계관리 (자금·금융·세무)"},{"label":"회계·정산","id":"payout"},{"label":"세금 계산기","act":"window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')"},{"label":"매출·비용"},{"label":"자금·금융서비스 연계"},{"label":"세무 신고 자료"},{"sub":"전자결재"},{"label":"승인·보고함","id":"approval"},{"label":"보고 취합"},{"sub":"경영관리"},{"label":"경영 통계","id":"stats","adminOnly":true,"ref":true},{"label":"대표 홈","id":"chief","adminOnly":true,"ref":true}]},{"dept":"운영부","desc":"매물·광고·사진·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물관리"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"지도로 보기","id":"map"},{"label":"시세 조회(참고)","id":"apt"},{"sub":"광고관리"},{"label":"광고 관리","id":"ads"},{"label":"광고문구 생성","id":"adcopy"},{"label":"광고 성과","id":"ads","ref":true},{"label":"홈페이지 노출","id":"listing","ref":true},{"sub":"사진관리"},{"label":"사진·썸네일","id":"exthumb"},{"label":"매물 사진","id":"listing","ref":true},{"sub":"고객관리"},{"label":"고객","id":"customer"},{"label":"문의 인입","id":"customer","ref":true},{"label":"문자 발송","id":"sms"},{"label":"상담·통화요약","id":"vito"},{"label":"임장","id":"visit","ref":true},{"label":"계약","id":"contract"},{"label":"계약서 작성","id":"contract-writer","ref":true},{"label":"만기","id":"expiry","ref":true},{"sub":"임대인관리"},{"label":"임대인 명부","id":"landlord"},{"label":"공실 확인 문자","id":"sms","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"sub":"자사 채널"},{"label":"홈페이지","id":"exhome"},{"label":"네이버 블로그","id":"exblog"},{"label":"검색 순위","id":"exrank"},{"sub":"SNS · 영상"},{"label":"유튜브","id":"exyt"},{"label":"인스타그램"},{"label":"스레드"},{"label":"카카오채널"},{"sub":"콘텐츠 재료"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"사진·썸네일","id":"exthumb","ref":true},{"label":"광고문구","id":"adcopy","ref":true},{"label":"자료 링크","id":"links"},{"label":"광고 원장","id":"ads","ref":true}]},{"dept":"법무팀","desc":"계약·권리·분쟁","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"sub":"계약서 검토"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"계약 원장","id":"contract","ref":true},{"label":"중개대상물 확인설명서"},{"sub":"위험 점검"},{"label":"만기·갱신 기한","id":"expiry","ref":true},{"label":"데이터 위험(검수)","id":"audit","ref":true},{"label":"건축물대장 확인","id":"listing","ref":true},{"label":"등기·권리분석"},{"sub":"법률 자문 · 분쟁"},{"label":"법률 자문 기록"},{"label":"분쟁·클레임"},{"label":"공제·보증 증서"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"sub":"설계"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"화면·메뉴 설계","id":"guide","ref":true},{"label":"요구사항·로드맵","id":"memo"},{"sub":"개발"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"검산 결과"},{"sub":"운영"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 연결","id":"ops","ref":true},{"label":"AI 실행이력","id":"changelog","ref":true},{"label":"AI 승인대기","id":"approval","ref":true},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -12257,7 +12262,41 @@ function ddRender(id){
   const live = L.filter(ddLive);
   let h = '';
 
-  if(id === 'dash-ops'){
+  if(id === 'dash-listing'){
+    // 🏠 매물장만 놓고 보는 현황 — 숫자는 지금 불러온 매물에서만 센다
+    const ad = live.filter(ddAdOn).length;
+    const web = live.filter(l => String(l.web || '') !== '숨김').length;
+    const hasVer = L.some(l => Object.prototype.hasOwnProperty.call(l, 'verified'));
+    const noAddr = L.filter(l => !String(l.addr || '').trim()).length;
+    const noPhone = live.filter(l => !String(l.phone || '').trim() && !String(l.cphone || '').trim()).length;
+    const rows = L.slice().sort((a, b) => ddDay(b.recvDate).localeCompare(ddDay(a.recvDate))).slice(0, 10)
+      .map(l => [l.apt || '-', l.type || '-', l.price || '-', l.floor || '-', l.status || '접수',
+                 ddAdOn(l) ? '광고중' : '-', String(l.web || '') === '숨김' ? '숨김' : '노출', ddDay(l.recvDate) || '-']);
+    h = '<div class="dd-kpi">'
+      + ddCard('거래 가능', live.length, '전체 ' + L.length + '건 중 계약·임대·보류 제외', 'listing')
+      + ddCard('광고중', ad, live.length ? Math.round(ad / live.length * 100) + '% 노출' : '', 'ads')
+      + ddCard('홈페이지 노출', web, '숨김 ' + (live.length - web) + '건', 'exhome')
+      + ddCard('대장 확인', hasVer ? live.filter(l => String(l.verified || '') === 'Y').length : null,
+          hasVer ? '건축물대장으로 맞춰 본 매물' : '검수 화면을 열면 확인됩니다', 'listing') + '</div>'
+      + '<div class="dd-row">' + ddBars('유형별', ddTop(live, l => l.type, 7))
+      + ddDonut('상태', [
+          { n: '접수·상담중', v: live.length },
+          { n: '계약완료', v: L.filter(l => l.status === '계약완료').length },
+          { n: '임대중', v: L.filter(l => l.status === '임대중').length },
+          { n: '거래완료·보류', v: L.filter(l => l.status === '거래완료' || l.status === '보류').length },
+        ]) + '</div>'
+      + '<div class="dd-row3">' + ddLine('최근 6개월 접수', ddMonths(L, l => l.recvDate))
+      + ddBars('층별', ddTop(live, l => l.floor, 6)) + '</div>'
+      + ddStack('광고 노출', [{ n: '광고중', v: ad }, { n: '광고 안 함', v: live.length - ad }])
+      + '<div class="dd-c"><div class="dd-h">채워야 할 칸</div>'
+      + [{ n: '주소가 비어 있는 매물', w: '검수·지도·홈페이지에서 빠집니다', v: noAddr, hi: true, go: 'listing' },
+         { n: '연락처 없는 거래 가능 매물', w: '본인 확인 없이 광고가 나갈 위험', v: noPhone, hi: false, go: 'listing' },
+         { n: '건축물대장 미확인', w: '면적·용도·위반건축물 여부', v: hasVer ? live.filter(l => String(l.verified || '') !== 'Y').length : null, hi: false, go: 'listing' },
+        ].map(ddRiskRow).join('')
+      + '<div class="s">더 자세한 검수(중복·호수 없음 등)는 법무팀 → 데이터 위험, 수집 상태는 개발부 → 매물 수집에서 봅니다.</div></div>'
+      + ddTable('최근 매물', ['매물', '유형', '금액', '층', '상태', '광고', '홈페이지', '접수일'], rows, '', 'listing');
+  }
+  else if(id === 'dash-ops'){
     const ad = live.filter(ddAdOn).length;
     const web = live.filter(l => String(l.web || '') !== '숨김').length;
     const mon = t.slice(0, 7);
@@ -12269,7 +12308,7 @@ function ddRender(id){
       + ddCard('고객', C.length, '이번 달 접수 ' + C.filter(c => ddDay(c.recvDate).slice(0, 7) === mon).length + '건', 'customer')
       + ddCard('임대인', LD.length, '', 'landlord') + '</div>'
       + ddFlow('영업이 흘러가는 순서', [
-          { n: '매물 확보', v: live.length, go: 'listing' },
+          { n: '매물 확보', v: live.length, go: 'dash-listing' },
           { n: '광고 노출', v: ad, go: 'ads' },
           { n: '문의 고객', v: C.length, go: 'customer' },
           { n: '임장', v: V.filter(v => v.kind === '임장').length, go: 'visit' },
