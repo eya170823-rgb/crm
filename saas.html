@@ -427,6 +427,22 @@ table td,table th{font-size:12.5px}
 .ch-line b{font-variant-numeric:tabular-nums}
 .ch-na{color:var(--t3)}
 .ch-warn{border-left:3px solid #E11D48;padding-left:10px}
+/* 승인·보고함 */
+.ap-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px}
+.ap-tab{border:1px solid var(--border);background:#fff;border-radius:8px;padding:7px 12px;font-size:12.5px;cursor:pointer;color:var(--t2);display:flex;align-items:center;gap:6px}
+.ap-tab.on{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:700}
+.ap-tab b{font-variant-numeric:tabular-nums}
+.ap-tab.warn:not(.on){border-color:#FCA5A5;color:#B91C1C}
+.ap-pri{font-size:10px;border-radius:4px;padding:1px 6px;font-weight:700}
+.ap-pri.p1{background:#FEE2E2;color:#991B1B}
+.ap-pri.p2{background:#FEF3C7;color:#92400E}
+.ap-pri.p3{background:var(--bg3);color:var(--t3)}
+.ap-st{font-size:10.5px;border-radius:5px;padding:2px 7px;font-weight:700;white-space:nowrap}
+.ap-st.s1{background:#FEF3C7;color:#92400E}
+.ap-st.s2{background:#DCFCE7;color:#166534}
+.ap-st.s3{background:#FEE2E2;color:#991B1B}
+.ap-st.s4{background:var(--bl);color:var(--b)}
+.ap-over{background:#FEE2E2;color:#991B1B;font-size:10px;border-radius:4px;padding:1px 5px;font-weight:700;margin-left:5px}
 </style>
 </head>
 <body>
@@ -595,7 +611,7 @@ table td,table th{font-size:12.5px}
         <button class="sx-item" data-co="head" data-menu="expiry" onclick="sxGo('expiry')">일정</button>
         <button class="sx-item" data-co="head" data-menu="approval" onclick="sxGo('approval')">전자결재</button>
         <button class="sx-item" data-co="head" data-menu="guide" onclick="sxGo('guide')">교육 이력<span class="sx-tag ref">참조</span></button>
-        <button class="sx-item" data-co="head" data-menu="approval" onclick="sxGo('approval')">보고 취합<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('보고 취합')">보고 취합<span class="sx-tag soon">준비 중</span></button>
       <div class="sx-dept" data-co="head">운영부<em>영업·매물·계약</em></div>
         <button class="sx-item" data-co="head" data-menu="listing" onclick="sxGo('listing')">매물</button>
         <button class="sx-item" data-co="head" data-menu="map" onclick="sxGo('map')">매물 지도</button>
@@ -610,20 +626,23 @@ table td,table th{font-size:12.5px}
         <button class="sx-item" data-co="head" data-menu="contract" onclick="sxGo('contract')">계약</button>
         <button class="sx-item" data-co="head" data-menu="contract-writer" onclick="sxGo('contract-writer')">계약서 작성</button>
         <button class="sx-item" data-co="head" data-menu="expiry" onclick="sxGo('expiry')">만기<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item" data-co="head" data-menu="vito" onclick="sxGo('vito')">통화요약<span class="sx-tag ref">참조</span></button>
       <div class="sx-dept" data-co="head">마케팅부<em>광고·콘텐츠</em></div>
         <button class="sx-item" data-co="head" data-menu="ads" onclick="sxGo('ads')">광고 관리</button>
         <button class="sx-item" data-co="head" data-menu="ads" onclick="sxGo('ads')">광고 성과<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item" data-co="head" data-menu="adcopy" onclick="sxGo('adcopy')">광고문구 생성</button>
         <button class="sx-item" data-co="head" data-menu="links" onclick="sxGo('links')">자료 링크</button>
-        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('블로그·SNS')">블로그·SNS<span class="sx-tag soon">준비 중</span></button>
-        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('사진·썸네일')">사진·썸네일<span class="sx-tag soon">준비 중</span></button>
-        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('홈페이지 콘텐츠')">홈페이지 콘텐츠<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item" data-co="head" data-menu="exblog" onclick="sxGo('exblog')">블로그 발행</button>
+        <button class="sx-item" data-co="head" data-menu="exthumb" onclick="sxGo('exthumb')">사진·썸네일</button>
+        <button class="sx-item" data-co="head" data-menu="listing" onclick="sxGo('listing')">홈페이지 콘텐츠<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('SNS·숏폼')">SNS·숏폼<span class="sx-tag soon">준비 중</span></button>
       <div class="sx-dept" data-co="head">개발부<em>시스템·검산·배포</em></div>
         <button class="sx-item" data-co="head" data-menu="audit" onclick="sxGo('audit')">오류·검산</button>
         <button class="sx-item" data-co="head" data-menu="ai-center" onclick="sxGo('ai-center')">AI 직원</button>
-        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('자동화 현황')">자동화 현황<span class="sx-tag soon">준비 중</span></button>
-        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('프로그램 연결')">프로그램 연결<span class="sx-tag soon">준비 중</span></button>
-        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('변경 이력')">변경 이력<span class="sx-tag soon">준비 중</span></button>
-        <button class="sx-item soon" data-co="head" data-menu="" onclick="sxSoon('배포 관리')">배포 관리<span class="sx-tag soon">준비 중</span></button>
+        <button class="sx-item" data-co="head" data-menu="ops" onclick="sxGo('ops')">자동화 현황</button>
+        <button class="sx-item" data-co="head" data-menu="ops" onclick="sxGo('ops')">프로그램 연결<span class="sx-tag ref">참조</span></button>
+        <button class="sx-item" data-co="head" data-menu="changelog" onclick="sxGo('changelog')">변경 이력</button>
+        <button class="sx-item" data-co="head" data-menu="deploy" onclick="sxGo('deploy')">배포 관리</button>
       <div class="sx-dept" data-co="design">제작<em>브랜드·홍보물</em></div>
         <button class="sx-item" data-co="design" data-menu="brand" onclick="sxGo('brand')">브랜드 스튜디오</button>
         <button class="sx-item" data-co="design" data-menu="brand" onclick="sxGo('brand')">캐릭터 기준표<span class="sx-tag ref">참조</span></button>
@@ -669,9 +688,59 @@ table td,table th{font-size:12.5px}
 
     <!-- 승인·보고함 -->
     <div class="panel" id="p-approval">
-      <div class="page-hd"><div><div class="page-title">승인 · 보고함</div>
-        <div class="page-sub">대표 승인이 필요한 일과 부서 보고를 모읍니다</div></div></div>
-      <div id="approval-body"></div>
+      <div class="page-hd">
+        <div><div class="page-title">승인 · 보고함</div>
+          <div class="page-sub">대표 승인이 필요한 일을 한 화면에 · <span id="ap-at" style="color:var(--t3)"></span></div></div>
+        <div class="row"><button class="btn btn-sm" onclick="apRender(true)">새로고침</button></div>
+      </div>
+      <div class="ap-tabs" id="ap-tabs"></div>
+      <div id="ap-body"></div>
+      <div class="card" id="ap-feed" style="margin-top:14px"></div>
+    </div>
+
+    <!-- 광고문구 생성 (기존 openAdCopyModal 을 여는 자리) -->
+    <div class="panel" id="p-adcopy">
+      <div class="page-hd">
+        <div><div class="page-title">광고문구 생성</div>
+          <div class="page-sub">매물을 고르면 사이트별 문구 4종과 위법표현 검수를 함께 봅니다</div></div>
+        <div class="row"><input id="ac-q" placeholder="매물 검색" oninput="acRender()" style="width:180px"></div>
+      </div>
+      <div id="ac-body"></div>
+    </div>
+
+    <!-- 블로그 발행 / 사진·썸네일 : PC 프로그램 -->
+    <div class="panel" id="p-exblog">
+      <div class="page-hd"><div><div class="page-title" id="ex-title">블로그 자동작성 · 발행</div>
+        <div class="page-sub">PC에 있는 프로그램이 하는 일입니다</div></div></div>
+      <div id="ex-body"></div>
+    </div>
+    <div class="panel" id="p-exthumb">
+      <div class="page-hd"><div><div class="page-title">사진 · 썸네일</div>
+        <div class="page-sub">PC에 있는 프로그램이 하는 일입니다</div></div></div>
+      <div id="ex-body2"></div>
+    </div>
+
+    <!-- 자동화 현황 -->
+    <div class="panel" id="p-ops">
+      <div class="page-hd"><div><div class="page-title">자동화 현황</div>
+        <div class="page-sub">백업·감시·수집이 도는지 봅니다 (보기 전용)</div></div>
+        <div class="row"><button class="btn btn-sm" onclick="opsRender(true)">다시 확인</button></div></div>
+      <div id="ops-body"></div>
+    </div>
+
+    <!-- 변경 이력 -->
+    <div class="panel" id="p-changelog">
+      <div class="page-hd"><div><div class="page-title">변경 이력</div>
+        <div class="page-sub">시트 [변경이력] 에 쌓인 기록</div></div>
+        <div class="row"><input id="cl-q" placeholder="검색" oninput="clRender()" style="width:160px"><button class="btn btn-sm" onclick="clRender(true)">새로고침</button></div></div>
+      <div id="cl-body"></div>
+    </div>
+
+    <!-- 배포 관리 -->
+    <div class="panel" id="p-deploy">
+      <div class="page-hd"><div><div class="page-title">배포 관리</div>
+        <div class="page-sub">지금 무엇이 올라가 있는지 (여기서 배포하지 않습니다)</div></div></div>
+      <div id="dp-body"></div>
     </div>
 
 
@@ -10525,7 +10594,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"대표실","desc":"통합 보고·지시·승인","adminOnly":true,"items":[{"label":"대표 홈","id":"chief"},{"label":"경영 통계","id":"stats"},{"label":"승인·보고함","id":"approval"}]},{"dept":"관리부","desc":"인사·회계·결재","items":[{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"일정","id":"expiry"},{"label":"전자결재","id":"approval"},{"label":"교육 이력","id":"guide","ref":true},{"label":"보고 취합","id":"approval","ref":true}]},{"dept":"운영부","desc":"영업·매물·계약","items":[{"label":"매물","id":"listing"},{"label":"매물 지도","id":"map"},{"label":"시세 조회","id":"apt"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"고객·임대인","id":"customer"},{"label":"임대인 명부","id":"landlord"},{"label":"문의 인입","id":"customer","ref":true},{"label":"문자 발송","id":"sms"},{"label":"임장","id":"visit"},{"label":"음성 메모","id":"vito"},{"label":"계약","id":"contract"},{"label":"계약서 작성","id":"contract-writer"},{"label":"만기","id":"expiry","ref":true}]},{"dept":"마케팅부","desc":"광고·콘텐츠","items":[{"label":"광고 관리","id":"ads"},{"label":"광고 성과","id":"ads","ref":true},{"label":"자료 링크","id":"links"},{"label":"블로그·SNS"},{"label":"사진·썸네일"},{"label":"홈페이지 콘텐츠"}]},{"dept":"개발부","desc":"시스템·검산·배포","items":[{"label":"오류·검산","id":"audit"},{"label":"AI 직원","id":"ai-center"},{"label":"자동화 현황"},{"label":"프로그램 연결"},{"label":"변경 이력"},{"label":"배포 관리"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사","depts":[{"dept":"제작","desc":"브랜드·홍보물","items":[{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"굿즈 시안"},{"label":"영상·애니메이션"}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사","depts":[{"dept":"교육","desc":"매뉴얼·강의","items":[{"label":"직원 매뉴얼","id":"guide"},{"label":"강의 자료"},{"label":"평가·이수"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"대표실","desc":"통합 보고·지시·승인","adminOnly":true,"items":[{"label":"대표 홈","id":"chief"},{"label":"경영 통계","id":"stats"},{"label":"승인·보고함","id":"approval"}]},{"dept":"관리부","desc":"인사·회계·결재","items":[{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"일정","id":"expiry"},{"label":"전자결재","id":"approval"},{"label":"교육 이력","id":"guide","ref":true},{"label":"보고 취합"}]},{"dept":"운영부","desc":"영업·매물·계약","items":[{"label":"매물","id":"listing"},{"label":"매물 지도","id":"map"},{"label":"시세 조회","id":"apt"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"고객·임대인","id":"customer"},{"label":"임대인 명부","id":"landlord"},{"label":"문의 인입","id":"customer","ref":true},{"label":"문자 발송","id":"sms"},{"label":"임장","id":"visit"},{"label":"음성 메모","id":"vito"},{"label":"계약","id":"contract"},{"label":"계약서 작성","id":"contract-writer"},{"label":"만기","id":"expiry","ref":true},{"label":"통화요약","id":"vito","ref":true}]},{"dept":"마케팅부","desc":"광고·콘텐츠","items":[{"label":"광고 관리","id":"ads"},{"label":"광고 성과","id":"ads","ref":true},{"label":"광고문구 생성","id":"adcopy"},{"label":"자료 링크","id":"links"},{"label":"블로그 발행","id":"exblog"},{"label":"사진·썸네일","id":"exthumb"},{"label":"홈페이지 콘텐츠","id":"listing","ref":true},{"label":"SNS·숏폼"}]},{"dept":"개발부","desc":"시스템·검산·배포","items":[{"label":"오류·검산","id":"audit"},{"label":"AI 직원","id":"ai-center"},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 연결","id":"ops","ref":true},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사","depts":[{"dept":"제작","desc":"브랜드·홍보물","items":[{"label":"브랜드 스튜디오","id":"brand"},{"label":"캐릭터 기준표","id":"brand","ref":true},{"label":"굿즈 시안"},{"label":"영상·애니메이션"}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사","depts":[{"dept":"교육","desc":"매뉴얼·강의","items":[{"label":"직원 매뉴얼","id":"guide"},{"label":"강의 자료"},{"label":"평가·이수"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -10604,6 +10673,11 @@ function sxNotiList(){
   if(call.length) out.push({ k: '고객', t: '오늘 연락할 손님 ' + call.length + '명', go: 'customer' });
   const exp = (typeof get6m === 'function') ? get6m() : [];
   if(exp.length) out.push({ k: '만기', t: '6개월 내 만기 ' + exp.length + '건', go: 'expiry' });
+  if(apData && apData.counts){
+    const over = apData.counts['기한초과'] || 0, wait = apData.counts['요청'] || 0;
+    if(over) out.unshift({ k: '결재', t: '기한 지난 결재 ' + over + '건', go: 'approval' });
+    else if(wait) out.push({ k: '결재', t: '결재 대기 ' + wait + '건', go: 'approval' });
+  }
   return out;
 }
 function sxNotiRender(){
@@ -10666,16 +10740,251 @@ function chiefRender(){
     rk.innerHTML = '<h3>위험 · 누락 · 승인 요청</h3>'
       + (list.length ? list.map(x => '<div class="ch-line ch-warn"><span>' + gEsc(x.t) + '</span><b><button class="btn btn-xs" onclick="sxGo(\'' + x.go + '\')">보기</button></b></div>').join('')
                      : '<div class="ch-line"><span>지금 급한 것 없음</span><b>✓</b></div>')
-      + '<div class="ch-line"><span>대표 승인 대기</span><b class="ch-na">확인 불가</b></div>'
-      + '<div style="font-size:11px;color:var(--t3);margin-top:10px">전자결재는 준비 중입니다. 연결되면 승인 대기 건이 여기에 뜹니다.</div>';
+      + (apData
+          ? '<div class="ch-line"><span>결재 대기 / 기한 초과</span><b>' + ((apData.counts||{})['요청']||0) + ' / ' + ((apData.counts||{})['기한초과']||0) + '</b></div>'
+            + '<div class="ch-line"><span>자동 감지(올리기 전)</span><b>' + (apData.feedTotal||0) + '</b></div>'
+          : '<div class="ch-line"><span>대표 승인 대기</span><b class="ch-na">확인 필요</b></div>')
+      + '<div class="row" style="margin-top:10px"><button class="btn btn-sm" onclick="sxGo(&#39;approval&#39;)">승인 · 보고함 열기</button></div>';
+  // 🔴 한 번만 다시 부른다. 연동 전(토큰 없음)에는 apData 가 계속 비어 있어 무한 반복이 된다(09-08 검수에서 브라우저가 멈춤).
+  if(!apData && !chiefApTried){ chiefApTried = true; apRender().then(function(){ try{ chiefRender(); }catch(e){} }); }
   }
 }
-function approvalRender(){
-  const b = document.getElementById('approval-body'); if(!b) return;
-  b.innerHTML = '<div class="card"><div class="card-title">전자결재 · 부서 보고 취합</div>'
-    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">아직 연결하지 않았습니다. 연결되면 이 화면에서 결재 요청·승인·반려와 부서별 업무보고를 봅니다.<br>'
-    + '지금 대표 승인이 필요한 일은 <b>대표 홈</b>의 [위험 · 누락 · 승인 요청]에 모아 두었습니다.</div>'
-    + '<div class="row" style="margin-top:10px"><button class="btn btn-sm" onclick="sxGo(\'chief\')">대표 홈으로</button></div></div>';
+/* ══ 🗂 승인·보고함 ══
+   결재함(사람이 올린 요청·대표의 결정)과 자동 감지 목록(기존 시트에서 파생)을 함께 본다.
+   🔴 여기서 문자·카톡·메일을 보내지 않는다. 결재는 기록이고, 발송은 기존 승인 절차를 따른다. */
+let apData = null, apTab = '요청';
+let chiefApTried = false;
+const AP_TABS = [['요청', '결재 대기'], ['승인', '승인 완료'], ['반려', '반려'], ['확인요청', '확인 요청'], ['기한초과', '기한 초과']];
+const AP_PRI_CLS = { '높음': 'p1', '보통': 'p2', '낮음': 'p3' };
+const AP_ST_CLS = { '요청': 's1', '승인': 's2', '반려': 's3', '확인요청': 's4' };
+function approvalRender(){ apRender(); }
+async function apRender(force){
+  const body = document.getElementById('ap-body'); if(!body) return;
+  const url = getGsUrl();
+  if(!url){ body.innerHTML = '<div class="empty-state">구글 시트 연동 후 사용할 수 있습니다 (오른쪽 위 내 계정 → 연동·토큰 설정)</div>'; return; }
+  if(force || !apData){
+    body.innerHTML = '<div class="empty-state">불러오는 중…</div>';
+    try{
+      const j = await gsFetchJson(url + '?action=approvalList&t=' + Date.now() + tokQ(), {}, '승인·보고함');
+      if(!j.ok) throw new Error(j.error || '불러오기 실패');
+      apData = j.result;
+    }catch(e){ body.innerHTML = '<div class="empty-state">불러오지 못했습니다: ' + gEsc(e.message) + '</div>'; return; }
+  }
+  const at = document.getElementById('ap-at'); if(at) at.textContent = '기준 ' + gEsc(apData.at || '');
+  apTabsRender(); apListRender(); apFeedRender(); sxNotiBadge();
+}
+function apTabsRender(){
+  const el = document.getElementById('ap-tabs'); if(!el) return;
+  const c = apData.counts || {};
+  el.innerHTML = AP_TABS.map(t => '<button class="ap-tab' + (apTab === t[0] ? ' on' : '') + (t[0] === '기한초과' && c['기한초과'] ? ' warn' : '')
+    + '" onclick="apTabGo(&#39;' + t[0] + '&#39;)">' + gEsc(t[1]) + ' <b>' + (c[t[0]] || 0) + '</b></button>').join('');
+}
+function apTabGo(t){ apTab = t; apTabsRender(); apListRender(); }
+function apRows(){
+  const rows = (apData && apData.rows) || [];
+  if(apTab === '기한초과') return rows.filter(r => r.overdue);
+  return rows.filter(r => String(r.status || '요청') === apTab);
+}
+function apListRender(){
+  const el = document.getElementById('ap-body'); if(!el) return;
+  const rows = apRows(), admin = sxAdmin();
+  if(!rows.length){
+    el.innerHTML = '<div class="empty-state"><div class="es-icon">🗂</div>'
+      + (apTab === '요청' ? '결재 대기 중인 건이 없습니다. 아래 자동 감지 목록에서 올릴 수 있습니다.' : '해당하는 건이 없습니다.') + '</div>';
+    return;
+  }
+  el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th>종류</th><th>내용</th><th>올린 사람</th><th>올린 날</th><th>기한</th><th>상태</th><th>처리</th></tr></thead><tbody>'
+    + rows.map(r => {
+      const id = gAttr(r.id), st = String(r.status || '요청'), pri = String(r.priority || '보통');
+      const dec = (r.decidedAt ? '<div style="font-size:10.5px;color:var(--t3)">' + gEsc(r.decidedBy || '') + ' ' + gEsc(r.decidedAt) + '</div>' : '')
+        + (r.reason ? '<div style="font-size:10.5px;color:#991B1B">' + gEsc(r.reason) + '</div>' : '');
+      const act = (admin && st === '요청')
+        ? '<button class="btn btn-g btn-xs" onclick="apDecide(&#39;' + id + '&#39;,&#39;승인&#39;)">승인</button> '
+          + '<button class="btn btn-r btn-xs" onclick="apDecide(&#39;' + id + '&#39;,&#39;반려&#39;)">반려</button> '
+          + '<button class="btn btn-xs" onclick="apDecide(&#39;' + id + '&#39;,&#39;확인요청&#39;)">확인 요청</button>'
+        : '<button class="btn btn-xs" onclick="apOpen(&#39;' + gAttr(r.targetType) + '&#39;,&#39;' + gAttr(r.targetId) + '&#39;)">대상 보기</button>'
+          + (admin ? '' : '<div style="font-size:10.5px;color:var(--t3)">대표 결정 대기</div>');
+      return '<tr>'
+        + '<td style="white-space:nowrap">' + gEsc(r.kind || '') + '<div><span class="ap-pri ' + (AP_PRI_CLS[pri] || 'p2') + '">' + gEsc(pri) + '</span></div></td>'
+        + '<td>' + gEsc(r.title || '')
+          + (r.note ? '<div style="font-size:11px;color:var(--t2)">' + gEsc(r.note) + '</div>' : '')
+          + (r.amount ? '<div style="font-size:11px;color:var(--t2)">' + Number(r.amount).toLocaleString('ko-KR') + '원</div>' : '') + '</td>'
+        + '<td style="white-space:nowrap">' + gEsc(r.requester || '') + '<div style="font-size:10.5px;color:var(--t3)">' + gEsc(r.deptFrom || '') + '</div></td>'
+        + '<td style="white-space:nowrap;font-size:11.5px">' + gEsc(String(r.requestedAt || '').slice(0, 16)) + '</td>'
+        + '<td style="white-space:nowrap;font-size:11.5px">' + gEsc(r.dueAt || '') + (r.overdue ? '<span class="ap-over">초과</span>' : '') + '</td>'
+        + '<td><span class="ap-st ' + (AP_ST_CLS[st] || 's1') + '">' + gEsc(st) + '</span>' + dec + '</td>'
+        + '<td style="white-space:nowrap">' + act + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+}
+function apOpen(type, id){
+  if(type === 'listing') openModal('listing', id);
+  else if(type === 'brand') sxGo('brand');
+  else if(type === 'contract') sxGo('contract');
+  else sxGo('chief');
+}
+async function apDecide(id, status){
+  if(!sxAdmin()){ showToast('승인·반려는 대표만 할 수 있습니다'); return; }
+  let reason = '';
+  if(status === '반려'){
+    reason = prompt('반려 사유를 적어 주세요 (필수)');
+    if(reason === null) return;
+    if(!reason.trim()){ showToast('반려는 사유가 필요합니다'); return; }
+  } else if(status === '확인요청'){
+    const r = prompt('무엇을 확인해야 하는지 적어 주세요 (선택)');
+    if(r === null) return;
+    reason = r || '';
+  } else if(!confirm('이 건을 승인 처리할까요?')) return;
+  try{
+    await gsCall('approvalDecide', { id: id, status: status, reason: reason });
+    showToast(status + ' 처리 ✓');
+    await apRender(true);
+  }catch(e){ showToast('처리 실패: ' + e.message); }
+}
+function apFeedRender(){
+  const el = document.getElementById('ap-feed'); if(!el) return;
+  const feed = (apData && apData.feed) || [], note = (apData && apData.feedNote) || [];
+  const up = {}; ((apData && apData.rows) || []).forEach(r => { if(String(r.status || '요청') === '요청') up[r.targetType + ':' + r.targetId + ':' + r.kind] = 1; });
+  el.innerHTML = '<div class="card-title">자동 감지 — 승인이 필요해 보이는 일 ' + feed.length + '건'
+      + (apData.feedTotal > feed.length ? ' (전체 ' + apData.feedTotal + '건 중)' : '') + '</div>'
+    + '<div style="font-size:11.5px;color:var(--t3);margin:4px 0 10px">매물 검수·이상거래·계약 추적·중개보수·브랜드 자산에서 <b>지금 있는 자료를 읽어</b> 뽑은 것입니다. 새 자료를 만들지 않습니다. [결재 올리기]를 눌러야 결재함에 올라갑니다.</div>'
+    + (note.length ? '<div style="font-size:11.5px;color:#B91C1C;margin-bottom:8px">확인 불가: ' + note.map(gEsc).join(' · ') + '</div>' : '')
+    + (feed.length
+      ? '<div class="tbl-wrap"><table><thead><tr><th>종류</th><th>내용</th><th>부서</th><th>올리기</th></tr></thead><tbody>'
+        + feed.map(f => {
+          const done = up[f.targetType + ':' + f.targetId + ':' + f.kind];
+          return '<tr><td style="white-space:nowrap">' + gEsc(f.kind) + ' <span class="ap-pri ' + (AP_PRI_CLS[f.priority] || 'p2') + '">' + gEsc(f.priority) + '</span></td>'
+            + '<td>' + gEsc(f.title) + (f.why ? '<div style="font-size:11px;color:var(--t2)">' + gEsc(f.why) + '</div>' : '') + '</td>'
+            + '<td style="white-space:nowrap;font-size:11.5px">' + gEsc(f.dept || '') + '</td>'
+            + '<td style="white-space:nowrap">'
+            + (done ? '<span style="font-size:11px;color:var(--t3)">올림</span>'
+                    : '<button class="btn btn-xs" onclick="apRaise(&#39;' + gAttr(f.kind) + '&#39;,&#39;' + gAttr(f.title) + '&#39;,&#39;' + gAttr(f.targetType) + '&#39;,&#39;' + gAttr(f.targetId) + '&#39;,&#39;' + gAttr(f.priority) + '&#39;,&#39;' + gAttr(f.dept || '') + '&#39;)">결재 올리기</button>')
+            + ' <button class="btn btn-xs" onclick="apOpen(&#39;' + gAttr(f.targetType) + '&#39;,&#39;' + gAttr(f.targetId) + '&#39;)">보기</button></td></tr>';
+        }).join('') + '</tbody></table></div>'
+      : '<div style="font-size:12.5px;color:var(--t2)">지금 승인이 필요한 일이 없습니다.</div>');
+}
+async function apRaise(kind, title, targetType, targetId, priority, dept){
+  try{
+    const r = await gsCall('approvalAdd', { kind: kind, title: title, targetType: targetType, targetId: targetId, priority: priority, dept: dept });
+    showToast(r && r.action === 'exists' ? '이미 결재 대기 중입니다' : '결재함에 올렸습니다 ✓');
+    await apRender(true);
+  }catch(e){ showToast('올리기 실패: ' + e.message); }
+}
+
+/* ══ 🔌 부서 업무 화면 연결 (2026-09-08) ══
+   표에서 확정한 32개 업무 중, 기존 기능은 있는데 **열 자리가 없던 것**만 얇게 잇는다.
+   🔴 기능을 새로 만들지 않는다 — 이미 있는 함수·시트·액션을 그대로 부른다.
+   🔴 발송(문자·카톡·블로그·SNS)과 실제 배포는 버튼을 두지 않는다. 보기만 한다. */
+
+/* ── 광고문구 생성 (마케팅부) — 기존 openAdCopyModal 을 매물 골라 여는 자리 ── */
+function acRender(){
+  const el = document.getElementById('ac-body'); if(!el) return;
+  const q = ((document.getElementById('ac-q') || {}).value || '').trim().toLowerCase();
+  const rows = listings.filter(l => !/거래완료/.test(String(l.status || '')))
+    .filter(l => !q || (String(l.apt || '') + String(l.addr || '') + String(l.id || '')).toLowerCase().indexOf(q) >= 0)
+    .slice(0, 60);
+  el.innerHTML = rows.length
+    ? '<div class="tbl-wrap"><table><thead><tr><th>매물</th><th>유형</th><th>금액</th><th>상태</th><th>광고문구</th></tr></thead><tbody>'
+      + rows.map(l => '<tr><td style="font-weight:600">' + gEsc(l.apt || '') + ' ' + gEsc(l.addr2 || '') + '</td>'
+        + '<td>' + gEsc(l.kind || '') + '</td>'
+        + '<td style="white-space:nowrap">' + gEsc(l.type || '') + ' ' + gEsc(l.price || '') + (l.rentAmt ? '/' + gEsc(l.rentAmt) : '') + '</td>'
+        + '<td>' + gEsc(l.status || '') + '</td>'
+        + '<td style="white-space:nowrap"><button class="btn btn-g btn-xs" onclick="acOpen(&#39;' + gAttr(l.id) + '&#39;)">6개 사이트 문구 열기</button>'
+        + ' <button class="btn btn-xs" onclick="openModal(&#39;listing&#39;,&#39;' + gAttr(l.id) + '&#39;)">매물</button></td></tr>').join('')
+      + '</tbody></table></div>'
+    : '<div class="empty-state"><div class="es-icon">📝</div>매물이 없습니다.</div>';
+}
+function acOpen(id){
+  if(typeof openAdCopyModal === 'function') openAdCopyModal(id);
+  else showToast('광고문구 기능을 찾지 못했습니다');
+}
+
+/* ── 변경 이력 (개발부) — 시트 '변경이력' 을 그대로 읽는다 ── */
+let clRows = null;
+async function clRender(force){
+  const el = document.getElementById('cl-body'); if(!el) return;
+  const url = getGsUrl();
+  if(!url){ el.innerHTML = '<div class="empty-state">구글 시트 연동 후 사용할 수 있습니다</div>'; return; }
+  if(force || !clRows){
+    el.innerHTML = '<div class="empty-state">불러오는 중…</div>';
+    try{
+      const j = await gsFetchJson(url + '?action=getAll&type=logs&t=' + Date.now() + tokQ(), {}, '변경 이력');
+      if(!j.ok) throw new Error(j.error || '불러오기 실패');
+      clRows = (j.data || []).slice(-400).reverse();
+    }catch(e){ el.innerHTML = '<div class="empty-state">불러오지 못했습니다: ' + gEsc(e.message) + '</div>'; return; }
+  }
+  const f = ((document.getElementById('cl-q') || {}).value || '').trim();
+  const rows = clRows.filter(r => !f || JSON.stringify(r).indexOf(f) >= 0).slice(0, 200);
+  el.innerHTML = '<div style="font-size:11.5px;color:var(--t3);margin-bottom:8px">시트 [변경이력] 최근 ' + clRows.length + '줄 중 ' + rows.length + '줄. '
+    + '🔴 지금은 <b>누가</b> 했는지 칸이 없습니다 — 시간·구분·액션·상세만 남습니다.</div>'
+    + (rows.length ? '<div class="tbl-wrap"><table><thead><tr><th>시간</th><th>구분</th><th>액션</th><th>상세</th></tr></thead><tbody>'
+      + rows.map(r => { const v = Object.values(r);
+          return '<tr><td style="white-space:nowrap;font-size:11.5px">' + gEsc(v[0] || '') + '</td><td>' + gEsc(v[1] || '') + '</td><td>' + gEsc(v[2] || '') + '</td><td style="font-size:11.5px">' + gEsc(String(v[3] || '').slice(0, 160)) + '</td></tr>'; }).join('')
+      + '</tbody></table></div>' : '<div class="empty-state">기록이 없습니다.</div>');
+}
+
+/* ── 자동화 현황 (개발부) — 읽기 전용. 실행 버튼 없음 ── */
+async function opsRender(force){
+  const el = document.getElementById('ops-body'); if(!el) return;
+  const url = getGsUrl();
+  if(!url){ el.innerHTML = '<div class="empty-state">구글 시트 연동 후 사용할 수 있습니다</div>'; return; }
+  el.innerHTML = '<div class="empty-state">확인 중…</div>';
+  const get = async (action, label) => {
+    try{ const j = await gsFetchJson(url + '?action=' + action + '&t=' + Date.now() + tokQ(), {}, label);
+      return j.ok ? (j.result !== undefined ? j.result : j.data) : { error: j.error }; }
+    catch(e){ return { error: e.message }; }
+  };
+  const [backup, guard, collect] = await Promise.all([get('backupStatus', '백업'), get('guardCheck', '매물 감시'), get('collectStatus', '문자 수집')]);
+  const box = (title, obj, note) => '<div class="card" style="margin-bottom:10px"><div class="card-title">' + gEsc(title) + '</div>'
+    + (obj && obj.error ? '<div style="color:#B91C1C;font-size:12px">확인 불가: ' + gEsc(obj.error) + '</div>'
+      : '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">' + gEsc(JSON.stringify(obj).slice(0, 400)) + '</div>')
+    + (note ? '<div style="font-size:11px;color:var(--t3);margin-top:6px">' + gEsc(note) + '</div>' : '') + '</div>';
+  el.innerHTML = '<div style="font-size:11.5px;color:var(--t3);margin-bottom:10px">읽기만 합니다. 여기서 자동화를 켜거나 끄지 않습니다.</div>'
+    + box('시트 백업', backup, '매일 새벽 3시 · 30일 보관')
+    + box('매물 소실 감시', guard, '매물 수가 갑자기 줄면 알립니다')
+    + box('문자 수집', collect, '폰 → 구글 서버 → 인입함')
+    + '<div class="card"><div class="card-title">시간 작업(트리거)</div><div style="font-size:12.5px;color:var(--t2);line-height:1.9">'
+    + '05시 매물 보강 · 09시 만기·이상거래 추적 · 03시 백업 · 08시 헬스체크 · 10분 문자 회수 · 15분 통화요약 · 수집 중 1분<br>'
+    + '<span style="color:var(--t3);font-size:11px">설치 여부는 Apps Script 편집기에서 확인합니다. 이 화면에서는 켜고 끄지 않습니다.</span></div></div>';
+}
+
+/* ── 배포 관리 (개발부) — 보기 전용. 배포 버튼 없음 ── */
+function dpRender(){
+  const el = document.getElementById('dp-body'); if(!el) return;
+  const ver = (document.getElementById('appVer') || {}).textContent || '';
+  el.innerHTML = '<div class="card" style="margin-bottom:10px"><div class="card-title">지금 쓰는 것</div>'
+    + '<div class="ch-line"><span>이 화면 버전</span><b>' + gEsc(ver) + '</b></div>'
+    + '<div class="ch-line"><span>운영 주소</span><b>eya170823-rgb.github.io/crm/</b></div>'
+    + '<div class="ch-line"><span>새 업무화면(미리보기)</span><b>/crm/saas.html</b></div></div>'
+    + '<div class="card" style="margin-bottom:10px"><div class="card-title">배포 전 확인</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:2">'
+    + '1. 검산 통과 (node tests/run.js)<br>2. 버전 도장 (stamp-version.ps1)<br>3. 배포본 동기화 (netlify_deploy)<br>'
+    + '4. 라이브 해시 대조<br>5. 서버는 새 버전만 (URL 안 바뀜)</div></div>'
+    + '<div class="card" style="border-color:#FCA5A5"><div class="card-title">여기서 배포하지 않습니다</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">실제 배포는 PC에서 확인 절차를 거쳐 실행합니다. '
+    + '테스트를 통과하기 전에는 운영에 올리지 않습니다.</div></div>';
+}
+
+/* ── PC 프로그램 연결 필요 (마케팅부 블로그·썸네일) ── */
+function exRender(kind){
+  const el = document.getElementById(kind === 'thumb' ? 'ex-body2' : 'ex-body'); if(!el) return;
+  const t = document.getElementById('ex-title');
+  const items = {
+    blog: { title: '블로그 자동작성 · 발행', where: 'G: /  / 내 드라이브 /  / 07_자동화프롬테크 /  / 네이버블로그_자동화_샘플 /  / ',
+      what: ['매물 원고 자동 생성 (매물_블로그_생성.py)', '발행 GUI (매물_블로그_앱.py)', '주제 추천 (topic_picker_app.py)', '발행 기록은 CRM 광고관리에 남습니다'],
+      state: '지금은 멈춰 있습니다. 필요한 파이썬 꾸러미 하나가 빠져 2026-08-25부터 실행되지 않습니다.' },
+    thumb: { title: '사진 · 썸네일', where: 'G: /  / 내 드라이브 /  / 07_자동화프롬테크 /  / 네이버블로그_자동화_샘플 /  / 썸네일_생성기.html',
+      what: ['브랜드색 썸네일 제작 (브라우저에서 단독 실행)', '매물 사진 워터마크 (crm-tools /  / watermark-run.ps1)'],
+      state: '썸네일 제작기와 워터마크는 PC에서 동작합니다.' },
+  }[kind] || null;
+  if(!items){ el.innerHTML = ''; return; }
+  if(t && kind === 'blog') t.textContent = items.title;
+  el.innerHTML = '<div class="card" style="border-color:#FDE68A;background:#FFFBEB">'
+    + '<div class="card-title">PC 프로그램 연결 필요</div>'
+    + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">이 업무는 <b>PC에 있는 프로그램</b>이 합니다. 웹 화면에서 바로 열 수 없습니다.<br>'
+    + '위치: <code style="font-size:11.5px">' + gEsc(items.where) + '</code></div></div>'
+    + '<div class="card" style="margin-top:10px"><div class="card-title">있는 기능</div><div style="font-size:12.5px;color:var(--t2);line-height:1.9">'
+    + items.what.map(x => '· ' + gEsc(x)).join('<br>') + '</div>'
+    + '<div style="font-size:12px;color:#B45309;margin-top:8px">' + gEsc(items.state) + '</div></div>';
 }
 
 /* ── 시작 ── */
@@ -10698,7 +11007,16 @@ function sxInit(){
 }
 (function(){
   const _go = go;
-  window.go = function(id){ _go(id); if(id === 'chief') chiefRender(); if(id === 'approval') approvalRender(); sxCrumb(id); };
+  window.go = function(id){ _go(id);
+    if(id === 'chief') chiefRender();
+    if(id === 'approval') approvalRender();
+    if(id === 'adcopy') acRender();
+    if(id === 'exblog') exRender('blog');
+    if(id === 'exthumb') exRender('thumb');
+    if(id === 'ops') opsRender();
+    if(id === 'changelog') clRender();
+    if(id === 'deploy') dpRender();
+    sxCrumb(id); };
 })();
 setTimeout(sxInit, 700);
 setTimeout(function(){ try{ sxRole(); sxNotiBadge(); }catch(e){} }, 2600);   // 서버 ping 으로 역할이 확정된 뒤 한 번 더
