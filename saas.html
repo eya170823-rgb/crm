@@ -932,7 +932,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 21:56</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 22:08</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -11308,7 +11308,7 @@ function sxSearch(q){
     .forEach(l => out.push({ k: '매물', t: [l.apt, l.addr2, l.type, l.price].filter(Boolean).join(' '), fn: "openModal('listing','" + l.id + "')" }));
   customers.filter(c => hit(c.name) || hit(c.phone)).slice(0,5)
     .forEach(c => out.push({ k: '고객', t: [c.name, c.role, c.propType, c.region].filter(Boolean).join(' '), fn: "openModal('customer','" + c.id + "')" }));
-  (typeof landlords !== 'undefined' ? landlords : []).filter(l => hit(l.name) || hit(l.apt)).slice(0,5)
+  ddArr('landlords').filter(l => hit(l.name) || hit(l.apt)).slice(0,5)
     .forEach(l => out.push({ k: '임대인', t: [l.name, l.apt, l.addr].filter(Boolean).join(' '), fn: "openLandlordModal('" + l.id + "')" }));
   contracts.filter(c => hit(c.apt) || hit(c.tenantName) || hit(c.landlordName)).slice(0,5)
     .forEach(c => out.push({ k: '계약', t: [c.apt, c.type, c.start].filter(Boolean).join(' '), fn: "sxGo('contract')" }));
@@ -11652,11 +11652,11 @@ function flowDaysLeft(d){ if(!d) return null; const t = new Date(String(d).slice
 /* 8단계 계산 — 각 단계: 건수 / 지연 / 담당자 / 마감 / 다음 행동 / 최근 이력 */
 function flowCompute(){
   const t = flowToday(), scope = flowMine(), me = flowWho();
-  const L = (typeof listings !== 'undefined' ? listings : []);
-  const C = (typeof customers !== 'undefined' ? customers : []);
-  const D = (typeof landlords !== 'undefined' ? landlords : []);
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
-  const V = (typeof visits !== 'undefined' ? visits : []);
+  const L = ddArr('listings');
+  const C = ddArr('customers');
+  const D = ddArr('landlords');
+  const K = ddArr('contracts');
+  const V = ddArr('visits');
   const done = s => /계약완료|임대중|거래완료/.test(String(s || ''));
   const own = (arr, fields) => arr.filter(x => flowOwned(x, fields));
   const out = {};
@@ -11762,8 +11762,8 @@ function flowRender(){
 /* ── 대표 핵심카드 6개 ── */
 function chiefKpi(){
   const t = flowToday(), mon = (typeof ym === 'function') ? ym() : t.slice(0, 7);
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
-  const V = (typeof visits !== 'undefined' ? visits : []);
+  const K = ddArr('contracts');
+  const V = ddArr('visits');
   const todayK = K.filter(c => String(c.start || '').slice(0, 10) === t).length;
   const monthK = K.filter(c => String(c.start || '').slice(0, 7) === mon);
   let fee = 0, unpaid = 0;
@@ -11805,8 +11805,8 @@ function chiefMineRender(){
 /* ── 직원 상단 핵심카드 6 ── */
 function flowKpi(){
   const d = flowCompute(), t = flowToday();
-  const V = (typeof visits !== 'undefined' ? visits : []);
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const V = ddArr('visits');
+  const K = ddArr('contracts');
   const me = flowWho(), scope = flowMine();
   const mineK = K.filter(c => scope === 'all' || !c.agent || c.agent === me);
   const weekEnd = new Date(new Date(t).getTime() + 7 * 86400000).toISOString().slice(0, 10);
@@ -11833,9 +11833,9 @@ function flowKpiRender(){
 
 /* ── 대표: 직원별 업무 ── */
 function staffBoard(){
-  const C = (typeof customers !== 'undefined' ? customers : []);
-  const D = (typeof landlords !== 'undefined' ? landlords : []);
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const C = ddArr('customers');
+  const D = ddArr('landlords');
+  const K = ddArr('contracts');
   const t = flowToday(), by = {};
   const put = (who, f) => { const w = String(who || '').trim() || '(미배정)'; (by[w] = by[w] || { cust: 0, land: 0, recall: 0, con: 0 })[f]++; };
   C.forEach(c => { put(c.ownerName, 'cust'); if(c.nextContact && String(c.nextContact).slice(0, 10) <= t) put(c.ownerName, 'recall'); });
@@ -11859,8 +11859,8 @@ function staffBoardHtml(){
 
 /* ── 대표: 계약 가능성 높은 5건 ── */
 function hotList(){
-  const C = (typeof customers !== 'undefined' ? customers : []);
-  const V = (typeof visits !== 'undefined' ? visits : []);
+  const C = ddArr('customers');
+  const V = ddArr('visits');
   const t = flowToday(), out = [];
   C.forEach(c => {
     if(/종료|취소/.test(String(c.progressStatus || ''))) return;
@@ -11894,9 +11894,9 @@ function hotHtml(){
 function weekHtml(){
   const t = flowToday();
   const end = new Date(new Date(t).getTime() + 7 * 86400000).toISOString().slice(0, 10);
-  const V = (typeof visits !== 'undefined' ? visits : []);
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
-  const C = (typeof customers !== 'undefined' ? customers : []);
+  const V = ddArr('visits');
+  const K = ddArr('contracts');
+  const C = ddArr('customers');
   const rows = [];
   V.filter(v => v.kind === '임장' && String(v.at || '').slice(0, 10) === t)
     .forEach(v => rows.push([t, '임장', (v.listingName || '') + ' ' + (v.customerName || ''), 'visit']));
@@ -11914,8 +11914,8 @@ function weekHtml(){
 
 /* ── 대표: 오늘 직접 결정할 업무 ── */
 function decideHtml(){
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
-  const L = (typeof listings !== 'undefined' ? listings : []);
+  const K = ddArr('contracts');
+  const L = ddArr('listings');
   const out = [];
   const wait = (typeof apData !== 'undefined' && apData && apData.counts) ? (apData.counts['요청'] || 0) : null;
   if(wait === null) out.push(['결재', '승인 대기 건수를 아직 못 읽었습니다', 'approval', true]);
@@ -11960,10 +11960,10 @@ function homeCard(label, title, body, action){
 function homeRender(){
   const el = document.getElementById('hm-body'); if(!el) return;
   const t = todayStr();
-  const V = (typeof visits !== 'undefined' ? visits : []);
-  const L = (typeof listings !== 'undefined' ? listings : []);
-  const C = (typeof customers !== 'undefined' ? customers : []);
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const V = ddArr('visits');
+  const L = ddArr('listings');
+  const C = ddArr('customers');
+  const K = ddArr('contracts');
   const who = (typeof crmWho === 'function') ? crmWho() : '';
   const hi = document.getElementById('hm-hi'); if(hi) hi.textContent = who + '님, 안녕하세요';
 
@@ -11990,7 +11990,7 @@ function homeRender(){
 
   // 2) 부서별 취합 — 대시보드는 여기 하나뿐이다 (2026-09-08 대표 지시)
   //    각 카드는 그 부서에서 지금 손봐야 할 것을 한 줄로 말하고, 바로 그 화면으로 보낸다.
-  const LD = (typeof landlords !== 'undefined' ? landlords : []);
+  const LD = ddArr('landlords');
   // 🔴 거래 가능 여부·광고 여부는 ddLive / ddAdOn 한 곳에서만 판정한다 (두 벌이면 숫자가 어긋난다)
   const liveL  = L.filter(ddLive);
   const noAd   = liveL.filter(l => !ddAdOn(l));
@@ -12097,9 +12097,9 @@ const GW_APPS = [
 ];
 function gwCounts(){
   const t = todayStr();
-  const V = (typeof visits !== 'undefined' ? visits : []);
-  const C = (typeof customers !== 'undefined' ? customers : []);
-  const K = (typeof contracts !== 'undefined' ? contracts : []);
+  const V = ddArr('visits');
+  const C = ddArr('customers');
+  const K = ddArr('contracts');
   const ap = (typeof apData !== 'undefined' && apData && apData.counts) ? apData.counts : null;
   const end = new Date(new Date(t).getTime() + 7 * 86400000).toISOString().slice(0, 10);
   const sched = V.filter(v => v.kind === '임장' && String(v.at || '').slice(0, 10) === t).length
@@ -13911,11 +13911,11 @@ function sxDeptOf(menuId){
 function sxCalRender(){
   const el = document.getElementById('sx-cal-body'); if(!el) return;
   const t = todayStr(), out = [];
-  (typeof visits !== 'undefined' ? visits : []).filter(v => v.kind === '임장' && String(v.at||'').slice(0,10) === t)
+  ddArr('visits').filter(v => v.kind === '임장' && String(v.at||'').slice(0,10) === t)
     .forEach(v => out.push(['임장', (v.listingName || '') + ' ' + String(v.at).slice(11), 'visit']));
-  (typeof customers !== 'undefined' ? customers : []).filter(c => c.nextContact && String(c.nextContact).slice(0,10) <= t)
+  ddArr('customers').filter(c => c.nextContact && String(c.nextContact).slice(0,10) <= t)
     .slice(0, 6).forEach(c => out.push(['연락', (c.name || '') + ' ' + (c.nextAction || ''), 'customer']));
-  (typeof contracts !== 'undefined' ? contracts : []).filter(c => c.end && String(c.end).slice(0,10) <= t)
+  ddArr('contracts').filter(c => c.end && String(c.end).slice(0,10) <= t)
     .slice(0, 5).forEach(c => out.push(['만기', c.apt || '', 'expiry']));
   el.innerHTML = out.length ? out.map(o => '<button onclick="sxGo(&#39;' + o[2] + '&#39;);sxPop(&#39;sx-cal&#39;)"><span class="sx-tag ref">' + gEsc(o[0]) + '</span> ' + gEsc(o[1]) + '</button>').join('')
     : '<a style="color:var(--t3)">오늘 잡힌 일정이 없습니다</a>';
