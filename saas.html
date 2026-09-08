@@ -929,7 +929,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 20:50</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 20:57</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -993,12 +993,9 @@ body{padding-bottom:46px}
       <div class="sx-grp" data-co="head" data-dept="그룹웨어">
         <div class="sx-grp-h">그룹웨어<em>포털·일정·결재·소통</em></div>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="gw" onclick="sxGo('gw',0,'그룹웨어')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>메인포털<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="approval" onclick="sxGo('approval',0,'그룹웨어')"><span class="sx-pri p3" title="필요할 때">3</span>전자결재<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="links" onclick="sxGo('links',0,'그룹웨어')">자료실</button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="minutes" onclick="sxGo('minutes',0,'그룹웨어')">회의록</button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="ref" onclick="sxGo('ref',0,'그룹웨어')">업무 자료실</button>
+          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="links" onclick="sxGo('links',0,'그룹웨어')">자료실</button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="guide" onclick="sxGo('guide',0,'그룹웨어')"><span class="sx-pri p3" title="필요할 때">3</span>직원 매뉴얼</button>
-          <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('소통(메신저·게시판·이메일)')">소통(메신저·게시판·이메일)<span class="sx-tag soon">준비 중</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
         <div class="sx-grp-h">관리부<em>만기·계약·인사·회계</em></div>
@@ -1025,7 +1022,7 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 원장</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">고객</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-cust" onclick="sxGo('dash-cust',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>고객 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>고객 전체<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')">고객 명부</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms" onclick="sxGo('sms',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>문자 발송</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">임대인</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="landlord" onclick="sxGo('landlord',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>임대인 명부<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
@@ -11224,7 +11221,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links"},{"label":"회의록","id":"minutes"},{"label":"업무 자료실","id":"ref"},{"label":"직원 매뉴얼","id":"guide"},{"label":"소통(메신저·게시판·이메일)"}]},{"dept":"관리부","desc":"만기·계약·인사·회계","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"만기 · 계약"},{"label":"만기 현황","id":"dash-expiry"},{"label":"계약 원장","id":"contract"},{"sub":"인사 · 회계"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"sub":"결재 · 설정"},{"label":"승인·보고함","id":"approval"},{"label":"환경 설정","id":"pref"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 만들기","id":"paste"},{"sub":"광고"},{"label":"광고 현황","id":"dash-ads"},{"label":"광고 원장","id":"ads"},{"sub":"고객"},{"label":"고객 현황","id":"dash-cust"},{"label":"고객 전체","id":"customer"},{"label":"문자 발송","id":"sms"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"회의록","id":"minutes"},{"label":"자료실","id":"links"},{"label":"직원 매뉴얼","id":"guide"}]},{"dept":"관리부","desc":"만기·계약·인사·회계","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"만기 · 계약"},{"label":"만기 현황","id":"dash-expiry"},{"label":"계약 원장","id":"contract"},{"sub":"인사 · 회계"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"sub":"결재 · 설정"},{"label":"승인·보고함","id":"approval"},{"label":"환경 설정","id":"pref"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 만들기","id":"paste"},{"sub":"광고"},{"label":"광고 현황","id":"dash-ads"},{"label":"광고 원장","id":"ads"},{"sub":"고객"},{"label":"고객 현황","id":"dash-cust"},{"label":"고객 명부","id":"customer"},{"label":"문자 발송","id":"sms"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -12050,18 +12047,22 @@ function homeRender(){
   const q = document.getElementById('hm-quick');
   if(q) q.innerHTML = HOME_QUICK.map(x => '<button class="hm-q" onclick="sxGo(&#39;' + x.id + '&#39;)"><i>' + homeIcon(x.d) + '</i><span>' + gEsc(x.n) + '</span></button>').join('');
 
-  // 1) 근태
-  const inT = V.filter(v => v.kind === '출근' && String(v.at || '').slice(0, 10) === t);
-  const outT = V.filter(v => v.kind === '복귀' && String(v.at || '').slice(0, 10) === t);
-  const att = inT.length
-    ? '<b>' + String(inT[0].at).slice(11) + ' 출근</b>' + (outT.length ? ' · ' + String(outT[0].at).slice(11) + ' 복귀' : '')
-    : '<b>아직 출근 전입니다</b>';
-  const attAct = inT.length
-    ? (outT.length ? '<button class="btn btn-sm" onclick="sxGo(&#39;visit&#39;)">임장 기록 보기</button>'
-                   : '<button class="btn btn-g btn-sm" onclick="visitAttend(&#39;복귀&#39;).then(homeRender)">복귀 찍기</button>')
-    : '<button class="btn btn-g btn-sm" onclick="visitAttend(&#39;출근&#39;).then(homeRender)">지금 출근하기</button>';
-  const c1 = homeCard('근태관리', att,
-    '<div class="hm-s">오늘 임장 ' + V.filter(v => v.kind === '임장' && String(v.at || '').slice(0, 10) === t).length + '건</div>', attAct);
+  // 1) 오늘 일정 — 근태 대신(폰으로 되는 일이라 회사 화면에 둘 필요가 없다, 2026-09-08 대표 지시)
+  const d7 = new Date(new Date(t + 'T00:00:00').getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const todayVisit = V.filter(v => v.kind === '임장' && String(v.at || '').slice(0, 10) === t);
+  const todayCall = C.filter(c => c.nextContact && String(c.nextContact).slice(0, 10) === t);
+  const soonEnd = K.filter(c => String(c.end || '').slice(0, 10) >= t && String(c.end || '').slice(0, 10) <= d7);
+  const todayN = todayVisit.length + todayCall.length;
+  const att = todayN
+    ? '오늘 할 일 <b>' + todayN + '</b>건'
+    : '<b>오늘 잡힌 일정이 없습니다</b>';
+  const attSub = '<div class="hm-s">'
+    + '임장 ' + todayVisit.length + '건 · 연락 ' + todayCall.length + '명'
+    + (soonEnd.length ? ' · 7일 내 만기 ' + soonEnd.length + '건' : '')
+    + (todayCall.length ? '<br>' + gEsc(todayCall.slice(0, 3).map(c => c.name || '').filter(Boolean).join(' · ')) : '')
+    + '</div>';
+  const c1 = homeCard('오늘 일정', att, attSub,
+    '<button class="btn btn-sm" onclick="sxGo(&#39;csched&#39;)">일정 보기</button>');
 
   // 2) 매물 검수 진도
   const act = L.filter(l => !/계약완료|임대중|거래완료/.test(String(l.status || '')));
@@ -12070,15 +12071,6 @@ function homeRender(){
   const c2 = homeCard('매물 검수', '진행 매물 <b>' + act.length + '</b>건 중 <b>' + okN + '</b>건 검증 통과',
     homeBar(pct, 'var(--g)') + '<div class="hm-s">' + Math.round(pct) + '% · 미검증은 직원 화면에서 연락처가 가려집니다</div>',
     '<button class="btn btn-sm" onclick="sxGo(&#39;audit&#39;)">검수 화면</button>');
-
-  // 3) 전자결재
-  const wait = (typeof apData !== 'undefined' && apData && apData.counts) ? (apData.counts['요청'] || 0) : null;
-  const over = (typeof apData !== 'undefined' && apData && apData.counts) ? (apData.counts['기한초과'] || 0) : null;
-  const c3 = homeCard('전자결재',
-    wait === null ? '<b class="hm-na">아직 불러오지 않았습니다</b>' : '결재 대기 <b>' + wait + '</b>건',
-    wait === null ? '<div class="hm-s">화면을 열면 불러옵니다</div>'
-      : '<div class="hm-s">' + (over ? '기한 지난 건 ' + over + '건' : '기한 지난 건 없음') + '</div>',
-    '<button class="btn btn-sm" onclick="sxGo(&#39;approval&#39;)">승인·보고함</button>');
 
   // 4) 재접촉
   const rc = C.filter(c => c.nextContact && String(c.nextContact).slice(0, 10) <= t);
@@ -12104,7 +12096,7 @@ function homeRender(){
     '<div class="hm-s">조회 ' + views + ' · 문의 ' + inq + ' <span class="hm-na">(광고주 화면에서 손으로 옮겨 적은 값)</span></div>',
     '<button class="btn btn-sm" onclick="sxGo(&#39;ads&#39;)">광고 관리</button>');
 
-  el.innerHTML = c1 + c2 + c3 + c4 + c5 + c6;
+  el.innerHTML = c1 + c2 + c4 + c5 + c6;
 
   // 오른쪽 위젯
   const w = document.getElementById('hm-side');
@@ -12141,6 +12133,7 @@ const GW_APPS = [
   { n: '매물',   go: 'listing' }, { n: '고객', go: 'customer' }, { n: '임대인', go: 'landlord' },
   { n: '계약',   go: 'contract' }, { n: '정산', go: 'payout' },  { n: '광고',   go: 'ads' },
   { n: '검수',   go: 'audit' },    { n: '매뉴얼', go: 'guide' },
+  { n: '회의록', go: 'minutes' },  { n: '업무 자료실', go: 'ref' },
 ];
 function gwCounts(){
   const t = todayStr();
@@ -12358,52 +12351,41 @@ function ddRender(id){
   let h = '';
 
   if(id === 'dash-cust'){
-    // 👥 고객 현황 — 역할·진행상태·재접촉을 실제 고객 자료에서 센다
+    // 👥 고객 현황 — 자주 쓰는 것 위로, 그래프는 꼭 필요한 하나만 (2026-09-08 단순화)
     const owner = C.filter(c => String(c.role || '') === '임대인');
     const buyer = C.filter(c => String(c.role || '') === '임차인');
     const ask = C.filter(c => { const r = String(c.role || '').trim(); return !r || (r !== '임대인' && r !== '임차인'); });
-    const live2 = C.filter(c => String(c.progressStatus || '') !== '종료');
     const due = C.filter(c => c.nextContact && ddDay(c.nextContact) <= t);
-    const rows = C.slice().sort((a, b) => ddDay(b.recvDate).localeCompare(ddDay(a.recvDate))).slice(0, 10)
+    const rows = C.slice().sort((x, y) => ddDay(y.recvDate).localeCompare(ddDay(x.recvDate))).slice(0, 10)
       .map(c => [c.name || '-', c.role || '문의', c.propType || '-', c.region || '-',
-                 c.progressStatus || '-', ddDay(c.nextContact) || '-', ddDay(c.recvDate) || '-']);
+                 c.progressStatus || '-', ddDay(c.nextContact) || '-']);
     h = '<div class="dd-kpi">'
-      + ddCard('매도·임대인', owner.length, '집을 내놓는 쪽', 'customer')
-      + ddCard('매수·임차인', buyer.length, '집을 찾는 쪽', 'customer')
-      + ddCard('문의 고객', ask.length, '아직 구분하지 않은 고객', 'customer')
-      + ddCard('오늘까지 재접촉', due.length, '연락하기로 한 날이 지났거나 오늘', 'customer') + '</div>'
+      + ddCard('매도·임대인', owner.length, '집을 내놓는 쪽')
+      + ddCard('매수·임차인', buyer.length, '집을 찾는 쪽')
+      + ddCard('문의 고객', ask.length, '아직 구분 안 함')
+      + ddCard('오늘까지 연락', due.length, '약속한 날이 지났거나 오늘') + '</div>'
+      + '<div class="dd-c"><div class="dd-h">바로 가기</div><div class="dd-lk">'
+      + '<button class="dd-lkb" onclick="inboxGo()"><b>📥 문의 인입함</b><em>문자·통화가 자동으로 쌓입니다</em></button>'
+      + '<button class="dd-lkb" onclick="custRole(&#39;임대인&#39;)"><b>매도·임대인만</b><em>집을 내놓는 쪽</em></button>'
+      + '<button class="dd-lkb" onclick="custRole(&#39;임차인&#39;)"><b>매수·임차인만</b><em>집을 찾는 쪽</em></button>'
+      + '<button class="dd-lkb" onclick="custRole(&#39;문의&#39;)"><b>문의 고객만</b><em>아직 구분 안 한 고객</em></button>'
+      + '</div></div>'
+      + '<div class="dd-row">'
       + ddStack('구분', [{ n: '매도·임대인', v: owner.length }, { n: '매수·임차인', v: buyer.length }, { n: '문의', v: ask.length }])
-      + '<div class="dd-row">' + ddBars('찾는 매물 유형', ddTop(C, c => c.propType, 7))
       + ddDonut('진행 상태', [
           { n: '진행중', v: C.filter(c => String(c.progressStatus || '') === '진행중').length },
           { n: '종료', v: C.filter(c => String(c.progressStatus || '') === '종료').length },
           { n: '표시 없음', v: C.filter(c => !String(c.progressStatus || '').trim()).length },
         ]) + '</div>'
-      + '<div class="dd-row3">' + ddLine('최근 6개월 고객 접수', ddMonths(C, c => c.recvDate))
-      + ddBars('지역별', ddTop(C, c => c.region, 6)) + '</div>'
-      + ddTable('최근 고객', ['이름', '구분', '유형', '지역', '진행', '다음 연락', '접수일'], rows,
-          '개인정보는 이름만 보입니다. 연락처는 고객 화면에서 확인하세요.', 'customer')
-      + '<div class="dd-c"><div class="dd-h">문의가 들어오는 길</div><div class="s">'
-      + '문자·전화로 들어온 문의는 고객 화면 위쪽 인입함에 쌓입니다. 상담 내용과 통화 요약도 같은 고객에 붙여 봅니다.</div>'
-      + '<button class="dd-go" onclick="sxGo(&#39;customer&#39;)">고객 전체 →</button> '
-      + '<button class="dd-go" onclick="sxGo(&#39;vito&#39;)">상담·통화요약 →</button></div>'
-      + '<div class="dd-c"><div class="dd-h">구분해서 보기</div><div class="dd-lk">'
-      + '<button class="dd-lkb" onclick="inboxGo()"><b>📥 문의 인입함</b><em>문자·통화가 자동으로 쌓입니다</em></button>'
-      + '<button class="dd-lkb" onclick="custRole(&#39;임대인&#39;)"><b>매도·임대인</b><em>집을 내놓는 쪽</em></button>'
-      + '<button class="dd-lkb" onclick="custRole(&#39;임차인&#39;)"><b>매수·임차인</b><em>집을 찾는 쪽</em></button>'
-      + '<button class="dd-lkb" onclick="custRole(&#39;문의&#39;)"><b>문의 고객</b><em>아직 구분 안 한 고객</em></button>'
-      + '<button class="dd-lkb" onclick="sxGo(&#39;vito&#39;)"><b>상담내역</b><em>지난 통화·상담</em></button>'
-      + '<button class="dd-lkb" onclick="sxGo(&#39;sms5&#39;)"><b>문자 고르기</b><em>접수·매물·공실·미팅·일정</em></button>'
-      + '<button class="dd-lkb" onclick="sxGo(&#39;visit&#39;)"><b>임장</b><em>보여 줄 날 잡기</em></button>'
-      + '</div></div>'
+      + ddTable('최근 고객', ['이름', '구분', '유형', '지역', '진행', '다음 연락'], rows,
+          '이름만 보입니다. 연락처는 고객 명부에서 확인하세요.', 'customer')
       + ddLink([
-          { n: '일정관리', w: '언제 연락하기로 했는지', go: 'csched', dept: '운영부' },
-          { n: '맞춤매물', w: '조건에 맞는 방 찾기', go: 'match', dept: '운영부' },
+          { n: '고객 명부', w: '고치고 등록하기', go: 'customer', dept: '운영부' },
           { n: '상담내역', w: '지난 통화·상담', go: 'vito', dept: '운영부' },
-          { n: '문자 발송', w: '고른 고객에게 보내기', go: 'sms', dept: '운영부' },
-          { n: '임장', w: '보여 줄 집 잡기', go: 'visit', dept: '운영부' },
-          { n: '계약 원장', w: '계약으로 넘어간 건', go: 'contract', dept: '관리부' },
-          { n: '만기 현황', w: '재계약 대상', go: 'dash-expiry', dept: '관리부' },
+          { n: '맞춤매물', w: '조건에 맞는 방', go: 'match', dept: '운영부' },
+          { n: '일정관리', w: '언제 연락할지', go: 'csched', dept: '운영부' },
+          { n: '문자 고르기', w: '접수·매물·미팅 문안', go: 'sms5', dept: '운영부' },
+          { n: '임장', w: '보여 줄 날 잡기', go: 'visit', dept: '운영부' },
         ]);
   }
   else if(id === 'dash-expiry'){
@@ -13267,7 +13249,7 @@ function cschedRender(){
     + ddTable('가까운 일정', ['날짜', '남은 날', '무슨 일', '누구', '내용'], tbl,
         '이름만 보입니다. 연락처는 고객 화면에서 확인하세요.', 'customer')
     + ddLink([
-        { n: '고객 전체', w: '다음 연락 날짜 고치기', go: 'customer', dept: '운영부' },
+        { n: '고객 명부', w: '다음 연락 날짜 고치기', go: 'customer', dept: '운영부' },
         { n: '상담내역', w: '지난 통화·상담 내용', go: 'vito', dept: '운영부' },
         { n: '문자 고르기', w: '미팅·일정 문자', go: 'sms5', dept: '운영부' },
         { n: '만기 현황', w: '계약 쪽 기한', go: 'dash-expiry', dept: '관리부' },
@@ -13331,7 +13313,7 @@ function matchRender(){
         '기존 CRM 의 매칭(유형 40 · 종류 20 · 지역 25 · 면적 15점)에 요구조건 가점을 더한 값입니다. 예산·입주일은 눈으로 확인하세요.', 'listing')
     + (scored.length ? '' : '<div class="dd-c"><div class="s">맞는 매물이 없습니다. 고객의 유형·지역이 비어 있으면 맞출 수 없습니다 — 고객 화면에서 채워 주세요.</div></div>')
     + ddLink([
-        { n: '고객 전체', w: '조건 고치기', go: 'customer', dept: '운영부' },
+        { n: '고객 명부', w: '조건 고치기', go: 'customer', dept: '운영부' },
         { n: '매물장', w: '매물 자세히 보기', go: 'listing', dept: '운영부' },
         { n: '문자 고르기', w: '매물문자로 보내기', go: 'sms5', dept: '운영부' },
         { n: '임장', w: '보여 줄 날 잡기', go: 'visit', dept: '운영부' },
@@ -13969,16 +13951,81 @@ function recRender(){
       ? '<div style="font-size:12.5px;color:var(--t2);line-height:1.8">녹음이 끝났습니다. 아래에서 듣고 <b>파일로 저장</b>하세요.</div>'
         + '<div style="margin-top:9px">' + res.innerHTML + '</div>'
       : '<div style="font-size:12.5px;color:var(--t2);line-height:1.8">아직 녹음한 것이 없습니다. 위 <b>녹음</b> 단추를 누르면 시작합니다.</div>')
-    + '<div class="dd-h" style="margin:14px 0 8px">받아쓴 글을 어디로 보낼까요</div>'
-    + '<div class="dd-lk">'
-    + '<button class="dd-lkb" onclick="minFromText()"><b>회의록으로</b><em>제목·정한 것·할 일 틀에 맞춰 정리</em></button>'
-    + '<button class="dd-lkb" onclick="minToMemo()"><b>내 메모로</b><em>짧은 말은 그냥 메모에</em></button>'
-    + '</div>'
+    + (function(){
+        const tv = String((document.getElementById('vm-text') || {}).value || '').trim();
+        if(!tv) return '<div class="s" style="margin-top:12px">받아쓴 글이 없습니다. 녹음 화면에서 <b>말하기</b>를 켜면 글이 적힙니다.</div>';
+        const g = recGuess(tv);
+        const B = [['minutes', '회의록', '제목·정한 것·할 일로 정리'], ['talk', '고객 상담', '상담내역에 남기기'],
+                   ['listing', '매물 만들기', '주소·금액을 뽑아 등록'], ['memo', '내 메모', '짧은 말은 메모로']];
+        return '<div class="dd-c" style="border-color:' + (g.kind === 'ask' ? '#FDE68A' : '#BFE0D3')
+          + ';background:' + (g.kind === 'ask' ? '#FFFBEB' : '#F2FAF6') + ';margin-top:12px">'
+          + '<div class="card-title">' + (g.kind === 'ask' ? '어디로 보낼지 모르겠습니다' : '「' + g.name + '」 같습니다')
+          + '</div><div style="font-size:12px;color:var(--t2);line-height:1.7">'
+          + (g.why ? '왜 · ' + gEsc(g.why) + '<br>' : '') + '글자 ' + g.len + '자<br>'
+          + '<b>맞으면 아래에서 눌러 주세요.</b> 저절로 보내지 않습니다.</div></div>'
+          + '<div class="dd-lk" style="margin-top:8px">'
+          + B.map(b => '<button class="dd-lkb"' + (b[0] === g.kind ? ' style="border-color:var(--navy);background:var(--navy-l)"' : '')
+              + ' onclick="recSend(&#39;' + b[0] + '&#39;)"><b>' + gEsc(b[1]) + (b[0] === g.kind ? ' ←' : '')
+              + '</b><em>' + gEsc(b[2]) + '</em></button>').join('')
+          + '</div>';
+      })()
     + '<div style="margin-top:10px">'
     + '<button class="dd-go" onclick="sxGo(&#39;minutes&#39;);sxPop(&#39;sx-rec&#39;)">회의록 보기 →</button> '
     + '<button class="dd-go" onclick="sxGo(&#39;vito&#39;);sxPop(&#39;sx-rec&#39;)">녹음 화면 →</button></div>'
     + '<div class="s">🔴 녹음은 이 기기 안에만 있습니다. 어디로도 올라가지 않습니다.<br>'
     + '폰 통화 녹음은 이것과 별개로 서버가 자동으로 글로 바꿔 인입함에 쌓습니다.</div>';
+}
+/* ── 🎯 받아쓴 글이 어디로 갈지 가려내기 (2026-09-08 대표 선택: 보여주고 확인받기) ──
+   🔴 AI 를 쓰지 않는다. 글에 있는 말로만 가른다. 왜 그렇게 봤는지 근거를 함께 보여 준다.
+   🔴 저절로 보내지 않는다 — 대표가 눌러야 옮겨진다. */
+function recGuess(t){
+  const x = String(t || '');
+  const n = x.replace(/\s/g, '').length;
+  const hit = (re) => { const m = x.match(re); return m ? m[0] : ''; };
+  const why = [];
+  let kind = 'memo';
+  const meet = hit(/회의|안건|참석|다음s*주|정했|결정|보고|주간|월간|회식|교육/);
+  const talk = hit(/보증금|월세|전세|매매|평수|입주|계약|보러|방문|문의|연락처|고객님|사장님/);
+  const addr = hit(/[가-힣]{1,6}(?:동|리|가)\s*(?:산\s*)?\d+(?:-\d+)?/);
+  const money = hit(/\d[\d,]*\s*[\/／]\s*\d[\d,]*|\d+\s*억|보증금\s*\d/);
+  const phone = hit(/01[016-9][-. ]?\d{3,4}[-. ]?\d{4}/);
+  // 🔴 주소나 금액이 보이면 길이와 상관없이 매물로 본다 (짧아도 매물 문자가 많다)
+  if(addr && (money || /호|층|평|㎡/.test(x))){ kind = 'listing'; why.push('주소 ' + addr, money ? '금액 ' + money : '호수·층 표기'); }
+  else if(money && /호|층|평|㎡|원룸|투룸|오피스텔|아파트/.test(x)){ kind = 'listing'; why.push('금액 ' + money); }
+  else if(meet){ kind = 'minutes'; why.push('"' + meet + '" 이 나옴'); }
+  else if(talk || phone){ kind = 'talk'; if(talk) why.push('"' + talk + '" 이 나옴'); if(phone) why.push('전화번호 있음'); }
+  else if(n < 30){ kind = 'memo'; why.push('짧은 말(' + n + '자)'); }
+  else { kind = 'ask'; why.push('가릴 만한 말이 없음'); }
+  if(kind !== 'ask' && n >= 200 && kind === 'memo'){ kind = 'minutes'; why.push('글이 길어(' + n + '자) 회의로 봄'); }
+  const NAME = { minutes: '회의록', talk: '고객 상담', listing: '매물 만들기', memo: '내 메모', ask: '모르겠음' };
+  return { kind: kind, name: NAME[kind], why: why.join(' · '), len: n };
+}
+function recSend(kind){
+  const t = document.getElementById('vm-text');
+  const v = String(t ? t.value : '').trim();
+  if(!v){ showToast('받아쓴 글이 없습니다'); return; }
+  if(kind === 'minutes'){ minFromText(); return; }
+  if(kind === 'memo'){ minToMemo(); return; }
+  if(kind === 'listing'){
+    sxPop('sx-rec');
+    sxGo('paste', 0, '운영부');
+    setTimeout(function(){
+      const box = document.getElementById('pz-in');
+      if(box){ box.value = v; try{ pzRun(); }catch(e){} }
+      if(t) t.value = '';
+      showToast('매물로 뽑았습니다 — 확인하고 등록 창에 채우세요');
+    }, 420);
+    return;
+  }
+  if(kind === 'talk'){
+    // 고객 상담 → 상담내역(음성 메모)으로 남기고 고객 화면으로
+    try{ if(typeof vmSaveQuickMemo === 'function'){ vmSaveQuickMemo(); } }catch(e){}
+    sxPop('sx-rec');
+    sxGo('vito', 0, '운영부');
+    showToast('상담내역에 남겼습니다 — 고객과 이어 주세요');
+    return;
+  }
+  showToast('어디로 보낼지 골라 주세요');
 }
 /* ── 📥 문의 인입함 열기 — 고객 화면 안쪽에 있어 눈에 안 띈다 ── */
 function inboxGo(){
