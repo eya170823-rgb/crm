@@ -348,11 +348,19 @@ body,button,input,select,textarea{font-family:Pretendard,-apple-system,BlinkMacS
   --a:#C2410C; --al:#FDEBE1;            /* 금색 제거 */
   --shell-h:56px; --nav-w:280px; --rail-w:76px;
 }
+/* 📱 아이패드 세로(761~1000px): 옆 메뉴를 그대로 두고 폭만 줄여 본문을 넓힌다 (2026-09-08 대표 지적) */
+@media(min-width:761px) and (max-width:1000px){
+  :root{ --nav-w:230px; --rail-w:64px; }
+  .sx-item{font-size:12.5px;padding:8px 10px 8px 16px}
+  .sx-rail-b span{font-size:9.5px}
+  .main{padding:14px 12px}
+}
 body{font-size:13px}
 .layout{display:grid;grid-template-columns:var(--nav-w) 1fr;grid-template-rows:var(--shell-h) 1fr;min-height:100vh}
 /* 아이폰·아이패드 위쪽 안전영역(노치·브라우저 단추)만큼 내려 준다 — 겹쳐서 안 눌리던 것 */
 .sx-top{grid-column:1 / -1;display:flex;align-items:center;gap:14px;background:var(--navy);color:#fff;padding:env(safe-area-inset-top) 16px 0;position:sticky;top:0;z-index:120;min-height:calc(var(--shell-h) + env(safe-area-inset-top))}
-.sx-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.2px;white-space:nowrap}
+.sx-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;letter-spacing:-.2px;white-space:nowrap;background:none;border:0;color:inherit;cursor:pointer;padding:6px 4px;font-family:inherit}
+.sx-logo:hover{opacity:.85}
 .sx-logo i{display:inline-block;width:22px;height:22px;border-radius:6px;background:#fff;color:var(--navy);font-style:normal;font-weight:800;font-size:13px;text-align:center;line-height:22px}
 .sx-co{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:8px;padding:6px 10px;font-size:12.5px;cursor:pointer}
 .sx-co select{background:transparent;border:0;color:#fff;font-size:12.5px;font-weight:600;outline:none;cursor:pointer}
@@ -424,7 +432,7 @@ table td,table th{font-size:12.5px}
 .mobile-menu-btn,#mobile-menu-btn{display:none!important;visibility:hidden!important;pointer-events:none!important}
 .sx-burger{display:none;width:44px;height:44px;border:0;background:rgba(255,255,255,.16);color:#fff;border-radius:10px;font-size:19px;cursor:pointer;flex:0 0 auto;-webkit-tap-highlight-color:transparent}
 .sx-burger:active{background:rgba(255,255,255,.3)}
-@media(max-width:900px){
+@media(max-width:760px){
   .layout{grid-template-columns:1fr}
   .sx-burger{display:block}
   .sx-logo span{display:none}
@@ -442,7 +450,7 @@ table td,table th{font-size:12.5px}
 }
 /* 대표 홈 */
 .ch-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
-@media(max-width:900px){.ch-row{grid-template-columns:1fr}}
+@media(max-width:760px){.ch-row{grid-template-columns:1fr}}
 /* ② 폰에서 부서 카드가 2열이면 숫자·설명이 잘린다 */
 @media(max-width:520px){.mod-grid{grid-template-columns:1fr}}
 .sx-back{display:none;align-items:center;gap:5px;background:none;border:0;color:var(--t2);font-size:12.5px;cursor:pointer;padding:4px 0;margin:-4px 0 8px}
@@ -691,7 +699,7 @@ body{padding-bottom:46px}
 .gw-empty{font-size:12.5px;color:var(--t3);padding:12px 2px}
 .gw-note{font-size:10.5px;color:var(--t3);margin-top:10px;border-top:1px dashed var(--border);padding-top:8px}
 @media(max-width:1200px){.gw-wrap{grid-template-columns:170px 1fr}.gw-side{grid-column:1 / -1}.gw-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:900px){.gw-wrap{grid-template-columns:1fr}.gw-left{flex-direction:row}.gw-me{flex:1}.gw-apps{flex:2}.gw-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.gw-wrap{grid-template-columns:1fr}.gw-left{flex-direction:row}.gw-me{flex:1}.gw-apps{flex:2}.gw-grid{grid-template-columns:repeat(2,1fr)}}
 /* 홈 대시보드 */
 .hm-hero{background:linear-gradient(160deg,#EAF1F8 0%,#F7FAFC 60%,#fff 100%);border:1px solid var(--border);border-radius:18px;padding:26px 22px 20px;text-align:center;margin-bottom:16px}
 .hm-hi{font-size:20px;font-weight:800;color:var(--navy)}
@@ -722,7 +730,7 @@ body{padding-bottom:46px}
 .hm-wl{font-size:11px;color:var(--t2)}
 .hm-wv{font-size:22px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;line-height:1.2}
 @media(max-width:1200px){.hm-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:900px){.hm-wrap{grid-template-columns:1fr}.hm-sidecol{flex-direction:row;flex-wrap:wrap}.hm-w{flex:1;min-width:140px}}
+@media(max-width:760px){.hm-wrap{grid-template-columns:1fr}.hm-sidecol{flex-direction:row;flex-wrap:wrap}.hm-w{flex:1;min-width:140px}}
 @media(max-width:640px){.hm-grid{grid-template-columns:1fr}.hm-hero{padding:18px 14px 14px}.hm-hi{font-size:17px}}
 .fl-link{margin-top:8px;font-size:12.5px;color:var(--t2);background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
 @media(max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr)}.fl-grid{grid-template-columns:repeat(2,1fr)}.mine-grid{grid-template-columns:repeat(2,1fr)}}
@@ -863,7 +871,7 @@ body{padding-bottom:46px}
 <div class="layout">
 <div class="sx-top">
   <button class="sx-burger" onclick="sxDrawer()" title="메뉴">☰</button>
-  <div class="sx-logo"><i>B</i> <span>브리즈 SaaS</span></div>
+  <button class="sx-logo" onclick="sxGo('home')" title="처음 화면으로"><i>B</i> <span>브리즈 SaaS</span></button>
   <div class="sx-co"><select id="sx-co" onchange="sxCompany(this.value)">
     <option value="head">브리즈부동산중개</option>
     <option value="design">브리즈디자인</option>
@@ -874,6 +882,7 @@ body{padding-bottom:46px}
   <div class="sx-right">
     <button class="sx-btn" onclick="sxPop('sx-new')" title="빠른등록">＋ 빠른등록</button>
     <button class="sx-btn" onclick="sxPop('sx-cal')" title="오늘 일정">오늘 일정</button>
+    <button class="sx-btn" onclick="sxGo('home')" title="처음 화면으로">홈</button>
     <button class="sx-btn" onclick="sxPop('sx-memo')" title="메모 — 생각나면 바로 적기">메모</button>
     <button class="sx-btn" id="sx-deploy-b" data-admin="1" onclick="sxGo('deploy')" title="배포 관리 — 지금 버전과 배포 절차 보기">배포</button>
     <button class="sx-btn" onclick="sxAi()" title="AI 직원">AI 직원</button>
@@ -908,7 +917,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 20:37</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 20:46</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -921,16 +930,16 @@ body{padding-bottom:46px}
       <button class="sx-rail-b" data-co="head" data-dept="그룹웨어" data-home="gw" onclick="sxRail('그룹웨어')" title="그룹웨어 · 포털·일정·결재·소통">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></i><span>그룹웨어</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="관리부" data-home="dash-admin" onclick="sxRail('관리부')" title="관리부 · 사무·인사·회계·결재·경영">
+      <button class="sx-rail-b" data-co="head" data-dept="관리부" data-home="dash-admin" onclick="sxRail('관리부')" title="관리부 · 만기·계약·인사·회계">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg></i><span>관리부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="운영부" data-home="dash-ops" onclick="sxRail('운영부')" title="운영부 · 매물·광고·사진·고객·임대인">
+      <button class="sx-rail-b" data-co="head" data-dept="운영부" data-home="dash-ops" onclick="sxRail('운영부')" title="운영부 · 매물·광고·고객·임대인">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l7-3v17"/><path d="M11 21V10l9 3v8"/><path d="M7 10h1M7 14h1M15 15h1"/></svg></i><span>운영부</span>
       </button>
       <button class="sx-rail-b" data-co="head" data-dept="마케팅부" data-home="dash-mk" onclick="sxRail('마케팅부')" title="마케팅부 · 노출 채널 · 자동화">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10v4h3l6 4V6l-6 4H5Z"/><path d="M18 9a4 4 0 0 1 0 6"/></svg></i><span>마케팅부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="법무팀" data-home="dash-legal" onclick="sxRail('법무팀')" title="법무팀 · 계약·권리·분쟁">
+      <button class="sx-rail-b" data-co="head" data-dept="법무팀" data-home="dash-legal" onclick="sxRail('법무팀')" title="법무팀 · 계약·보증금·위험">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v15"/><path d="M6 8h12"/><path d="M6 8 4 13h4Z"/><path d="M18 8l-2 5h4Z"/></svg></i><span>법무팀</span>
       </button>
       <button class="sx-rail-b" data-co="head" data-dept="개발부" data-admin="1" data-home="dash-dev" onclick="sxRail('개발부')" title="개발부 · 설계·개발·운영">
@@ -972,7 +981,6 @@ body{padding-bottom:46px}
       <div class="sx-grp" data-co="head" data-dept="그룹웨어">
         <div class="sx-grp-h">그룹웨어<em>포털·일정·결재·소통</em></div>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="gw" onclick="sxGo('gw',0,'그룹웨어')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>메인포털<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="dash-expiry" onclick="sxGo('dash-expiry',0,'그룹웨어')"><span class="sx-pri p3" title="필요할 때">3</span>일정관리 · 만기알림<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span><span class="sx-tag ref">참조</span></button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="approval" onclick="sxGo('approval',0,'그룹웨어')"><span class="sx-pri p3" title="필요할 때">3</span>전자결재<span class="sx-tag ref">참조</span></button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="links" onclick="sxGo('links',0,'그룹웨어')">자료실</button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="ref" onclick="sxGo('ref',0,'그룹웨어')">업무 자료실</button>
@@ -982,149 +990,59 @@ body{padding-bottom:46px}
           <button class="sx-item soon" data-co="head" data-grp="그룹웨어" data-menu="" onclick="sxSoon('이메일')">이메일<span class="sx-tag soon">준비 중</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
-        <div class="sx-grp-h">관리부<em>사무·인사·회계·결재·경영</em></div>
+        <div class="sx-grp-h">관리부<em>만기·계약·인사·회계</em></div>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="dash-admin" onclick="sxGo('dash-admin',0,'관리부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>관리부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">사무관리</div>
+          <div class="sx-sub" data-co="head" data-grp="관리부">만기 · 계약</div>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="dash-expiry" onclick="sxGo('dash-expiry',0,'관리부')"><span class="sx-pri p1" title="매일 여는 것">1</span>만기 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="expiry" onclick="sxGo('expiry',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>만기·일정 목록</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="links" onclick="sxGo('links',0,'관리부')">자료실<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('문서함')">문서함<span class="sx-tag soon">준비 중</span></button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">계약관리</div>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract" onclick="sxGo('contract',0,'관리부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>계약 원장</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="" onclick="cwDoc()"><span class="sx-pri p3" title="필요할 때">3</span>공부데이터 자동입력</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>계약서 관리·출력<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('위수탁계약')">위수탁계약<span class="sx-tag soon">준비 중</span></button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">환경 설정</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="pref" onclick="sxGo('pref',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>환경 설정</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="" onclick="openGsSetup()">연동·토큰 설정</button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">인사관리 (근태·급여·퇴직)</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="visit" onclick="sxGo('visit',0,'관리부')">근태·임장<span class="sx-tag ref">참조</span></button>
+          <div class="sx-sub" data-co="head" data-grp="관리부">인사 · 회계</div>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="staff" data-admin="1" onclick="sxGo('staff',0,'관리부')">인사·직원</button>
-          <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('급여·퇴직')">급여·퇴직<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="guide" onclick="sxGo('guide',0,'관리부')">교육 이력<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">회계관리 (자금·금융·세무)</div>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="payout" onclick="sxGo('payout',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>회계·정산</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="" onclick="window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')">세금 계산기</button>
-          <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('매출·비용')">매출·비용<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('자금·금융서비스 연계')">자금·금융서비스 연계<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('세무 신고 자료')">세무 신고 자료<span class="sx-tag soon">준비 중</span></button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">전자결재</div>
+          <div class="sx-sub" data-co="head" data-grp="관리부">결재 · 설정</div>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="approval" onclick="sxGo('approval',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>승인·보고함</button>
-          <button class="sx-item soon" data-co="head" data-grp="관리부" data-menu="" onclick="sxSoon('보고 취합')">보고 취합<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="memo" onclick="sxGo('memo',0,'관리부')">메모·요구사항<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="관리부">경영관리</div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="dash-ads" onclick="sxGo('dash-ads',0,'관리부')">광고 성과<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="stats" data-admin="1" onclick="sxGo('stats',0,'관리부')">경영 통계<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="chief" data-admin="1" onclick="sxGo('chief',0,'관리부')">대표 홈<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="pref" onclick="sxGo('pref',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>환경 설정</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="운영부">
-        <div class="sx-grp-h">운영부<em>매물·광고·사진·고객·임대인</em></div>
+        <div class="sx-grp-h">운영부<em>매물·광고·고객·임대인</em></div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-ops" onclick="sxGo('dash-ops',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>운영부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">매물관리</div>
+          <div class="sx-sub" data-co="head" data-grp="운영부">매물</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-listing" onclick="sxGo('dash-listing',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>매물장 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>매물장</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="paste" onclick="sxGo('paste',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>붙여넣어 매물 만들기<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="map" onclick="sxGo('map',0,'운영부')"><span class="sx-pri p3" title="필요할 때">3</span>지도로 보기</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="apt" onclick="sxGo('apt',0,'운영부')"><span class="sx-pri p3" title="필요할 때">3</span>시세 조회(참고)</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="adcopy" onclick="sxGo('adcopy',0,'운영부')"><span class="sx-pri p3" title="필요할 때">3</span>광고문구 만들기<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'운영부')">매물 수집<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">광고관리 (플랫폼별)</div>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="paste" onclick="sxGo('paste',0,'운영부')">붙여넣어 만들기</button>
+          <div class="sx-sub" data-co="head" data-grp="운영부">광고</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-ads" onclick="sxGo('dash-ads',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>광고 현황</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="adPlat('daangn')"><span class="sx-pri p3" title="필요할 때">3</span>당근마켓</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="adPlat('isj')"><span class="sx-pri p3" title="필요할 때">3</span>이실장</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="adPlat('zigbang')"><span class="sx-pri p3" title="필요할 때">3</span>직방</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="adPlat('dabang')"><span class="sx-pri p3" title="필요할 때">3</span>다방</button>
-          <button class="sx-item soon" data-co="head" data-grp="운영부" data-menu="" onclick="sxSoon('한방')">한방<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="adPlat('naver')">그 밖의 채널</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>광고 원장 전체</button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">사진관리</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p3" title="필요할 때">3</span>매물 사진<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="chan" onclick="chanGo('thumb')"><span class="sx-pri p3" title="필요할 때">3</span>사진 편집기</button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">고객관리</div>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 원장</button>
+          <div class="sx-sub" data-co="head" data-grp="운영부">고객</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="dash-cust" onclick="sxGo('dash-cust',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>고객 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임대인')"><span class="sx-pri p3" title="필요할 때">3</span>매도·임대인</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임차인')"><span class="sx-pri p3" title="필요할 때">3</span>매수·임차인</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('문의')"><span class="sx-pri p3" title="필요할 때">3</span>문의 고객</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>고객 전체<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="csched" onclick="sxGo('csched',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>일정관리</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="vito" onclick="sxGo('vito',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>상담내역<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="match" onclick="sxGo('match',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>맞춤매물</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms5" onclick="sxGo('sms5',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>문자 고르기<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms" onclick="sxGo('sms',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>문자 발송</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="visit" onclick="sxGo('visit',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>임장<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">임대인관리</div>
+          <div class="sx-sub" data-co="head" data-grp="운영부">임대인</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="landlord" onclick="sxGo('landlord',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>임대인 명부<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="sms5" onclick="sxGo('sms5',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>공실 확인 문자<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span><span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="마케팅부">
         <div class="sx-grp-h">마케팅부<em>노출 채널 · 자동화</em></div>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="dash-mk" onclick="sxGo('dash-mk',0,'마케팅부')"><span class="sx-pri p3" title="필요할 때">3</span>마케팅부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <div class="sx-sub" data-co="head" data-grp="마케팅부">자사 채널</div>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('home')"><span class="sx-pri p3" title="필요할 때">3</span>홈페이지<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="listing" onclick="sxGo('listing',0,'마케팅부')">홈페이지 노출 매물<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="마케팅부">네이버 (무료)</div>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('blog')"><span class="sx-pri p3" title="필요할 때">3</span>네이버 블로그</button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('스마트플레이스')">스마트플레이스<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('네이버 카페')">네이버 카페<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('지식iN')">지식iN<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('rank')">검색 순위</button>
-          <div class="sx-sub" data-co="head" data-grp="마케팅부">영상 (무료)</div>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('yt')">유튜브</button>
-          <div class="sx-sub" data-co="head" data-grp="마케팅부">SNS (무료)</div>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('인스타그램')">인스타그램<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('스레드')">스레드<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('페이스북')">페이스북<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('네이버 밴드')">네이버 밴드<span class="sx-tag soon">준비 중</span></button>
-          <div class="sx-sub" data-co="head" data-grp="마케팅부">동네 · 메신저 (무료)</div>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('당근 동네생활')">당근 동네생활<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="마케팅부" data-menu="" onclick="sxSoon('카카오채널')">카카오채널<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="sms" onclick="sxGo('sms',0,'마케팅부')">문자·알림톡<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="마케팅부">콘텐츠 재료</div>
+          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('home')">채널 안내</button>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="brand" onclick="sxGo('brand',0,'마케팅부')">브랜드 스튜디오</button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('thumb')">사진·썸네일</button>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="adcopy" onclick="sxGo('adcopy',0,'마케팅부')">광고문구<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="links" onclick="sxGo('links',0,'마케팅부')">자료실<span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="법무팀">
-        <div class="sx-grp-h">법무팀<em>계약·권리·분쟁</em></div>
+        <div class="sx-grp-h">법무팀<em>계약·보증금·위험</em></div>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="dash-legal" onclick="sxGo('dash-legal',0,'법무팀')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>위험 신호 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <div class="sx-sub" data-co="head" data-grp="법무팀">계약서 검토</div>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'법무팀')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>계약서 작성·검토</button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="" onclick="cwDoc()">공부데이터 자동입력</button>
-          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('중개대상물 확인설명서')">중개대상물 확인설명서<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract" onclick="sxGo('contract',0,'법무팀')">계약 원장<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="법무팀">보증금 · 권리</div>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="jeonse" onclick="sxGo('jeonse',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>전세 안전도<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="guar" onclick="sxGo('guar',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>보증보험 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>등기 변동 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="listing" onclick="sxGo('listing',0,'법무팀')">건축물대장 확인<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="법무팀">위험 점검</div>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="dash-expiry" onclick="sxGo('dash-expiry',0,'법무팀')">만기·갱신 기한<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="audit" onclick="sxGo('audit',0,'법무팀')">데이터 위험(검수)<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="ads" onclick="sxGo('ads',0,'법무팀')">광고 표시 점검<span class="sx-tag ref">참조</span></button>
-          <div class="sx-sub" data-co="head" data-grp="법무팀">문서 · 분쟁</div>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>문서 작성 · 브리핑<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('법률 자문 기록')">법률 자문 기록<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('분쟁·클레임')">분쟁·클레임<span class="sx-tag soon">준비 중</span></button>
-          <button class="sx-item soon" data-co="head" data-grp="법무팀" data-menu="" onclick="sxSoon('공제·보증 증서')">공제·보증 증서<span class="sx-tag soon">준비 중</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="개발부" data-admin="1">
         <div class="sx-grp-h">개발부<em>설계·개발·운영</em></div>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="dash-dev" data-admin="1" onclick="sxGo('dash-dev',0,'개발부')">개발부 현황<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
-          <div class="sx-sub" data-co="head" data-grp="개발부">설계</div>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ai-center" data-admin="1" onclick="sxGo('ai-center',0,'개발부')">AI 직원 배치</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="guide" data-admin="1" onclick="sxGo('guide',0,'개발부')">화면·메뉴 설계<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">메모 · 요구사항 · 프롬프트</button>
-          <div class="sx-sub" data-co="head" data-grp="개발부">개발</div>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
-          <button class="sx-item soon" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="sxSoon('검산 결과')">검산 결과<span class="sx-tag soon">준비 중</span></button>
-          <div class="sx-sub" data-co="head" data-grp="개발부">운영</div>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">메모 · 요구사항</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'개발부')">매물 수집</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">자동화 현황</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ref" data-admin="1" onclick="sxGo('ref',0,'개발부')">프로그램 목록<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="approval" data-admin="1" onclick="sxGo('approval',0,'개발부')">AI 승인대기<span class="sx-tag ref">참조</span></button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ai-center" data-admin="1" onclick="sxGo('ai-center',0,'개발부')">AI 직원 배치</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="location.href='index.html'">기존 화면으로</button>
       </div>
       <div class="sx-grp" data-co="design" data-dept="디자인영업">
@@ -11290,7 +11208,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"일정관리 · 만기알림","id":"dash-expiry","ref":true},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links"},{"label":"업무 자료실","id":"ref"},{"label":"직원 매뉴얼","id":"guide"},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"사무·인사·회계·결재·경영","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"사무관리"},{"label":"만기 현황","id":"dash-expiry"},{"label":"만기·일정 목록","id":"expiry"},{"label":"자료실","id":"links","ref":true},{"label":"문서함"},{"sub":"계약관리"},{"label":"계약 원장","id":"contract"},{"label":"공부데이터 자동입력","act":"cwDoc()"},{"label":"계약서 관리·출력","id":"contract-writer","ref":true},{"label":"위수탁계약"},{"sub":"환경 설정"},{"label":"환경 설정","id":"pref"},{"label":"연동·토큰 설정","act":"openGsSetup()"},{"sub":"인사관리 (근태·급여·퇴직)"},{"label":"근태·임장","id":"visit","ref":true},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"급여·퇴직"},{"label":"교육 이력","id":"guide","ref":true},{"sub":"회계관리 (자금·금융·세무)"},{"label":"회계·정산","id":"payout"},{"label":"세금 계산기","act":"window.open('https://eya170823-rgb.github.io/crm/calc/','_blank')"},{"label":"매출·비용"},{"label":"자금·금융서비스 연계"},{"label":"세무 신고 자료"},{"sub":"전자결재"},{"label":"승인·보고함","id":"approval"},{"label":"보고 취합"},{"label":"메모·요구사항","id":"memo","ref":true},{"sub":"경영관리"},{"label":"광고 성과","id":"dash-ads","ref":true},{"label":"경영 통계","id":"stats","adminOnly":true,"ref":true},{"label":"대표 홈","id":"chief","adminOnly":true,"ref":true}]},{"dept":"운영부","desc":"매물·광고·사진·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물관리"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 매물 만들기","id":"paste"},{"label":"지도로 보기","id":"map"},{"label":"시세 조회(참고)","id":"apt"},{"label":"광고문구 만들기","id":"adcopy"},{"label":"매물 수집","id":"gather","ref":true,"adminOnly":true},{"sub":"광고관리 (플랫폼별)"},{"label":"광고 현황","id":"dash-ads"},{"label":"당근마켓","act":"adPlat('daangn')"},{"label":"이실장","act":"adPlat('isj')"},{"label":"직방","act":"adPlat('zigbang')"},{"label":"다방","act":"adPlat('dabang')"},{"label":"한방"},{"label":"그 밖의 채널","act":"adPlat('naver')"},{"label":"광고 원장 전체","id":"ads"},{"sub":"사진관리"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","id":"chan","act":"chanGo('thumb')"},{"sub":"고객관리"},{"label":"고객 현황","id":"dash-cust"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 전체","id":"customer"},{"label":"일정관리","id":"csched"},{"label":"상담내역","id":"vito"},{"label":"맞춤매물","id":"match"},{"label":"문자 고르기","id":"sms5"},{"label":"문자 발송","id":"sms"},{"label":"임장","id":"visit","ref":true},{"sub":"임대인관리"},{"label":"임대인 명부","id":"landlord"},{"label":"공실 확인 문자","id":"sms5","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"sub":"자사 채널"},{"label":"홈페이지","act":"chanGo('home')"},{"label":"홈페이지 노출 매물","id":"listing","ref":true},{"sub":"네이버 (무료)"},{"label":"네이버 블로그","act":"chanGo('blog')"},{"label":"스마트플레이스"},{"label":"네이버 카페"},{"label":"지식iN"},{"label":"검색 순위","act":"chanGo('rank')"},{"sub":"영상 (무료)"},{"label":"유튜브","act":"chanGo('yt')"},{"sub":"SNS (무료)"},{"label":"인스타그램"},{"label":"스레드"},{"label":"페이스북"},{"label":"네이버 밴드"},{"sub":"동네 · 메신저 (무료)"},{"label":"당근 동네생활"},{"label":"카카오채널"},{"label":"문자·알림톡","id":"sms","ref":true},{"sub":"콘텐츠 재료"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"사진·썸네일","act":"chanGo('thumb')"},{"label":"광고문구","id":"adcopy","ref":true},{"label":"자료실","id":"links","ref":true}]},{"dept":"법무팀","desc":"계약·권리·분쟁","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"sub":"계약서 검토"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"공부데이터 자동입력","act":"cwDoc()"},{"label":"중개대상물 확인설명서"},{"label":"계약 원장","id":"contract","ref":true},{"sub":"보증금 · 권리"},{"label":"전세 안전도","id":"jeonse"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"건축물대장 확인","id":"listing","ref":true},{"sub":"위험 점검"},{"label":"만기·갱신 기한","id":"dash-expiry","ref":true},{"label":"데이터 위험(검수)","id":"audit","ref":true},{"label":"광고 표시 점검","id":"ads","ref":true},{"sub":"문서 · 분쟁"},{"label":"문서 작성 · 브리핑","id":"doc"},{"label":"법률 자문 기록"},{"label":"분쟁·클레임"},{"label":"공제·보증 증서"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"sub":"설계"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"화면·메뉴 설계","id":"guide","ref":true},{"label":"메모 · 요구사항 · 프롬프트","id":"memo"},{"sub":"개발"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"검산 결과"},{"sub":"운영"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather","adminOnly":true},{"label":"자동화 현황","id":"ops"},{"label":"프로그램 목록","id":"ref","ref":true},{"label":"AI 승인대기","id":"approval","ref":true},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"오늘의 내 업무(8단계)","id":"flow"},{"label":"대표 홈","id":"chief","adminOnly":true},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"이용 가이드","id":"guide","ref":true}]},{"dept":"그룹웨어","desc":"포털·일정·결재·소통","home":"gw","items":[{"label":"메인포털","id":"gw"},{"label":"전자결재","id":"approval","ref":true},{"label":"자료실","id":"links"},{"label":"업무 자료실","id":"ref"},{"label":"직원 매뉴얼","id":"guide"},{"label":"협업메신저"},{"label":"게시판"},{"label":"이메일"}]},{"dept":"관리부","desc":"만기·계약·인사·회계","home":"dash-admin","items":[{"label":"관리부 현황","id":"dash-admin"},{"sub":"만기 · 계약"},{"label":"만기 현황","id":"dash-expiry"},{"label":"계약 원장","id":"contract"},{"sub":"인사 · 회계"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"sub":"결재 · 설정"},{"label":"승인·보고함","id":"approval"},{"label":"환경 설정","id":"pref"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"dash-ops","items":[{"label":"운영부 현황","id":"dash-ops"},{"sub":"매물"},{"label":"매물장 현황","id":"dash-listing"},{"label":"매물장","id":"listing"},{"label":"붙여넣어 만들기","id":"paste"},{"sub":"광고"},{"label":"광고 현황","id":"dash-ads"},{"label":"광고 원장","id":"ads"},{"sub":"고객"},{"label":"고객 현황","id":"dash-cust"},{"label":"고객 전체","id":"customer"},{"label":"문자 발송","id":"sms"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"dash-mk","items":[{"label":"마케팅부 현황","id":"dash-mk"},{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"dash-legal","items":[{"label":"위험 신호 현황","id":"dash-legal"},{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"dash-dev","items":[{"label":"개발부 현황","id":"dash-dev"},{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"AI 직원 배치","id":"ai-center"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","home":"dash-design","items":[{"label":"디자인 현황","id":"dash-design"},{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","home":"dash-edu","items":[{"label":"교육 현황","id":"dash-edu"},{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -12453,6 +12371,14 @@ function ddRender(id){
       + '문자·전화로 들어온 문의는 고객 화면 위쪽 인입함에 쌓입니다. 상담 내용과 통화 요약도 같은 고객에 붙여 봅니다.</div>'
       + '<button class="dd-go" onclick="sxGo(&#39;customer&#39;)">고객 전체 →</button> '
       + '<button class="dd-go" onclick="sxGo(&#39;vito&#39;)">상담·통화요약 →</button></div>'
+      + '<div class="dd-c"><div class="dd-h">구분해서 보기</div><div class="dd-lk">'
+      + '<button class="dd-lkb" onclick="custRole(&#39;임대인&#39;)"><b>매도·임대인</b><em>집을 내놓는 쪽</em></button>'
+      + '<button class="dd-lkb" onclick="custRole(&#39;임차인&#39;)"><b>매수·임차인</b><em>집을 찾는 쪽</em></button>'
+      + '<button class="dd-lkb" onclick="custRole(&#39;문의&#39;)"><b>문의 고객</b><em>아직 구분 안 한 고객</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;vito&#39;)"><b>상담내역</b><em>지난 통화·상담</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;sms5&#39;)"><b>문자 고르기</b><em>접수·매물·공실·미팅·일정</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;visit&#39;)"><b>임장</b><em>보여 줄 날 잡기</em></button>'
+      + '</div></div>'
       + ddLink([
           { n: '일정관리', w: '언제 연락하기로 했는지', go: 'csched', dept: '운영부' },
           { n: '맞춤매물', w: '조건에 맞는 방 찾기', go: 'match', dept: '운영부' },
@@ -12539,6 +12465,15 @@ function ddRender(id){
       + '🔴 당근은 지운 뒤 다시 올리지 않습니다(계정 제재). 항상 수정 또는 거래완료로 처리합니다.<br>'
       + '실제 게시·수정은 광고 원장 화면에서 하고, 대표 승인 없이 자동으로 올리지 않습니다.</div>'
       + '<button class="dd-go" onclick="sxGo(&#39;ads&#39;)">광고 원장 전체 →</button></div>'
+    + '<div class="dd-c"><div class="dd-h">플랫폼 골라 보기</div><div class="dd-lk">'
+    + [['daangn', '당근마켓', '동네 광고 · 지웠다 다시 올리지 않기'], ['isj', '이실장', '매경 이실장'],
+       ['zigbang', '직방', '원룸·오피스텔'], ['dabang', '다방', '원룸·투룸'],
+       ['naver', '그 밖의 채널', '네이버·피터팬·블로그']]
+        .map(x => '<button class="dd-lkb" onclick="adPlat(&#39;' + x[0] + '&#39;)"><b>' + gEsc(x[1])
+          + '</b><em>' + gEsc(x[2]) + '</em></button>').join('')
+    + '<button class="dd-lkb" style="cursor:default;background:var(--bg3)"><b>한방</b>'
+    + '<em>아직 코드가 없습니다 — 준비 중</em></button>'
+    + '</div><div class="s">누르면 광고 원장의 그 플랫폼 칸으로 갑니다.</div></div>'
       + ddLink([
           { n: '매물장 현황', w: '올릴 매물 고르기', go: 'dash-listing', dept: '운영부' },
           { n: '광고문구 만들기', w: '문구 뽑기', go: 'adcopy', dept: '운영부' },
@@ -12580,6 +12515,8 @@ function ddRender(id){
       + '<div class="s">더 자세한 검수(중복·호수 없음 등)는 법무팀 → 데이터 위험, 수집 상태는 개발부 → 매물 수집에서 봅니다.</div></div>'
       + ddTable('최근 매물', ['매물', '유형', '금액', '층', '상태', '광고', '홈페이지', '접수일'], rows, '', 'listing')
       + ddLink([
+          { n: '지도로 보기', w: '위치로 훑어보기', go: 'map', dept: '운영부' },
+          { n: '시세 조회', w: '실거래가 확인', go: 'apt', dept: '운영부' },
           { n: '광고 현황', w: '이 매물들을 어디에 올렸는지', go: 'dash-ads', dept: '운영부' },
           { n: '위험 점검', w: '대장 미확인·연락처 없음 등', go: 'dash-legal', dept: '법무팀' },
           { n: '홈페이지 노출', w: '어떤 매물이 밖에 보이는지', go: 'chan', dept: '마케팅부' },
