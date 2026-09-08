@@ -578,8 +578,9 @@ table td,table th{font-size:12.5px}
      지도     → 위쪽 [지도로 보기]      🗑 삭제    → [✏️ 수정] 창 안 (원본 규칙도 그렇다) */
 #listing-cards button[onclick^="addVisitCal"],
 #listing-cards button[onclick^="priceCheckOpen"],
-#listing-cards button[onclick^="deleteListing"],
-#listing-cards button[onclick*="showListingMap"]{display:none!important}
+#listing-cards button[onclick^="deleteListing"]{display:none!important}
+/* 🗺 매물별 [지도] 는 되살린다 (2026-09-09 대표: "매물 옆에 지도로 보기 추가") */
+#listing-cards button[onclick*="showListingMap"]{display:inline-block!important}
 /* 🧹 매물장 카드 2차 정리 (2026-09-09 대표: "아직까지 복잡함")
    자리를 가장 많이 먹던 5단계 진행바와, 옆 배지와 겹치는 수명주기를 감춘다.
    진행 단계는 [수정] 창에서 그대로 볼 수 있다. */
@@ -612,7 +613,6 @@ table td,table th{font-size:12.5px}
   #listing-cards table th:nth-child(7),  #listing-cards table td:nth-child(7),
   #listing-cards table th:nth-child(8),  #listing-cards table td:nth-child(8),
   #listing-cards table th:nth-child(9),  #listing-cards table td:nth-child(9),
-  #listing-cards table th:nth-child(11), #listing-cards table td:nth-child(11),
   #listing-cards table th:nth-child(12), #listing-cards table td:nth-child(12){display:none}
   /* 🔴 칸 수만 줄이면 안 된다 — 칸마다 걸린 nowrap 이 폭을 밀어낸다(폰에서 449px 넘침 실측).
      줄바꿈을 허용하고 칸 폭을 정해 줘야 한 화면에 담긴다. */
@@ -623,11 +623,12 @@ table td,table th{font-size:12.5px}
   #listing-cards table{min-width:0!important;table-layout:fixed;width:100%;font-size:11.5px}
   #listing-cards table th,#listing-cards table td{padding:8px 5px;white-space:normal!important;
     word-break:break-all;overflow-wrap:anywhere}
-  #listing-cards table th:nth-child(1),#listing-cards table td:nth-child(1){width:24%}
-  #listing-cards table th:nth-child(3),#listing-cards table td:nth-child(3){width:32%}
-  #listing-cards table th:nth-child(6),#listing-cards table td:nth-child(6){width:17%}
-  #listing-cards table th:nth-child(10),#listing-cards table td:nth-child(10){width:14%}
-  #listing-cards table th:nth-child(13),#listing-cards table td:nth-child(13){width:13%}
+  #listing-cards table th:nth-child(1),#listing-cards table td:nth-child(1){width:21%}
+  #listing-cards table th:nth-child(3),#listing-cards table td:nth-child(3){width:29%}
+  #listing-cards table th:nth-child(6),#listing-cards table td:nth-child(6){width:16%}
+  #listing-cards table th:nth-child(10),#listing-cards table td:nth-child(10){width:13%}
+  #listing-cards table th:nth-child(11),#listing-cards table td:nth-child(11){width:10%}
+  #listing-cards table th:nth-child(13),#listing-cards table td:nth-child(13){width:11%}
   #listing-cards table .badge{font-size:10px;padding:2px 5px}
   #listing-cards table .btn{padding:3px 5px;font-size:10px}
 }
@@ -994,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:18</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 04:29</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13620,6 +13621,123 @@ function gxMount(){
   const hd = host.querySelector('.page-hd');
   if(hd && hd.nextSibling) host.insertBefore(box, hd.nextSibling); else host.insertBefore(box, host.firstChild);
 }
+/* 🗺 ② 매물장 지역(동) 고르기 — 2026-09-09 대표 지시
+   원본 필터 함수를 감싸서 조건을 하나 더 얹는다(원본 코드는 그대로 둔다). */
+function lxAreaMount(){
+  const host = document.getElementById('p-listing'); if(!host) return;
+  if(document.getElementById('lx-area')) return;
+  const sort = document.getElementById('l-sort'); if(!sort) return;
+  const sel = document.createElement('select');
+  sel.id = 'lx-area';
+  sel.title = '동네로 좁혀 봅니다';
+  sel.onchange = function(){ try{ renderListings(); }catch(e){} };
+  sort.parentNode.insertBefore(sel, sort);
+  lxAreaFill();
+  // 원본 필터에 지역 조건을 한 번만 덧댄다
+  if(!window.__lxAreaWrapped && typeof getFilteredListings === 'function'){
+    window.__lxAreaWrapped = true;
+    const _orig = getFilteredListings;
+    window.getFilteredListings = function(){
+      let list = _orig.apply(this, arguments);
+      const el = document.getElementById('lx-area');
+      const v = el ? el.value : '';
+      if(v) list = list.filter(function(l){
+        return (String(l.addr || '') + ' ' + String(l.apt || '')).indexOf(v) >= 0;
+      });
+      return list;
+    };
+  }
+}
+/* 매물 주소에서 '○○동/리' 만 뽑아 고를 거리를 만든다 — 없는 동네는 만들지 않는다 */
+function lxAreaFill(){
+  const sel = document.getElementById('lx-area'); if(!sel) return;
+  const L = ddArr('listings');
+  const cnt = {};
+  L.forEach(function(l){
+    const m = String(l.addr || '').match(/([가-힣]+(?:동|리|가))/);
+    if(m) cnt[m[1]] = (cnt[m[1]] || 0) + 1;
+  });
+  const keys = Object.keys(cnt).sort(function(a, b){ return cnt[b] - cnt[a]; });
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">전체 지역</option>'
+    + keys.map(function(k){ return '<option value="' + gAttr(k) + '">' + gEsc(k) + ' (' + cnt[k] + ')</option>'; }).join('');
+  if(cur) sel.value = cur;
+}
+
+/* 📞 ① 수집매물 — 왜 번호가 이런지 적고, 전화할 값이 있는 것만 고르게 한다 (2026-09-09 대표 지시)
+   실측: 당근 12,918건 중 번호 있는 것 7건(0%). 번호 2,242건은 거의 다른 중개사무소 대표번호다. */
+function gxPhoneHelp(){
+  const host = document.getElementById('p-gather'); if(!host) return;
+  if(document.getElementById('gx-phone')) return;
+  const box = document.createElement('div');
+  box.id = 'gx-phone'; box.className = 'dd-c pz-amber'; box.style.margin = '0 0 12px';
+  box.innerHTML = '<div class="card-title">📞 어디로 전화해야 하나</div>'
+    + '<div style="font-size:12.5px;color:#7C3F0A;line-height:1.9">'
+    + '· <b>당근은 전화번호를 주지 않습니다</b> — 앱 안에서 채팅으로만 연락하는 구조입니다 '
+    + '(모아 둔 당근 매물 중 번호가 있는 것은 1%도 안 됩니다).<br>'
+    + '· 번호가 있는 것은 대부분 <b>다른 중개사무소 대표번호</b>입니다. 걸어도 우리 매물이 되지 않습니다.<br>'
+    + '· 전화해서 값이 있는 것은 <b>집주인이 직접 올린 글</b>입니다.'
+    + '</div>'
+    + '<div class="dd-lk" style="margin-top:10px">'
+    + '<button class="dd-lkb" onclick="gxOnlyOwner()"><b>집주인 직접 매물만 보기</b>'
+    + '<em>개인이 올린 글 + 번호가 있는 것</em></button>'
+    + '<button class="dd-lkb" onclick="gxAll()"><b>전체 다시 보기</b><em>거른 것을 풉니다</em></button>'
+    + '</div>';
+  const hd = host.querySelector('.page-hd');
+  const first = document.getElementById('gx-src');
+  if(first) host.insertBefore(box, first.nextSibling);
+  else if(hd && hd.nextSibling) host.insertBefore(box, hd.nextSibling);
+  else host.insertBefore(box, host.firstChild);
+}
+function gxOnlyOwner(){
+  const w = document.getElementById('gather-f-writer');
+  const p = document.getElementById('gather-f-phone');
+  if(w) w.value = '개인';
+  if(p) p.checked = true;
+  try{ gatherRenderTable(); }catch(e){}
+  showToast('집주인이 직접 올린 글만 봅니다');
+}
+function gxAll(){
+  const w = document.getElementById('gather-f-writer');
+  const p = document.getElementById('gather-f-phone');
+  if(w) w.value = '';
+  if(p) p.checked = false;
+  try{ gatherRenderTable(); }catch(e){}
+  showToast('거른 것을 풀었습니다');
+}
+/* 표의 번호 옆에 누구 번호인지 적어 준다 — 번호만 있으면 어디로 걸지 알 수 없다 */
+function gxPhoneWho(){
+  const box = document.getElementById('gather-table'); if(!box) return;
+  const rows = box.querySelectorAll('tbody tr');
+  rows.forEach(function(tr){
+    if(tr.getAttribute('data-who')) return;
+    const a = tr.querySelector('a[href^="tel:"]');
+    if(!a) return;
+    const ph = (a.textContent || '').replace(/[^0-9]/g, '');
+    let who = '';
+    try{
+      const hit = (gatherRows || []).find(function(o){
+        return String(o.phone || '').replace(/[^0-9]/g, '') === ph;
+      });
+      who = hit ? (hit.biz || (hit.writer === '개인' ? '집주인 직접' : '')) : '';
+    }catch(e){}
+    if(who){
+      const em = document.createElement('div');
+      em.style.cssText = 'font-size:10.5px;color:var(--t3);margin-top:2px';
+      em.textContent = who.slice(0, 20);
+      a.parentNode.appendChild(em);
+      tr.setAttribute('data-who', '1');
+    }
+  });
+}
+let gxObs = null;
+function gxWatch(){
+  const box = document.getElementById('gather-table'); if(!box || gxObs) return;
+  gxPhoneWho();
+  gxObs = new MutationObserver(function(){ gxPhoneWho(); });
+  gxObs.observe(box, { childList: true, subtree: true });
+}
+
 function lxCardTrim(){
   const box = document.getElementById('listing-cards'); if(!box) return;
   box.querySelectorAll('.l-info-item').forEach(function(el){
@@ -14374,8 +14492,8 @@ function sxInit(){
     if(id === 'jeonse') jsRender();
     if(id === 'pref') prefRender();
     if(id === 'paste') pzRender();
-    if(id === 'listing'){ pzMount(); lxWatch(); }
-    if(id === 'gather') gxMount();
+    if(id === 'listing'){ pzMount(); lxWatch(); lxAreaMount(); lxAreaFill(); }
+    if(id === 'gather'){ gxMount(); gxPhoneHelp(); gxWatch(); }
     if(id === 'customer') nmMount();
     if(id === 'nomore') nmRender();
     if(id === 'contract') kMount();
