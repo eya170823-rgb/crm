@@ -900,7 +900,6 @@ body{padding-bottom:46px}
     </button>
     <button class="sx-btn" onclick="sxPop('sx-memo')" title="메모 — 생각나면 바로 적기">메모</button>
     <button class="sx-btn" id="sx-deploy-b" data-admin="1" onclick="sxGo('deploy')" title="배포 관리 — 지금 버전과 배포 절차 보기">배포</button>
-    <button class="sx-btn" onclick="sxAi()" title="AI 직원">AI 직원</button>
     <button class="sx-ico" onclick="sxPop('sx-noti')" title="알림">🔔<span class="sx-dot" id="sx-noti-n" style="display:none">0</span></button>
     <div class="sx-me" onclick="sxPop('sx-acc')"><div class="sx-av" id="sx-av">브</div>
       <div><b id="sx-who">대표</b><br><span id="sx-role">대표 계정</span></div></div>
@@ -933,7 +932,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 21:44</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-08 21:56</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1160,7 +1159,7 @@ body{padding-bottom:46px}
         <div class="hm-sub">오늘 할 일과 우리 회사 상황을 한 화면에</div>
         <div class="hm-search"><input id="hm-q" placeholder="매물 · 고객 · 임대인 · 계약 찾기" autocomplete="off"
           oninput="sxSearch(this.value)" onfocus="document.getElementById('sx-q').value=this.value">
-          <button class="btn btn-g btn-sm" onclick="sxAi()">AI 직원</button></div>
+          </div>
         <div class="hm-quick" id="hm-quick"></div>
       </div>
       <div class="hm-wrap">
@@ -1196,7 +1195,7 @@ body{padding-bottom:46px}
     <!-- 광고문구 생성 (기존 openAdCopyModal 을 여는 자리) -->
     <div class="panel" id="p-adcopy">
       <div class="page-hd">
-        <div><div class="page-title">광고문구 생성</div>
+        <div><div class="page-title">광고문구</div>
           <div class="page-sub">매물을 고르면 사이트별 문구 4종과 위법표현 검수를 함께 봅니다</div></div>
         <div class="row"><input id="ac-q" placeholder="매물 검색" oninput="acRender()" style="width:180px"></div>
       </div>
@@ -1406,7 +1405,7 @@ body{padding-bottom:46px}
     <!-- 매물 관리 -->
     <div class="panel" id="p-listing">
       <div class="page-hd">
-        <div><div class="page-title">🏠 매물 관리</div><div class="page-sub" id="listing-count-sub"></div></div>
+        <div><div class="page-title">매물장</div><div class="page-sub" id="listing-count-sub"></div></div>
         <div class="row">
           <button class="btn btn-sm" style="background:#1D6F42;color:#fff;border-color:#1D6F42;font-weight:600" onclick="exportListingsExcel()">📊 엑셀 다운로드</button>
           <!-- 당근 엑셀·등록완료 버튼은 광고관리 탭으로 일원화 (2026-08-11) -->
@@ -1494,7 +1493,7 @@ body{padding-bottom:46px}
     <!-- 고객 관리 -->
     <div class="panel" id="p-customer">
       <div class="page-hd">
-        <div><div class="page-title">👥 고객 관리</div><div class="page-sub" id="customer-count-sub"></div></div>
+        <div><div class="page-title">고객 명부</div><div class="page-sub" id="customer-count-sub"></div></div>
         <div class="row">
           <button class="btn btn-sm" style="background:#1D6F42;color:#fff;border-color:#1D6F42;font-weight:600" onclick="exportCustomersExcel()">📊 엑셀 다운로드</button>
           <button class="btn btn-sm" style="background:#2563EB;color:#fff;border-color:#2563EB;font-weight:600" onclick="openUploadModal('customer')">⬆️ 엑셀 업로드</button>
@@ -1595,7 +1594,7 @@ body{padding-bottom:46px}
     <!-- 계약 완료 -->
     <div class="panel" id="p-contract">
       <div class="page-hd">
-        <div><div class="page-title">📋 계약 완료 현황</div><div class="page-sub" id="contract-count-sub"></div></div>
+        <div><div class="page-title">계약관리</div><div class="page-sub" id="contract-count-sub"></div></div>
         <div class="row">
           <button class="btn btn-sm" style="background:#1D6F42;color:#fff;border-color:#1D6F42;font-weight:600" onclick="exportContractsExcel()">📊 엑셀 다운로드</button>
           <button class="btn btn-sm" style="background:#2563EB;color:#fff;border-color:#2563EB;font-weight:600" onclick="openUploadModal('contract')">⬆️ 엑셀 업로드</button>
@@ -1649,7 +1648,7 @@ body{padding-bottom:46px}
     <!-- 임대인 관리 -->
     <div class="panel" id="p-landlord">
       <div class="page-hd">
-        <div><div class="page-title">🤝 임대인 관리</div><div class="page-sub" id="landlord-count-sub"></div></div>
+        <div><div class="page-title">임대인 명부</div><div class="page-sub" id="landlord-count-sub"></div></div>
         <div class="row">
           <button class="btn btn-g btn-sm" onclick="openLandlordModal(null)">+ 임대인 추가</button>
         </div>
@@ -1675,7 +1674,7 @@ body{padding-bottom:46px}
     </div>
 
     <div class="panel" id="p-sms">
-      <div class="page-hd"><div><div class="page-title">💬 문자 자동 발송</div></div></div>
+      <div class="page-hd"><div><div class="page-title">문자 발송</div></div></div>
       <div style="background:var(--gl);border:1px solid var(--g);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--g);margin-bottom:16px;line-height:1.8">
         📨 <strong>솔라피 자동 발송 연동됨</strong> — 미리보기 생성 후 [📨 발송]을 누르면 실제 문자가 발송됩니다 (발신번호 010-2601-0110, 건당 요금 차감).
         복사해서 카톡으로 보내는 기존 방식도 그대로 쓸 수 있습니다.
@@ -1711,7 +1710,7 @@ body{padding-bottom:46px}
     <div class="panel" id="p-contract-writer">
       <div class="page-hd">
         <div>
-          <div class="page-title">📝 계약서 / 확인설명서 작성</div>
+          <div class="page-title">계약서 작성·검토</div>
           <div class="page-sub">계약 유형 선택 → 서류 첨부 → AI 자동 추출 → 계약서 + 확인설명서 동시 생성</div>
         </div>
       </div>
@@ -1937,7 +1936,7 @@ body{padding-bottom:46px}
     <div class="panel" id="p-gather">
       <div class="page-hd">
         <div>
-          <div class="page-title">🥕 매물 수집</div>
+          <div class="page-title">매물 수집</div>
           <div class="page-sub">당근부동산 · 제주오일장에서 제주시 매물을 받아옵니다 (대표 전용)</div>
         </div>
         <div class="row">
@@ -1986,7 +1985,7 @@ body{padding-bottom:46px}
     <div class="panel" id="p-apt">
       <div class="page-hd">
         <div>
-          <div class="page-title">📈 아파트 실거래가</div>
+          <div class="page-title">시세 조회</div>
           <div class="page-sub">국토교통부 신고 실거래 — 매매·전세·월세 조회와 시세 추이</div>
         </div>
       </div>
@@ -2033,7 +2032,7 @@ body{padding-bottom:46px}
     <div class="panel" id="p-staff">
       <div class="page-hd">
         <div>
-          <div class="page-title">👥 직원 관리</div>
+          <div class="page-title">인사·직원</div>
           <div class="page-sub">직원 계정을 만들고 접속 링크를 보냅니다 — 링크를 열면 그 기기가 바로 연결됩니다 (대표 전용)</div>
         </div>
       </div>
@@ -2072,7 +2071,7 @@ body{padding-bottom:46px}
     <!-- 📍 임장 체크인 · 근태 (2026-09-08, 기획서 PART4 화면A) -->
     <div class="panel" id="p-visit">
       <div class="page-hd">
-        <div><div class="page-title">📍 임장 체크인 · 근태</div><div class="page-sub">현장에서 체크인하고 평가를 남기면 고객 카드에 바로 반영됩니다 · <span id="vt-who"></span></div></div>
+        <div><div class="page-title">임장</div><div class="page-sub">현장에서 체크인하고 평가를 남기면 고객 카드에 바로 반영됩니다 · <span id="vt-who"></span></div></div>
         <div class="row"><button class="btn btn-g btn-sm" onclick="visitAttend('출근')">🕘 출근</button><button class="btn btn-sm" onclick="visitAttend('복귀')">🏁 복귀</button></div>
       </div>
       <div class="card" style="margin-bottom:12px">
@@ -2103,7 +2102,7 @@ body{padding-bottom:46px}
     <!-- 📘 이용 가이드 (2026-09-08) — 왼쪽 메뉴·각 화면 제목·GUIDE_TEXT·캡처(guide/<id>.png)에서 그때그때 생성 -->
     <div class="panel" id="p-guide">
       <div class="page-hd">
-        <div><div class="page-title">📘 이용 가이드 · 직원 매뉴얼</div><div class="page-sub">화면 구성이 바뀌면 이 가이드도 자동으로 따라갑니다 (메뉴 순서 = 읽는 순서)</div></div>
+        <div><div class="page-title">이용 가이드</div><div class="page-sub">화면 구성이 바뀌면 이 가이드도 자동으로 따라갑니다 (메뉴 순서 = 읽는 순서)</div></div>
         <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="guideRender()">🔄 다시 만들기</button><button class="btn btn-g btn-sm" onclick="guidePrint()">🖨 인쇄 · PDF</button></div>
       </div>
       <div id="guide-body"></div>
@@ -2112,7 +2111,7 @@ body{padding-bottom:46px}
     <!-- 🗺 매물 지도 (2026-09-08 지시어⑥ 직원 대시보드: 검증 통과 매물만 지도로) -->
     <div class="panel" id="p-map">
       <div class="page-hd">
-        <div><div class="page-title">🗺 매물 지도</div><div class="page-sub" id="map-sub">검증 통과 매물을 지도에 표시합니다 · 위치는 주소로 자동 계산</div></div>
+        <div><div class="page-title">지도로 보기</div><div class="page-sub" id="map-sub">검증 통과 매물을 지도에 표시합니다 · 위치는 주소로 자동 계산</div></div>
         <div class="row" style="gap:6px;flex-wrap:wrap">
           <select id="map-filter" onchange="mapRender()"><option value="verified">✅ 검증 통과만</option><option value="all">진행 매물 전체(대표)</option></select>
           <button class="btn btn-sm" onclick="mapGeocodeAll()">📍 위치 계산(좌표 없는 매물)</button>
@@ -2125,7 +2124,7 @@ body{padding-bottom:46px}
     <!-- 🧹 데이터 검수 (2026-09-08 지시어⑥ 데이터 감사 · 온하우스형 외부 공실망 대조) -->
     <div class="panel" id="p-audit">
       <div class="page-hd">
-        <div><div class="page-title">🧹 데이터 검수</div><div class="page-sub">중복 매물 · 호수 누락 · 대장 미조회 · 외부 공실망(당근·오일장) 내려감 — 직원에겐 검증 통과 매물만 온전히 보입니다</div></div>
+        <div><div class="page-title">오류·데이터 검수</div><div class="page-sub">중복 매물 · 호수 누락 · 대장 미조회 · 외부 공실망(당근·오일장) 내려감 — 직원에겐 검증 통과 매물만 온전히 보입니다</div></div>
         <div class="row" style="gap:6px;flex-wrap:wrap">
           <button class="btn btn-b btn-sm" onclick="auditRun()">🔍 검수 실행</button>
           <button class="btn btn-g btn-sm" id="audit-apply-btn" onclick="auditApplyStamp()" style="display:none">✅ 검증 도장 찍기</button>
@@ -2139,7 +2138,7 @@ body{padding-bottom:46px}
     <!-- 🔗 링크 보관함 (2026-09-08 지시어① 카톡 kakao.txt → 제목·URL·업로드 날짜, 노션 DB 선택) -->
     <div class="panel" id="p-links">
       <div class="page-hd">
-        <div><div class="page-title">🔗 링크 보관함</div><div class="page-sub">카톡 대화 내보내기(kakao.txt)를 올리면 링크·날짜·보낸이를 뽑아 제목까지 붙여 저장합니다 · <span id="lk-notion">노션 연동: 확인 중</span></div></div>
+        <div><div class="page-title">기존 자료실</div><div class="page-sub">카톡 대화 내보내기(kakao.txt)를 올리면 링크·날짜·보낸이를 뽑아 제목까지 붙여 저장합니다 · <span id="lk-notion">노션 연동: 확인 중</span></div></div>
         <div class="row" style="gap:6px;flex-wrap:wrap;align-items:center">
           <input type="file" id="lk-file" accept=".txt,text/plain" onchange="linksParseFile(this.files[0])" style="font-size:12px">
           <button class="btn btn-g btn-sm" id="lk-save-btn" onclick="linksSave()" style="display:none">💾 저장(제목 자동 수집)</button>
@@ -2155,7 +2154,7 @@ body{padding-bottom:46px}
     <!-- 💰 수당 정산 (2026-09-08, 기획서 PART4 화면B) -->
     <div class="panel" id="p-payout">
       <div class="page-hd">
-        <div><div class="page-title">💰 수당 정산</div><div class="page-sub">계약별 중개보수 → 배분율 → 세후 지급 예정. 이상거래 RED·해제 건은 보류</div></div>
+        <div><div class="page-title">회계·정산</div><div class="page-sub">계약별 중개보수 → 배분율 → 세후 지급 예정. 이상거래 RED·해제 건은 보류</div></div>
         <div class="row" style="gap:6px;align-items:flex-end;flex-wrap:wrap">
           <div><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">달</label><input type="month" id="po-month" onchange="payoutRender()"></div>
           <div><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">배분율(%)</label><input type="number" id="po-split" min="0" max="100" style="width:72px" onchange="payoutSetting()"></div>
@@ -2171,7 +2170,7 @@ body{padding-bottom:46px}
     <!-- 📊 경영 통계 (2026-09-08, 기획서 PART1 6) -->
     <div class="panel" id="p-stats">
       <div class="page-hd">
-        <div><div class="page-title">📊 경영 통계</div><div class="page-sub">계약·보수·고객·임장·광고·이상거래를 한 달 단위로</div></div>
+        <div><div class="page-title">경영 통계</div><div class="page-sub">계약·보수·고객·임장·광고·이상거래를 한 달 단위로</div></div>
         <div class="row" style="gap:6px;align-items:flex-end">
           <div><label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px">달</label><input type="month" id="st-month" onchange="statsRender()"></div>
           <button class="btn btn-sm" onclick="go('dash');if(typeof weekMetricsLoad==='function')weekMetricsLoad()">📈 이번 주 지표</button>
@@ -2185,7 +2184,7 @@ body{padding-bottom:46px}
     <!-- 🎨 브랜드 스튜디오 (2026-09-08, P1 · 사장님 지시: 캐릭터 브랜드 시스템) -->
     <div class="panel" id="p-brand">
       <div class="page-hd">
-        <div><div class="page-title">🎨 브랜드 스튜디오</div><div class="page-sub">캐릭터·로고·색상·굿즈 자산을 한곳에서 — 초안 → 검토대기 → 대표 승인 → 사용</div></div>
+        <div><div class="page-title">브랜드 스튜디오</div><div class="page-sub">캐릭터·로고·색상·굿즈 자산을 한곳에서 — 초안 → 검토대기 → 대표 승인 → 사용</div></div>
         <div class="row" style="gap:6px;flex-wrap:wrap">
           <select id="br-filter" onchange="brandGridRender()"><option value="">분류 전체</option></select>
           <select id="br-status" onchange="brandGridRender()"><option value="">상태 전체</option></select>
@@ -2209,7 +2208,7 @@ body{padding-bottom:46px}
 
     <div class="panel" id="p-ai-center">
       <div class="page-hd">
-        <div><div class="page-title">🤖 AI 직원 센터</div><div class="page-sub">한 회사 데이터 위에서 부서별 역할·권한을 나누는 대표 지휘 화면</div></div>
+        <div><div class="page-title">AI 직원 센터</div><div class="page-sub">한 회사 데이터 위에서 부서별 역할·권한을 나누는 대표 지휘 화면</div></div>
         <span class="badge ba">P1 · 대표시험</span>
       </div>
       <div class="ai-approval"><strong>🔒 사람 승인 원칙</strong><br>AI는 조회·분류·초안·경고까지만 수행합니다. 계약 확정, 금전 처리, 데이터 삭제, 고객에게 외부 발송, 운영 배포는 대표 또는 지정 담당자의 최종 승인 없이는 실행하지 않습니다.</div>
@@ -2229,7 +2228,7 @@ body{padding-bottom:46px}
 
     <!-- 비토 STT -->
     <div class="panel" id="p-vito">
-      <div class="page-hd"><div><div class="page-title">🎙️ 회의 녹음 · 빠른 음성 메모</div><div class="page-sub">회의는 바로 녹음하고, 짧은 말은 곧바로 고객 메모로 남깁니다</div></div></div>
+      <div class="page-hd"><div><div class="page-title">상담·녹음</div><div class="page-sub">회의는 바로 녹음하고, 짧은 말은 곧바로 고객 메모로 남깁니다</div></div></div>
       <div class="card" style="border-color:#BFDBFE;background:#F8FBFF;margin-bottom:16px">
         <div class="card-title" style="margin-bottom:5px">🔴 회의 녹음</div>
         <div style="font-size:12px;color:var(--t2);line-height:1.65;margin-bottom:12px">시작을 누르면 이 기기의 마이크로 녹음합니다. 멈춘 뒤 <strong>파일 저장</strong>을 누르면 회의 파일을 기기에 보관할 수 있습니다. 민감한 음성은 자동으로 공개 저장하지 않습니다.</div>
@@ -11992,12 +11991,9 @@ function homeRender(){
   // 2) 부서별 취합 — 대시보드는 여기 하나뿐이다 (2026-09-08 대표 지시)
   //    각 카드는 그 부서에서 지금 손봐야 할 것을 한 줄로 말하고, 바로 그 화면으로 보낸다.
   const LD = (typeof landlords !== 'undefined' ? landlords : []);
-  const isLive = l => !/계약완료|임대중|거래완료|보류/.test(String(l.status || ''));
-  const adDone = l => { try{ if(typeof PLATFORMS !== 'undefined' && typeof adOn === 'function')
-      return PLATFORMS.some(p => adOn(l, p.key)); }catch(e){}
-    return !!(String(l.adList || '').trim() || String(l.adsFlat || '').trim()); };
-  const liveL  = L.filter(isLive);
-  const noAd   = liveL.filter(l => !adDone(l));
+  // 🔴 거래 가능 여부·광고 여부는 ddLive / ddAdOn 한 곳에서만 판정한다 (두 벌이면 숫자가 어긋난다)
+  const liveL  = L.filter(ddLive);
+  const noAd   = liveL.filter(l => !ddAdOn(l));
   const noPic  = liveL.filter(l => !String(l.photo || '').trim());
   const rc     = C.filter(c => c.nextContact && String(c.nextContact).slice(0, 10) <= t);
   const past   = K.filter(c => c.end && String(c.end).slice(0, 10) < t);
