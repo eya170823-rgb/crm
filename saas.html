@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 00:49</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 01:21</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -12626,9 +12626,13 @@ function ldFlagSet(l){ const o = {}; ldFlags(l).forEach(function(x){ o[x.f] = x.
 /* 자동 연락 대상에서 빼야 하는가 */
 function ldBlocked(l){
   const st = String((l && l.contactStatus) || '');
-  if(st === '연락금지') return '연락금지';
+  if(st === '연락금지') return '연락금지' + (String((l && l.banReason) || '') ? (' — ' + l.banReason) : '');
   if(st === '번호틀림') return '번호 틀림';
   if(!fcPhone(l && l.phone).usable) return '번호 없음';
+  // 📌 2026-09-10 GATE 1: 문자 인입을 막던 '그만 받을 번호' 를 연락 후보에도 같이 적용한다
+  //   🔴 ROLE_UNVERIFIED(역할 미확정)·오래된 매물은 여기서 막지 않는다 — 그것은 연락금지가 아니다
+  const ex = fcExclWhy(l);
+  if(ex) return ex;
   return '';
 }
 
@@ -12782,6 +12786,48 @@ function fcCallMatch(l, r){
     });
   });
   return out;
+}
+
+/* ── 🚫 그만 받을 번호(excludeList) 를 연락 후보에도 쓴다 (2026-09-10 GATE 1) ──
+   이미 문자 인입을 막는 데 쓰던 목록이다. 같은 목록을 임대인 연락 후보에도 그대로 쓴다.
+   🔴 새 제외 목록을 만들지 않는다 — 근거는 한 곳(GAS excludeList)뿐이다.
+   🔴 이름 기준 제외(예: '루이비통')는 임대인 이름과 맞춰 본다. 번호는 전체번호로 맞춘다. */
+var fcExcl = null;          // { nums: {정규화번호:사유}, names: [{key,memo}] }
+function fcExclLoad(){
+  if(fcExcl) return;
+  fcExcl = { nums: {}, names: [] };          // 아직 못 받아도 후보 계산이 멈추지 않게 먼저 비워 둔다
+  try{
+    const url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+    const tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+    if(!url || !tok) return;
+    fetch(url + '?action=excludeList&token=' + encodeURIComponent(tok))
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        const rows = (j && j.ok && j.result && j.result.rows) ? j.result.rows : [];
+        const nums = {}, names = [];
+        rows.forEach(function(x){
+          const key = String((x && x.key) || '').trim();
+          if(!key) return;
+          const p = fcPhone(key);
+          if(p.usable) nums[p.norm] = String((x && x.memo) || '그만 받을 번호');
+          else names.push({ key: key, memo: String((x && x.memo) || '그만 받을 이름') });
+        });
+        fcExcl = { nums: nums, names: names };
+      }).catch(function(){});
+  }catch(e){}
+}
+/* 이 사람이 '그만 받을 번호' 목록에 있는가 — 있으면 사유를 돌려준다 */
+function fcExclWhy(l){
+  if(!fcExcl) return '';
+  const p = fcPhone(l && l.phone);
+  if(p.usable && fcExcl.nums[p.norm]) return '그만 받을 번호 — ' + fcExcl.nums[p.norm];
+  const nm = String((l && l.name) || '').trim();
+  if(nm){
+    for(let i = 0; i < fcExcl.names.length; i++){
+      if(nm.indexOf(fcExcl.names[i].key) >= 0) return '그만 받을 이름(' + fcExcl.names[i].key + ') — ' + fcExcl.names[i].memo;
+    }
+  }
+  return '';
 }
 
 /* ── 🪟 공실 근거(EVENT/EVIDENCE) ────────────────────────────────
@@ -13474,6 +13520,7 @@ function fcAfterCustomerSave(){
 /* ── 기존 저장 함수를 감싼다 (원본 index.html 은 그대로) ── */
 function fcWrapSaves(){
   try{ flowUidLoad(); }catch(e){}
+  try{ fcExclLoad(); }catch(e){}
   try{ setInterval(fcCallsAuto, 1500); }catch(e){}
   if(window.__fcWrapped) return;
   window.__fcWrapped = true;
