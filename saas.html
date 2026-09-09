@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 03:28</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 03:44</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13652,6 +13652,53 @@ function fcAdState(o){
            why: s.partial ? '필수값 부족 - 상세는 [🥕 당근 엑셀] 의 검수 파일에서'
                           : '검사 결과에 없습니다 - 다시 검사하세요' };
 }
+/* ══ 🧯 광고문구 방어 (2026-09-10) ══════════════════════════════════════
+   실측으로 확인된 사고: 과거에 baths 칸에 준공일이, premium 칸에 건물용도가 들어간 적이 있다.
+   그 상태로 문구를 만들면 「욕실2019-10-25」 · 「권리금 : 숙박시설만원」 이 광고 본문에 찍힌다.
+   🔴 판정은 새로 만들지 않는다 — 당근 엑셀이 쓰는 기존 변환기를 그대로 쓴다.
+        방·욕실 → daangnNum   (숫자 한 토막만 인정. '2019-10-25' 는 토막 3개라 탈락)
+        권리금   → daangnManwon (금액만 인정. '숙박시설' 은 탈락)
+   🔴 정상값은 원문 그대로 넘긴다 — 지금 잘 나오는 문구의 모양이 달라지지 않게.
+   🔴 빈 값은 종전대로 라벨째 안 나온다(원본 생성기가 이미 그렇게 되어 있다). */
+var FC_NUM_FIELDS = ['rooms', 'baths', 'premium'];
+var FC_NUM_LABEL  = { rooms: '방 수', baths: '욕실 수', premium: '권리금' };
+function fcFieldBad(k, v){
+  var t = String(v === null || v === undefined ? '' : v).trim();
+  if(!t) return false;                       /* 빈 값은 흠이 아니다 */
+  var r = '';
+  try{
+    if(k === 'premium') r = (typeof daangnManwon === 'function') ? daangnManwon(t) : t;
+    else                r = (typeof daangnNum === 'function') ? daangnNum(t) : t;
+  }catch(e){ return false; }                 /* 판정기를 못 쓰면 종전대로 둔다 */
+  return !String(r === null || r === undefined ? '' : r).trim();
+}
+function fcDescClean(o){
+  if(!o) return o;
+  var cp = {}, k;
+  for(k in o) if(Object.prototype.hasOwnProperty.call(o, k)) cp[k] = o[k];
+  for(var i = 0; i < FC_NUM_FIELDS.length; i++){
+    var f = FC_NUM_FIELDS[i];
+    if(fcFieldBad(f, cp[f])) cp[f] = '';      /* 뜻이 안 맞는 값 → 그 줄이 통째로 빠진다 */
+  }
+  return cp;
+}
+function fcWrapDesc(){
+  if(window.__fcDescWrapped) return;
+  if(typeof buildListingDesc !== 'function') return;
+  window.__fcDescWrapped = true;
+  var _b = buildListingDesc;
+  window.buildListingDesc = function(o, all){ return _b.call(this, fcDescClean(o), all); };
+}
+/* 화면에서도 「이 칸에 엉뚱한 값이 있다」고 알려 준다 (고치지는 않는다) */
+function fcAdBadFields(o){
+  var out = [];
+  for(var i = 0; i < FC_NUM_FIELDS.length; i++){
+    var f = FC_NUM_FIELDS[i];
+    if(fcFieldBad(f, o && o[f]))
+      out.push(FC_NUM_LABEL[f] + ' 칸에 「' + String(o[f]).slice(0, 14) + '」 이 들어 있습니다');
+  }
+  return out;
+}
 /* ⚠ 광고 본문 흠집 — 욕실 수가 비어 있으면 문구 생성기가 「욕실」 뒤에 준공일을 붙여 찍는다.
    그대로 광고에 나가면 "욕실2019-10-25" 처럼 보인다.
    🔴 여기서는 알려만 준다. 본문을 다시 만드는 것은 운영 자료를 고치는 일이라 대표 승인이 필요하다. */
@@ -14033,6 +14080,9 @@ function fcAdRender(){
         var dcell = fcAdCell(d.st, d.miss.length ? '' : d.t);
         var dw = fcAdDescWarn(o);
         if(dw) dcell += '<div class="s" style="color:#B45309">⚠ ' + gEsc(dw) + '</div>';
+        fcAdBadFields(o).forEach(function(w){
+          dcell += '<div class="s" style="color:#DC2626">🔴 ' + gEsc(w) + ' — 광고문구에는 싣지 않습니다</div>';
+        });
         if(d.miss.length) dcell += '<div style="margin:2px 0 0">' + d.miss.map(function(m){
           return '<button class="btn btn-xs" style="margin:0 3px 3px 0;border-color:#B45309;color:#B45309" onclick="fcAdFix(&#39;'
             + gAttr(o.id) + '&#39;,&#39;' + gAttr(m) + '&#39;)">' + gEsc(m) + ' 채우기</button>';
@@ -14055,6 +14105,7 @@ function fcAdRender(){
 function fcWrapSaves(){
   try{ flowUidLoad(); }catch(e){}
   try{ fcExclLoad(); }catch(e){}
+  try{ fcWrapDesc(); }catch(e){}
   try{ setInterval(fcCallsAuto, 1500); }catch(e){}
   try{ setInterval(fcAdAuto, 1500); }catch(e){}
   if(window.__fcWrapped) return;
