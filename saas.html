@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 06:46</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 12:36</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13763,12 +13763,14 @@ function gxPhoneHelp(){
   if(document.getElementById('gx-phone')) return;
   const box = document.createElement('div');
   box.id = 'gx-phone'; box.className = 'dd-c pz-amber'; box.style.margin = '0 0 12px';
-  box.innerHTML = '<div class="card-title">📞 어디로 전화해야 하나</div>'
+  box.innerHTML = '<div class="card-title">📞 어느 번호가 맞는 번호인가</div>'
     + '<div style="font-size:12.5px;color:#7C3F0A;line-height:1.9">'
-    + '· <b>당근은 전화번호를 주지 않습니다</b> — 앱 안에서 채팅으로만 연락하는 구조입니다 '
-    + '(모아 둔 당근 매물 중 번호가 있는 것은 1%도 안 됩니다).<br>'
-    + '· 번호가 있는 것은 대부분 <b>다른 중개사무소 대표번호</b>입니다. 걸어도 우리 매물이 되지 않습니다.<br>'
-    + '· 전화해서 값이 있는 것은 <b>집주인이 직접 올린 글</b>입니다.'
+    + '<b>당근 번호는 전부 050 안심번호입니다</b>(0504·0508…). 당근이 만든 중계번호라 '
+    + '전화는 걸려도 <b>문자는 대부분 안 가고</b>, 시간이 지나면 끊깁니다.<br>'
+    + '<b>오일장 번호는 진짜 번호</b>입니다 — 010 휴대폰이 대부분, 064는 제주 유선(사무실).<br>'
+    + '🔑 <b>가장 중요한 것은 그 번호가 몇 건에 붙었는지</b>입니다:<br>'
+    + '&nbsp;&nbsp;· <b>1건뿐</b> → 집주인이 직접 올렸을 가능성이 높습니다 <b>← 전화할 값이 있는 것</b><br>'
+    + '&nbsp;&nbsp;· <b>여러 건</b> → 중개사무소입니다. 한 번호에 20건 넘게 붙은 곳도 있습니다.'
     + '</div>'
     + '<div class="dd-lk" style="margin-top:10px">'
     + '<button class="dd-lkb" onclick="gxOnlyOwner()"><b>집주인 직접 매물만 보기</b>'
@@ -13787,9 +13789,19 @@ function gxOnlyOwner(){
   if(w) w.value = '개인';
   if(p) p.checked = true;
   try{ gatherRenderTable(); }catch(e){}
-  showToast('집주인이 직접 올린 글만 봅니다');
+  // 개인 + 번호 있음 중에서도 '그 번호가 이 글 하나뿐' 인 것이 진짜다 — 몇 건인지 알려 준다
+  let only = 0;
+  try{
+    const c = gxCount();
+    (gatherRows || []).forEach(function(o){
+      const n = String(o.phone || '').replace(/[^0-9]/g, '');
+      if(n && c[n] === 1 && String(o.writer || '') === '개인') only++;
+    });
+  }catch(e){}
+  showToast('집주인이 직접 올린 글만 봅니다' + (only ? (' · 그중 번호가 하나뿐인 것 ' + only + '건') : ''));
 }
 function gxAll(){
+  gxCnt = null;
   const w = document.getElementById('gather-f-writer');
   const p = document.getElementById('gather-f-phone');
   if(w) w.value = '';
@@ -13797,29 +13809,61 @@ function gxAll(){
   try{ gatherRenderTable(); }catch(e){}
   showToast('거른 것을 풀었습니다');
 }
-/* 표의 번호 옆에 누구 번호인지 적어 준다 — 번호만 있으면 어디로 걸지 알 수 없다 */
+/* 📞 번호 하나를 놓고 '무엇인지' 판정한다 (2026-09-09 실측 패턴)
+   🔴 짐작해서 사람을 지어내지 않는다 — 세어 본 사실만 말한다. */
+let gxCnt = null;
+function gxCount(){
+  if(gxCnt) return gxCnt;
+  gxCnt = {};
+  try{
+    (gatherRows || []).forEach(function(o){
+      const n = String(o.phone || '').replace(/[^0-9]/g, '');
+      if(n) gxCnt[n] = (gxCnt[n] || 0) + 1;
+    });
+  }catch(e){}
+  return gxCnt;
+}
+function gxPhoneJudge(o){
+  const n = String((o && o.phone) || '').replace(/[^0-9]/g, '');
+  if(!n) return null;
+  const c = gxCount()[n] || 1;
+  const safe = n.indexOf('050') === 0;
+  const biz = String((o && o.biz) || '').trim();
+  let tag, color, why;
+  if(c >= 6 || biz){
+    tag = '중개사무소'; color = '#6B7280';
+    why = biz ? biz.slice(0, 18) : ('이 번호로 ' + c + '건');
+  } else if(c === 1 && String((o && o.writer) || '') === '개인'){
+    tag = '집주인 직접일 수 있음'; color = '#0F6E56'; why = '이 번호는 이 글 하나뿐';
+  } else if(c === 1){
+    tag = '한 건뿐'; color = '#B45309'; why = '올린이 표시가 중개';
+  } else {
+    tag = '여러 건'; color = '#B45309'; why = '이 번호로 ' + c + '건';
+  }
+  return { tag: tag, color: color, why: why, safe: safe, n: c };
+}
+/* 표의 번호 밑에 판정을 적어 준다 — 번호만 있으면 어디로 걸지 알 수 없다 */
 function gxPhoneWho(){
   const box = document.getElementById('gather-table'); if(!box) return;
-  const rows = box.querySelectorAll('tbody tr');
-  rows.forEach(function(tr){
+  box.querySelectorAll('tbody tr').forEach(function(tr){
     if(tr.getAttribute('data-who')) return;
     const a = tr.querySelector('a[href^="tel:"]');
     if(!a) return;
     const ph = (a.textContent || '').replace(/[^0-9]/g, '');
-    let who = '';
+    let o = null;
     try{
-      const hit = (gatherRows || []).find(function(o){
-        return String(o.phone || '').replace(/[^0-9]/g, '') === ph;
+      o = (gatherRows || []).find(function(x){
+        return String(x.phone || '').replace(/[^0-9]/g, '') === ph;
       });
-      who = hit ? (hit.biz || (hit.writer === '개인' ? '집주인 직접' : '')) : '';
     }catch(e){}
-    if(who){
-      const em = document.createElement('div');
-      em.style.cssText = 'font-size:10.5px;color:var(--t3);margin-top:2px';
-      em.textContent = who.slice(0, 20);
-      a.parentNode.appendChild(em);
-      tr.setAttribute('data-who', '1');
-    }
+    const j = gxPhoneJudge(o);
+    if(!j) return;
+    const em = document.createElement('div');
+    em.style.cssText = 'font-size:10.5px;margin-top:2px;line-height:1.5;color:' + j.color;
+    em.innerHTML = '<b>' + gEsc(j.tag) + '</b><br>' + gEsc(j.why)
+      + (j.safe ? '<br><span style="color:#B45309">050 안심번호 · 문자 안 감</span>' : '');
+    a.parentNode.appendChild(em);
+    tr.setAttribute('data-who', '1');
   });
 }
 let gxObs = null;
