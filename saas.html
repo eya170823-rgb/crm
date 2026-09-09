@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 00:12</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 00:31</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -11792,15 +11792,20 @@ function exRender(kind){
    공실 발견 → 임대인 확인 → 매물 확보 → AI 고객매칭 → 문자 → 상담 → 재접촉 → 계약
    🔴 숫자는 전부 **지금 불러온 실제 자료**에서 센다. 자료가 없는 칸은 '미연결'로 적고 0 으로 꾸미지 않는다.
    🔴 여기서 문자·광고·삭제·배포를 실행하지 않는다. 버튼은 해당 화면으로 보내기만 한다. */
+/* 📌 2026-09-10 2차: 앞단 3단계를 이어 붙였다(기존 8단계는 그대로, 번호만 뒤로 밀림).
+   🔴 이름만 늘린 것이 아니라 아래 flowCompute 에서 실제 자료로 센다. */
 const FLOW_STEPS = [
-  { key: 'vacancy',  no: 1, name: '공실 발견',    go: 'listing',  desc: '비어 있는 방을 찾는다' },
-  { key: 'landlord', no: 2, name: '임대인 확인',  go: 'landlord', desc: '주인에게 확인 전화' },
-  { key: 'listing',  no: 3, name: '매물 확보',    go: 'listing',  desc: '접수·대장·사진 정리' },
-  { key: 'match',    no: 4, name: 'AI 고객매칭',  go: 'customer', desc: '조건 맞는 손님 찾기' },
-  { key: 'sms',      no: 5, name: '문자',         go: 'sms',      desc: '매물 안내 보내기' },
-  { key: 'consult',  no: 6, name: '상담',         go: 'customer', desc: '문의·방문 상담' },
-  { key: 'recall',   no: 7, name: '재접촉',       go: 'customer', desc: '다시 연락할 손님' },
-  { key: 'contract', no: 8, name: '계약',         go: 'contract', desc: '계약·잔금·정산' },
+  { key: 'call',     no: 1, name: '연락 후보',      go: 'landlord', desc: '오늘 확인할 사람' },
+  { key: 'reach',    no: 2, name: '역할 확인',      go: 'landlord', desc: '소유자인지 관리처인지' },
+  { key: 'trade',    no: 3, name: '거래 가능 확인', go: 'landlord', desc: '공실·매매가 되는지' },
+  { key: 'vacancy',  no: 4, name: '공실 발견',      go: 'listing',  desc: '비어 있는 방을 찾는다' },
+  { key: 'landlord', no: 5, name: '임대인 확인',    go: 'landlord', desc: '주인에게 확인 전화' },
+  { key: 'listing',  no: 6, name: '매물 확보',      go: 'listing',  desc: '접수·대장·사진 정리' },
+  { key: 'match',    no: 7, name: 'AI 고객매칭',    go: 'customer', desc: '조건 맞는 손님 찾기' },
+  { key: 'sms',      no: 8, name: '문자',           go: 'sms',      desc: '매물 안내 보내기' },
+  { key: 'consult',  no: 9, name: '상담',           go: 'customer', desc: '문의·방문 상담' },
+  { key: 'recall',   no: 10, name: '재접촉',        go: 'customer', desc: '다시 연락할 손님' },
+  { key: 'contract', no: 11, name: '계약',          go: 'contract', desc: '계약·잔금·정산' },
 ];
 function flowMine(){ try{ return localStorage.getItem('sx_scope') || (sxAdmin() ? 'all' : 'mine'); }catch(e){ return 'mine'; } }
 function flowScopeSet(v){ try{ localStorage.setItem('sx_scope', v); }catch(e){} flowRender(); }
@@ -11853,6 +11858,29 @@ function flowCompute(){
   const done = s => /계약완료|임대중|거래완료/.test(String(s || ''));
   const own = (arr, fields) => arr.filter(x => flowOwned(x, fields));
   const out = {};
+
+  // 📌 2026-09-10 앞단 3단계 — 실제 자료로 센다
+  //   ① 연락 후보: 오늘 연락할 이유가 있는 사람 (fcTodayCalls 가 근거까지 만든다)
+  let calls = [];
+  try{ calls = fcTodayCalls(); }catch(e){ calls = []; }
+  const callsMine = calls.filter(x => flowOwned(x.l, ['owner', 'ownerName']));
+  out.call = { n: callsMine.length, late: callsMine.filter(x => x.rank <= 2).length,
+    due: '', next: '전화해서 거래 가능한지 확인',
+    rows: callsMine.slice(0, 8).map(x => ({ id: x.l.id, t: x.l.name || '이름없음',
+      s: x.l.apt || x.l.addr || '', w: x.why.join(' '), d: String(x.l.nextContact || x.l.nextCheck || '').slice(0, 10) })),
+    src: '임대인관리 · 다음연락일/재확인일 + 공실·고객조건' };
+  //   ② 역할 확인: 연락은 닿았는데 소유자인지 관리처인지 아직 안 적힌 사람
+  const needRole = own(D.filter(x => String(x.contactStatus || '').trim()
+      && !String(x.role || '').trim() && !ldBlocked(x)), ['owner', 'ownerName']);
+  out.reach = { n: needRole.length, late: 0, due: '', next: '소유자·관리처 가려 적기',
+    rows: needRole.slice(0, 8).map(x => ({ id: x.id, t: x.name || '이름없음', s: x.apt || x.addr || '', w: '역할 미기재', d: String(x.lastContact || '').slice(0, 10) })),
+    src: '임대인관리 · 연락상태는 있는데 역할 빈칸' };
+  //   ③ 거래 가능 확인: 역할은 적혔는데 다시 확인할 날이 안 잡힌 사람
+  const needTrade = own(D.filter(x => String(x.role || '').trim()
+      && !String(x.nextCheck || '').trim() && !ldBlocked(x)), ['owner', 'ownerName']);
+  out.trade = { n: needTrade.length, late: 0, due: '', next: '공실·매매 가능 여부 확인',
+    rows: needTrade.slice(0, 8).map(x => ({ id: x.id, t: x.name || '이름없음', s: x.apt || x.addr || '', w: '재확인일 없음', d: '' })),
+    src: '임대인관리 · 역할은 있는데 재확인일 빈칸' };
 
   const vac = own(L.filter(l => String(l.status || '') === '공실'), ['agent']);
   out.vacancy = { n: vac.length, late: vac.filter(l => flowDaysLeft(l.recvDate) !== null && flowDaysLeft(l.recvDate) < -3).length,
@@ -12505,6 +12533,13 @@ function fcBulkRun(list, isTrial){
   return { ok: false, why: '잠김' };
 }
 /* 인입함 위 단추 (고객 화면 안) */
+function fcCallsAuto(){
+  // 임대인 화면이 열릴 때마다 상자를 다시 그린다(목록이 다시 그려져도 살아 있게)
+  try{
+    const host = document.getElementById('p-landlord');
+    if(host && host.classList.contains('on')) fcCallsMount();
+  }catch(e){}
+}
 function fcBulkMount(){
   const host = document.getElementById('p-customer'); if(!host) return;
   if(document.getElementById('fc-bulk')) return;
@@ -12518,6 +12553,276 @@ function fcBulkMount(){
   b.title = '무엇이 등록될지 먼저 봅니다. 잠근 이유: ' + FC_LOCK_WHY.join(' · ');
   b.onclick = fcBulkStart;
   anchor.parentNode.insertBefore(b, anchor);
+}
+
+/* ══ 🔁 자동운영 루프 (2026-09-10 2차) ═══════════════════════════════════
+   EVENT → VERIFY → DECIDE → 사람 승인 → RECORD → NEXT ACTION → 다음 EVENT
+   🔴 지키는 것
+     · 새 매칭 엔진·새 퍼널을 만들지 않는다. fcMatchDetail·FLOW_STEPS 를 그대로 쓴다.
+     · 역할 / 연락처 상태 / 거래상태 / 다음 행동 — 네 축을 섞어 적지 않는다.
+     · 근거 없는 점수를 만들지 않는다. 왜 오늘인지 근거 문구를 함께 남긴다.
+     · 문자는 자동으로 나가지 않는다. '연락 후보' 까지만 만든다.
+     · 확실하지 않으면 자동으로 올리지 않고 사람에게 넘긴다. */
+
+/* 재확인 간격 — 하드코딩하지 않고 여기 한 곳에서 정한다(대표가 바꿀 수 있는 자리) */
+var FC_RECHECK_DAYS = { 임대중: 90, 나중에: 14, 거래완료: 180, 기본: 30 };
+function fcDay(n){
+  const d = new Date(); d.setDate(d.getDate() + (n || 0));
+  const p2 = function(x){ return ('0' + x).slice(-2); };
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+}
+function fcToday(){ return fcDay(0); }
+
+/* ── 4. 데이터 품질 FLAG — 점수가 아니라 근거다 ─────────────────── */
+function ldFlags(l){
+  const out = [];
+  const ph = fcPhone(l && l.phone);
+  if(!ph.usable) out.push({ f: 'PHONE_MISSING', why: '번호가 없거나 자릿수가 모자랍니다' });
+  else if(ph.guessed) out.push({ f: 'PHONE_GUESSED', why: '앞 0 을 추정해야 하는 번호입니다' });
+  const st = String((l && l.contactStatus) || '');
+  if(st === '연락금지') out.push({ f: 'PHONE_EXCLUDED', why: '연락금지: ' + (String((l && l.banReason) || '') || '사유 미기재') });
+  if(st === '번호틀림') out.push({ f: 'PHONE_WRONG', why: '번호가 틀린 것으로 기록돼 있습니다' });
+  if(!String((l && l.role) || '').trim()) out.push({ f: 'ROLE_UNVERIFIED', why: '역할을 확인한 근거가 없습니다' });
+  // 같은 번호가 여러 자산에 걸려 있나 — 관리업체일 수 있다(우선순위를 올리지는 않는다)
+  let same = 0;
+  try{
+    if(ph.usable) (landlords || []).forEach(function(x){ if(fcSameNum(x.phone, l.phone)) same++; });
+  }catch(e){}
+  if(same >= 2) out.push({ f: 'MULTI_ASSET', why: '같은 번호가 명부 ' + same + '행에 있습니다' });
+  if(same >= 5) out.push({ f: 'MANAGER_POSSIBLE', why: '자산이 많아 관리업체일 수 있습니다 — 소유자로 확정하지 마세요' });
+  const chk = String((l && l.nextCheck) || '');
+  if(!chk) out.push({ f: 'STALE_STATUS', why: '거래상태를 다시 확인할 날이 정해져 있지 않습니다' });
+  return out;
+}
+function ldFlagSet(l){ const o = {}; ldFlags(l).forEach(function(x){ o[x.f] = x.why; }); return o; }
+/* 자동 연락 대상에서 빼야 하는가 */
+function ldBlocked(l){
+  const st = String((l && l.contactStatus) || '');
+  if(st === '연락금지') return '연락금지';
+  if(st === '번호틀림') return '번호 틀림';
+  if(!fcPhone(l && l.phone).usable) return '번호 없음';
+  return '';
+}
+
+/* ── 5. 오늘 연락대상 — 왜 오늘인지 근거를 함께 만든다 ───────────── */
+function fcTodayCalls(limit){
+  const t = fcToday();
+  let D = [], L = [], C = [];
+  try{ D = ddArr('landlords') || []; }catch(e){}
+  try{ L = ddArr('listings') || []; }catch(e){}
+  try{ C = ddArr('customers') || []; }catch(e){}
+  // 공실인 매물의 건물·지번 — 임대인과 맞추는 데 쓴다
+  const vacKeys = {};
+  L.forEach(function(l){
+    if(String(l.status || '') !== '공실') return;
+    const a = String(l.apt || '').trim(); if(a) vacKeys[a] = (l.recvDate || '');
+  });
+  // 손님 조건에 맞는 매물의 건물 — '고객조건 일치' 근거
+  const wantKeys = {};
+  try{
+    C.filter(function(c){ return !fcRefused(c) && !fcClosed(c); }).forEach(function(c){
+      const r = fcCustToListings(c);
+      (r.main || []).forEach(function(x){ const a = String(x.l.apt || '').trim(); if(a) wantKeys[a] = c.name || '손님'; });
+    });
+  }catch(e){}
+  // 인입함에서 최근에 업무 신호가 온 번호 — 있으면 근거로 쓴다
+  const inbSig = {};
+  try{
+    (inboxRows || []).forEach(function(r){
+      const role = fcRoleOf(r);
+      if(role.role.indexOf('공실') !== 0 && role.role.indexOf('집 찾는') !== 0) return;
+      const p = fcPhone(r.phone); if(!p.usable) return;
+      const when = String(r.when || '').slice(0, 10);
+      if(!inbSig[p.norm] || inbSig[p.norm].when < when) inbSig[p.norm] = { when: when, why: role.role };
+    });
+  }catch(e){}
+
+  const out = [];
+  D.forEach(function(l){
+    const stop = ldBlocked(l);
+    if(stop) return;                                   // 연락금지·번호틀림·번호없음은 후보에서 뺀다
+    const why = [];
+    let rank = 9;
+    const nc = String(l.nextContact || '').slice(0, 10);
+    const chk = String(l.nextCheck || '').slice(0, 10);
+    const apt = String(l.apt || '').trim();
+    if(apt && wantKeys[apt]){ why.push('[고객조건 일치 ' + wantKeys[apt] + ']'); rank = Math.min(rank, 1); }
+    if(apt && vacKeys[apt] !== undefined){ why.push('[공실신호 ' + (vacKeys[apt] || '날짜미상') + ']'); rank = Math.min(rank, 2); }
+    if(nc && nc <= t){ why.push('[nextContact 도래 ' + nc + ']'); rank = Math.min(rank, 3); }
+    if(chk && chk <= t){ why.push('[거래상태 재확인일 ' + chk + ']'); rank = Math.min(rank, 4); }
+    const sig = inbSig[fcPhone(l.phone).norm];
+    if(sig){ why.push('[인입함 ' + sig.why + ' ' + sig.when + ']'); rank = Math.min(rank, 5); }
+    if(!why.length) return;
+    const flags = ldFlags(l);
+    out.push({ l: l, why: why, rank: rank, flags: flags,
+      // 🔴 복수자산은 근거로만 적고 순위를 올리지 않는다
+      note: flags.some(function(x){ return x.f === 'MANAGER_POSSIBLE'; }) ? '관리업체 가능 — 소유자로 확정하지 마세요' : '' });
+  });
+  out.sort(function(a, b){ return a.rank - b.rank; });
+  return limit ? out.slice(0, limit) : out;
+}
+
+/* ── 7·8. 연락 결과 → 축을 갈라 기록하고 다음 행동을 만든다 ───────── */
+var FC_CALL_RESULTS = [
+  { code: '공실',      label: '공실',        trade: '공실' },
+  { code: '임대중',    label: '임대중',      trade: '임대중' },
+  { code: '매매가능',  label: '매매가능',    trade: '매매가능' },
+  { code: '임대매매',  label: '임대+매매',   trade: '임대+매매가능' },
+  { code: '거래완료',  label: '거래완료',    trade: '거래완료' },
+  { code: '관리처',    label: '관리처',      role: '관리업체' },
+  { code: '소유자아님', label: '소유자 아님', role: '미확인' },
+  { code: '번호틀림',  label: '번호 틀림',   contact: '번호틀림' },
+  { code: '연락금지',  label: '연락금지',    contact: '연락금지' },
+  { code: '나중에',    label: '나중에',      later: true },
+];
+function fcResultOf(code){
+  for(let i = 0; i < FC_CALL_RESULTS.length; i++) if(FC_CALL_RESULTS[i].code === code) return FC_CALL_RESULTS[i];
+  return null;
+}
+/* 결과 저장 — 고른 결과와 상관없는 칸은 절대 건드리지 않는다 */
+function fcCallSave(id, code, memo){
+  const r = fcResultOf(code);
+  if(!r) return { ok: false, why: '알 수 없는 결과' };
+  let l = null;
+  try{ l = (landlords || []).find(function(x){ return x.id === id; }); }catch(e){}
+  if(!l) return { ok: false, why: '임대인을 찾지 못했습니다' };
+  const t = fcToday(), nl = String.fromCharCode(10);
+  const done = [];
+  l.lastContact = t;                                   // 연락한 날은 어느 결과든 남긴다
+  // A. 역할 — 근거가 있을 때만 적는다
+  if(r.role){ l.role = r.role; l.roleEvidence = '통화 확인 ' + t + (memo ? (' · ' + memo) : ''); done.push('역할=' + r.role); }
+  // B. 연락처 상태
+  if(r.contact){
+    l.contactStatus = r.contact;
+    if(r.contact === '연락금지') l.banReason = memo || '본인 요청(통화 ' + t + ')';
+    done.push('연락처=' + r.contact);
+  } else if(!String(l.contactStatus || '').trim()){ l.contactStatus = '정상'; done.push('연락처=정상'); }
+  // C. 거래상태 — 임대인 메모에 근거로 남긴다(매물 상태는 사람이 매물장에서 바꾼다)
+  if(r.trade){
+    l.note = (String(l.note || '') ? (l.note + nl) : '') + '[' + t + ' 통화] 거래상태: ' + r.trade + (memo ? (' · ' + memo) : '');
+    done.push('거래상태=' + r.trade);
+  }
+  // D. 다음 행동
+  let next = '';
+  if(r.contact === '번호틀림' || r.contact === '연락금지'){
+    l.nextContact = ''; l.nextCheck = '';
+    next = '자동 연락 대상에서 빠집니다';
+  } else if(r.later){
+    l.nextCheck = fcDay(FC_RECHECK_DAYS['나중에']); next = '재확인 ' + l.nextCheck;
+  } else if(r.trade === '임대중'){
+    l.nextCheck = fcDay(FC_RECHECK_DAYS['임대중']); next = '재확인 ' + l.nextCheck;
+  } else if(r.trade === '거래완료'){
+    l.nextCheck = fcDay(FC_RECHECK_DAYS['거래완료']);
+    next = '이 거래는 끝났고 연락처는 그대로 둡니다 · 재확인 ' + l.nextCheck;
+  } else {
+    l.nextCheck = fcDay(FC_RECHECK_DAYS['기본']); next = '재확인 ' + l.nextCheck;
+  }
+  try{ save('landlords', landlords); }catch(e){}
+  // 9·10. 거래 가능이면 그 건물의 매물로 손님을 자동 역매칭한다(문자는 안 보낸다)
+  const cands = fcCallMatch(l, r);
+  return { ok: true, done: done, next: next, cands: cands, trade: r.trade || '', role: r.role || '' };
+}
+/* 거래 가능 결과 → 그 건물 매물 → 기존 고객 역매칭 (기존 함수 그대로) */
+function fcCallMatch(l, r){
+  const out = [];
+  if(!r || !r.trade) return out;
+  if(r.trade === '임대중' || r.trade === '거래완료') return out;
+  let L = [];
+  try{ L = ddArr('listings') || []; }catch(e){ return out; }
+  const apt = String((l && l.apt) || '').trim();
+  if(!apt) return out;
+  L.forEach(function(x){
+    if(String(x.apt || '').trim() !== apt) return;
+    if(!fcTradable(x).ok) return;                      // 거래 가능 매물만
+    let res = null;
+    try{ res = fcListingToCustomers(x); }catch(e){ return; }
+    (res.main || []).forEach(function(h){
+      out.push({ listing: [x.apt, x.addr2].filter(Boolean).join(' '), cust: h.c.name || '이름없음',
+                 phone: h.c.phone || '', yes: h.why, unknown: h.unknown });
+    });
+  });
+  return out;
+}
+
+/* ── 📞 오늘 연락대상 상자 (임대인 화면 안) ─────────────────────
+   새 화면을 만들지 않는다. 임대인 명부 위에 얹고, 누르면 결과만 남긴다.
+   🔴 문자는 나가지 않는다. 매칭된 손님은 '연락 후보' 로만 보여 준다. */
+function fcCallsMount(){
+  const host = document.getElementById('p-landlord'); if(!host) return;
+  if(document.getElementById('fc-calls')) { fcCallsRender(); return; }
+  const box = document.createElement('div');
+  box.id = 'fc-calls'; box.className = 'dd-c';
+  box.style.cssText = 'margin:0 0 12px;border-color:#0F6E56';
+  const hd = host.querySelector('.page-hd');
+  if(hd && hd.nextSibling) host.insertBefore(box, hd.nextSibling); else host.insertBefore(box, host.firstChild);
+  fcCallsRender();
+}
+function fcCallsRender(){
+  const box = document.getElementById('fc-calls'); if(!box) return;
+  let list = [];
+  try{ list = fcTodayCalls(20); }catch(e){}
+  if(!list.length){
+    box.innerHTML = '<div class="dd-h">📞 오늘 연락할 사람</div>'
+      + '<div class="s">오늘 연락할 이유가 있는 사람이 없습니다. '
+      + '(다음 연락일·재확인일이 오늘 이전이거나, 공실 신호·고객 조건이 맞으면 여기 뜹니다)</div>';
+    return;
+  }
+  const btns = function(id){
+    return FC_CALL_RESULTS.map(function(r){
+      return '<button class="btn btn-xs" style="margin:2px 3px 0 0" onclick="fcCallDo(&#39;'
+        + gAttr(id) + '&#39;,&#39;' + gAttr(r.code) + '&#39;)">' + gEsc(r.label) + '</button>';
+    }).join('');
+  };
+  box.innerHTML = '<div class="dd-h">📞 오늘 연락할 사람 ' + list.length + '명</div>'
+    + '<div class="s" style="margin:-6px 0 10px">왜 오늘인지 근거를 함께 적었습니다. '
+    + '통화 뒤 결과를 누르면 역할·연락상태·거래상태·다음 확인일이 <b>따로</b> 기록되고, 다음 할 일이 만들어집니다. '
+    + '<b style="color:#B45309">문자는 자동으로 나가지 않습니다.</b></div>'
+    + '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
+    + '<th>사람</th><th>건물</th><th>왜 오늘</th><th>주의</th><th>통화 뒤 누르기</th></tr></thead><tbody>'
+    + list.map(function(x){
+        const fl = x.flags.filter(function(f){ return f.f !== 'STALE_STATUS'; });
+        return '<tr><td>' + gEsc(x.l.name || '이름없음') + '<br><span style="color:var(--t3);font-size:10.5px">'
+          + gEsc(x.l.phone || '') + '</span></td>'
+          + '<td style="font-size:11.5px">' + gEsc(x.l.apt || x.l.addr || '-') + '</td>'
+          + '<td style="font-size:11.5px">' + gEsc(x.why.join(' ')) + '</td>'
+          + '<td style="font-size:11px;color:#B45309">' + gEsc(fl.map(function(f){ return f.f; }).join(' ') || '-')
+          + (x.note ? '<br>' + gEsc(x.note) : '') + '</td>'
+          + '<td style="min-width:280px">' + btns(x.l.id) + '</td></tr>';
+      }).join('')
+    + '</tbody></table></div>'
+    + '<div id="fc-call-out" class="s" style="margin-top:10px"></div>';
+}
+/* 결과 누르기 — 사람이 고른 것만 기록한다 */
+function fcCallDo(id, code){
+  const r = fcResultOf(code); if(!r) return;
+  const nl = String.fromCharCode(10);
+  let memo = '';
+  if(code === '연락금지'){
+    memo = prompt(['연락금지로 기록합니다.', '', '사유를 적어 주세요(본인 요청 등).',
+      '적어 두면 앞으로 자동 연락 대상에서 빠집니다.'].join(nl), '본인 요청');
+    if(memo === null) return;
+  } else if(!confirm(['통화 결과를 "' + r.label + '" 로 기록할까요?', '',
+      '고른 결과와 관련된 칸만 적습니다. 다른 칸은 건드리지 않습니다.',
+      '🔴 문자는 나가지 않습니다.'].join(nl))) return;
+  let res = null;
+  try{ res = fcCallSave(id, code, memo || ''); }catch(e){ showToast('기록 실패: ' + e.message); return; }
+  if(!res.ok){ showToast(res.why || '기록하지 못했습니다'); return; }
+  const el = document.getElementById('fc-call-out');
+  if(el){
+    el.innerHTML = '<b>기록했습니다</b> — ' + gEsc(res.done.join(' · '))
+      + '<br>다음 할 일: <b>' + gEsc(res.next) + '</b>'
+      + (res.cands.length
+          ? ('<br><span style="color:#0F6E56">🔎 이 건물 매물에 맞는 손님 ' + res.cands.length + '명 — 연락 후보</span>'
+             + '<div style="margin-top:4px">' + res.cands.slice(0, 6).map(function(c){
+                 return '· ' + gEsc(c.cust) + ' ' + gEsc(c.phone) + ' — ' + gEsc(c.listing)
+                   + ' <span style="color:var(--t3)">(' + gEsc((c.yes || []).join(' · ')) + ')</span>';
+               }).join('<br>') + '</div>'
+             + '<div style="color:#B45309;margin-top:4px">문자는 자동으로 나가지 않습니다 — 고객 화면에서 확인하고 보내세요.</div>')
+          : '');
+  }
+  showToast('📞 기록 완료 — ' + res.next);
+  try{ renderLandlords(); }catch(e){}
+  fcCallsRender();
 }
 
 /* ── ⑥ 인입함 → 임장 ──────────────────────────────────────
@@ -12915,6 +13220,7 @@ function fcAfterCustomerSave(){
 /* ── 기존 저장 함수를 감싼다 (원본 index.html 은 그대로) ── */
 function fcWrapSaves(){
   try{ flowUidLoad(); }catch(e){}
+  try{ setInterval(fcCallsAuto, 1500); }catch(e){}
   if(window.__fcWrapped) return;
   window.__fcWrapped = true;
   if(typeof saveListing === 'function'){
