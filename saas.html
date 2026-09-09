@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 19:49</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 23:26</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -12212,6 +12212,69 @@ function fcDaysAgo(when){
   return Math.floor((Date.now() - t) / 86400000);
 }
 
+/* ── 📥 업무 문자와 업무 외 문자 가르기 (2026-09-09) ───────────────────────
+   무엇이 문제였나 — 역할분류기가 아니라 '무엇을 업무 인입함으로 가져오는가' 였다.
+     인입함 993줄 중 폰 문자 백업('문자수신(백업)')이 대부분이고,
+     그중 두 연락처가 297줄을 차지했다. 하나는 진짜 손님(방을 구하러 온 사람),
+     하나는 부동산과 무관한 개인 대화였다.
+   🔴 지키는 것
+     · 특정 번호를 코드에 박아 막지 않는다. 원문·경로·명부만 본다.
+     · 줄 단위로 가르지 않는다 — '넵' 한 줄 때문에 손님이 업무 외로 빠지면 실패다.
+       그래서 **연락처 단위**로 본다. 한 줄이라도 업무 이야기가 있으면 그 연락처는 업무다.
+     · 확신이 없으면 업무 외로 보내지 않고 **검토대기**로 둔다.
+     · 어떤 경우에도 원문을 지우거나 고치지 않는다. 표시만 한다. */
+var FC_WORK_WORDS = ['방', '호실', '원룸', '투룸', '오피스텔', '빌라', '아파트', '상가', '사무실',
+  '보증', '월세', '연세', '전세', '매매', '관리비', '임대', '임차', '계약', '가계약', '입주', '퇴실',
+  '공실', '매물', '임장', '집', '룸쇼', '광고', '중개', '부동산', '전입', '확정일자', '등기', '잔금'];
+var FC_LIFE_WORDS = ['딸', '아들', '엄마', '아빠', '학교', '학원', '병원', '수술', '보험', '식대',
+  '생일', '결혼', '장례', '수영', '진료', '처방', '급여', '환불', '수업'];
+/* 이 줄이 '실시간 업무 경로'로 들어온 것인가 (백업 일괄 적재가 아닌가) */
+function fcLiveKind(kind){
+  const k = String(kind || '');
+  return k.indexOf('백업') < 0;
+}
+/* 연락처 하나의 문의 줄들을 모아 업무/업무외/검토대기로 가른다.
+   반환 { scope: '업무'|'업무 외 가능'|'검토대기', why } */
+function fcSmsScope(rows, people){
+  const list = rows || [];
+  let work = 0, life = 0, live = 0, workWord = '', lifeWord = '';
+  list.forEach(function(r){
+    const t = String((r && r.text) || '') + ' ' + String((r && r.name) || '') + ' ' + String((r && r.bld) || '');
+    for(let i = 0; i < FC_WORK_WORDS.length; i++){
+      if(t.indexOf(FC_WORK_WORDS[i]) >= 0){ work++; if(!workWord) workWord = FC_WORK_WORDS[i]; break; }
+    }
+    for(let i = 0; i < FC_LIFE_WORDS.length; i++){
+      if(t.indexOf(FC_LIFE_WORDS[i]) >= 0){ life++; if(!lifeWord) lifeWord = FC_LIFE_WORDS[i]; break; }
+    }
+    if(fcLiveKind(r && r.kind)) live++;
+  });
+  const known = (people || []).length > 0;
+  if(known) return { scope: '업무', why: '명부에 있는 연락처(' + people[0].kind + ')' };
+  if(work) return { scope: '업무', why: '원문에 업무 낱말 「' + workWord + '」 (' + work + '줄)' };
+  if(live) return { scope: '업무', why: '실시간 업무 경로로 들어옴' };
+  if(life && !work) return { scope: '업무 외 가능', why: '백업 문자이고 업무 낱말이 없음 · 생활 낱말 「' + lifeWord + '」' };
+  return { scope: '검토대기', why: '판단할 근거가 모자랍니다 — 지우지 않고 남겨 둡니다' };
+}
+/* 인입함 전체를 연락처 단위로 갈라 본다(화면·검사 공용). 원본을 고치지 않는다. */
+function fcScopeGroups(rows){
+  const list = rows || [];
+  const map = {}, order = [];
+  list.forEach(function(r){
+    const p = fcPhone(r && r.phone);
+    const k = p.usable ? p.norm : ('(번호없음)');
+    if(!map[k]){ map[k] = { norm: k, src: p.src, rows: [] }; order.push(k); }
+    map[k].rows.push(r);
+  });
+  return order.map(function(k){
+    const g = map[k];
+    let people = [];
+    try{ people = g.norm === '(번호없음)' ? [] : fcPeople(g.src); }catch(e){}
+    const sc = fcSmsScope(g.rows, people);
+    g.scope = sc.scope; g.why = sc.why; g.people = people;
+    return g;
+  });
+}
+
 /* ── 📎 원문 보존 (2026-09-09) ────────────────────────────────
    🔴 기존 메모를 덮어쓰지 않는다 · 자르지 않는다 · 같은 원문을 두 번 붙이지 않는다.
    원문 전문은 인입함에 그대로 남아 있으므로, 여기에는 '출처 표'만 쌓고
@@ -14069,6 +14132,90 @@ function pzMan(v){
   m = s.match(/\d[\d,]*/);
   return m ? pzNum(m[0]) : '';
 }
+/* ── 💰 공실 문자 금액 읽기 (2026-09-09 실측 보강) ────────────────────────
+   왜 — 실제 공실현황 127줄에서 가격이 적힌 줄은 8줄뿐이고, 표현이 이렇게만 나온다.
+     · 보 200  월관리비포함 53        · 보 200  월 관리비포함 65
+     · 보200  월관리비포함 57          · 보증금200월40만, 관리비 별도
+     · 보증금4백 월 임대료 71만원       · 보증금 400만 | 월세 745,000
+   기존 파서는 '보증'으로 시작하는 것만 읽어 '보 200'을 놓쳤고,
+   '월관리비포함 53'은 월 뒤에 숫자가 없어 못 읽었다. '4백'은 4로 읽혔다.
+   🔴 지키는 것
+     · 여기 적힌 표현만 읽는다. 월세·연세·보증금·관리비를 임의로 추론하지 않는다.
+     · 연세를 월세로 환산하지 않는다(제주는 연세가 따로 있다).
+     · '월관리비포함 53' 은 금액과 함께 원문을 그대로 남긴다.
+     · 못 읽으면 비워 둔다 — 틀리게 채우는 것보다 미확인이 낫다.
+   🔴 정규식을 쓰지 않는다 — 이 파일은 생성기 템플릿 안이라 역슬래시가 한 겹 먹는다. */
+function pzDigitAt(t, i){ const c = t.charAt(i); return c >= '0' && c <= '9'; }
+/* i 자리부터 앞으로 최대 lim 글자 안에서 숫자를 찾아 '만원' 단위로 읽는다. 못 읽으면 null. */
+function pzMoneyAt(t, i, lim){
+  const s = String(t || '');
+  let j = i, moved = 0;
+  while(j < s.length && !pzDigitAt(s, j)){
+    const c = s.charAt(j);
+    if(c === String.fromCharCode(10)) return null;                 // 줄이 바뀌면 다른 이야기다
+    moved++; if(moved > (lim || 14)) return null;
+    j++;
+  }
+  if(j >= s.length) return null;
+  let num = '';
+  while(j < s.length && (pzDigitAt(s, j) || s.charAt(j) === ',')){ if(s.charAt(j) !== ',') num += s.charAt(j); j++; }
+  if(!num) return null;
+  let n = parseInt(num, 10);
+  if(isNaN(n)) return null;
+  // 🔴 연도(1900~2100)는 금액이 아니다 — '(2026.7/21 현재)' 를 보증금 2026 으로 읽던 사고
+  if(num.length === 4 && n >= 1900 && n <= 2100) return null;
+  // 바로 뒤 단위
+  const tail = s.slice(j, j + 6);
+  if(tail.indexOf('억') === 0) n = n * 10000;
+  else if(tail.indexOf('백') === 0) n = n * 100;      // '보증금4백' = 400만
+  else if(tail.indexOf('천') === 0) n = n * 1000;
+  else if(tail.indexOf('만') === 0){ /* 이미 만원 단위 */ }
+  else if(tail.indexOf('원') === 0 && num.length >= 5) n = n / 10000;   // '745,000원' = 74.5만
+  else if(num.length >= 6) n = n / 10000;            // 단위 없는 여섯 자리는 원으로 본다
+  if(!(n > 0)) return null;
+  return (Math.round(n * 10) / 10) + '';
+}
+/* 라벨을 앞에서부터 찾아 그 뒤 금액을 읽는다. 라벨은 긴 것부터 본다. */
+function pzFindMoney(t, labels){
+  for(let k = 0; k < labels.length; k++){
+    const at = t.indexOf(labels[k]);
+    if(at < 0) continue;
+    const v = pzMoneyAt(t, at + labels[k].length, 14);
+    if(v !== null) return { val: v, label: labels[k], at: at };
+  }
+  return null;
+}
+/* 여러 호실이 한 문자에 나열된 표(사진 판독 등)는 매물 한 건으로 읽지 않는다 */
+function pzManyUnits(t){
+  const s = String(t || '');
+  let n = 0, from = 0;
+  while(true){ const i = s.indexOf('호', from); if(i < 0) break; n++; from = i + 1; }
+  return n >= 3;
+}
+/* 공실 문자 한 줄 → { price, rent, yearly, mgmt, type, raw, why } (읽은 것만 채운다) */
+function pzPriceKo(t){
+  const s = String(t || '');
+  const out = { price: '', rent: '', yearly: '', mgmt: '', type: '', raw: '', why: '' };
+  if(pzManyUnits(s)){ out.why = '한 문자에 호실이 여러 개 — 매물 한 건으로 읽지 않습니다'; return out; }
+  const dep = pzFindMoney(s, ['보증금', '보증', '보']);
+  if(dep) out.price = dep.val;
+  const yr = pzFindMoney(s, ['연세']);
+  if(yr){ out.yearly = yr.val; out.type = '연세'; }      // 🔴 월세로 환산하지 않는다
+  if(!yr){
+    const rn = pzFindMoney(s, ['월관리비포함', '월 관리비포함', '월세', '월 임대료', '임대료', '월']);
+    if(rn){
+      out.rent = rn.val;
+      out.type = '월세';
+      if(rn.label.indexOf('관리비포함') >= 0) out.raw = rn.label + ' ' + rn.val;
+    }
+  }
+  const mg = pzFindMoney(s, ['관리비']);
+  // '월관리비포함 53' 의 53 을 관리비로 다시 읽지 않는다
+  if(mg && String(mg.val) !== String(out.rent) && s.indexOf('관리비포함') < 0) out.mgmt = mg.val;
+  if(s.indexOf('관리비 별도') >= 0 || s.indexOf('관리비별도') >= 0) out.raw = (out.raw ? out.raw + ' · ' : '') + '관리비 별도';
+  if(s.indexOf('관리비포함') >= 0 && !out.raw) out.raw = '관리비 포함';
+  return out;
+}
 function pzParse(t, mode){
   const txt = String(t || '');
   const out = {}, used = [];
@@ -14099,13 +14246,23 @@ function pzParse(t, mode){
     const _b = Number(String(mm[2]).replace(/[^0-9]/g, ''));
     // 앞이 1~12(월), 뒤가 1~31(일) 이고 '만' 이 안 붙으면 날짜로 본다
     if(_a >= 1 && _a <= 12 && _b >= 1 && _b <= 31 && !/만/.test(mm[0])) mm = null;
+    // 🔴 '(2026.7/21 현재)' 를 보증금 2026 으로 읽던 사고 — 연도.월/일 은 금액이 아니다
+    const _dot = String(mm && mm[1] || '').indexOf('.');
+    if(mm && _dot > 0){
+      const _y = parseInt(String(mm[1]).slice(0, _dot), 10);
+      if(_y >= 1900 && _y <= 2100) mm = null;
+    }
   }
   if(mm){ out.price = pzMan(mm[1]); out.rent = pzNum(mm[2]); used.push(mm[0]); }
   else {
-    const b = txt.match(/보증(?:금)?\s*[:：]?\s*([\d,.억천만\s]+)/);
-    if(b){ out.price = pzMan(b[1]); used.push(b[0]); }
-    const r = txt.match(/월\s*(?:세|임대료)?\s*[:：]?\s*(\d[\d,]*)/);
-    if(r){ out.rent = pzNum(r[1]); used.push(r[0]); }
+    // 🔴 실제 공실 문자 표현으로 읽는다(pzPriceKo). 못 읽으면 비워 둔다.
+    const ko = pzPriceKo(txt);
+    if(ko.price){ out.price = ko.price; used.push('보증금 ' + ko.price); }
+    if(ko.rent){ out.rent = ko.rent; used.push('월세 ' + ko.rent); }
+    if(ko.yearly){ out.rent = ko.yearly; out.type = '연세'; used.push('연세 ' + ko.yearly); }
+    if(ko.mgmt) out.mgmt = ko.mgmt;
+    if(ko.raw) out.note = (out.note ? out.note + ' · ' : '') + '[원문] ' + ko.raw;
+    if(ko.why) out.note = (out.note ? out.note + ' · ' : '') + ko.why;
     const j = txt.match(/(전세|매매)\s*[:：]?\s*([\d,.억천만\s]+)/);
     if(j && !out.price){ out.price = pzMan(j[2]); out.type = j[1]; used.push(j[0]); }
   }
