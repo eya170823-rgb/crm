@@ -14024,17 +14024,17 @@ function fcAdDetail(o){
   var h = '<div style="padding:8px 4px">'
     + '<div style="margin:0 0 6px"><b>당근 등록칸에 넣을 값</b> '
     + '<button class="btn btn-xs" onclick="fcAdCopyAll(&#39;' + gAttr(o.id) + '&#39;)">전체 복사</button></div>'
-    + '<table class="dd-t"><tbody>'
+    + '<table class="dd-t fcad-kv"><tbody>'
     + kit.map(function(d, i){
         var v = String(d[1] || '');
-        return '<tr><td style="width:150px" class="s">' + gEsc(d[0]) + '</td>'
+        return '<tr><td class="s fcad-k">' + gEsc(d[0]) + '</td>'
           + '<td>' + (v ? gEsc(v.length > 90 ? v.slice(0, 90) + '…' : v)
                         : '<span style="color:#DC2626">비어 있음</span>') + '</td>'
-          + '<td style="width:60px"><button class="btn btn-xs" onclick="fcAdCopyOne(&#39;'
+          + '<td class="fcad-c"><button class="btn btn-xs" onclick="fcAdCopyOne(&#39;'
           + gAttr(o.id) + '&#39;,' + i + ')">복사</button></td></tr>';
       }).join('')
     + '</tbody></table>';
-  h += '<div style="margin:10px 0 0"><b>사진</b> ';
+  h += '<div class="fcad-ph" style="margin:10px 0 0"><b>사진</b> ';
   if(!ph) h += '<span class="s">아직 조회하지 않았습니다.</span> '
     + '<button class="btn btn-xs" onclick="fcAdPhotoLoad(&#39;' + gAttr(o.id) + '&#39;)">사진 상태 보기</button>';
   else if(ph.error) h += '<span class="s" style="color:#DC2626">' + gEsc(ph.error) + '</span>';
@@ -14075,6 +14075,35 @@ function fcAdDetail(o){
       + '</div></div>';
   }
   return h + '</div>';
+}
+/* 이 화면만의 표 규칙 — 어느 폭에서도 내용이 밖으로 나가지 않게 한다.
+   🔴 다른 화면·전체 디자인은 건드리지 않는다(#fc-ad 안에만 적용). */
+function fcAdCss(){
+  if(document.getElementById('fc-ad-css')) return '';
+  return '<style id="fc-ad-css">'
+    + '#fc-ad .fcad-t{table-layout:fixed;width:100%;border-collapse:collapse}'
+    + '#fc-ad .fcad-t td,#fc-ad .fcad-t th{vertical-align:top;word-break:break-word;overflow-wrap:anywhere}'
+    + '#fc-ad .fcad-t .btn{white-space:nowrap}'
+    + '#fc-ad .fcad-t td>div{max-width:100%}'
+    + '#fc-ad .fcad-kv{table-layout:fixed;width:100%;border-collapse:collapse}'
+    + '#fc-ad .fcad-kv td{vertical-align:top;word-break:break-word;overflow-wrap:anywhere;padding:2px 4px}'
+    + '#fc-ad .fcad-kv .fcad-k{width:34%}'
+    + '#fc-ad .fcad-kv .fcad-c{width:56px;text-align:right}'
+    + '#fc-ad code{word-break:break-all;overflow-wrap:anywhere;display:block;margin:2px 0}'
+    + '#fc-ad .fcad-ph>div .btn{margin-top:2px}'
+    + '#fc-ad .fcad-ph{display:flex;flex-wrap:wrap;gap:6px;align-items:center}'
+    + '#fc-ad .fcad-ph>div{flex:1 1 100%;min-width:0}'
+    + '#fc-ad .fcad-ph{min-width:0;max-width:100%}'
+    + '#fc-ad .fcad-ph .btn{flex:0 0 auto}'
+    + '@media (max-width:760px){'
+    +   '#fc-ad .fcad-t,#fc-ad .fcad-t tbody,#fc-ad .fcad-t tr,#fc-ad .fcad-t td{display:block;width:auto}'
+    +   '#fc-ad .fcad-t thead{display:none}'
+    +   '#fc-ad .fcad-t tr{border:1px solid var(--bd,#e5e7eb);border-radius:8px;margin:0 0 8px;padding:8px}'
+    +   '#fc-ad .fcad-t td{border:0;padding:3px 0}'
+    +   '#fc-ad .fcad-t td[data-l]:before{content:attr(data-l);display:block;font-size:11px;'
+    +     'color:var(--t3,#6b7280);margin:0 0 2px}'
+    +   '#fc-ad .fcad-t td[colspan]:before{content:none}'
+    + '}</style>';
 }
 function fcAdCell(st, t){
   var C = { DATA_READY: '#0F6E56', PHOTO_READY: '#0F6E56', AD_READY: '#0F6E56',
@@ -14163,8 +14192,11 @@ function fcAdRender(){
   }
 
   box.innerHTML = head + sum
-    + '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
-    + '<th>매물</th><th>데이터</th><th>사진</th><th>당근</th><th>할 일</th></tr></thead><tbody>'
+    + fcAdCss()
+    + '<div style="overflow-x:auto"><table class="dd-t fcad-t"><thead><tr>'
+    + '<th style="width:22%">매물</th><th style="width:26%">데이터</th>'
+    + '<th style="width:20%">사진</th><th style="width:16%">당근</th>'
+    + '<th style="width:16%">할 일</th></tr></thead><tbody>'
     + rows.map(function(o){
         var d = fcAdData(o), p = fcAdPhotoSt(o), f = fcAdFinal(d, p);
         var live = (typeof adLive === 'function') ? adLive(o) : true;
@@ -14192,12 +14224,12 @@ function fcAdRender(){
               + gAttr(o.id) + '&#39;,&#39;' + gAttr(m) + '&#39;)">' + gEsc(m) + ' 채우기</button>';
           }).join('') + '</div>';
         }
-        var tr = '<tr><td>' + gEsc(String(o.id || ''))
+        var tr = '<tr><td data-l="매물">' + gEsc(String(o.id || ''))
           + '<div class="s">' + gEsc((String(o.apt || '') + ' ' + String(o.addr2 || '')).trim()) + '</div></td>'
-          + '<td>' + dcell + '</td>'
-          + '<td>' + fcAdCell(p.st, p.t) + '</td>'
-          + '<td>' + fcAdCell(f.st, f.t) + '</td>'
-          + '<td>' + b + '</td></tr>';
+          + '<td data-l="데이터">' + dcell + '</td>'
+          + '<td data-l="사진">' + fcAdCell(p.st, p.t) + '</td>'
+          + '<td data-l="당근">' + fcAdCell(f.st, f.t) + '</td>'
+          + '<td data-l="할 일">' + b + '</td></tr>';
         if(FC_AD_OPEN === String(o.id)) tr += '<tr><td colspan="5">' + fcAdDetail(o) + '</td></tr>';
         return tr;
       }).join('')
