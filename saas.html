@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 02:46</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 03:11</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13652,6 +13652,97 @@ function fcAdState(o){
            why: s.partial ? '필수값 부족 - 상세는 [🥕 당근 엑셀] 의 검수 파일에서'
                           : '검사 결과에 없습니다 - 다시 검사하세요' };
 }
+/* ── 자료(당근 필수값) 판정 — 기존 검사 결과에서 꺼내 쓴다. 새로 재지 않는다 ── */
+function fcAdData(o){
+  var s = FC_AD_SCAN;
+  if(!s) return { st: '', t: '검사 전', miss: [] };
+  var id = String(o.id || '');
+  if(s.ready.indexOf(id) >= 0) return { st: 'DATA_READY', t: '자료 완료', miss: [] };
+  var e = s.ex[id];
+  if(!e) return { st: 'DATA_REQUIRED', t: '검사 결과에 없습니다 - 다시 검사하세요', miss: [] };
+  if(e.why === '항목부족'){
+    var m = String(e.memo || '').split('·').map(function(x){ return x.trim(); }).filter(Boolean);
+    return { st: 'DATA_REQUIRED', t: m.join(' · '), miss: m };
+  }
+  if(e.why === '상태제외') return { st: 'BLOCKED', t: '거래가 끝났습니다' + (e.memo ? ' (' + e.memo + ')' : ''), miss: [] };
+  if(e.why === '이미등록') return { st: 'POSTED', t: '이미 올려 둔 매물' + (e.memo ? ' (' + e.memo + ')' : ''), miss: [] };
+  return { st: 'REVIEW_REQUIRED', t: e.why + (e.memo ? ' - ' + e.memo : ''), miss: [] };
+}
+/* ── 사진 판정을 같은 모양으로 ── */
+function fcAdPhotoSt(o){
+  var ph = fcAdPhotoOk(FC_AD_PHOTO[o.id]);
+  if(!ph.known) return { st: '', t: ph.t };
+  if(ph.st === 'REVIEW_REQUIRED') return { st: 'REVIEW_REQUIRED', t: ph.t };
+  if(ph.ok) return { st: 'PHOTO_READY', t: ph.t };
+  return { st: 'PHOTO_REQUIRED', t: ph.t };
+}
+/* ── 자료와 사진을 합쳐 최종 판정. 🔴 둘 다 되어야 AD_READY 다 ── */
+function fcAdFinal(d, p){
+  if(d.st === 'BLOCKED') return { st: 'BLOCKED', t: '광고하면 안 됩니다' };
+  if(d.st === 'POSTED')  return { st: 'POSTED',  t: '이미 게시중' };
+  if(d.st === 'REVIEW_REQUIRED') return { st: 'REVIEW_REQUIRED', t: '자료 확인 필요' };
+  if(p.st === 'REVIEW_REQUIRED') return { st: 'REVIEW_REQUIRED', t: '사진 폴더 확인 필요' };
+  if(d.st === 'DATA_READY' && p.st === 'PHOTO_READY') return { st: 'AD_READY', t: '광고 준비 완료' };
+  if(d.st === 'DATA_READY' && !p.st) return { st: '대기', t: '자료 완료 · 사진 미확인' };
+  if(d.st === 'DATA_READY') return { st: '대기', t: '자료 완료 · 사진만 필요' };
+  if(p.st === 'PHOTO_READY') return { st: '대기', t: '사진 완료 · 자료 보완 필요' };
+  return { st: '대기', t: '자료·사진 둘 다 필요' };
+}
+/* 빠진 값 이름 → 기존 매물 수정 화면의 그 칸 (새 입력창을 만들지 않는다) */
+var FC_AD_FIELD = {
+  '욕실 수': 'l-baths', '방 수': 'l-rooms',
+  '면적': 'l-area', '면적 형식(제곱미터 숫자)': 'l-area', '면적 형식': 'l-area',
+  '층': 'l-floor', '총 층': 'l-total-floor',
+  '매물유형': 'l-kind', '거래유형': 'l-type', '주소': 'l-addr', '매물 설명': 'l-desc',
+  '보증금/매매가': 'l-price', '월세': 'l-rent',
+  '토지 지목': 'l-jimok', '용도지역': 'l-zone'
+};
+function fcAdFieldOf(need){
+  var n = String(need || '');
+  if(FC_AD_FIELD[n]) return FC_AD_FIELD[n];
+  var keys = Object.keys(FC_AD_FIELD);          /* '면적 형식(...)' 처럼 뒤에 말이 붙은 경우 */
+  for(var i = 0; i < keys.length; i++) if(n.indexOf(keys[i]) === 0) return FC_AD_FIELD[keys[i]];
+  return '';
+}
+/* 빠진 값을 그 자리에서 채운다 — 기존 매물 수정 화면을 열어 그 칸으로 데려간다 */
+function fcAdFix(id, need){
+  if(typeof openModal !== 'function'){ showToast('매물 수정 화면을 열 수 없습니다'); return; }
+  openModal('listing', id);
+  var fid = fcAdFieldOf(need);
+  setTimeout(function(){
+    try{
+      var el = fid ? document.getElementById(fid) : null;
+      if(el){
+        if(el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+        el.focus();
+        var b = el.style.background;
+        el.style.background = '#FEF3C7';
+        setTimeout(function(){ el.style.background = b; }, 2500);
+      }
+      showToast(String(need) + ' 을(를) 채우고 저장하면 광고 자격을 바로 다시 봅니다');
+    }catch(e){}
+  }, 350);
+}
+/* 저장하면 즉시 다시 판정한다 (광고 준비 화면이 떠 있을 때만) */
+function fcAdAfterSave(){
+  try{
+    if(!document.getElementById('fc-ad') || !FC_AD_SCAN) return;
+    fcAdScan().then(function(){ fcAdRender(); showToast('광고 자격을 다시 판정했습니다'); });
+  }catch(e){}
+}
+/* 한 가지만 채우면 올라가는 매물 — 대표가 오늘 할 일이 여기서 나온다 */
+function fcAdOneAway(){
+  var g = {};
+  if(!FC_AD_SCAN) return g;
+  fcAdRows().forEach(function(o){
+    var d = fcAdData(o);
+    if(d.st === 'DATA_REQUIRED' && d.miss.length === 1){
+      var k = d.miss[0];
+      (g[k] = g[k] || []).push(o.id);
+    }
+  });
+  return g;
+}
 function fcAdRows(){
   var list = [];
   try{ list = adListings(); }catch(e){ list = (typeof listings !== 'undefined' && listings) || []; }
@@ -13837,52 +13928,108 @@ function fcAdDetail(o){
   }
   return h + '</div>';
 }
+function fcAdCell(st, t){
+  var C = { DATA_READY: '#0F6E56', PHOTO_READY: '#0F6E56', AD_READY: '#0F6E56',
+            DATA_REQUIRED: '#B45309', PHOTO_REQUIRED: '#B45309',
+            REVIEW_REQUIRED: '#B45309', BLOCKED: '#DC2626', POSTED: '#6B7280' };
+  var c = C[st] || '#6B7280';
+  return '<b style="color:' + c + '">' + gEsc(st || '검사 전') + '</b>'
+       + (t ? '<div class="s">' + gEsc(t) + '</div>' : '');
+}
 function fcAdRender(){
   var box = document.getElementById('fc-ad'); if(!box) return;
   var rows = fcAdRows(), s = FC_AD_SCAN;
   var head = '<div class="dd-h">🥕 당근 광고 준비</div>'
-    + '<div class="s" style="margin:-6px 0 10px">올리기 전에 <b>무엇이 왜 막혀 있는지</b> 먼저 봅니다. '
-    + '이 화면은 <b style="color:#B45309">당근에 아무것도 올리거나 고치지 않습니다</b> - 게시는 당근에서 직접 하십니다.<br>'
-    + '미리보기는 구글 시트 대조를 건너뜁니다(시트에 저장하지 않으려고). 따라서 <b>다른 기기에서 방금 올린 건</b>은 아직 반영되지 않을 수 있습니다 - 실제 엑셀을 만들 때 [🥕 당근 엑셀] 이 시트를 대조합니다.</div>'
+    + '<div class="s" style="margin:-6px 0 10px">'
+    + '<b>데이터</b>(당근이 요구하는 필수값)와 <b>사진</b>(이 호실 사진)을 따로 봅니다. '
+    + '둘 다 되어야 광고 준비 완료입니다. '
+    + '이 화면은 <b style="color:#B45309">당근에 아무것도 올리거나 고치지 않습니다</b>.<br>'
+    + '미리보기는 구글 시트 대조를 건너뜁니다(시트에 저장하지 않으려고). '
+    + '다른 기기에서 방금 올린 건은 아직 반영되지 않을 수 있습니다.</div>'
     + '<div style="margin:0 0 10px">'
     + '<button class="btn btn-sm" onclick="fcAdScanGo()">🔍 광고 준비 검사</button> '
     + '<button class="btn btn-sm" onclick="fcAdPhotoAll()">📷 사진 상태 조회</button></div>';
   if(!s){
     box.innerHTML = head + '<div class="s">[🔍 광고 준비 검사] 를 누르면 매물마다 '
-      + 'READY / 부족한 값 / 막힌 이유가 한 줄로 나옵니다. 엑셀을 만들지 않고도 볼 수 있습니다.</div>';
+      + '<b>무엇이 비었는지</b>가 한 줄로 나옵니다. 엑셀을 만들지 않고도 볼 수 있습니다.</div>';
     return;
   }
-  var cnt = {};
-  rows.forEach(function(o){ var k = fcAdState(o).k || '기타'; cnt[k] = (cnt[k] || 0) + 1; });
-  var chips = Object.keys(FC_AD_STATES).filter(function(k){ return cnt[k]; }).map(function(k){
-    var c = FC_AD_STATES[k];
+  var cnt = {}, one = fcAdOneAway();
+  rows.forEach(function(o){
+    var d = fcAdData(o), p = fcAdPhotoSt(o), f = fcAdFinal(d, p);
+    ['D:' + (d.st || '-'), 'P:' + (p.st || '-'), 'A:' + (f.st || '-')].forEach(function(k){
+      cnt[k] = (cnt[k] || 0) + 1;
+    });
+  });
+  var chip = function(label, n, c){
+    if(!n) return '';
     return '<span style="display:inline-block;margin:0 6px 6px 0;padding:2px 8px;border-radius:10px;'
-      + 'border:1px solid ' + c.c + ';color:' + c.c + '"><b>' + gEsc(c.n) + '</b> ' + cnt[k] + '</span>';
-  }).join('');
-  box.innerHTML = head + '<div>' + chips + '</div>'
+      + 'border:1px solid ' + c + ';color:' + c + '"><b>' + gEsc(label) + '</b> ' + n + '</span>';
+  };
+  var sum = '<div style="margin:0 0 4px"><span class="s">자료 </span>'
+    + chip('DATA_READY', cnt['D:DATA_READY'], '#0F6E56')
+    + chip('DATA_REQUIRED', cnt['D:DATA_REQUIRED'], '#B45309')
+    + chip('BLOCKED', cnt['D:BLOCKED'], '#DC2626')
+    + chip('POSTED', cnt['D:POSTED'], '#6B7280')
+    + chip('REVIEW_REQUIRED', cnt['D:REVIEW_REQUIRED'], '#B45309') + '</div>'
+    + '<div style="margin:0 0 4px"><span class="s">사진 </span>'
+    + chip('PHOTO_READY', cnt['P:PHOTO_READY'], '#0F6E56')
+    + chip('PHOTO_REQUIRED', cnt['P:PHOTO_REQUIRED'], '#B45309')
+    + chip('REVIEW_REQUIRED', cnt['P:REVIEW_REQUIRED'], '#B45309')
+    + chip('미확인', cnt['P:-'], '#6B7280') + '</div>'
+    + '<div style="margin:0 0 8px"><span class="s">최종 </span>'
+    + chip('AD_READY', cnt['A:AD_READY'], '#0F6E56')
+    + chip('대기', cnt['A:대기'], '#6B7280')
+    + chip('REVIEW_REQUIRED', cnt['A:REVIEW_REQUIRED'], '#B45309')
+    + chip('BLOCKED', cnt['A:BLOCKED'], '#DC2626')
+    + chip('POSTED', cnt['A:POSTED'], '#6B7280') + '</div>';
+
+  /* 🎯 오늘 할 일 — 한 가지만 채우면 올라가는 매물 */
+  var todo = Object.keys(one);
+  if(todo.length){
+    sum += '<div class="dd-c" style="margin:0 0 10px;border-color:#0F6E56;padding:8px 10px">'
+      + '<b>🎯 오늘 할 일</b> — 한 가지만 채우면 자료가 완성됩니다<div style="margin:6px 0 0">'
+      + todo.map(function(k){
+          return '<div style="margin:0 0 4px"><b>' + gEsc(k) + '</b> 만 확인하면 되는 매물 '
+            + one[k].length + '건 &nbsp;'
+            + one[k].map(function(id){
+                return '<button class="btn btn-xs" style="margin:0 3px 3px 0" onclick="fcAdFix(&#39;'
+                  + gAttr(id) + '&#39;,&#39;' + gAttr(k) + '&#39;)">' + gEsc(id) + '</button>';
+              }).join('') + '</div>';
+        }).join('') + '</div></div>';
+  }
+
+  box.innerHTML = head + sum
     + '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
-    + '<th>매물</th><th>상태</th><th>왜</th><th>사진</th><th>할 일</th></tr></thead><tbody>'
+    + '<th>매물</th><th>데이터</th><th>사진</th><th>당근</th><th>할 일</th></tr></thead><tbody>'
     + rows.map(function(o){
-        var st = fcAdState(o), c = FC_AD_STATES[st.k] || { n: '?', t: '', c: '#6B7280' };
-        var ph = FC_AD_PHOTO[o.id];
+        var d = fcAdData(o), p = fcAdPhotoSt(o), f = fcAdFinal(d, p);
         var live = (typeof adLive === 'function') ? adLive(o) : true;
         var on = (typeof adOn === 'function') ? adOn(o, 'daangn') : false;
         var b = '<button class="btn btn-xs" onclick="fcAdKit(&#39;' + gAttr(o.id) + '&#39;)">자료</button> ';
+        if(typeof openAdCopyModal === 'function')
+          b += '<button class="btn btn-xs" onclick="openAdCopyModal(&#39;' + gAttr(o.id) + '&#39;)">문구</button> ';
         if(live && !on) b += '<button class="btn btn-xs" onclick="fcAdPosted(&#39;' + gAttr(o.id) + '&#39;)">게시함 기록</button> ';
         if(!live && on) b += '<button class="btn btn-xs" style="border-color:#DC2626;color:#DC2626" onclick="fcAdDownAsk(&#39;'
           + gAttr(o.id) + '&#39;)">내리기 결재</button>';
+        /* 빠진 값은 눌러서 그 자리에서 채운다 */
+        var dcell = fcAdCell(d.st, d.miss.length ? '' : d.t);
+        if(d.miss.length) dcell += '<div style="margin:2px 0 0">' + d.miss.map(function(m){
+          return '<button class="btn btn-xs" style="margin:0 3px 3px 0;border-color:#B45309;color:#B45309" onclick="fcAdFix(&#39;'
+            + gAttr(o.id) + '&#39;,&#39;' + gAttr(m) + '&#39;)">' + gEsc(m) + ' 채우기</button>';
+        }).join('') + '</div>';
         var tr = '<tr><td>' + gEsc(String(o.id || ''))
           + '<div class="s">' + gEsc((String(o.apt || '') + ' ' + String(o.addr2 || '')).trim()) + '</div></td>'
-          + '<td><b style="color:' + c.c + '">' + gEsc(c.n) + '</b>'
-          + '<div class="s">' + gEsc(c.t) + (st.t ? ' · ' + gEsc(st.t) : '') + '</div></td>'
-          + '<td class="s">' + gEsc(st.why || '') + '</td>'
-          + '<td class="s">' + gEsc(ph ? fcAdPhotoOk(ph).t : '-') + '</td>'
+          + '<td>' + dcell + '</td>'
+          + '<td>' + fcAdCell(p.st, p.t) + '</td>'
+          + '<td>' + fcAdCell(f.st, f.t) + '</td>'
           + '<td>' + b + '</td></tr>';
         if(FC_AD_OPEN === String(o.id)) tr += '<tr><td colspan="5">' + fcAdDetail(o) + '</td></tr>';
         return tr;
       }).join('')
     + '</tbody></table></div>'
     + '<div class="s" style="margin:8px 0 0">검사 시각 ' + gEsc(String(s.at || ''))
+    + ' · 🔴 건물 폴더만 찾은 것(BUILDING_ONLY)은 이 호실 사진으로 세지 않습니다 - 다른 방 사진을 광고에 쓰지 않기 위해서입니다.'
     + (s.partial ? ' · <b style="color:#B45309">올릴 수 있는 매물이 0건이라 상세 사유 일부는 엑셀 검수 파일에서 봐야 합니다</b>' : '')
     + '</div>';
 }
@@ -13898,6 +14045,7 @@ function fcWrapSaves(){
     window.saveListing = function(){
       const r = _sl.apply(this, arguments);
       setTimeout(function(){ try{ fcAfterListingSave(); }catch(e){} }, 700);
+      setTimeout(function(){ try{ fcAdAfterSave(); }catch(e){} }, 1100);
       return r;
     };
   }
