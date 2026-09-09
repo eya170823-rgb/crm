@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 03:11</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 03:28</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13652,6 +13652,23 @@ function fcAdState(o){
            why: s.partial ? '필수값 부족 - 상세는 [🥕 당근 엑셀] 의 검수 파일에서'
                           : '검사 결과에 없습니다 - 다시 검사하세요' };
 }
+/* ⚠ 광고 본문 흠집 — 욕실 수가 비어 있으면 문구 생성기가 「욕실」 뒤에 준공일을 붙여 찍는다.
+   그대로 광고에 나가면 "욕실2019-10-25" 처럼 보인다.
+   🔴 여기서는 알려만 준다. 본문을 다시 만드는 것은 운영 자료를 고치는 일이라 대표 승인이 필요하다. */
+function fcAdDescWarn(o){
+  var t = String((o && o.desc) || '');
+  var i = t.indexOf('욕실');
+  while(i >= 0){
+    var j = i + 2;
+    while(j < t.length && t.charAt(j) === ' ') j++;
+    var d = 0;
+    while(j + d < t.length && t.charAt(j + d) >= '0' && t.charAt(j + d) <= '9') d++;
+    if(d === 4 && t.charAt(j + d) === '-')
+      return '광고 본문이 「욕실' + t.slice(j, j + 10) + '」 로 찍혀 있습니다 - 욕실 수를 채운 뒤 문구를 다시 만드세요';
+    i = t.indexOf('욕실', i + 2);
+  }
+  return '';
+}
 /* ── 자료(당근 필수값) 판정 — 기존 검사 결과에서 꺼내 쓴다. 새로 재지 않는다 ── */
 function fcAdData(o){
   var s = FC_AD_SCAN;
@@ -14014,6 +14031,8 @@ function fcAdRender(){
           + gAttr(o.id) + '&#39;)">내리기 결재</button>';
         /* 빠진 값은 눌러서 그 자리에서 채운다 */
         var dcell = fcAdCell(d.st, d.miss.length ? '' : d.t);
+        var dw = fcAdDescWarn(o);
+        if(dw) dcell += '<div class="s" style="color:#B45309">⚠ ' + gEsc(dw) + '</div>';
         if(d.miss.length) dcell += '<div style="margin:2px 0 0">' + d.miss.map(function(m){
           return '<button class="btn btn-xs" style="margin:0 3px 3px 0;border-color:#B45309;color:#B45309" onclick="fcAdFix(&#39;'
             + gAttr(o.id) + '&#39;,&#39;' + gAttr(m) + '&#39;)">' + gEsc(m) + ' 채우기</button>';
