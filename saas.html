@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 12:36</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 15:25</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13244,7 +13244,14 @@ function pzParse(t, mode){
   }
   else out.floor = take(/(지하\s*)?(\d{1,2})\s*층/, m => (m[1] ? '지하 ' : '') + m[2] + '층');
   // 금액: 300/45 · 보증금 300 월세 45 · 전세 3억
-  const mm = txt.match(/(\d[\d,]*(?:\.\d+)?\s*억?\s*(?:\d+천)?)\s*[\/／]\s*(\d[\d,]*)/);
+  // 🔴 9/13 같은 날짜를 금액으로 읽지 않는다 (2026-09-09 인입함 실문자에서 잡음)
+  let mm = txt.match(/(\d[\d,]*(?:\.\d+)?\s*억?\s*(?:\d+천)?)\s*[\/／]\s*(\d[\d,]*)/);
+  if(mm){
+    const _a = Number(String(mm[1]).replace(/[^0-9]/g, ''));
+    const _b = Number(String(mm[2]).replace(/[^0-9]/g, ''));
+    // 앞이 1~12(월), 뒤가 1~31(일) 이고 '만' 이 안 붙으면 날짜로 본다
+    if(_a >= 1 && _a <= 12 && _b >= 1 && _b <= 31 && !/만/.test(mm[0])) mm = null;
+  }
   if(mm){ out.price = pzMan(mm[1]); out.rent = pzNum(mm[2]); used.push(mm[0]); }
   else {
     const b = txt.match(/보증(?:금)?\s*[:：]?\s*([\d,.억천만\s]+)/);
@@ -13274,7 +13281,9 @@ function pzParse(t, mode){
   const opt = PZ_OPT.filter(o => txt.indexOf(o) >= 0);
   if(opt.length) out.options = opt.join(', ');
   // 입주
-  out.move = take(/입주\s*(?:가능)?\s*(?:시기|일)?\s*[:：]?\s*([^\n,·]{2,20})/, m => m[1].trim())
+  // 🔴 '입주 가능 보증금 400 월세 75' 처럼 뒤에 금액이 오면 입주일이 아니다
+  out.move = take(/입주\s*(?:가능)?\s*(?:시기|일)?\s*[:：]?\s*([^\n,·]{2,20})/, function(m){ const _v = String(m[1]).trim();
+              return /^(보증|월세|전세|매매|반전세|관리비)/.test(_v) ? '' : _v; })
           || (/즉시\s*입주/.test(txt) ? '즉시입주' : '');
   // 주차·엘리베이터
   out.parking = take(/주차\s*[:：]?\s*([^\n,·]{1,14})/, m => m[1].trim());
@@ -13514,6 +13523,62 @@ function drLoad(){
       drRender();
     })
     .catch(e => { drRows = { error: String(e && e.message || e) }; drRender(); });
+}
+
+/* ══ 🏠 인입함 → 매물 (2026-09-09 전수조사로 찾은 끊긴 다리) ══
+   인입함에는 고객·임대인으로 보내는 길만 있고 매물로 가는 길이 없었다.
+   글에서 매물 칸을 뽑는 파서는 이미 있으니(붙여넣어 만들기) 그리로 넘겨 준다.
+   🔴 자동 등록하지 않는다 — 뽑아서 보여 주고 저장은 사람이 한다. */
+function ibToListing(i){
+  let r = null;
+  try{ r = (inboxRows || [])[i]; }catch(e){}
+  if(!r){ showToast('그 줄을 찾지 못했습니다'); return; }
+  const nl = String.fromCharCode(10);
+  // 파서가 읽기 좋게 이름·번호를 앞에 붙여 준다(글에 건물명이 없을 때가 많다)
+  const head = [String(r.name || '').trim(), String(r.phone || '').trim()].filter(Boolean).join(' ');
+  const body = String(r.text || '').trim();
+  const txt = (head ? head + nl : '') + body;
+  if(!txt.trim()){ showToast('내용이 비어 있습니다'); return; }
+  sxGo('paste', 0, '운영부');
+  setTimeout(function(){
+    try{ pzSetMode('listing'); }catch(e){}
+    const el = document.getElementById('pz-in');
+    if(el){
+      el.value = txt;
+      try{ pzRun(); }catch(e){}
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    showToast('인입함 글을 매물 칸으로 뽑았습니다 — 확인하고 저장하세요');
+  }, 420);
+}
+
+/* 인입함 각 줄에 [🏠 매물] 을 붙인다. 목록을 다시 그릴 때마다 자동으로 다시 붙인다. */
+function ibMountBtns(){
+  const box = document.getElementById('inbox-list'); if(!box) return;
+  box.querySelectorAll('button[onclick^="inboxPromoteLandlord("]').forEach(function(b){
+    if(b.getAttribute('data-ib') || (b.textContent || '').indexOf('메모') >= 0) return;
+    // 🔴 정규식을 쓰지 않는다 — 이 코드는 템플릿 문자열 안이라 역슬래시가 한 겹 먹힌다
+    const oc = b.getAttribute('onclick') || '';
+    const a1 = oc.indexOf('('), z1 = oc.indexOf(')');
+    const num = (a1 > 0 && z1 > a1) ? oc.slice(a1 + 1, z1).trim() : '';
+    if(!num || isNaN(Number(num))) return;
+    b.setAttribute('data-ib', '1');
+    const nb = document.createElement('button');
+    nb.className = b.className;
+    nb.type = 'button';
+    nb.textContent = '🏠 매물';
+    nb.title = '이 글에서 매물 칸을 뽑아 매물장에 올립니다 (저장은 확인 뒤에)';
+    nb.style.cssText = (b.style.cssText || '') + ';border-color:#1E88E5;color:#1E88E5';
+    nb.onclick = function(ev){ ev.stopPropagation(); ibToListing(Number(num)); };
+    b.parentNode.insertBefore(nb, b.nextSibling);
+  });
+}
+let ibObs = null;
+function ibWatch(){
+  const box = document.getElementById('inbox-list'); if(!box || ibObs) return;
+  ibMountBtns();
+  ibObs = new MutationObserver(function(){ ibMountBtns(); });
+  ibObs.observe(box, { childList: true, subtree: true });
 }
 
 function nmBizWarn(r){
@@ -14630,7 +14695,7 @@ function sxInit(){
     if(id === 'paste') pzRender();
     if(id === 'listing'){ pzMount(); lxWatch(); lxAreaMount(); lxAreaFill(); }
     if(id === 'gather'){ gxMount(); gxPhoneHelp(); gxWatch(); }
-    if(id === 'customer') nmMount();
+    if(id === 'customer'){ nmMount(); ibWatch(); }
     if(id === 'nomore') nmRender();
     if(id === 'docreq') drRender();
     if(id === 'contract') kMount();
