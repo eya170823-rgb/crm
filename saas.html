@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 23:26</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 00:12</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -11805,11 +11805,37 @@ const FLOW_STEPS = [
 function flowMine(){ try{ return localStorage.getItem('sx_scope') || (sxAdmin() ? 'all' : 'mine'); }catch(e){ return 'mine'; } }
 function flowScopeSet(v){ try{ localStorage.setItem('sx_scope', v); }catch(e){} flowRender(); }
 function flowWho(){ return (typeof crmWho === 'function') ? crmWho() : ''; }
+/* 📌 2026-09-10 담당자 비교의 기준값 — 사람 이름이 아니라 user.id 다.
+   서버 ping 이 id 를 돌려주면 여기에 담아 두고, 없으면 대표는 'admin' 으로 본다.
+   🔴 이름(ownerName)과 ID(owner/agent)를 섞어 비교하던 것이 직원 화면이 전부 0건이던 원인이다. */
+function flowUid(){
+  try{
+    const v = String(localStorage.getItem('crm_uid') || '').trim();
+    if(v) return v;
+  }catch(e){}
+  return sxAdmin() ? 'admin' : '';
+}
+/* 서버가 알려 준 담당자 ID 를 한 번만 받아 둔다 — 화면을 바꾸지 않는다 */
+function flowUidLoad(){
+  try{
+    if(String(localStorage.getItem('crm_uid') || '').trim()) return;
+    const url = getGsUrl(); if(!url) return;
+    fetch(url + '?action=ping&t=' + Date.now() + tokQ()).then(function(r){ return r.json(); }).then(function(j){
+      if(j && j.ok && j.id){ try{ localStorage.setItem('crm_uid', String(j.id)); }catch(e){} }
+    }).catch(function(){});
+  }catch(e){}
+}
 function flowOwned(rec, ownerFields){
   const scope = flowMine();
   if(scope === 'all' || scope === 'staff') return true;   // 직원별 보기는 전체를 놓고 아래 표로 나눈다
-  const me = flowWho();
-  for(const f of ownerFields){ const v = String(rec[f] || '').trim(); if(v) return v === me; }
+  const uid = flowUid(), me = flowWho();
+  for(const f of ownerFields){
+    const v = String(rec[f] || '').trim();
+    if(!v) continue;
+    // ID 칸(agent·owner)은 ID 로, 이름 칸(ownerName)은 이름으로 맞춘다
+    if(f === 'ownerName') return v === me;
+    return (uid && v === uid) || v === me;
+  }
   return scope === 'mine' ? false : true;   // 담당자 칸이 비어 있으면 '내 것'에는 넣지 않는다
 }
 function flowUnassigned(rec, ownerFields){ return ownerFields.every(f => !String(rec[f] || '').trim()); }
@@ -11828,26 +11854,26 @@ function flowCompute(){
   const own = (arr, fields) => arr.filter(x => flowOwned(x, fields));
   const out = {};
 
-  const vac = own(L.filter(l => String(l.status || '') === '공실'), ['ownerName', 'owner']);
+  const vac = own(L.filter(l => String(l.status || '') === '공실'), ['agent']);
   out.vacancy = { n: vac.length, late: vac.filter(l => flowDaysLeft(l.recvDate) !== null && flowDaysLeft(l.recvDate) < -3).length,
     due: '', next: '임대인에게 확인 전화', rows: vac.slice(0, 8).map(l => ({ id: l.id, t: [l.apt, l.addr2].filter(Boolean).join(' '), s: l.price || '', w: l.cname || '', d: l.recvDate || '' })),
     src: '매물관리 · 상태 공실' };
 
-  const ld = own(D, ['ownerName', 'owner']).filter(x => x.nextContact);
+  const ld = own(D, ['owner', 'ownerName']).filter(x => x.nextContact);
   const ldDue = ld.filter(x => String(x.nextContact).slice(0, 10) <= t);
   out.landlord = { n: ldDue.length, late: ld.filter(x => flowDaysLeft(x.nextContact) !== null && flowDaysLeft(x.nextContact) < -2).length,
     due: ldDue.length ? String(ldDue[0].nextContact).slice(0, 10) : '', next: '공실 여부 확인',
     rows: ldDue.slice(0, 8).map(x => ({ id: x.id, t: x.name || '', s: x.apt || x.addr || '', w: x.ownerName || '', d: String(x.nextContact).slice(0, 10) })),
     src: '임대인관리 · 다음 연락일' };
 
-  const nw = own(L.filter(l => String(l.status || '') === '접수'), ['ownerName', 'owner']);
+  const nw = own(L.filter(l => String(l.status || '') === '접수'), ['agent']);
   out.listing = { n: nw.length, late: nw.filter(l => String(l.verified || '') === 'N').length,
     due: '', next: '대장 조회 · 사진 · 광고', rows: nw.slice(0, 8).map(l => ({ id: l.id, t: [l.apt, l.addr2].filter(Boolean).join(' '), s: (l.type || '') + ' ' + (l.price || ''), w: l.cname || '', d: l.recvDate || '' })),
     src: '매물관리 · 상태 접수' };
 
   const openL = L.filter(l => !done(l.status));
   let matched = 0, matchRows = [];
-  const cust = own(C.filter(c => !/종료|취소/.test(String(c.progressStatus || ''))), ['ownerName', 'owner']);
+  const cust = own(C.filter(c => !/종료|취소/.test(String(c.progressStatus || ''))), ['agent']);
   if(typeof custMatchListings === 'function'){
     cust.forEach(c => {
       if(!c.region && !c.propType && !c.type) return;
@@ -11884,8 +11910,8 @@ function flowCompute(){
     src: '계약완료 · 이 달 시작' };
 
   out._meta = { scope: scope, me: me, today: t,
-    unassigned: { landlord: D.filter(x => flowUnassigned(x, ['ownerName', 'owner'])).length,
-                  customer: C.filter(x => flowUnassigned(x, ['ownerName', 'owner'])).length },
+    unassigned: { landlord: D.filter(x => flowUnassigned(x, ['owner', 'ownerName'])).length,
+                  customer: C.filter(x => flowUnassigned(x, ['agent'])).length },
     visitToday: V.filter(v => v.kind === '임장' && String(v.at || '').slice(0, 10) === t).length };
   return out;
 }
@@ -12888,6 +12914,7 @@ function fcAfterCustomerSave(){
 
 /* ── 기존 저장 함수를 감싼다 (원본 index.html 은 그대로) ── */
 function fcWrapSaves(){
+  try{ flowUidLoad(); }catch(e){}
   if(window.__fcWrapped) return;
   window.__fcWrapped = true;
   if(typeof saveListing === 'function'){
