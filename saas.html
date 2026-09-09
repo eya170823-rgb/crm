@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 01:21</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 02:46</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13518,10 +13518,379 @@ function fcAfterCustomerSave(){
 }
 
 /* ── 기존 저장 함수를 감싼다 (원본 index.html 은 그대로) ── */
+/* == 🥕 당근 광고 준비 (2026-09-10 GATE 4) ==============================
+   🔴 새 광고엔진을 만들지 않는다. 기존 exportDaangnExcel 의 판정을 그대로 돌려서
+      "무엇이 왜 못 올라가는지" 를 엑셀을 만들기 전에 화면에서 보여 줄 뿐이다.
+   🔴 당근에 아무것도 올리거나 고치지 않는다. 게시는 사람이 당근에서 직접 한다
+      (봇 게시는 계정정지 1순위 사유 - 대표 지시 2026-07-27).
+   🔴 사진은 기존 drivePhotos_/photoFindBase_ 결과를 읽기만 한다. 파일을 옮기지 않는다. */
+var FC_AD_SCAN  = null;   /* { at, ready:[id], ex:{id:{why,memo}}, partial } */
+var FC_AD_PHOTO = {};     /* id -> drivePhotos 결과 (조회한 것만) */
+var FC_AD_OPEN  = '';     /* 자료 상자를 펼쳐 둔 매물 */
+
+var FC_AD_STATES = {
+  READY:           { n: 'READY',           t: '게시 준비 완료',    c: '#0F6E56' },
+  PHOTO_REQUIRED:  { n: 'PHOTO_REQUIRED',  t: '이 호실 사진 부족', c: '#B45309' },
+  DATA_REQUIRED:   { n: 'DATA_REQUIRED',   t: '필수값 부족',       c: '#B45309' },
+  REVIEW_REQUIRED: { n: 'REVIEW_REQUIRED', t: '대표 확인 필요',    c: '#B45309' },
+  BLOCKED:         { n: 'BLOCKED',         t: '광고하면 안 됨',    c: '#DC2626' },
+  POSTED:          { n: 'POSTED',          t: '이미 게시중',       c: '#6B7280' }
+};
+function fcAdNl(){ return String.fromCharCode(10); }
+/* 기존 제외 사유를 위 다섯 가지로 옮긴다 - 새 사유 코드를 만들지 않는다 */
+function fcAdWhyMap(why){
+  var w = String(why || '');
+  if(w === '상태제외') return 'BLOCKED';
+  if(w === '이미등록') return 'POSTED';
+  if(w === '항목부족') return 'DATA_REQUIRED';
+  return 'REVIEW_REQUIRED';        /* 주소확인필요 · 당근중복 · 배치내중복 · 개별등록필요 */
+}
+
+/* 🔍 검사 - 기존 exportDaangnExcel 을 '파일을 만들지 않는 모드' 로 한 번 돌린다.
+   판정 규칙을 베껴 오지 않으므로 규칙이 바뀌어도 이 화면이 저절로 따라간다. */
+async function fcAdScan(){
+  if(typeof exportDaangnExcel !== 'function') return { ok: false, why: '당근 내보내기 기능을 찾지 못했습니다' };
+  if(!window.XLSX) return { ok: false, why: '엑셀 라이브러리가 아직 안 떴습니다 - 잠시 뒤 다시 눌러 주세요' };
+  var keep = { wf: XLSX.writeFile, ap: XLSX.utils.book_append_sheet,
+               al: window.alert, tt: window.showToast, to: window.setTimeout,
+               cf: window.confirm, pre: window.daangnPreSyncFromSheet,
+               last: window.__daangnLastExport, ls: null };
+  try{ keep.ls = localStorage.getItem('crm_daangn_last_export'); }catch(e){}
+  var got = {}, msg = '', ready = [], ex = {}, partial = false;
+  try{
+    /* 🔴 시트 대조는 시트에 저장까지 하므로 미리보기에서는 돌리지 않는다 */
+    window.daangnPreSyncFromSheet = function(){ return Promise.resolve(''); };
+    XLSX.writeFile = function(){};
+    XLSX.utils.book_append_sheet = function(wb, ws, nm){ got[nm] = ws; return keep.ap.apply(XLSX.utils, arguments); };
+    window.alert = function(t){ msg = String(t || ''); };
+    window.showToast = function(){};
+    window.setTimeout = function(){ return 0; };   /* 뒤따르는 파일 저장·안내를 막는다 */
+    window.confirm = function(){ return true; };   /* 미리보기라 되묻지 않는다 */
+    await exportDaangnExcel();
+    ready = (window.__daangnLastExport || []).slice();
+    var ws = got['제외된 매물'];
+    if(ws){
+      var aoa = XLSX.utils.sheet_to_json(ws, { header: 1 }) || [];
+      for(var i = 1; i < aoa.length; i++){
+        var r = aoa[i] || [], rid = String(r[1] || '');
+        if(rid) ex[rid] = { why: String(r[0] || ''), memo: String(r[6] || '') };
+      }
+    } else partial = true;   /* 올릴 수 있는 매물이 0건이면 검수 시트가 만들어지지 않는다 */
+  }catch(e){
+    return { ok: false, why: '검사 중 오류 - ' + ((e && e.message) || e) };
+  } finally {
+    XLSX.writeFile = keep.wf; XLSX.utils.book_append_sheet = keep.ap;
+    window.alert = keep.al; window.showToast = keep.tt; window.setTimeout = keep.to;
+    window.confirm = keep.cf; window.daangnPreSyncFromSheet = keep.pre;
+    window.__daangnLastExport = keep.last;
+    try{
+      if(keep.ls === null) localStorage.removeItem('crm_daangn_last_export');
+      else localStorage.setItem('crm_daangn_last_export', keep.ls);
+    }catch(e){}
+  }
+  if(partial){
+    /* 아는 만큼은 기존 공개 함수로 채운다 */
+    try{
+      (adFilterForExport('daangn').excluded || []).forEach(function(e){
+        var id = String((e.o && e.o.id) || '');
+        if(id) ex[id] = { why: String(e.why || ''), memo: String(e.memo || '') };
+      });
+    }catch(e){}
+  }
+  FC_AD_SCAN = { at: todayStr(), ready: ready, ex: ex, partial: partial, note: msg };
+  return { ok: true };
+}
+
+/* 📌 사진 판정 - 여기가 사진 쪽과 광고 쪽이 만나는 유일한 지점이다.
+   기존 drivePhotos_ 가 돌려주는 것만 읽는다. 파일을 옮기거나 고치지 않는다.
+   🔴 건물 폴더를 찾은 것을 '이 호실 사진이 있다'로 세지 않는다 - 그러면 옆방 사진이 광고에 나간다.
+     EXACT_UNIT      이 호실 폴더에서 실제로 센 사진이 있다
+     BUILDING_ONLY   건물까지만 찾았다 - 이 호실 사진은 아직 없다
+     REVIEW_REQUIRED 건물 폴더가 없거나 후보가 여럿이다 - 사람이 봐야 한다
+   광고에 나가는 사진은 사무소 규칙상 '보정완료' 폴더 것뿐이다(원본은 워터마크 전).
+   그래서 원본만 있으면 준비됐다고 하지 않고, 무엇을 하면 되는지 적어 준다. */
+function fcAdPhotoOk(p){
+  if(!p) return { known: false, ok: false, st: '', t: '사진 확인 안 함' };
+  if(p.error) return { known: false, ok: false, st: '', t: '조회 실패 - ' + p.error };
+  var done = Number(p.done || 0), raw = Number(p.raw || 0);
+  // match 는 새 GAS 가 준다. 아직 옛 GAS 면 status 로 같은 뜻을 만든다(배포 전에도 동작).
+  var m = String(p.match || '');
+  if(!m){
+    var st0 = String(p.status || '');
+    m = (st0 === 'bld-only') ? 'BUILDING_ONLY'
+      : (st0 === 'unit-hit') ? ((raw > 0 || done > 0) ? 'EXACT_UNIT' : 'UNIT_EMPTY')
+      : st0 ? 'REVIEW_REQUIRED' : '';
+  }
+  if(m === 'REVIEW_REQUIRED')
+    return { known: true, ok: false, st: 'REVIEW_REQUIRED',
+             t: '사진 폴더를 정하지 못했습니다' + (p.why ? ' - ' + p.why : '')
+                + ((p.cands && p.cands.length) ? (' / 후보: ' + p.cands.join(' · ')) : '') };
+  if(m === 'BUILDING_ONLY')
+    return { known: true, ok: false, st: 'PHOTO_REQUIRED',
+             t: '건물 폴더만 있고 이 호실 사진은 없습니다 (건물 사진을 이 방 사진으로 쓰지 않습니다)' };
+  if(done > 0) return { known: true, ok: true, st: 'READY', t: '보정완료 ' + done + '장' };
+  if(raw  > 0) return { known: true, ok: false, st: 'PHOTO_REQUIRED',
+             t: '원본 ' + raw + '장 · 보정완료 0장 - [브리즈부동산 사진보정] 을 한 번 돌리면 광고에 쓸 수 있습니다' };
+  return { known: true, ok: false, st: 'PHOTO_REQUIRED',
+           t: '이 호실 사진 0장' + (p.why ? ' - ' + p.why : '') };
+}
+function fcAdState(o){
+  var s = FC_AD_SCAN;
+  if(!s) return { k: '', t: '검사 전', why: '' };
+  var id = String(o.id || '');
+  if(s.ready.indexOf(id) >= 0){
+    var ph = fcAdPhotoOk(FC_AD_PHOTO[id]);
+    if(!ph.known)  return { k: 'READY', t: '사진 미확인', why: ph.t };
+    // 사진 폴더를 사람이 봐야 하는 경우와, 그냥 사진이 없는 경우를 구분한다
+    if(ph.st === 'REVIEW_REQUIRED') return { k: 'REVIEW_REQUIRED', t: '사진 폴더', why: ph.t };
+    if(!ph.ok)     return { k: 'PHOTO_REQUIRED', t: '', why: ph.t };
+    return { k: 'READY', t: '', why: ph.t };
+  }
+  var e = s.ex[id];
+  if(e) return { k: fcAdWhyMap(e.why), t: '', why: e.why + (e.memo ? ' - ' + e.memo : '') };
+  return { k: s.partial ? 'DATA_REQUIRED' : 'REVIEW_REQUIRED', t: '',
+           why: s.partial ? '필수값 부족 - 상세는 [🥕 당근 엑셀] 의 검수 파일에서'
+                          : '검사 결과에 없습니다 - 다시 검사하세요' };
+}
+function fcAdRows(){
+  var list = [];
+  try{ list = adListings(); }catch(e){ list = (typeof listings !== 'undefined' && listings) || []; }
+  return list.filter(function(o){
+    var live = (typeof adLive === 'function') ? adLive(o) : true;
+    var on   = (typeof adOn === 'function') ? adOn(o, 'daangn') : false;
+    return live || on;                 /* 끝났고 광고도 없으면 볼 일이 없다 */
+  });
+}
+
+/* 📋 당근 등록칸에 그대로 넣을 값 - 엑셀과 똑같은 변환기를 쓴다(값이 어긋나지 않게) */
+function fcAdKitData(o){
+  var g = function(f, v){ try{ return f(v); }catch(e){ return ''; } };
+  var kind = (typeof DAANGN_KIND_MAP !== 'undefined' && DAANGN_KIND_MAP[o.kind]) || String(o.kind || '').trim();
+  var type = String(o.type || '').trim() === '단기임대' ? '단기' : String(o.type || '').trim();
+  var out = [];
+  out.push(['매물유형', kind]);
+  out.push(['거래유형', type]);
+  out.push(['보증금/매매가(만원)', g(daangnManwon, o.price)]);
+  out.push(['월세(만원)', g(daangnManwon, o.rentAmt)]);
+  out.push(['주소', String(o.addr || '').trim()]);
+  out.push(['상세주소', String(o.addr2 || '').trim()]);
+  out.push(['면적', g(daangnArea, o.area)]);
+  out.push(['방 수', g(daangnNum, o.rooms)]);
+  out.push(['욕실 수', g(daangnNum, o.baths)]);
+  out.push(['층', String(o.floor || '')]);
+  out.push(['총 층', g(daangnNum, o.totalFloor)]);
+  out.push(['향', g(daangnDir, o.direction)]);
+  out.push(['입주가능일', g(daangnAvail, o.availDate)]);
+  out.push(['총 관리비(만원)', g(daangnManwon, o.feeAmt)]);
+  out.push(['반려동물', g(daangnTri, o.pets)]);
+  out.push(['대출', g(daangnLoan, o.loan)]);
+  try{ out.push(['옵션', daangnMulti(o.options, DAANGN_OPTION_MAP)]); }catch(e){ out.push(['옵션', '']); }
+  /* 🔴 매물 설명만 싣는다. 비공개메모(note)는 절대 넣지 않는다 (철칙 13) */
+  out.push(['매물 설명', String(o.desc || '')]);
+  return out;
+}
+function fcAdCopy(t){
+  var s = String(t || '');
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(s); showToast('복사했습니다'); return; }
+  }catch(e){}
+  try{
+    var ta = document.createElement('textarea');
+    ta.value = s; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta); showToast('복사했습니다');
+  }catch(e){ showToast('복사하지 못했습니다 - 값을 직접 끌어서 복사하세요'); }
+}
+function fcAdFind(id){
+  var list = fcAdRows();
+  for(var i = 0; i < list.length; i++) if(String(list[i].id) === String(id)) return list[i];
+  return null;
+}
+function fcAdCopyOne(id, i){
+  var o = fcAdFind(id); if(!o) return;
+  var d = fcAdKitData(o)[i]; if(d) fcAdCopy(d[1]);
+}
+function fcAdCopyAll(id){
+  var o = fcAdFind(id); if(!o) return;
+  fcAdCopy(fcAdKitData(o).map(function(d){ return d[0] + ': ' + d[1]; }).join(fcAdNl()));
+}
+/* 사진 폴더의 이 PC 경로 - 파일 선택창 주소칸에 붙여넣으면 폴더로 바로 간다 */
+function fcAdLocalPath(p){
+  var s = String(p || ''); if(!s) return '';
+  var bs = String.fromCharCode(92);
+  return 'G:' + bs + '내 드라이브' + bs + s.split('/').join(bs);
+}
+async function fcAdPhotoLoad(id, quiet){
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  var tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  if(!url || !tok){ if(!quiet) showToast('구글 시트 연동을 먼저 설정하세요'); return; }
+  try{
+    var r = await gsFetchJson(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'drivePhotos', token: tok, listingId: id }) }, '사진 현황');
+    FC_AD_PHOTO[id] = (r && r.result) || {};
+  }catch(e){ FC_AD_PHOTO[id] = { error: (e && e.message) || '조회 실패' }; }
+  if(!quiet) fcAdRender();
+}
+async function fcAdPhotoAll(){
+  var list = fcAdRows();
+  showToast('사진 상태를 보는 중입니다… ' + list.length + '건');
+  for(var i = 0; i < list.length; i++) await fcAdPhotoLoad(list[i].id, true);
+  fcAdRender();
+  showToast('사진 상태 조회 끝');
+}
+/* 🥕 게시했다고 기록 - 기존 ads.daangn 칸에 넣는다(새 저장소를 만들지 않는다).
+   🔴 당근 매물번호를 함께 받는다. 번호가 없으면 나중에 "정말 올라가 있나" 를 대조할 수 없다. */
+function fcAdPosted(id){
+  var list = adListings();
+  var o = null;
+  for(var i = 0; i < list.length; i++) if(String(list[i].id) === String(id)) o = list[i];
+  if(!o){ showToast('매물을 찾지 못했습니다'); return; }
+  var no = prompt('당근에 올린 뒤에 눌러 주세요.' + fcAdNl() + fcAdNl()
+    + '당근 매물번호를 적어 주세요 (당근 매물 주소 끝의 숫자).' + fcAdNl()
+    + '번호를 남겨야 나중에 [🥕 당근 등록목록 동기화] 로 실제 게시 여부를 대조할 수 있습니다.', '');
+  if(no === null) return;
+  var link = prompt('당근 매물 링크가 있으면 붙여넣어 주세요. 없으면 그냥 확인을 누르세요.', '');
+  if(link === null) return;
+  o.ads = o.ads || {};
+  o.ads.daangn = Object.assign(adBlank(), { on: true, no: String(no || '').trim(),
+    at: todayStr(), url: String(link || '').trim(), chk: adHash(adSnapshot(o)) });
+  adSaveList(list);
+  showToast(String(no || '').trim() ? '당근 게시로 기록했습니다' : '기록했습니다 - 번호가 없어 대조 근거는 약합니다');
+  fcAdRender();
+  if(typeof renderAds === 'function') renderAds();
+}
+/* 거래가 끝났는데 광고가 남은 매물 - 🔴 우리가 당근을 고치지 않는다.
+   기존 결재함(approvals)에 올려 대표가 직접 처리하게 한다. */
+async function fcAdDownAsk(id){
+  var o = fcAdFind(id); if(!o) return;
+  var a = (typeof ad === 'function' && ad(o, 'daangn')) || {};
+  if(!confirm('결재함에 「광고 내리기 확인」 으로 올립니다.' + fcAdNl()
+    + '이 프로그램이 당근을 직접 고치지는 않습니다 - 대표님이 당근에서 처리하십니다.' + fcAdNl() + fcAdNl()
+    + String(o.id || '') + '  ' + String(o.apt || '') + ' ' + String(o.addr2 || '') + fcAdNl()
+    + '거래상태: ' + String(o.status || ''))) return;
+  try{
+    await gsCall('approvalAdd', { kind: '광고내리기>당근', title: '[광고] 당근 내리기 - ' + String(o.id || ''),
+      deptFrom: '운영부', targetType: 'listing', targetId: String(o.id || ''), priority: '보통',
+      note: '거래상태가 ' + String(o.status || '') + ' 인데 당근 광고 표시가 남아 있습니다.' + fcAdNl()
+        + '당근번호: ' + (a.no || '(없음 - 실제 게시 여부는 확인되지 않았습니다)') + fcAdNl()
+        + '조치: 당근에서 「거래완료」 로 바꾸세요. 🔴 삭제 후 재등록은 금지입니다(철칙 12).' });
+    showToast('결재함에 올렸습니다');
+  }catch(e){ showToast('올리지 못했습니다 - ' + ((e && e.message) || e)); }
+}
+async function fcAdScanGo(){
+  showToast('광고 준비를 검사하는 중입니다…');
+  var r = await fcAdScan();
+  if(!r || !r.ok){ showToast((r && r.why) || '검사하지 못했습니다'); return; }
+  fcAdRender();
+  showToast('검사 끝 - 준비완료 ' + FC_AD_SCAN.ready.length + '건');
+}
+function fcAdKit(id){ FC_AD_OPEN = (FC_AD_OPEN === String(id)) ? '' : String(id); fcAdRender(); }
+
+function fcAdMount(){
+  var host = document.getElementById('p-ads'); if(!host) return;
+  if(document.getElementById('fc-ad')){ fcAdRender(); return; }
+  var box = document.createElement('div');
+  box.id = 'fc-ad'; box.className = 'dd-c';
+  box.style.cssText = 'margin:0 0 12px;border-color:#C1500A';
+  var hd = host.querySelector('.page-hd');
+  if(hd && hd.nextSibling) host.insertBefore(box, hd.nextSibling); else host.insertBefore(box, host.firstChild);
+  fcAdRender();
+}
+function fcAdAuto(){
+  try{
+    var host = document.getElementById('p-ads');
+    if(host && host.classList.contains('on')) fcAdMount();
+  }catch(e){}
+}
+function fcAdDetail(o){
+  var ph = FC_AD_PHOTO[o.id] || null;
+  var kit = fcAdKitData(o);
+  var h = '<div style="padding:8px 4px">'
+    + '<div style="margin:0 0 6px"><b>당근 등록칸에 넣을 값</b> '
+    + '<button class="btn btn-xs" onclick="fcAdCopyAll(&#39;' + gAttr(o.id) + '&#39;)">전체 복사</button></div>'
+    + '<table class="dd-t"><tbody>'
+    + kit.map(function(d, i){
+        var v = String(d[1] || '');
+        return '<tr><td style="width:150px" class="s">' + gEsc(d[0]) + '</td>'
+          + '<td>' + (v ? gEsc(v.length > 90 ? v.slice(0, 90) + '…' : v)
+                        : '<span style="color:#DC2626">비어 있음</span>') + '</td>'
+          + '<td style="width:60px"><button class="btn btn-xs" onclick="fcAdCopyOne(&#39;'
+          + gAttr(o.id) + '&#39;,' + i + ')">복사</button></td></tr>';
+      }).join('')
+    + '</tbody></table>';
+  h += '<div style="margin:10px 0 0"><b>사진</b> ';
+  if(!ph) h += '<span class="s">아직 조회하지 않았습니다.</span> '
+    + '<button class="btn btn-xs" onclick="fcAdPhotoLoad(&#39;' + gAttr(o.id) + '&#39;)">사진 상태 보기</button>';
+  else if(ph.error) h += '<span class="s" style="color:#DC2626">' + gEsc(ph.error) + '</span>';
+  else {
+    var pk = fcAdPhotoOk(ph);
+    h += '<span class="s">' + gEsc(pk.t) + '</span>';
+    if(ph.folderUrl) h += ' <a class="btn btn-xs" target="_blank" rel="noopener" href="' + gAttr(ph.folderUrl) + '">호실 폴더 열기</a>';
+    if(ph.bldUrl && ph.bldUrl !== ph.folderUrl) h += ' <a class="btn btn-xs" target="_blank" rel="noopener" href="' + gAttr(ph.bldUrl) + '">건물 폴더 열기</a>';
+    if(ph.cands && ph.cands.length) h += '<div class="s" style="margin:6px 0 0;color:#B45309">'
+      + '후보가 여럿입니다 - 어느 건물인지는 사람이 정합니다: ' + gEsc(ph.cands.join(' · ')) + '</div>';
+    var lp = fcAdLocalPath(ph.path);
+    if(lp) h += '<div class="s" style="margin:6px 0 0">이 PC 경로 - 당근 사진 첨부창 주소칸에 붙여넣으면 폴더로 바로 갑니다<br>'
+      + '<code>' + gEsc(lp) + '</code> '
+      + '<button class="btn btn-xs" onclick="fcAdCopy(&#39;' + gAttr(lp) + '&#39;)">경로 복사</button></div>';
+    h += '<div class="s" style="margin:6px 0 0;color:#B45309">🔴 사진은 엑셀로 못 올립니다 - 당근에 등록한 뒤 개별 첨부합니다(당근 가이드).</div>';
+  }
+  return h + '</div>';
+}
+function fcAdRender(){
+  var box = document.getElementById('fc-ad'); if(!box) return;
+  var rows = fcAdRows(), s = FC_AD_SCAN;
+  var head = '<div class="dd-h">🥕 당근 광고 준비</div>'
+    + '<div class="s" style="margin:-6px 0 10px">올리기 전에 <b>무엇이 왜 막혀 있는지</b> 먼저 봅니다. '
+    + '이 화면은 <b style="color:#B45309">당근에 아무것도 올리거나 고치지 않습니다</b> - 게시는 당근에서 직접 하십니다.<br>'
+    + '미리보기는 구글 시트 대조를 건너뜁니다(시트에 저장하지 않으려고). 따라서 <b>다른 기기에서 방금 올린 건</b>은 아직 반영되지 않을 수 있습니다 - 실제 엑셀을 만들 때 [🥕 당근 엑셀] 이 시트를 대조합니다.</div>'
+    + '<div style="margin:0 0 10px">'
+    + '<button class="btn btn-sm" onclick="fcAdScanGo()">🔍 광고 준비 검사</button> '
+    + '<button class="btn btn-sm" onclick="fcAdPhotoAll()">📷 사진 상태 조회</button></div>';
+  if(!s){
+    box.innerHTML = head + '<div class="s">[🔍 광고 준비 검사] 를 누르면 매물마다 '
+      + 'READY / 부족한 값 / 막힌 이유가 한 줄로 나옵니다. 엑셀을 만들지 않고도 볼 수 있습니다.</div>';
+    return;
+  }
+  var cnt = {};
+  rows.forEach(function(o){ var k = fcAdState(o).k || '기타'; cnt[k] = (cnt[k] || 0) + 1; });
+  var chips = Object.keys(FC_AD_STATES).filter(function(k){ return cnt[k]; }).map(function(k){
+    var c = FC_AD_STATES[k];
+    return '<span style="display:inline-block;margin:0 6px 6px 0;padding:2px 8px;border-radius:10px;'
+      + 'border:1px solid ' + c.c + ';color:' + c.c + '"><b>' + gEsc(c.n) + '</b> ' + cnt[k] + '</span>';
+  }).join('');
+  box.innerHTML = head + '<div>' + chips + '</div>'
+    + '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
+    + '<th>매물</th><th>상태</th><th>왜</th><th>사진</th><th>할 일</th></tr></thead><tbody>'
+    + rows.map(function(o){
+        var st = fcAdState(o), c = FC_AD_STATES[st.k] || { n: '?', t: '', c: '#6B7280' };
+        var ph = FC_AD_PHOTO[o.id];
+        var live = (typeof adLive === 'function') ? adLive(o) : true;
+        var on = (typeof adOn === 'function') ? adOn(o, 'daangn') : false;
+        var b = '<button class="btn btn-xs" onclick="fcAdKit(&#39;' + gAttr(o.id) + '&#39;)">자료</button> ';
+        if(live && !on) b += '<button class="btn btn-xs" onclick="fcAdPosted(&#39;' + gAttr(o.id) + '&#39;)">게시함 기록</button> ';
+        if(!live && on) b += '<button class="btn btn-xs" style="border-color:#DC2626;color:#DC2626" onclick="fcAdDownAsk(&#39;'
+          + gAttr(o.id) + '&#39;)">내리기 결재</button>';
+        var tr = '<tr><td>' + gEsc(String(o.id || ''))
+          + '<div class="s">' + gEsc((String(o.apt || '') + ' ' + String(o.addr2 || '')).trim()) + '</div></td>'
+          + '<td><b style="color:' + c.c + '">' + gEsc(c.n) + '</b>'
+          + '<div class="s">' + gEsc(c.t) + (st.t ? ' · ' + gEsc(st.t) : '') + '</div></td>'
+          + '<td class="s">' + gEsc(st.why || '') + '</td>'
+          + '<td class="s">' + gEsc(ph ? fcAdPhotoOk(ph).t : '-') + '</td>'
+          + '<td>' + b + '</td></tr>';
+        if(FC_AD_OPEN === String(o.id)) tr += '<tr><td colspan="5">' + fcAdDetail(o) + '</td></tr>';
+        return tr;
+      }).join('')
+    + '</tbody></table></div>'
+    + '<div class="s" style="margin:8px 0 0">검사 시각 ' + gEsc(String(s.at || ''))
+    + (s.partial ? ' · <b style="color:#B45309">올릴 수 있는 매물이 0건이라 상세 사유 일부는 엑셀 검수 파일에서 봐야 합니다</b>' : '')
+    + '</div>';
+}
 function fcWrapSaves(){
   try{ flowUidLoad(); }catch(e){}
   try{ fcExclLoad(); }catch(e){}
   try{ setInterval(fcCallsAuto, 1500); }catch(e){}
+  try{ setInterval(fcAdAuto, 1500); }catch(e){}
   if(window.__fcWrapped) return;
   window.__fcWrapped = true;
   if(typeof saveListing === 'function'){
