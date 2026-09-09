@@ -13689,6 +13689,16 @@ function fcWrapDesc(){
   var _b = buildListingDesc;
   window.buildListingDesc = function(o, all){ return _b.call(this, fcDescClean(o), all); };
 }
+/* 🔴 화면을 옮겨 다니지 않아도 방어가 걸려 있어야 한다.
+   fcWrapSaves 는 매물장·고객 화면에 들어가야만 도는데, 광고관리로 바로 가면
+   문구가 방어 없이 만들어졌다(2026-09-10 라이브 검증에서 잡음). 그래서 뜨자마자 건다. */
+function fcDescBoot(){
+  try{ fcWrapDesc(); }catch(e){}
+  if(!window.__fcDescWrapped){                       /* 원본 스크립트가 아직이면 잠깐 뒤 다시 */
+    try{ setTimeout(fcDescBoot, 300); }catch(e){}
+  }
+}
+fcDescBoot();
 /* 화면에서도 「이 칸에 엉뚱한 값이 있다」고 알려 준다 (고치지는 않는다) */
 function fcAdBadFields(o){
   var out = [];
@@ -13942,6 +13952,7 @@ async function fcAdScanGo(){
 function fcAdKit(id){ FC_AD_OPEN = (FC_AD_OPEN === String(id)) ? '' : String(id); fcAdRender(); }
 
 function fcAdMount(){
+  try{ fcWrapDesc(); }catch(e){}
   var host = document.getElementById('p-ads'); if(!host) return;
   if(document.getElementById('fc-ad')){ fcAdRender(); return; }
   var box = document.createElement('div');
