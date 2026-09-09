@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 03:44</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 06:41</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13778,6 +13778,34 @@ function fcAdFieldOf(need){
   for(var i = 0; i < keys.length; i++) if(n.indexOf(keys[i]) === 0) return FC_AD_FIELD[keys[i]];
   return '';
 }
+/* 매물 하나에 빠진 값이 여럿이면 화면을 한 번만 연다.
+   기존 매물 수정 화면에 필요한 칸이 전부 있으므로 새 입력창을 만들 이유가 없다.
+   빠진 칸을 모두 노랗게 표시하고 첫 칸에 커서를 둔다. 값은 사람이 넣는다. */
+function fcAdFixAll(id){
+  if(typeof openModal !== 'function'){ showToast('매물 수정 화면을 열 수 없습니다'); return; }
+  var o = fcAdFind(id);
+  var need = o ? fcAdData(o).miss : [];
+  openModal('listing', id);
+  setTimeout(function(){
+    var first = null;
+    need.forEach(function(m){
+      var fid = fcAdFieldOf(m);
+      var el = fid ? document.getElementById(fid) : null;
+      if(!el) return;
+      if(!first) first = el;
+      el.style.background = '#FEF3C7';
+      el.style.outline = '2px solid #B45309';
+      setTimeout(function(){ el.style.background = ''; el.style.outline = ''; }, 8000);
+    });
+    try{
+      if(first){ if(first.scrollIntoView) first.scrollIntoView({ block: 'center' }); first.focus(); }
+    }catch(e){}
+    showToast(need.length > 1
+      ? ('이 매물에 필요한 값 ' + need.length + '개를 한 번에 표시했습니다 — ' + need.join(' · ')
+         + '. 채우고 저장하면 바로 다시 판정합니다')
+      : ((need[0] || '값') + ' 을(를) 채우고 저장하면 바로 다시 판정합니다'));
+  }, 350);
+}
 /* 빠진 값을 그 자리에서 채운다 — 기존 매물 수정 화면을 열어 그 칸으로 데려간다 */
 function fcAdFix(id, need){
   if(typeof openModal !== 'function'){ showToast('매물 수정 화면을 열 수 없습니다'); return; }
@@ -13968,6 +13996,28 @@ function fcAdAuto(){
     if(host && host.classList.contains('on')) fcAdMount();
   }catch(e){}
 }
+/* 대표가 당근에서 실제로 해야 하는 행동 — 지금 상태에 맞는 것만 보여 준다.
+   🔴 이 프로그램이 당근에 올리지 않는다(봇 게시는 계정정지 사유). 사람이 한다. */
+function fcAdSteps(o, d, p){
+  var L = [];
+  if(d.st === 'BLOCKED'){
+    L.push('이 매물은 거래가 끝났습니다 — 올리지 말고, 당근에 남아 있으면 「거래완료」 로 바꾸세요.');
+    L.push('🔴 삭제 후 다시 올리지 마세요(계정 제재 1순위).');
+    return L;
+  }
+  if(d.st === 'POSTED'){ L.push('이미 올려 둔 매물입니다. 내용이 바뀌었으면 당근에서 「수정」 하세요.'); return L; }
+  if(d.st === 'DATA_REQUIRED') L.push('① 먼저 빠진 값을 채우세요: ' + d.miss.join(' · '));
+  if(p.st === 'PHOTO_REQUIRED') L.push('② 사진을 준비하세요 — ' + p.t);
+  if(p.st === 'REVIEW_REQUIRED') L.push('② 사진 폴더를 사람이 정해야 합니다 — ' + p.t);
+  if(d.st === 'DATA_READY' && p.st === 'PHOTO_READY'){
+    L.push('① 당근 부동산 → 매물 등록 화면을 엽니다.');
+    L.push('② 아래 값을 칸마다 [복사] 로 옮겨 넣습니다. (당근 등록 양식에는 제목 칸이 없고 매물 설명만 있습니다)');
+    L.push('③ [사진 폴더 열기] 또는 아래 「이 PC 경로」 를 파일 선택창에 붙여넣어 보정완료 사진을 첨부합니다.');
+    L.push('④ 대표님이 직접 게시합니다. 🔴 이 프로그램은 당근에 아무것도 올리지 않습니다.');
+    L.push('⑤ 올린 뒤 표의 [게시함 기록] 을 눌러 당근 매물번호를 남기세요 — 나중에 대조할 근거가 됩니다.');
+  }
+  return L;
+}
 function fcAdDetail(o){
   var ph = FC_AD_PHOTO[o.id] || null;
   var kit = fcAdKitData(o);
@@ -14000,6 +14050,29 @@ function fcAdDetail(o){
       + '<code>' + gEsc(lp) + '</code> '
       + '<button class="btn btn-xs" onclick="fcAdCopy(&#39;' + gAttr(lp) + '&#39;)">경로 복사</button></div>';
     h += '<div class="s" style="margin:6px 0 0;color:#B45309">🔴 사진은 엑셀로 못 올립니다 - 당근에 등록한 뒤 개별 첨부합니다(당근 가이드).</div>';
+    /* 실제로 쓸 사진 — 보정완료 폴더의 것만, 파일이름 순서 그대로 */
+    var ps = (ph.photos && ph.photos.length) ? ph.photos : [];
+    if(ps.length){
+      h += '<div style="margin:8px 0 0"><b>쓸 사진 ' + ps.length + '장</b> '
+        + '<span class="s">(보정완료 폴더 · 파일이름 순서대로 올리면 됩니다)</span>'
+        + '<div style="margin:6px 0 0">'
+        + ps.map(function(f, i){
+            return '<a href="' + gAttr(f.url) + '" target="_blank" rel="noopener" '
+              + 'style="display:inline-block;margin:0 6px 6px 0;text-align:center;text-decoration:none">'
+              + '<img src="' + gAttr(f.thumb) + '" alt="" style="width:86px;height:64px;object-fit:cover;'
+              + 'border:1px solid var(--bd,#ddd);border-radius:4px;display:block">'
+              + '<span class="s">' + (i + 1) + '. ' + gEsc(String(f.name || '').slice(0, 14)) + '</span></a>';
+          }).join('')
+        + '</div></div>';
+    }
+  }
+  /* 지금 상태에서 대표가 할 행동 */
+  var stp = fcAdSteps(o, fcAdData(o), fcAdPhotoSt(o));
+  if(stp.length){
+    h += '<div class="dd-c" style="margin:10px 0 0;padding:8px 10px;border-color:#0F6E56">'
+      + '<b>대표님이 하실 일</b><div class="s" style="margin:4px 0 0">'
+      + stp.map(function(x){ return '<div style="margin:0 0 3px">' + gEsc(x) + '</div>'; }).join('')
+      + '</div></div>';
   }
   return h + '</div>';
 }
@@ -14059,6 +14132,21 @@ function fcAdRender(){
     + chip('BLOCKED', cnt['A:BLOCKED'], '#DC2626')
     + chip('POSTED', cnt['A:POSTED'], '#6B7280') + '</div>';
 
+  /* 📷 사진 다음 걸음 — 원본은 있는데 보정만 안 된 매물은 프로그램 한 번이면 끝난다 */
+  var needFix = rows.filter(function(o){
+    var p = FC_AD_PHOTO[o.id];
+    return p && !p.error && String(p.match || '') === 'EXACT_UNIT'
+        && Number(p.done || 0) === 0 && Number(p.raw || 0) > 0;
+  });
+  if(needFix.length){
+    sum += '<div class="dd-c" style="margin:0 0 10px;border-color:#0F6E56;padding:8px 10px">'
+      + '<b>📷 사진 한 걸음</b> — 이 호실 사진이 <b>원본만</b> 있는 매물 ' + needFix.length + '건: '
+      + gEsc(needFix.map(function(o){ return String(o.id); }).join(' ')) + '<br>'
+      + '<span class="s">바탕화면 <b>[브리즈부동산 사진보정]</b> 을 한 번 실행하면 됩니다. '
+      + '프로그램이 드라이브를 훑어 「원본」 폴더를 스스로 찾아 처리하므로 폴더를 고를 필요가 없습니다. '
+      + '끝난 뒤 [📷 사진 상태 조회] 를 다시 눌러 「보정완료」가 실제로 생겼는지 확인합니다 — 확인되면 그때 PHOTO_READY 가 됩니다.</span></div>';
+  }
+
   /* 🎯 오늘 할 일 — 한 가지만 채우면 올라가는 매물 */
   var todo = Object.keys(one);
   if(todo.length){
@@ -14094,10 +14182,16 @@ function fcAdRender(){
         fcAdBadFields(o).forEach(function(w){
           dcell += '<div class="s" style="color:#DC2626">🔴 ' + gEsc(w) + ' — 광고문구에는 싣지 않습니다</div>';
         });
-        if(d.miss.length) dcell += '<div style="margin:2px 0 0">' + d.miss.map(function(m){
-          return '<button class="btn btn-xs" style="margin:0 3px 3px 0;border-color:#B45309;color:#B45309" onclick="fcAdFix(&#39;'
-            + gAttr(o.id) + '&#39;,&#39;' + gAttr(m) + '&#39;)">' + gEsc(m) + ' 채우기</button>';
-        }).join('') + '</div>';
+        if(d.miss.length){
+          dcell += '<div style="margin:2px 0 0">';
+          if(d.miss.length > 1)
+            dcell += '<button class="btn btn-xs" style="margin:0 3px 3px 0;background:#B45309;color:#fff;border-color:#B45309"'
+                  + ' onclick="fcAdFixAll(&#39;' + gAttr(o.id) + '&#39;)">' + d.miss.length + '개 한 번에 채우기</button>';
+          dcell += d.miss.map(function(m){
+            return '<button class="btn btn-xs" style="margin:0 3px 3px 0;border-color:#B45309;color:#B45309" onclick="fcAdFix(&#39;'
+              + gAttr(o.id) + '&#39;,&#39;' + gAttr(m) + '&#39;)">' + gEsc(m) + ' 채우기</button>';
+          }).join('') + '</div>';
+        }
         var tr = '<tr><td>' + gEsc(String(o.id || ''))
           + '<div class="s">' + gEsc((String(o.apt || '') + ' ' + String(o.addr2 || '')).trim()) + '</div></td>'
           + '<td>' + dcell + '</td>'
