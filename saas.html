@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 15:40</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 18:39</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -11463,7 +11463,8 @@ function chiefRender(){
       + '<div style="font-size:11px;color:var(--t3);margin-top:10px">숫자는 이 기기에 불러온 자료 기준입니다. 부서별 업무보고 자동 취합은 아직 연결하지 않았습니다 — 매일 자동 보고는 검증 후에 켭니다.</div>';
   }
   const hot = document.getElementById('chief-hot');
-  if(hot) hot.innerHTML = '<h3>계약 가능성 높은 고객 5</h3>' + hotHtml();
+  // 🔄 2026-09-09: '계약 가능성' 은 자동 점수라 확률로 오해된다 → '우선순위' 로 (대표 지시)
+  if(hot) hot.innerHTML = '<h3>우선순위 높은 고객 5 <span style="font-size:11px;font-weight:400;color:var(--t3)">임장·반응·단계로 매긴 순서 · 계약 확률 아님</span></h3>' + hotHtml();
   const wk = document.getElementById('chief-week');
   if(wk) wk.innerHTML = '<h3>오늘 · 이번 주 일정</h3>' + weekHtml();
   const sf = document.getElementById('chief-staff');
@@ -12020,7 +12021,7 @@ function staffBoardHtml(){
     + '</tbody></table></div><div style="font-size:10.5px;color:var(--t3);margin-top:6px">계약률 = 담당 계약 ÷ 담당 고객. 담당자 칸이 빈 자료는 (미배정)으로 묶입니다.</div>';
 }
 
-/* ── 대표: 계약 가능성 높은 5건 ── */
+/* ── 대표: 우선순위 높은 5건 (임장·반응·단계로 매긴 순서 — 계약 확률이 아니다) ── */
 function hotList(){
   const C = ddArr('customers');
   const V = ddArr('visits');
@@ -12124,6 +12125,294 @@ function homeCard(label, title, body, action){
    계약직전 → 오늘방문 → HOT고객 → S급매물확보 순서로 최대 7개.
    각 줄에 '왜 오늘' 한 줄. 광고작성·데이터정리는 여기 넣지 않는다(자동화 몫).
    🔴 세어 본 것만 적는다. 없으면 없다고 적는다. */
+/* ══════════════════════════════════════════════════════════════════
+   🔗 FAST CONTRACT 연결 (2026-09-09 대표 승인 TOP10 1·2·3·5·6)
+   기존 함수를 그대로 부른다. 새 규칙·새 저울을 만들지 않는다.
+   🔴 여기서 문자·전화가 자동으로 나가지 않는다. 사람이 눌러야만 나간다.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── ⑤ 다음 연락일: 고객은 nextAction, 임대인은 nextContact ── */
+function fcNextDay(c){ return String((c && (c.nextAction || c.nextContact)) || '').slice(0, 10); }
+
+/* ── ① 인입함 → 고객 일괄 ──────────────────────────────────
+   기존 inboxBulkPromoteCustomer 를 쓰고, 그 앞에 '고를 것 고르기' 만 얹는다.
+   🔴 소량 검증 먼저(5건) → 확인 → 나머지. 원본 인입함 행은 지우지 않는다. */
+function fcPickable(){
+  // 화면에 올라온 인입함 줄 중 '아직 등록 안 됨' + '쓰레기 아님' 만 고른다
+  let rows = [];
+  try{ rows = inboxRows || []; }catch(e){ return []; }
+  const out = [];
+  rows.forEach(function(r, i){
+    if(String(r.reg || '').trim()) return;                     // 이미 고객·임대인으로 올린 줄
+    let junk = '';
+    try{ junk = (typeof inboxJunkWhy === 'function') ? inboxJunkWhy(r) : ''; }catch(e){}
+    if(junk) return;                                            // 인증번호·결제알림·광고·시험번호
+    const ph = String(r.phone || '').replace(/[^0-9]/g, '');
+    if(!ph || ph.length < 9) return;                            // 번호 없는 줄은 고객이 될 수 없다
+    out.push({ i: i, r: r });
+  });
+  return out;
+}
+function fcDupCount(list){
+  // 이미 고객 명부에 있는 번호가 몇 개인지 미리 세어 준다(기존 코드가 메모로만 붙인다)
+  let dup = 0;
+  try{
+    list.forEach(function(x){
+      const key = inboxPhoneKey(x.r.phone);
+      if(key.length >= 7 && customers.find(function(c){ return inboxPhoneKey(c.phone) === key; })) dup++;
+    });
+  }catch(e){}
+  return dup;
+}
+function fcBulkStart(){
+  const all = fcPickable();
+  if(!all.length){ showToast('올릴 만한 줄이 없습니다 — 인입함을 먼저 불러오세요'); return; }
+  const dup = fcDupCount(all);
+  const nl = String.fromCharCode(10);
+  const n = Math.min(5, all.length);
+  const msg = [
+    '인입함에서 고객으로 올릴 수 있는 줄 ' + all.length + '건을 찾았습니다.',
+    '  · 그중 이미 명부에 있는 번호 ' + dup + '건 → 새로 만들지 않고 메모만 붙습니다',
+    '  · 인증번호·결제알림·광고·시험번호는 빼고 골랐습니다',
+    '',
+    '먼저 ' + n + '건만 올려 보고, 결과를 확인한 뒤 나머지를 올립니다.',
+    '',
+    '🔴 문자나 전화는 나가지 않습니다. 인입함 원본도 그대로 둡니다.',
+    '',
+    n + '건을 올릴까요?',
+  ].join(nl);
+  if(!confirm(msg)) return;
+  fcBulkRun(all.slice(0, n), true);
+}
+function fcBulkRun(list, isTrial){
+  // 기존 일괄 등록 함수가 쓰는 선택 목록에 담아 그대로 부른다 — 등록 규칙을 새로 만들지 않는다
+  try{
+    inboxSelected.clear();
+    list.forEach(function(x){ inboxSelected.add(x.i); });
+  }catch(e){ showToast('인입함 선택을 준비하지 못했습니다'); return; }
+  const before = (typeof customers !== 'undefined') ? customers.length : 0;
+  try{ inboxBulkPromoteCustomer(); }catch(e){ showToast('등록 중 오류: ' + e.message); return; }
+  const after = (typeof customers !== 'undefined') ? customers.length : 0;
+  const added = after - before;
+  if(isTrial){
+    const rest = fcPickable();
+    setTimeout(function(){
+      const nl = String.fromCharCode(10);
+      if(!rest.length){ showToast('올릴 줄이 더 없습니다 · 이번에 새로 ' + added + '명'); return; }
+      const msg = [
+        '먼저 올린 ' + list.length + '건 결과: 새 고객 ' + added + '명.',
+        '',
+        '고객 목록에서 이름·번호가 제대로 들어갔는지 확인해 보세요.',
+        '',
+        '이어서 남은 ' + rest.length + '건을 마저 올릴까요?',
+        '(지금 멈추고 나중에 다시 눌러도 됩니다)',
+      ].join(nl);
+      if(confirm(msg)) fcBulkRun(rest, false);
+    }, 900);
+  } else {
+    showToast('일괄 등록을 마쳤습니다 — 새 고객 ' + added + '명');
+  }
+}
+/* 인입함 위에 단추를 붙인다 (고객 화면 안) */
+function fcBulkMount(){
+  const host = document.getElementById('p-customer'); if(!host) return;
+  if(document.getElementById('fc-bulk')) return;
+  const anchor = Array.from(host.querySelectorAll('button')).find(function(b){
+    return (b.textContent || '').indexOf('고객 일괄등록') >= 0; });
+  if(!anchor) return;
+  const b = document.createElement('button');
+  b.id = 'fc-bulk'; b.type = 'button'; b.className = anchor.className;
+  b.style.cssText = (anchor.style.cssText || '') + ';border-color:#0F6E56;color:#0F6E56';
+  b.textContent = '👥 올릴 것 골라 한꺼번에';
+  b.title = '인증번호·광고를 빼고, 아직 등록 안 된 문의만 골라 고객으로 올립니다 (5건 먼저 확인)';
+  b.onclick = fcBulkStart;
+  anchor.parentNode.insertBefore(b, anchor);
+}
+
+/* ── ⑥ 인입함 → 임장 ──────────────────────────────────────
+   기존 visitMake('임장', …) 재사용. 원본 인입함 시각·경로를 메모에 남긴다. */
+function fcToVisit(i){
+  let r = null;
+  try{ r = (inboxRows || [])[i]; }catch(e){}
+  if(!r){ showToast('그 줄을 찾지 못했습니다'); return; }
+  const nl = String.fromCharCode(10);
+  let cust = null;
+  try{
+    const key = inboxPhoneKey(r.phone);
+    if(key.length >= 7) cust = customers.find(function(c){ return inboxPhoneKey(c.phone) === key; });
+  }catch(e){}
+  const who = cust ? cust.name : (r.name || r.phone || '');
+  if(!confirm(['이 문의로 임장(방문) 일정을 잡을까요?', '', who, String(r.text || '').slice(0, 60),
+    '', cust ? ('고객 [' + cust.name + '] 에 연결됩니다.') : '아직 고객으로 등록되지 않은 번호입니다 — 임장 기록에만 남습니다.',
+    '', '🔴 문자나 전화는 나가지 않습니다.'].join(nl))) return;
+  let v = null;
+  try{
+    v = visitMake('임장', {
+      customerId: cust ? cust.id : '',
+      customerName: who,
+      memo: '[인입함 ' + String(r.when || '') + ' ' + String(r.kind || '') + '] ' + String(r.text || '').slice(0, 120),
+    });
+  }catch(e){ showToast('임장 기록을 만들지 못했습니다: ' + e.message); return; }
+  try{ visitList(); }catch(e){}
+  showToast('📍 임장 기록을 만들었습니다 — 임장 화면에서 날짜·매물을 채우세요');
+  setTimeout(function(){ sxGo('visit', 0, '운영부'); }, 600);
+}
+
+/* ── ② 매물 → 고객 ────────────────────────────────────────
+   기존 custMatchListings(고객조건 → 매물) 를 고객마다 돌려, 이 매물이 걸리는지 본다.
+   같은 저울을 그대로 쓴다 — 새 규칙을 만들지 않는다. */
+function fcListingToCustomers(listing){
+  const out = [];
+  if(!listing || !listing.id) return out;
+  let list = [];
+  try{ list = customers || []; }catch(e){ return out; }
+  list.forEach(function(c){
+    const done = /종료|완료/.test(String(c.progressStatus || ''));
+    if(done) return;                                   // 끝난 손님은 빼고 본다
+    const region = String(c.region || ''), propType = String(c.propType || '');
+    const type = String(c.type || ''), areaSize = String(c.areaSize || '');
+    if(!region && !propType && !type && !areaSize) return;   // 조건이 하나도 없으면 아무 매물이나 맞는다 — 뺀다
+    let m = null;
+    try{ m = custMatchListings(region, propType, type, areaSize); }catch(e){ return; }
+    const hit = (m && m.matches || []).find(function(x){ return x.id === listing.id; });
+    if(!hit) return;
+    // 무엇이 맞았고 무엇이 비었는지 적는다
+    const why = [], miss = [];
+    if(type){ (String(listing.type || '') === type) ? why.push('거래유형 ' + type) : miss.push('거래유형 다름(' + (listing.type || '?') + ')'); }
+    if(propType){ (String(listing.kind || '').indexOf(propType) >= 0) ? why.push('종류 ' + propType) : miss.push('종류 다름'); }
+    if(region){
+      const addr = String(listing.addr || '') + ' ' + String(listing.apt || '');
+      // 🔴 정규식을 쓰지 않는다 — 템플릿 안이라 역슬래시가 먹힌다(실제로 [,s] 로 깨졌었다)
+      const parts = [];
+      String(region).split(',').forEach(function(seg){
+        seg.split(' ').forEach(function(x){ const v = x.trim(); if(v) parts.push(v); });
+      });
+      (parts.some(function(x){ return addr.indexOf(x) >= 0; }))
+        ? why.push('지역 ' + region) : miss.push('희망지역 아님(' + region + ')');
+    }
+    if(areaSize){
+      const a = parseFloat(listing.area), want = parseFloat(areaSize);
+      if(!a) miss.push('매물 면적 정보 없음');
+      else if(want && a >= want) why.push('면적 ' + listing.area);
+      else if(want) miss.push('면적 작음(' + listing.area + ' < ' + areaSize + ')');
+    }
+    out.push({ c: c, pct: hit.matchPct, why: why, miss: miss });
+  });
+  out.sort(function(a, b){ return (b.pct || 0) - (a.pct || 0); });
+  return out;
+}
+/* 매물을 저장하면 알려 준다 — 자동으로 문자를 보내지 않는다 */
+function fcAfterListingSave(){
+  let last = null;
+  try{
+    const id = String((document.getElementById('l-edit-id') || {}).value || '');
+    last = (listings || []).find(function(l){ return l.id === id; })
+        || (listings || [])[listings.length - 1];
+  }catch(e){}
+  if(!last) return;
+  const hits = fcListingToCustomers(last);
+  if(!hits.length) return;
+  const top = hits.slice(0, 3).map(function(h){
+    return (h.c.name || '이름없음') + ' ' + (h.pct || 0) + '%' + (h.why.length ? ' (' + h.why[0] + ')' : '');
+  }).join(' · ');
+  showToast('🔎 이 매물에 맞는 손님 ' + hits.length + '명 — ' + top);
+  fcShowMatchBox(last, hits);
+}
+/* 매물장 위에 결과 상자를 띄운다(누르면 그 고객 창으로) */
+function fcShowMatchBox(listing, hits){
+  const host = document.getElementById('p-listing'); if(!host) return;
+  let box = document.getElementById('fc-match');
+  if(!box){
+    box = document.createElement('div'); box.id = 'fc-match'; box.className = 'dd-c';
+    box.style.cssText = 'margin:0 0 12px;border-color:#0F6E56';
+    const hd = host.querySelector('.page-hd');
+    if(hd && hd.nextSibling) host.insertBefore(box, hd.nextSibling); else host.insertBefore(box, host.firstChild);
+  }
+  box.innerHTML = '<div class="dd-h">🔎 ' + gEsc([listing.apt, listing.addr2].filter(Boolean).join(' '))
+      + ' 에 맞는 손님 ' + hits.length + '명</div>'
+    + '<div class="s" style="margin:-6px 0 10px">기존 매칭 저울을 그대로 썼습니다. '
+    + '🔴 문자는 자동으로 나가지 않습니다 — 손님을 눌러 확인하고 보내세요.</div>'
+    + '<div style="overflow-x:auto"><table class="dd-t"><thead><tr>'
+    + '<th>손님</th><th>연락처</th><th style="text-align:right">맞음</th><th>맞는 까닭</th><th>안 맞는 것</th><th></th></tr></thead><tbody>'
+    + hits.slice(0, 12).map(function(h){
+        return '<tr><td>' + gEsc(h.c.name || '(이름없음)') + '</td>'
+          + '<td style="white-space:nowrap">' + gEsc(h.c.phone || '-') + '</td>'
+          + '<td style="text-align:right"><b>' + (h.pct || 0) + '%</b></td>'
+          + '<td style="font-size:11.5px">' + gEsc(h.why.join(' · ') || '-') + '</td>'
+          + '<td style="font-size:11.5px;color:#B45309">' + gEsc(h.miss.join(' · ')) + '</td>'
+          + '<td><button class="dd-go" style="margin:0" onclick="fcOpenCust(&#39;' + gAttr(h.c.id) + '&#39;)">손님 열기</button></td></tr>';
+      }).join('')
+    + '</tbody></table></div>'
+    + '<div style="margin-top:10px"><button class="btn btn-sm" onclick="document.getElementById(&#39;fc-match&#39;).remove()">닫기</button></div>';
+  box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+function fcOpenCust(id){
+  sxGo('customer', 0, '운영부');
+  setTimeout(function(){ try{ openModal('customer', id); }catch(e){} }, 420);
+}
+
+/* ── ③ 고객 저장 즉시 매칭 + ⑤ 다음 연락일 제안 ───────────── */
+function fcAfterCustomerSave(){
+  let c = null;
+  try{
+    const id = String((document.getElementById('c-edit-id') || {}).value || '');
+    c = (customers || []).find(function(x){ return x.id === id; }) || (customers || [])[customers.length - 1];
+  }catch(e){}
+  if(!c) return;
+  // ⑤ 다음 연락일: 비어 있을 때만 제안한다. 대표가 넣은 날짜는 그대로 둔다.
+  if(!fcNextDay(c)){
+    const d = new Date(); d.setDate(d.getDate() + 3);
+    const p2 = function(n){ return ('0' + n).slice(-2); };
+    const day = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+    const nl = String.fromCharCode(10);
+    if(confirm(['다음 연락일이 비어 있습니다.', '', (c.name || '이 손님') + ' 에게 ' + day + ' (3일 뒤) 에 연락하기로 적어 둘까요?',
+      '', '적어 두면 그날 홈 화면 [오늘 대표가 할 일] 에 뜹니다.',
+      '🔴 문자가 자동으로 나가지는 않습니다.'].join(nl))){
+      try{ c.nextAction = day; save('customers', customers); renderCustomers(); }catch(e){}
+    }
+  }
+  // ③ 즉시 매칭 — 기존 저울 그대로
+  const region = String(c.region || ''), propType = String(c.propType || '');
+  const type = String(c.type || ''), areaSize = String(c.areaSize || '');
+  const lack = [];
+  if(!region) lack.push('희망지역');
+  if(!propType) lack.push('물건종류');
+  if(!type) lack.push('거래유형');
+  if(!areaSize) lack.push('희망면적');
+  if(lack.length === 4){
+    showToast('조건이 비어 맞춤매물을 찾을 수 없습니다 — ' + lack.join('·') + ' 중 하나를 채우세요');
+    return;
+  }
+  let m = null;
+  try{ m = custMatchListings(region, propType, type, areaSize); }catch(e){ return; }
+  const n = (m && m.matches || []).length;
+  const tail = lack.length ? (' · 비어 있는 조건: ' + lack.join('·')) : '';
+  if(!n){ showToast('지금 조건에 맞는 매물이 없습니다' + tail); return; }
+  showToast('🔎 ' + (c.name || '') + ' 님께 맞는 매물 ' + n + '건' + tail + ' — 고객 창 [맞춤매물] 에서 보세요');
+}
+
+/* ── 기존 저장 함수를 감싼다 (원본 index.html 은 그대로) ── */
+function fcWrapSaves(){
+  if(window.__fcWrapped) return;
+  window.__fcWrapped = true;
+  if(typeof saveListing === 'function'){
+    const _sl = saveListing;
+    window.saveListing = function(){
+      const r = _sl.apply(this, arguments);
+      setTimeout(function(){ try{ fcAfterListingSave(); }catch(e){} }, 700);
+      return r;
+    };
+  }
+  if(typeof saveCustomer === 'function'){
+    const _sc = saveCustomer;
+    window.saveCustomer = function(){
+      const r = _sc.apply(this, arguments);
+      setTimeout(function(){ try{ fcAfterCustomerSave(); }catch(e){} }, 700);
+      return r;
+    };
+  }
+}
+
 function todayTasks(){
   const t = (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0, 10);
   const L = ddArr('listings'), C = ddArr('customers'), K = ddArr('contracts'), V = ddArr('visits');
@@ -12143,14 +12432,15 @@ function todayTasks(){
 
   // ② 오늘 방문
   const vToday = V.filter(v => v.kind === '임장' && day(v.at) === t);
-  const cToday = C.filter(c => day(c.nextContact) === t);
+  // 🔴 고객의 다음 연락 칸은 nextAction 이다(nextContact 는 임대인 칸) — 2026-09-09 실측으로 바로잡음
+  const cToday = C.filter(c => day(c.nextAction || c.nextContact) === t);
   if(vToday.length) out.push({ g: '오늘방문', n: '오늘 잡힌 임장', v: vToday.length,
     why: '손님이 오는 날입니다 — 집주인에게 미리 알리세요', go: 'visit', dept: '운영부', hot: true });
   if(cToday.length) out.push({ g: '오늘방문', n: '오늘 연락하기로 한 손님', v: cToday.length,
     why: '약속한 날입니다 — 하루 미루면 다른 데로 갑니다', go: 'customer', dept: '운영부', hot: true });
 
   // ③ HOT 고객 — 연락일이 지난 진행 손님 · 인입함 미처리(서버, 뒤에 채움)
-  const cLate = C.filter(c => { const d = day(c.nextContact);
+  const cLate = C.filter(c => { const d = day(c.nextAction || c.nextContact);
     return d && d < t && !/종료|완료/.test(String(c.progressStatus || '')); });
   if(cLate.length) out.push({ g: 'HOT고객', n: '연락할 날이 지난 손님', v: cLate.length,
     why: '먼저 전화하는 쪽이 계약을 가져갑니다', go: 'customer', dept: '운영부', hot: true });
@@ -12319,7 +12609,7 @@ function homeRender(){
   const chiefLink = sxAdmin()
     ? '<div class="hm-card" style="grid-column:1 / -1"><div class="hm-t">대표만 보는 것</div>'
       + '<div class="dd-lk" style="margin-top:8px">'
-      + '<button class="dd-lkb" onclick="sxGo(&#39;chief&#39;)"><b>계약 가능성 높은 고객</b><em>임장·반응·단계로 매긴 순서</em></button>'
+      + '<button class="dd-lkb" onclick="sxGo(&#39;chief&#39;)"><b>우선순위 높은 고객</b><em>임장·반응·단계로 매긴 순서 — 계약 확률이 아닙니다</em></button>'
       + '<button class="dd-lkb" onclick="sxGo(&#39;chief&#39;)"><b>직원별 담당</b><em>누가 무엇을 맡고 있는지</em></button>'
       + '<button class="dd-lkb" onclick="sxGo(&#39;chief&#39;)"><b>오늘 결정할 일</b><em>승인·위험·누락</em></button>'
       + '<button class="dd-lkb" onclick="sxGo(&#39;stats&#39;)"><b>경영 통계</b><em>계약률·매출</em></button>'
@@ -13815,6 +14105,13 @@ function ibMountBtns(){
     nb.style.cssText = (b.style.cssText || '') + ';border-color:#1E88E5;color:#1E88E5';
     nb.onclick = function(ev){ ev.stopPropagation(); ibToListing(Number(num)); };
     b.parentNode.insertBefore(nb, b.nextSibling);
+    // 📍 임장 — 기존 visitMake 재사용 (2026-09-09 TOP10 6번)
+    const vb = document.createElement('button');
+    vb.className = b.className; vb.type = 'button'; vb.textContent = '📍 임장';
+    vb.title = '이 문의로 방문 일정을 잡습니다 (문자는 안 나갑니다)';
+    vb.style.cssText = (b.style.cssText || '') + ';border-color:#0F6E56;color:#0F6E56';
+    vb.onclick = function(ev){ ev.stopPropagation(); fcToVisit(Number(num)); };
+    b.parentNode.insertBefore(vb, nb.nextSibling);
   });
 }
 let ibObs = null;
@@ -14941,9 +15238,9 @@ function sxInit(){
     if(id === 'jeonse') jsRender();
     if(id === 'pref') prefRender();
     if(id === 'paste') pzRender();
-    if(id === 'listing'){ pzMount(); lxWatch(); lxAreaMount(); lxAreaFill(); }
+    if(id === 'listing'){ pzMount(); lxWatch(); lxAreaMount(); lxAreaFill(); fcWrapSaves(); }
     if(id === 'gather'){ gxMount(); gxPhoneHelp(); gxWatch(); }
-    if(id === 'customer'){ nmMount(); ibWatch(); }
+    if(id === 'customer'){ nmMount(); ibWatch(); fcBulkMount(); fcWrapSaves(); }
     if(id === 'nomore') nmRender();
     if(id === 'docreq') drRender();
     if(id === 'contract') kMount();
