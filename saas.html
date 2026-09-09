@@ -634,7 +634,7 @@ table td,table th{font-size:12.5px}
 }
 /* 매물장 위쪽 단추 줄 — 더보기로 접는다 */
 .lx-more{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
-.lx-more.off{display:none}
+.lx-more.off,#lx-vac.off,#lc-box.off{display:none}
 /* 🔴 붙여넣기 — 부족한 칸 알림 */
 .pz-red{border-color:#FCA5A5!important;background:#FEF2F2!important}
 .pz-amber{border-color:#FDE68A!important;background:#FFFBEB!important}
@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 15:25</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-09 15:40</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -12120,6 +12120,113 @@ function homeCard(label, title, body, action){
     + '<div class="hm-t">' + title + '</div>' + (body || '')
     + (action ? '<div class="hm-act">' + action + '</div>' : '') + '</div>';
 }
+/* ══ 🎯 오늘 대표가 할 일 (2026-09-09 대표 지시 "오늘의 대시보드") ══
+   계약직전 → 오늘방문 → HOT고객 → S급매물확보 순서로 최대 7개.
+   각 줄에 '왜 오늘' 한 줄. 광고작성·데이터정리는 여기 넣지 않는다(자동화 몫).
+   🔴 세어 본 것만 적는다. 없으면 없다고 적는다. */
+function todayTasks(){
+  const t = (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0, 10);
+  const L = ddArr('listings'), C = ddArr('customers'), K = ddArr('contracts'), V = ddArr('visits');
+  const day = (x) => String(x || '').slice(0, 10);
+  const live = L.filter(ddLive);
+  const rent = L.filter(l => String(l.status || '') === '임대중');
+  const out = [];   // { g:묶음, n:제목, v:건수, why:왜오늘, go:화면, dept:부서, hot:true }
+
+  // ① 계약직전 — 진행 중인 계약, 잔금·계약일이 7일 안
+  const d7 = ddShift(t, 7);
+  const kSoon = K.filter(c => { const d = day(c.contractDate || c.start); return d && d >= t && d <= d7; });
+  const kLive = K.filter(c => /진행|예정/.test(String(c.status || '')));
+  if(kSoon.length) out.push({ g: '계약직전', n: '7일 안에 계약일이 있는 건', v: kSoon.length,
+    why: '계약일 전에 서류·잔금·특약을 맞춰야 합니다', go: 'contract', dept: '관리부', hot: true });
+  else if(kLive.length) out.push({ g: '계약직전', n: '진행 중인 계약', v: kLive.length,
+    why: '오늘 한 번 더 확인하면 놓치는 게 없습니다', go: 'contract', dept: '관리부', hot: true });
+
+  // ② 오늘 방문
+  const vToday = V.filter(v => v.kind === '임장' && day(v.at) === t);
+  const cToday = C.filter(c => day(c.nextContact) === t);
+  if(vToday.length) out.push({ g: '오늘방문', n: '오늘 잡힌 임장', v: vToday.length,
+    why: '손님이 오는 날입니다 — 집주인에게 미리 알리세요', go: 'visit', dept: '운영부', hot: true });
+  if(cToday.length) out.push({ g: '오늘방문', n: '오늘 연락하기로 한 손님', v: cToday.length,
+    why: '약속한 날입니다 — 하루 미루면 다른 데로 갑니다', go: 'customer', dept: '운영부', hot: true });
+
+  // ③ HOT 고객 — 연락일이 지난 진행 손님 · 인입함 미처리(서버, 뒤에 채움)
+  const cLate = C.filter(c => { const d = day(c.nextContact);
+    return d && d < t && !/종료|완료/.test(String(c.progressStatus || '')); });
+  if(cLate.length) out.push({ g: 'HOT고객', n: '연락할 날이 지난 손님', v: cLate.length,
+    why: '먼저 전화하는 쪽이 계약을 가져갑니다', go: 'customer', dept: '운영부', hot: true });
+  out.push({ g: 'HOT고객', n: '인입함에서 아직 안 본 문의', v: null, id: 'tt-inbox',
+    why: '문자·통화가 쌓여 있습니다 — 여기서 손님이 나옵니다', act: 'inboxGo()', hot: true });
+
+  // ④ S급 매물 확보
+  const noPhone = live.filter(l => !String(l.cphone || '').trim() && !String(l.phone || '').trim());
+  const noPic   = live.filter(l => !String(l.photoUrl || '').trim() && !String(l.photo || '').trim());
+  const noEnd   = rent.filter(l => !String(l.contractEnd || '').trim());
+  const noAd    = live.filter(l => !ddAdOn(l));
+  if(noPhone.length) out.push({ g: 'S급매물', n: '집주인 번호가 없는 거래가능 매물', v: noPhone.length,
+    why: '번호가 없으면 광고도 계약도 못 갑니다', go: 'listing', dept: '운영부' });
+  if(noEnd.length) out.push({ g: 'S급매물', n: '만기일이 없는 임대중 매물', v: noEnd.length,
+    why: '언제 끝나는지 모르면 재계약도 새 손님 준비도 못 합니다', go: 'listing', dept: '운영부' });
+  if(noPic.length) out.push({ g: 'S급매물', n: '사진이 없는 거래가능 매물', v: noPic.length,
+    why: '사진 없이는 어느 플랫폼에도 못 올립니다', go: 'listing', dept: '운영부' });
+  out.push({ g: 'S급매물', n: '공부 발급 대기', v: null, id: 'tt-doc',
+    why: '계약 전에 등기부·대장이 있어야 합니다', go: 'docreq', dept: '법무팀' });
+
+  // 대표 업무는 7개까지. 광고 안 낸 것은 자동화 몫이라 따로 적는다.
+  return { rows: out.slice(0, 7), auto: [
+    { n: '광고 안 낸 거래가능 매물', v: noAd.length, go: 'ads', dept: '운영부' },
+    { n: '광고문구 만들기', v: null, go: 'adcopy', dept: '마케팅부' },
+    { n: '중복·빈칸 데이터 검수', v: null, go: 'audit', dept: '개발부' },
+  ] };
+}
+
+function todayCard(){
+  const tt = todayTasks();
+  const rows = tt.rows;
+  const line = (r, i) => {
+    const off = (r.v === null || r.v === undefined);
+    const cls = off ? 'off' : (r.v === 0 ? 'ok' : (r.hot ? 'hi' : 'md'));
+    const open = r.act ? r.act : ("sxGo('" + r.go + "',0,'" + (r.dept || '') + "')");
+    return '<div class="dd-rk ' + cls + '"' + (r.id ? ' id="' + r.id + '"' : '') + '><i></i>'
+      + '<span class="t">' + (i + 1) + '. ' + gEsc(r.n)
+      + ' <span style="font-size:10.5px;color:var(--t3);font-weight:600">[' + gEsc(r.g) + ']</span>'
+      + '<span class="w">' + gEsc(r.why) + '</span></span>'
+      + '<span class="c">' + (off ? '확인 중' : (r.v + '건')) + '</span>'
+      + '<button class="dd-go" style="margin:0" onclick="' + open.replace(/"/g, '&quot;') + '">열기</button></div>';
+  };
+  const auto = tt.auto.map(a => '<button class="dd-lkb" onclick="sxGo(&#39;' + a.go + '&#39;,0,&#39;' + a.dept + '&#39;)"><b>'
+    + gEsc(a.n) + (a.v !== null && a.v !== undefined ? ' · ' + a.v + '건' : '') + '</b><em>대표가 아니라 자동화·직원 몫</em></button>').join('');
+  return '<div class="hm-card" style="grid-column:1 / -1;border-color:#1B4F8A">'
+    + '<div class="hm-lab">🎯 오늘 대표가 직접 할 일 — 계약직전 → 오늘방문 → HOT고객 → S급매물</div>'
+    + (rows.length ? rows.map(line).join('') : '<div class="dd-empty">오늘 잡힌 것이 없습니다</div>')
+    + '<div class="s" style="margin-top:8px">숫자는 지금 불러온 자료에서 셉니다. 인입함·발급은 서버에서 뒤늦게 채워집니다.</div>'
+    + '<div class="dd-h" style="margin-top:12px;font-size:12px">⚙ 자동화·직원 몫 (대표 업무 아님)</div>'
+    + '<div class="dd-lk">' + auto + '</div></div>';
+}
+
+/* 서버에서 세야 하는 두 줄을 뒤늦게 채운다 — 토큰이 없으면 '확인 필요' 로 둔다 */
+function todayFill(){
+  const url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  const tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  const put = (id, v, why) => {
+    const el = document.getElementById(id); if(!el) return;
+    const c = el.querySelector('.c'); if(c) c.textContent = v;
+    el.classList.remove('off', 'ok', 'hi', 'md');
+    el.classList.add(why);
+  };
+  if(!url || !tok){ put('tt-inbox', '확인 필요', 'off'); put('tt-doc', '확인 필요', 'off'); return; }
+  fetch(url + '?action=inboxStat&t=' + Date.now() + '&token=' + encodeURIComponent(tok))
+    .then(r => r.json()).then(j => {
+      const n = (j && j.ok && j.result) ? Number(j.result.unprocessed || 0) : null;
+      put('tt-inbox', n === null ? '확인 필요' : (n + '건'), n === null ? 'off' : (n ? 'hi' : 'ok'));
+    }).catch(() => put('tt-inbox', '확인 필요', 'off'));
+  fetch(url + '?action=docReqList&t=' + Date.now() + '&token=' + encodeURIComponent(tok))
+    .then(r => r.json()).then(j => {
+      const rows = (j && j.ok) ? (j.result || j.data || []) : null;
+      const n = rows ? rows.filter(r => String(r.status || '') === '대기').length : null;
+      put('tt-doc', n === null ? '확인 필요' : (n + '건'), n === null ? 'off' : (n ? 'md' : 'ok'));
+    }).catch(() => put('tt-doc', '확인 필요', 'off'));
+}
+
 function homeRender(){
   const el = document.getElementById('hm-body'); if(!el) return;
   const t = todayStr();
@@ -12219,7 +12326,8 @@ function homeRender(){
       + '<button class="dd-lkb" onclick="sxGo(&#39;memo&#39;,0,&#39;개발부&#39;)"><b>개발부</b><em>메모·검수·배포</em></button>'
       + '</div></div>'
     : '';
-  el.innerHTML = c1 + c2 + c3 + c4 + c5 + c6 + chiefLink;
+  el.innerHTML = todayCard() + c1 + c2 + c3 + c4 + c5 + c6 + chiefLink;
+  try{ todayFill(); }catch(e){}
 
   // 오른쪽 위젯
   const w = document.getElementById('hm-side');
@@ -13539,6 +13647,10 @@ function ibToListing(i){
   const body = String(r.text || '').trim();
   const txt = (head ? head + nl : '') + body;
   if(!txt.trim()){ showToast('내용이 비어 있습니다'); return; }
+  pzOpenWith(txt, '인입함 글을 매물 칸으로 뽑았습니다 — 확인하고 저장하세요');
+}
+/* 글 한 덩어리를 붙여넣기 화면으로 보내 매물 칸을 뽑는다 — 인입함·공실문자가 같이 쓴다 */
+function pzOpenWith(txt, msg){
   sxGo('paste', 0, '운영부');
   setTimeout(function(){
     try{ pzSetMode('listing'); }catch(e){}
@@ -13548,8 +13660,140 @@ function ibToListing(i){
       try{ pzRun(); }catch(e){}
       el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
-    showToast('인입함 글을 매물 칸으로 뽑았습니다 — 확인하고 저장하세요');
+    showToast(msg || '매물 칸을 뽑았습니다 — 확인하고 저장하세요');
   }, 420);
+}
+
+/* ══ 🏢 공실 문자 → 매물 (2026-09-09 전수조사 TOP10 8번) ══
+   server.py 가 '공실현황' 탭에 쌓는 공실 문자가 매물로 갈 길이 없었다.
+   최근 것을 건물별로 보여 주고, 인입함→매물과 같은 길로 보낸다. 🔴 자동 등록 없음. */
+let vxRows = null;
+function vxToggle(){
+  const box = document.getElementById('lx-vac'); if(!box) return;
+  box.classList.toggle('off');
+  if(!box.classList.contains('off') && vxRows === null) vxLoad();
+}
+function vxLoad(){
+  const box = document.getElementById('lx-vac'); if(!box) return;
+  const url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  const tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  if(!url || !tok){ box.innerHTML = '<div class="dd-c"><div class="s">⚙️ 구글 시트 주소·토큰이 있어야 공실 문자를 읽습니다.</div></div>'; return; }
+  box.innerHTML = '<div class="dd-c"><div class="dd-h">공실 문자를 불러오는 중…</div></div>';
+  fetch(url + '?action=vacList&limit=120&t=' + Date.now() + '&token=' + encodeURIComponent(tok))
+    .then(r => r.json()).then(j => {
+      if(!j || !j.ok){ vxRows = []; box.innerHTML = '<div class="dd-c pz-red"><div class="s">불러오지 못했습니다: ' + gEsc((j && j.error) || '') + '</div></div>'; return; }
+      vxRows = (j.result && j.result.rows) || [];
+      vxRender(j.result && j.result.total);
+    }).catch(e => { vxRows = []; box.innerHTML = '<div class="dd-c pz-red"><div class="s">불러오지 못했습니다: ' + gEsc(String(e && e.message || e)) + '</div></div>'; });
+}
+function vxRender(total){
+  const box = document.getElementById('lx-vac'); if(!box) return;
+  const rows = vxRows || [];
+  // 우리 매물장에 이미 있는 건물은 표시해 준다(있는 건물의 새 호수일 수 있으니 숨기진 않는다)
+  // 매물명에서 호수를 떼고(에코힐튼823호 → 에코힐튼) 포함 관계로 맞춘다
+  const haveKeys = [];
+  ddArr('listings').forEach(l => { const k = String(l.apt || '').replace(/ /g, '').replace(/[0-9]+호/g, '').replace(/[0-9]+동/g, '');
+    if(k.length >= 2 && haveKeys.indexOf(k) < 0) haveKeys.push(k); });
+  const haveIt = (name) => { const k = String(name || '').replace(/ /g, '');
+    return !!k && haveKeys.some(h => k.indexOf(h) >= 0 || h.indexOf(k) >= 0); };
+  const isDone = t => /계약(완료|됐|되었)|나갔|마감/.test(String(t || ''));
+  box.innerHTML = '<div class="dd-c"><div class="dd-h">🏢 공실 문자에서 매물 만들기 · 최근 ' + rows.length + '건 (전체 ' + (total || rows.length) + '건)</div>'
+    + '<div class="s" style="margin:-6px 0 10px">누르면 그 문자에서 매물 칸을 뽑아 줍니다. 저장은 확인하고 직접 하세요. '
+    + '"계약완료" 문자는 남이 뺀 방이라 새 공실 신호입니다.</div>'
+    + (rows.length ? '<div style="overflow-x:auto"><table class="dd-t"><thead><tr><th>날짜</th><th>건물</th><th>내용</th><th>보낸 번호</th><th></th></tr></thead><tbody>'
+      + rows.map((r, i) => {
+          const mine = haveIt(r.apt);
+          const done = isDone(r.text);
+          return '<tr' + (done ? ' style="color:var(--t3)"' : '') + '>'
+            + '<td style="white-space:nowrap">' + gEsc(String(r.when || '').slice(0, 10)) + '</td>'
+            + '<td>' + gEsc(r.apt || '(건물 모름)') + (mine ? ' <span class="dd-st" style="background:#DCFCE7;color:#0F6E56">우리 매물 있음</span>' : '') + '</td>'
+            + '<td style="font-size:11.5px">' + gEsc(String(r.text || '').slice(0, 60)) + (done ? ' <b style="color:#B45309">← 남이 뺀 방</b>' : '') + '</td>'
+            + '<td style="white-space:nowrap">' + gEsc(r.phone || '') + '</td>'
+            + '<td><button class="dd-go" style="margin:0" onclick="vxToListing(' + i + ')">🏠 매물</button></td></tr>';
+        }).join('') + '</tbody></table></div>'
+      : '<div class="dd-empty">공실 문자가 없습니다</div>')
+    + '<div style="margin-top:10px"><button class="btn btn-sm" onclick="vxRows=null;vxLoad()">다시 불러오기</button></div></div>';
+}
+function vxToListing(i){
+  const r = (vxRows || [])[i]; if(!r){ showToast('그 줄을 찾지 못했습니다'); return; }
+  const nl = String.fromCharCode(10);
+  const head = [String(r.apt || '').trim(), String(r.phone || '').trim()].filter(Boolean).join(' ');
+  pzOpenWith((head ? head + nl : '') + String(r.text || '').trim(), '공실 문자를 매물 칸으로 뽑았습니다 — 확인하고 저장하세요');
+}
+
+/* ══ 📞 집주인 번호 찾기 — 매물 수정 창 (2026-09-09 전수조사 TOP10 3번) ══
+   거래가능 28건 중 번호 3건뿐. 임대인 명부엔 호수가 없어 못 맞춘다.
+   인입함 992건의 문자·통화에서 이 건물 이름이 든 것을 골라 번호 후보를 보여 준다.
+   🔴 자동으로 넣지 않는다. 고르는 건 사람. 050 은 안심번호라고 적는다. */
+function lcMount(){
+  const anchor = document.querySelector('button[onclick="requestDocsForOpenListing()"]');
+  if(!anchor || document.getElementById('lc-btn')) return;
+  const b = document.createElement('button');
+  b.id = 'lc-btn'; b.type = 'button'; b.className = 'btn btn-sm';
+  b.style.cssText = 'white-space:nowrap;border-color:#B45309;color:#B45309';
+  b.textContent = '📞 인입함에서 번호 찾기';
+  b.title = '이 건물 이름이 든 문자·통화에서 집주인 번호 후보를 찾습니다';
+  b.onclick = lcFind;
+  anchor.parentNode.insertBefore(b, anchor.nextSibling);
+  const box = document.createElement('div');
+  box.id = 'lc-box'; box.className = 'off'; box.style.cssText = 'margin-top:8px';
+  anchor.parentNode.parentNode.insertBefore(box, anchor.parentNode.nextSibling);
+}
+function lcTokens(){
+  // 🔴 역슬래시 정규식을 쓰지 않는다 — 템플릿 문자열 안이라 한 겹 먹힌다
+  const apt = String((document.getElementById('l-apt') || {}).value || '');
+  const addr = String((document.getElementById('l-addr') || {}).value || '');
+  const out = [];
+  let clean = '';
+  for(let i = 0; i < apt.length; i++){ const c = apt.charAt(i); clean += ('()[]·,/ '.indexOf(c) >= 0) ? ' ' : c; }
+  clean.split(' ').forEach(function(t){ t = t.trim(); if(t.length >= 2) out.push(t); });
+  // 주소의 '동/리 번지' 도 열쇠가 된다 (예: 연동251-9)
+  const m = addr.match(/([가-힣]+(?:동|리)) *([0-9]+(?:-[0-9]+)?)/);
+  if(m) out.push(m[1] + m[2]);
+  return out;
+}
+function lcFind(){
+  const box = document.getElementById('lc-box'); if(!box) return;
+  box.classList.remove('off');
+  const toks = lcTokens();
+  if(!toks.length){ box.innerHTML = '<div class="s" style="color:#B91C1C">건물명이나 주소를 먼저 적어야 찾을 수 있습니다.</div>'; return; }
+  const url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  const tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  if(!url || !tok){ box.innerHTML = '<div class="s">⚙️ 구글 시트 주소·토큰이 있어야 인입함을 읽습니다.</div>'; return; }
+  box.innerHTML = '<div class="s">인입함에서 "' + gEsc(toks.join(' / ')) + '" 를 찾는 중…</div>';
+  fetch(url + '?action=inboxList&limit=400&t=' + Date.now() + '&token=' + encodeURIComponent(tok))
+    .then(r => r.json()).then(j => {
+      const rows = (j && j.ok && j.result && j.result.rows) ? j.result.rows : [];
+      const hit = rows.filter(function(r){
+        const hay = (String(r.name || '') + ' ' + String(r.text || '')).replace(/ /g, '');
+        return toks.some(function(t){ return hay.indexOf(t.replace(/ /g, '')) >= 0; });
+      });
+      const by = {};
+      hit.forEach(function(r){
+        const d = String(r.phone || '').replace(/[^0-9]/g, '');
+        if(!d) return;
+        if(!by[d]) by[d] = { phone: r.phone, n: 0, last: '', names: {} };
+        by[d].n++;
+        if(String(r.when || '') > by[d].last) by[d].last = String(r.when || '');
+        if(r.name) by[d].names[r.name] = 1;
+      });
+      const list = Object.keys(by).map(function(k){ return by[k]; }).sort(function(a, b){ return b.n - a.n; }).slice(0, 8);
+      if(!list.length){ box.innerHTML = '<div class="s">인입함에 이 건물 이름이 든 문자·통화가 없습니다 (최근 400건 기준).</div>'; return; }
+      box.innerHTML = '<div class="s" style="margin-bottom:6px">인입함에서 찾은 번호 후보 ' + list.length + '개 — <b>누르면 연락처 칸에 넣습니다</b>. 맞는지는 직접 확인하세요.</div>'
+        + '<div class="dd-lk">' + list.map(function(x){
+            const safe = String(x.phone || '').replace(/[^0-9]/g, '').indexOf('050') === 0;
+            const nm = Object.keys(x.names).join(' / ').slice(0, 30);
+            return '<button type="button" class="dd-lkb" onclick="lcPick(&#39;' + gAttr(x.phone) + '&#39;,&#39;' + gAttr(nm) + '&#39;)">'
+              + '<b>' + gEsc(x.phone) + '</b><em>' + gEsc(nm || '(이름 없음)') + ' · ' + x.n + '건 · 마지막 ' + gEsc(String(x.last).slice(0, 10))
+              + (safe ? ' · <span style="color:#B45309">050 안심번호</span>' : '') + '</em></button>';
+          }).join('') + '</div>';
+    }).catch(function(e){ box.innerHTML = '<div class="s" style="color:#B91C1C">못 읽었습니다: ' + gEsc(String(e && e.message || e)) + '</div>'; });
+}
+function lcPick(phone, name){
+  const p = document.getElementById('l-cphone'), n = document.getElementById('l-cname');
+  if(p){ p.value = phone; p.style.background = '#FEF3C7'; setTimeout(function(){ p.style.background = ''; }, 1600); }
+  if(n && !String(n.value || '').trim() && name) n.value = name.replace(/^(임대|오피|개인)-/, '');
+  showToast('연락처 칸에 넣었습니다 — 저장 전에 맞는지 확인하세요');
 }
 
 /* 인입함 각 줄에 [🏠 매물] 을 붙인다. 목록을 다시 그릴 때마다 자동으로 다시 붙인다. */
@@ -13988,6 +14232,7 @@ function pzMount(){
     return b;
   };
   wrap.appendChild(mk('📋 붙여넣어 만들기', '카톡·문자 글에서 매물 칸 채우기', function(){ sxGo('paste', 0, '운영부'); }));
+  wrap.appendChild(mk('🏢 공실 문자에서 매물 만들기', '문자로 들어온 공실을 매물로 (저장은 확인 뒤에)', vxToggle));
   more.appendChild(mk('🗺 지도로 보기', '매물 위치를 지도에서', function(){ sxGo('map', 0, '운영부'); }));
   more.appendChild(mk('📈 시세 조회', '아파트 실거래가', function(){ sxGo('apt', 0, '운영부'); }));
 
@@ -14008,6 +14253,9 @@ function pzMount(){
   const hd = host.querySelector('.page-hd');
   if(hd && hd.nextSibling){ host.insertBefore(more, hd.nextSibling); host.insertBefore(wrap, more); }
   else { host.insertBefore(more, host.firstChild); host.insertBefore(wrap, more); }
+  const vac = document.createElement('div'); vac.id = 'lx-vac'; vac.className = 'off'; vac.style.cssText = 'margin:0 0 12px';
+  host.insertBefore(vac, more.nextSibling);
+  try{ lcMount(); }catch(e){}
 }
 function pzRender(){
   const el = document.getElementById('pz-body'); if(!el) return;
