@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 16:27</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 16:38</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13841,7 +13841,24 @@ function fcFormCss(){
     +     'padding:10px 0;border-top:1px solid #E5E7EB;z-index:3;margin:0 -4px}'
     +   '#modal-listing .modal-footer .btn{flex:1;min-width:0}'
     + '}'
-    + '#modal-listing .fc-hint{font-size:11px;color:#6B7280;margin:2px 0 8px}'
+    + '#modal-listing .fc-hint,#modal-customer .fc-hint{font-size:11px;color:#6B7280;margin:2px 0 8px}'
+    /* 문의고객 — 칸이 20개 안팎이라 3열이면 한 화면에 들어간다(4열은 오히려 시선이 흩어진다) */
+    + '@media (min-width:1200px){'
+    +   '#modal-customer .modal{max-width:min(1020px,92vw)!important;display:grid;'
+    +     'grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px;align-items:start}'
+    +   '#modal-customer .modal>.modal-title,#modal-customer .form-section,'
+    +   '#modal-customer .modal>.modal-footer,#modal-customer .fc-wide{grid-column:1/-1}'
+    +   '#modal-customer .form-row{display:contents}'
+    +   '#modal-customer .form-group{margin-bottom:9px}'
+    +   '#modal-customer .form-section{margin-top:8px;margin-bottom:2px}'
+    +   '#modal-customer .modal-footer{position:sticky;bottom:-24px;background:#fff;'
+    +     'padding:10px 0 0;border-top:1px solid #E5E7EB;z-index:2}'
+    + '}'
+    /* 폰 — 고객·임대인·계약도 저장 단추를 손 닿는 곳에 */
+    + '@media (max-width:760px){'
+    +   '#modal-customer .modal-footer,#modal-landlord .modal-footer,#modal-contract .modal-footer{'
+    +     'position:sticky;bottom:0;background:#fff;padding:10px 0;border-top:1px solid #E5E7EB;z-index:3}'
+    + '}'
     + '</style>';
 }
 function fcFormLayout(){
@@ -13860,6 +13877,24 @@ function fcFormLayout(){
   /* 주소는 자동완성이 붙어 넓어야 하지만 한 줄을 다 쓸 필요는 없다 — 두 칸만 */
   var ad = document.getElementById('l-addr');
   if(ad && ad.closest){ var ag = ad.closest('.form-group'); if(ag) ag.classList.add('fc-span2'); }
+  /* 🏢 같은 건물 안내 자리 — 주소 칸 바로 아래 */
+  if(!document.getElementById('fc-bld-hint')){
+    var ad2 = document.getElementById('l-addr');
+    var ag2 = ad2 && ad2.closest ? ad2.closest('.form-group') : null;
+    if(ag2){
+      var bh = document.createElement('div');
+      bh.id = 'fc-bld-hint'; bh.className = 'fc-hint fc-wide';
+      bh.style.cssText = 'display:none;background:#F0FDF4;border:1px solid #0F6E56;'
+        + 'border-radius:8px;padding:7px 9px;color:#111';
+      ag2.parentNode.insertBefore(bh, ag2.nextSibling);
+      ['l-apt', 'l-addr'].forEach(function(k){
+        var f = document.getElementById(k);
+        if(f && !f.__fcBld){ f.__fcBld = 1; f.addEventListener('input', function(){ try{ fcBldHint(); }catch(e){} }); }
+      });
+    }
+  }
+  try{ fcBldHint(); }catch(e){}
+
   /* 저장 방법을 한 번만 알려 준다 */
   if(!document.getElementById('fc-form-hint')){
     var ft = box.querySelector('.modal-footer');
@@ -13878,18 +13913,41 @@ function fcFormWrap(){
   if(!document.getElementById('fc-form-css')){
     try{ document.head.insertAdjacentHTML('beforeend', fcFormCss()); }catch(e){}
   }
-  /* Ctrl+Enter 저장 — textarea 의 그냥 Enter 는 그대로 둔다 */
-  host.addEventListener('keydown', function(e){
-    if(!(e.ctrlKey || e.metaKey)) return;
-    if(e.key !== 'Enter') return;
-    e.preventDefault();
-    try{ if(typeof saveListing === 'function') saveListing(); }catch(err){}
-  }, true);
+  /* Ctrl+Enter 저장 — textarea 의 그냥 Enter 는 그대로 둔다.
+     🔴 각 화면의 기존 저장 함수를 그대로 부른다(저장 로직을 새로 만들지 않는다). */
+  var SAVERS = [['modal-listing', 'saveListing'], ['modal-customer', 'saveCustomer'],
+                ['modal-landlord', 'saveLandlord'], ['modal-contract', 'saveContract']];
+  SAVERS.forEach(function(p){
+    var h = document.getElementById(p[0]);
+    if(!h || h.__fcKey) return;
+    h.__fcKey = 1;
+    h.addEventListener('keydown', function(e){
+      if(!(e.ctrlKey || e.metaKey)) return;
+      if(e.key !== 'Enter') return;
+      var fn = window[p[1]];
+      if(typeof fn !== 'function') return;
+      e.preventDefault();
+      try{ fn(); }catch(err){}
+    }, true);
+  });
   /* 모달이 열릴 때마다 배치를 맞춘다 — 기존 openModal 을 감싼다 */
   var _open = window.openModal;
   if(typeof _open === 'function'){
     window.openModal = function(kind){
       var r = _open.apply(this, arguments);
+      if(String(kind) === 'customer'){
+        try{ setTimeout(function(){
+          var b = document.querySelector('#modal-customer .modal');
+          if(!b) return;
+          ['c-note', 'c-budget', 'c-memo'].forEach(function(k){
+            var el = document.getElementById(k);
+            var g = el && el.closest ? el.closest('.form-group') : null;
+            if(g) g.classList.add('fc-wide');
+          });
+          var f = document.getElementById('c-name');
+          if(f && typeof f.focus === 'function') f.focus();
+        }, 30); }catch(e){}
+      }
       if(String(kind) === 'listing'){
         try{ setTimeout(fcFormLayout, 0); }catch(e){}
         try{ setTimeout(function(){
@@ -13902,6 +13960,82 @@ function fcFormWrap(){
     window.__fcFormWrapped = true;
   }
 }
+/* ── 🏢 같은 건물 공통정보 가져오기 (2026-09-10) ──────────────────────
+   실측: 매물 44건 중 36건이 **같은 건물의 다른 호실**이다(에코 드 파리 23 · 에코힐튼 9 …).
+   같은 건물을 이미 한 번 정확히 넣었다면 총층·준공일·용도 같은 건물 공통값을 다시 치지 않게 한다.
+   🔴 호실마다 다른 값은 절대 가져오지 않는다 — 면적·층·호수·가격·방·욕실·향·설명·연락처.
+      (건물 전체 면적을 호실 면적으로 넣는 짓을 하지 않는다)
+   🔴 값이 서로 다른 매물이 섞여 있으면 그 칸은 가져오지 않고 그렇다고 알려 준다.
+   🔴 이미 적어 둔 칸은 덮어쓰지 않는다. */
+var FC_BLD_FIELDS = [
+  ['l-total-floor', 'totalFloor', '총층'],
+  ['l-apr-date',    'aprDate',    '준공일'],
+  ['l-bldg-use',    'bldgUse',    '건축물용도'],
+  ['l-parking',     'parking',    '주차'],
+  ['l-jimok',       'jimok',      '지목'],
+  ['l-zone',        'zone',       '용도지역'],
+  ['l-fee-type',    'feeType',    '관리비 방식'],
+  ['l-fee-basis',   'feeBasis',   '관리비 기준'],
+  ['l-fee-evidence','feeEvidence','관리비 근거']
+];
+function fcBldKey(s){ return String(s || '').replace(/s/g, '').toLowerCase(); }
+function fcBldSame(){
+  var apt = '', addr = '';
+  try{ apt = document.getElementById('l-apt').value; }catch(e){}
+  try{ addr = document.getElementById('l-addr').value; }catch(e){}
+  var ka = fcBldKey(apt), kd = fcBldKey(addr);
+  if(!ka && !kd) return [];
+  var cur = '';
+  try{ cur = String(window.editingListingId || ''); }catch(e){}
+  var L = [];
+  try{ L = ddArr('listings') || []; }catch(e){ return []; }
+  return L.filter(function(x){
+    if(cur && String(x.id) === cur) return false;
+    var xa = fcBldKey(x.apt), xd = fcBldKey(x.addr);
+    if(ka && xa && xa === ka) return true;
+    if(kd && xd && xd === kd) return true;
+    return false;
+  });
+}
+function fcBldFill(){
+  var same = fcBldSame();
+  if(!same.length){ showToast('같은 건물로 등록된 매물이 없습니다'); return; }
+  var got = [], skip = [], kept = [];
+  for(var i = 0; i < FC_BLD_FIELDS.length; i++){
+    var id = FC_BLD_FIELDS[i][0], key = FC_BLD_FIELDS[i][1], label = FC_BLD_FIELDS[i][2];
+    var el = document.getElementById(id);
+    if(!el) continue;
+    if(String(el.value || '').trim()){ kept.push(label); continue; }   // 이미 적은 것은 안 건드린다
+    var vals = {};
+    for(var j = 0; j < same.length; j++){
+      var v = String(same[j][key] || '').trim();
+      if(v) vals[v] = (vals[v] || 0) + 1;
+    }
+    var keys = Object.keys(vals);
+    if(!keys.length) continue;
+    if(keys.length > 1){ skip.push(label); continue; }                 // 값이 엇갈리면 안 가져온다
+    el.value = keys[0];
+    got.push(label);
+  }
+  var nl = String.fromCharCode(10);
+  var msg = got.length ? ('가져온 칸 ' + got.length + '개: ' + got.join(' · ')) : '새로 채운 칸이 없습니다';
+  if(skip.length) msg += nl + '값이 서로 달라 건너뛴 칸: ' + skip.join(' · ');
+  if(kept.length) msg += nl + '이미 적혀 있어 그대로 둔 칸: ' + kept.join(' · ');
+  showToast(msg);
+}
+function fcBldHint(){
+  var host = document.getElementById('fc-bld-hint');
+  if(!host) return;
+  var same = fcBldSame();
+  if(!same.length){ host.style.display = 'none'; host.innerHTML = ''; return; }
+  var nm = String((same[0] && same[0].apt) || '').trim();
+  host.style.display = '';
+  host.innerHTML = '<b>🏢 같은 건물 매물 ' + same.length + '건</b> '
+    + '<span class="s">(' + gEsc(nm) + ') — 총층·준공일·용도 같은 <b>건물 공통값</b>만 가져옵니다. '
+    + '면적·층·호수·가격은 호실마다 달라 가져오지 않습니다.</span> '
+    + '<button type="button" class="btn btn-xs" style="margin-left:6px" onclick="fcBldFill()">건물 공통정보 가져오기</button>';
+}
+
 function fcFormBoot(){
   try{ fcFormWrap(); }catch(e){}
   if(!window.__fcFormWrapped){ try{ setTimeout(fcFormBoot, 300); }catch(e){} }
