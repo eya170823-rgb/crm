@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 20:05</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 01:37</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -16040,6 +16040,238 @@ function fcCdBoot(){
   window.__fcCdWrapped = true;
 }
 fcCdBoot();
+/* ══ 📎 G10-B 매물 첨부 비공개 보관 (2026-09-11) ═════════════════════
+   🔴 무엇이 문제였나: 매물 첨부가 dataUrl 로 **브라우저에만** 있었다.
+      시트에 칸이 없어 서버로 가지 않으니, 기기를 바꾸거나 브라우저 자료를 지우면
+      되찾을 수 없었다(index.html 2762 주석의 08-14 소실 사고).
+   🔴 지키는 것
+     · **자동으로 올리지 않는다.** 화면에 들어오는 것만으로는 아무것도 보내지 않는다.
+       사람이 [🔒 서버에 안전보관] 을 눌렀을 때만 올라간다.
+     · 올리기 전에는 이 기기 것을 지우지 않는다. 성공을 확인한 뒤에만 지운다.
+     · 서버 보관본을 다시 localStorage 에 복사하지 않는다(개인정보).
+     · Drive 링크를 받지 않는다. 볼 때마다 서버를 거치고, 서버가 권한을 다시 본다.
+     · 사진(photoUrl·photoCnt)과 계약서 작성기 첨부(cwFiles)는 건드리지 않는다. */
+var FC_AT_CACHE = {};      /* listingId -> 서버 목록(이름·크기만). 화면 진입만으로 부르지 않는다 */
+
+function fcAtCss(){
+  return '<style id="fc-at-css">'
+    + '.fc-at-box{border:1px solid #E5E7EB;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12.5px}'
+    + '.fc-at-row{padding:3px 0;border-bottom:1px solid #F3F4F6}'
+    + '.fc-at-row:last-child{border-bottom:0}'
+    + '.fc-at-tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;'
+    +   'padding:1px 8px;margin-right:4px}'
+    + '.fc-at-local{background:#FFFBEB;color:#B45309}'
+    + '.fc-at-safe{background:#ECFDF5;color:#0F6E56}'
+    + '.fc-at-busy{background:#EFF6FF;color:#1B4F8A}'
+    + '.fc-at-bad{background:#FEF2F2;color:#991B1B}'
+    + '.fc-at-why{font-size:11.5px;color:#6B7280;margin-top:4px}'
+    + '</style>';
+}
+/* 이 기기에만 있는 첨부(기존 것) */
+function fcAtLocal(id){
+  var L = [];
+  try{ L = ddArr('listings') || []; }catch(e){ return []; }
+  for(var i = 0; i < L.length; i++){
+    if(String(L[i].id) !== String(id)) continue;
+    var a = L[i].attachments;
+    return (a && a.length) ? a : [];
+  }
+  return [];
+}
+/* 서버 목록 — 사람이 눌렀을 때만 부른다 */
+async function fcAtLoad(id){
+  var lid = String(id || '').trim();
+  if(!lid) return;
+  var url = '', tok = '';
+  try{ url = getGsUrl(); tok = getGsTok(); }catch(e){}
+  if(!url){ try{ showToast('구글 시트 주소가 없습니다'); }catch(e){} return; }
+  try{ showToast('📎 서버에 보관된 첨부를 봅니다…'); }catch(e){}
+  try{
+    var r = await fetch(url + '?action=attachList&listingId=' + encodeURIComponent(lid)
+      + '&t=' + Date.now() + '&token=' + encodeURIComponent(tok || ''));
+    var j = await r.json();
+    if(j && j.error) throw new Error(j.error);
+    FC_AT_CACHE[lid] = ((j && j.result) || {}).rows || [];
+  }catch(e){
+    FC_AT_CACHE[lid] = [];
+    try{ showToast('서버 첨부를 불러오지 못했습니다: ' + (e && e.message ? e.message : '')); }catch(e2){}
+  }
+  fcAtRender(lid);
+}
+/* 열기 — 🔴 서버가 내용을 준다. Drive 링크를 쓰지 않는다. */
+async function fcAtOpen(id, attId){
+  var lid = String(id || '').trim(), aid = String(attId || '').trim();
+  if(!lid || !aid) return;
+  var url = '', tok = '';
+  try{ url = getGsUrl(); tok = getGsTok(); }catch(e){}
+  if(!url){ try{ showToast('구글 시트 주소가 없습니다'); }catch(e){} return; }
+  try{ showToast('📎 파일을 받는 중입니다…'); }catch(e){}
+  try{
+    var r = await fetch(url + '?action=attachGet&id=' + encodeURIComponent(aid)
+      + '&t=' + Date.now() + '&token=' + encodeURIComponent(tok || ''));
+    var j = await r.json();
+    if(j && j.error) throw new Error(j.error);
+    var m = (j && j.result) || {};
+    if(!m.b64) throw new Error('내용이 비어 있습니다');
+    /* 🔴 받은 내용을 localStorage 에 저장하지 않는다 — 그 자리에서 보여 주기만 한다 */
+    var one = { name: m.fileName, type: m.mimeType,
+                size: Number(m.fileSize || 0),
+                dataUrl: 'data:' + m.mimeType + ';base64,' + m.b64 };
+    if(typeof openFileViewer === 'function') openFileViewer(m.fileName, [one]);
+    else try{ showToast('뷰어를 찾지 못했습니다'); }catch(e){}
+  }catch(e){
+    try{ showToast('파일을 열지 못했습니다: ' + (e && e.message ? e.message : '')); }catch(e2){}
+  }
+}
+/* 🔒 서버 보관 — 🔴 사람이 눌렀을 때만. 성공을 확인한 뒤에만 이 기기 것을 지운다. */
+async function fcAtSave(id){
+  var lid = String(id || '').trim();
+  if(!lid){ try{ showToast('먼저 매물을 저장한 뒤 보관하세요'); }catch(e){} return; }
+  var files = fcAtLocal(lid);
+  if(!files.length){ try{ showToast('이 기기에 보관할 첨부가 없습니다'); }catch(e){} return; }
+  var nl = String.fromCharCode(10);
+  if(!confirm(['이 기기에만 있는 첨부 ' + files.length + '개를 서버에 안전보관할까요?', '',
+    files.slice(0, 6).map(function(f){ return '· ' + String(f.name || '이름없음'); }).join(nl),
+    (files.length > 6 ? ('외 ' + (files.length - 6) + '개') : ''), '',
+    '🔒 비공개로 보관됩니다 — 링크를 아는 사람이 열 수 있는 방식이 아닙니다.',
+    '보관에 성공한 것만 이 기기에서 지웁니다.'].join(nl))) return;
+
+  var okList = [], failList = [], orphanList = [];
+  for(var i = 0; i < files.length; i++){
+    var f = files[i] || {};
+    fcAtBusy(lid, '보관 중 ' + (i + 1) + '/' + files.length + ' — ' + String(f.name || ''));
+    try{
+      var r = await gsCall('attachUpload', {
+        listingId: lid, name: String(f.name || 'file'),
+        mime: String(f.type || ''), b64: String(f.dataUrl || ''),
+        createdBy: (typeof crmWho === 'function') ? String(crmWho() || '') : ''
+      });
+      var res = (r && r.result) || r || {};
+      if(res.ok === true && res.id) okList.push({ name: f.name, id: res.id });
+      else if(res.orphan) orphanList.push({ name: f.name, fileId: res.fileId, why: res.error });
+      else failList.push({ name: f.name, why: res.error || '알 수 없는 실패' });
+    }catch(e){
+      failList.push({ name: f.name, why: (e && e.message) ? e.message : '보내지 못했습니다' });
+    }
+  }
+
+  /* 🔴 성공한 것만 이 기기에서 지운다. 하나라도 실패했으면 그것은 그대로 둔다. */
+  if(okList.length){
+    try{
+      var L = ddArr('listings') || [];
+      for(var k = 0; k < L.length; k++){
+        if(String(L[k].id) !== lid) continue;
+        var keep = [];
+        var done = {};
+        okList.forEach(function(x){ done[String(x.name)] = (done[String(x.name)] || 0) + 1; });
+        (L[k].attachments || []).forEach(function(f){
+          var nm = String(f.name || '');
+          if(done[nm] > 0){ done[nm]--; return; }     /* 보관된 것 — 이 기기에서 뺀다 */
+          keep.push(f);
+        });
+        L[k].attachments = keep;
+        L[k].updatedAt = new Date().toISOString();
+        save('listings', L);
+        break;
+      }
+    }catch(e){}
+  }
+  FC_AT_CACHE[lid] = null;
+  await fcAtLoad(lid);
+
+  var msg = '📎 보관 ' + okList.length + '개';
+  if(failList.length) msg += ' · 실패 ' + failList.length + '개(이 기기에 그대로 둡니다)';
+  if(orphanList.length) msg += ' · 🔴 확인필요 ' + orphanList.length + '개';
+  try{ showToast(msg); }catch(e){}
+  if(orphanList.length){
+    try{
+      alert(['🔴 일부 파일은 드라이브에는 올라갔는데 목록에 적히지 않았습니다.', '',
+        orphanList.map(function(x){ return '· ' + x.name + ' (파일 id ' + x.fileId + ')'; }).join(nl),
+        '', '그 파일은 지우지 않았습니다. 이 번호를 알려 주시면 정리해 드립니다.'].join(nl));
+    }catch(e){}
+  }
+}
+function fcAtBusy(lid, text){
+  var el = document.getElementById('fc-at-box');
+  if(!el) return;
+  el.innerHTML = '<div class="fc-at-row"><span class="fc-at-tag fc-at-busy">업로드 중</span>'
+    + gEsc(String(text || '')) + '</div>';
+}
+/* 매물 창 안에 상태를 그린다 — 새 화면을 만들지 않는다 */
+function fcAtRender(id){
+  var lid = String(id || '').trim();
+  var host = document.getElementById('attach-preview');
+  if(!host) return;
+  var el = document.getElementById('fc-at-box');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'fc-at-box'; el.className = 'fc-at-box';
+    host.parentNode.insertBefore(el, host.nextSibling);
+  }
+  if(!lid){
+    el.innerHTML = '<div class="fc-at-why">매물을 저장하면 첨부를 서버에 보관할 수 있습니다.</div>';
+    return;
+  }
+  var loc = fcAtLocal(lid);
+  var srv = FC_AT_CACHE[lid];
+  var html = '';
+  if(loc.length){
+    html += '<div class="fc-at-row"><span class="fc-at-tag fc-at-local">이 기기에만 저장됨</span>'
+      + loc.length + '개 — ' + loc.slice(0, 4).map(function(f){ return gEsc(String(f.name || '')); }).join(' · ')
+      + (loc.length > 4 ? (' 외 ' + (loc.length - 4)) : '')
+      + ' <button type="button" class="btn btn-sm" onclick="fcAtSave(&#39;' + gAttr(lid) + '&#39;)">🔒 서버에 안전보관</button>'
+      + '</div>'
+      + '<div class="fc-at-why">🔴 이 파일은 지금 <b>이 컴퓨터에만</b> 있습니다 — '
+      + '다른 PC·폰에서는 보이지 않고, 브라우저 자료를 지우면 되찾을 수 없습니다.</div>';
+  }
+  if(srv === undefined || srv === null){
+    html += '<div class="fc-at-row">서버 보관본을 아직 보지 않았습니다.'
+      + ' <button type="button" class="btn btn-sm" onclick="fcAtLoad(&#39;' + gAttr(lid) + '&#39;)">🔎 서버 첨부 보기</button></div>';
+  } else if(!srv.length){
+    html += '<div class="fc-at-row"><span class="fc-at-tag fc-at-local">서버 보관 없음</span>'
+      + '아직 서버에 보관된 첨부가 없습니다.</div>';
+  } else {
+    html += srv.map(function(x){
+      return '<div class="fc-at-row"><span class="fc-at-tag fc-at-safe">서버에 안전하게 보관됨</span>'
+        + gEsc(String(x.fileName || '')) + ' · ' + Math.round(Number(x.fileSize || 0) / 1024) + 'KB'
+        + ' · ' + gEsc(String(x.createdAt || '').slice(0, 16))
+        + ' <button type="button" class="btn btn-sm" onclick="fcAtOpen(&#39;' + gAttr(lid) + '&#39;,&#39;'
+        + gAttr(String(x.id)) + '&#39;)">열기</button></div>';
+    }).join('')
+      + '<div class="fc-at-why">🔒 비공개로 보관됩니다 — 볼 때마다 서버가 권한을 다시 봅니다. '
+      + '링크만으로는 열리지 않습니다.</div>';
+  }
+  el.innerHTML = html;
+}
+/* 매물 창이 열릴 때 상태만 그린다 — 🔴 서버를 부르지 않는다 */
+function fcAtWrap(){
+  if(window.__fcAtWrapped) return;
+  if(!document.getElementById('fc-at-css')){
+    try{ document.head.insertAdjacentHTML('beforeend', fcAtCss()); }catch(e){}
+  }
+  var _open = window.openModal;
+  if(typeof _open !== 'function') return;
+  window.openModal = function(kind, id){
+    var r = _open.apply(this, arguments);
+    if(String(kind) === 'listing'){
+      try{
+        setTimeout(function(){
+          var eid = '';
+          try{ eid = String((document.getElementById('l-edit-id') || {}).value || '').trim(); }catch(e){}
+          fcAtRender(eid);
+        }, 80);
+      }catch(e){}
+    }
+    return r;
+  };
+  window.__fcAtWrapped = true;
+}
+function fcAtBoot(){
+  try{ fcAtWrap(); }catch(e){}
+  if(!window.__fcAtWrapped){ try{ setTimeout(fcAtBoot, 300); }catch(e){} }
+}
+fcAtBoot();
+
 
 
 /* ══ ✍ G5.5 계약서 생성 — 무엇으로 만든 것인지 정직하게 말한다 (2026-09-10) ═════
