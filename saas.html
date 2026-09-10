@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 10:40</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 15:39</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1060,7 +1060,7 @@ body{padding-bottom:46px}
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
         <div class="sx-grp-h">관리부<em>계약·인사·회계·결재</em></div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract" onclick="sxGo('contract',0,'관리부')">계약관리</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract" onclick="sxGo('contract',0,'관리부')">계약관리<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="staff" data-admin="1" onclick="sxGo('staff',0,'관리부')">인사·직원</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="payout" onclick="sxGo('payout',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>회계·정산</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="stats" data-admin="1" onclick="sxGo('stats',0,'관리부')">경영 통계</button>
@@ -1069,7 +1069,7 @@ body{padding-bottom:46px}
       <div class="sx-grp" data-co="head" data-dept="운영부">
         <div class="sx-grp-h">운영부<em>매물·광고·고객·임대인</em></div>
           <div class="sx-sub" data-co="head" data-grp="운영부">매물</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>매물장</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>매물장<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <div class="sx-sub" data-co="head" data-grp="운영부">광고</div>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 관리</button>
           <div class="sx-sub" data-co="head" data-grp="운영부">사진</div>
@@ -1079,9 +1079,9 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임대인')"><span class="sx-pri p3" title="필요할 때">3</span>매도·임대인</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임차인')"><span class="sx-pri p3" title="필요할 때">3</span>매수·임차인</button>
           <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('문의')"><span class="sx-pri p3" title="필요할 때">3</span>문의 고객</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')">고객 명부</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')">고객 명부<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <div class="sx-sub" data-co="head" data-grp="운영부">임대인</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="landlord" onclick="sxGo('landlord',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>임대인 명부<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="landlord" onclick="sxGo('landlord',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>임대인 명부<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="마케팅부">
         <div class="sx-grp-h">마케팅부<em>노출 채널 · 자동화</em></div>
@@ -1094,14 +1094,14 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'법무팀')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>계약서 작성·검토</button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="jeonse" onclick="sxGo('jeonse',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>전세 안전도<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="docreq" onclick="sxGo('docreq',0,'법무팀')">공부 발급</button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="guar" onclick="sxGo('guar',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>보증보험 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>등기 변동 확인<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>문서 작성 · 브리핑<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="guar" onclick="sxGo('guar',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>보증보험 확인</button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>등기 변동 확인</button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>문서 작성 · 브리핑</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="개발부" data-admin="1">
         <div class="sx-grp-h">개발부<em>설계·개발·운영</em></div>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">메모 · 요구사항</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'개발부')">매물 수집</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">자동화 현황</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
@@ -14328,7 +14328,16 @@ function fcWrapSaves(){
 
 function todayTasks(){
   const t = (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0, 10);
-  const L = ddArr('listings'), C = ddArr('customers'), K = ddArr('contracts'), V = ddArr('visits');
+  /* 🔴 2026-09-10 역할 분기 — 대표는 회사 전체, 직원은 **본인 담당만**.
+     화면에서 거르는 것은 편의일 뿐이고 실제 차단은 서버(getAllData 의 scope)가 한다.
+     새 저울·새 규칙을 만들지 않는다 — 기존 flowOwned 를 그대로 쓴다. */
+  const isAdm = (typeof sxAdmin === 'function') ? sxAdmin() : true;
+  const only = (arr, fields) => {
+    if(isAdm) return arr;
+    try{ return arr.filter(x => flowOwned(x, fields)); }catch(e){ return arr; }
+  };
+  const L = only(ddArr('listings'), ['agent']), C = only(ddArr('customers'), ['agent']),
+        K = only(ddArr('contracts'), ['agent']), V = only(ddArr('visits'), ['agent', 'who']);
   const day = (x) => String(x || '').slice(0, 10);
   const live = L.filter(ddLive);
   const rent = L.filter(l => String(l.status || '') === '임대중');
@@ -14374,6 +14383,30 @@ function todayTasks(){
   out.push({ g: 'S급매물', n: '공부 발급 대기', v: null, id: 'tt-doc',
     why: '계약 전에 등기부·대장이 있어야 합니다', go: 'docreq', dept: '법무팀' });
 
+  /* 🔴 직원 화면 — 업무 순서대로 다시 세운다(오늘 연락 → 즉시매칭 → 임대인 확인 → 재접촉 → 임장 → 계약준비).
+     대표 전용 표현('자동화·직원 몫')과 회사 전체 수치는 직원에게 내보내지 않는다. */
+  if(!isAdm){
+    const sOut = [];
+    let myCalls = [];
+    try{ myCalls = (fcTodayCalls(50) || []).filter(x => flowOwned(x.l, ['owner', 'ownerName'])); }catch(e){}
+    if(myCalls.length) sOut.push({ g: '오늘연락', n: '오늘 연락할 임대인', v: myCalls.length,
+      why: '재확인일·공실 신호·손님 조건이 걸린 사람입니다', go: 'landlord', dept: '운영부', hot: true });
+    if(cToday.length) sOut.push({ g: '오늘연락', n: '오늘 연락하기로 한 손님', v: cToday.length,
+      why: '약속한 날입니다 — 하루 미루면 다른 데로 갑니다', go: 'customer', dept: '운영부', hot: true });
+    const cLive = C.filter(c => !/종료|완료/.test(String(c.progressStatus || '')));
+    if(cLive.length) sOut.push({ g: '즉시매칭', n: '조건 맞는 매물을 찾아 줄 내 손님', v: cLive.length,
+      why: '매물이 새로 들어오면 바로 연결됩니다', go: 'customer', dept: '운영부', hot: true });
+    if(noPhone.length) sOut.push({ g: '임대인확인', n: '집주인 번호가 없는 내 매물', v: noPhone.length,
+      why: '번호가 없으면 공실 확인도 광고도 못 갑니다', go: 'listing', dept: '운영부' });
+    if(cLate.length) sOut.push({ g: '재접촉', n: '연락할 날이 지난 손님', v: cLate.length,
+      why: '먼저 전화하는 쪽이 계약을 가져갑니다', go: 'customer', dept: '운영부', hot: true });
+    if(vToday.length) sOut.push({ g: '임장', n: '오늘 잡힌 임장', v: vToday.length,
+      why: '손님이 오는 날입니다 — 집주인에게 미리 알리세요', go: 'visit', dept: '운영부', hot: true });
+    if(kSoon.length) sOut.push({ g: '계약준비', n: '7일 안에 계약일이 있는 건', v: kSoon.length,
+      why: '서류·잔금·특약을 맞춰야 합니다', go: 'contract', dept: '관리부', hot: true });
+    return { rows: sOut.slice(0, 7), auto: [], staff: true };
+  }
+
   // 대표 업무는 7개까지. 광고 안 낸 것은 자동화 몫이라 따로 적는다.
   return { rows: out.slice(0, 7), auto: [
     { n: '광고 안 낸 거래가능 매물', v: noAd.length, go: 'ads', dept: '운영부' },
@@ -14398,12 +14431,74 @@ function todayCard(){
   };
   const auto = tt.auto.map(a => '<button class="dd-lkb" onclick="sxGo(&#39;' + a.go + '&#39;,0,&#39;' + a.dept + '&#39;)"><b>'
     + gEsc(a.n) + (a.v !== null && a.v !== undefined ? ' · ' + a.v + '건' : '') + '</b><em>대표가 아니라 자동화·직원 몫</em></button>').join('');
+  // 🔴 직원에게는 대표 전용 표현('자동화·직원 몫')과 회사 전체 묶음을 내보내지 않는다
+  const lab = tt.staff
+    ? '🎯 오늘 내가 할 일 — 오늘연락 → 즉시매칭 → 임대인확인 → 재접촉 → 임장 → 계약준비'
+    : '🎯 오늘 대표가 직접 할 일 — 계약직전 → 오늘방문 → HOT고객 → S급매물';
+  const empty = tt.staff
+    ? '<div class="dd-empty">오늘 내 담당으로 잡힌 것이 없습니다 — 담당자가 비어 있으면 여기에 안 잡힙니다</div>'
+    : '<div class="dd-empty">오늘 잡힌 것이 없습니다</div>';
   return '<div class="hm-card" style="grid-column:1 / -1;border-color:#1B4F8A">'
-    + '<div class="hm-lab">🎯 오늘 대표가 직접 할 일 — 계약직전 → 오늘방문 → HOT고객 → S급매물</div>'
-    + (rows.length ? rows.map(line).join('') : '<div class="dd-empty">오늘 잡힌 것이 없습니다</div>')
-    + '<div class="s" style="margin-top:8px">숫자는 지금 불러온 자료에서 셉니다. 인입함·발급은 서버에서 뒤늦게 채워집니다.</div>'
-    + '<div class="dd-h" style="margin-top:12px;font-size:12px">⚙ 자동화·직원 몫 (대표 업무 아님)</div>'
-    + '<div class="dd-lk">' + auto + '</div></div>';
+    + '<div class="hm-lab">' + gEsc(lab) + '</div>'
+    + (rows.length ? rows.map(line).join('') : empty)
+    + '<div class="s" style="margin-top:8px">숫자는 지금 불러온 자료에서 셉니다.'
+    + (tt.staff ? ' 내 담당만 셉니다.' : ' 인입함·발급은 서버에서 뒤늦게 채워집니다.') + '</div>'
+    + (tt.staff ? '' : ('<div class="dd-h" style="margin-top:12px;font-size:12px">⚙ 자동화·직원 몫 (대표 업무 아님)</div>'
+        + '<div class="dd-lk">' + auto + '</div>'))
+    + '</div>';
+}
+
+/* ══ 📞 오늘 연락할 사람 · 📷 오늘 사진 할 일 — 홈에서 바로 보이게 (2026-09-10)
+   🔴 새 로직을 만들지 않는다. 기존 fcTodayCalls 와 이미 조회해 둔 FC_AD_PHOTO 만 읽는다.
+   🔴 서버를 새로 부르지 않는다 — 사진은 조회 전이면 '미조회'라고 그대로 적는다. */
+function todayCallsCard(){
+  let list = [];
+  try{ list = fcTodayCalls(50) || []; }catch(e){ list = []; }
+  const adm = (typeof sxAdmin === 'function') ? sxAdmin() : true;
+  if(!adm){ try{ list = list.filter(x => flowOwned(x.l, ['owner', 'ownerName'])); }catch(e){} }
+  const top = list[0];
+  const who = top ? [String((top.l && top.l.name) || ''), String((top.l && top.l.apt) || '')].filter(Boolean).join(' · ') : '';
+  const why = top ? String(top.why || (top.reasons && top.reasons.join(' · ')) || '') : '';
+  return homeCard('📞 오늘 연락할 사람',
+    list.length ? ('<b>' + list.length + '</b>명') : '<b>오늘 연락할 이유가 있는 사람이 없습니다</b>',
+    list.length ? ('<div class="hm-s">가장 먼저: ' + gEsc(who) + (why ? ('<br>' + gEsc(why.slice(0, 60))) : '') + '</div>')
+                : '<div class="hm-s">재확인일·공실 신호·손님 조건이 걸리면 여기에 뜹니다</div>',
+    '<button class="btn btn-sm" onclick="sxGo(&#39;landlord&#39;,0,&#39;운영부&#39;)">열기</button>');
+}
+function todayPhotoCard(){
+  let seen = 0, box = { fix: 0, shoot: 0, unit: 0, review: 0, done: 0 };
+  try{
+    const P = (typeof FC_AD_PHOTO !== 'undefined') ? FC_AD_PHOTO : null;
+    if(P) Object.keys(P).forEach(function(k){
+      const p = P[k];
+      if(!p || p.error) return;
+      seen++;
+      const m = fcAdPhotoMatch(p), dn = Number(p.done || 0), rw = Number(p.raw || 0);
+      if(m === 'EXACT_UNIT' && dn > 0) box.done++;
+      else if(m === 'EXACT_UNIT' && rw > 0) box.fix++;
+      else if(m === 'EXACT_UNIT' || m === 'UNIT_EMPTY') box.shoot++;
+      else if(m === 'BUILDING_ONLY') box.unit++;
+      else if(m === 'REVIEW_REQUIRED') box.review++;
+    });
+  }catch(e){ seen = 0; }
+  if(!seen){
+    return homeCard('📷 오늘 사진 할 일', '<b>사진 상태 미조회</b>',
+      '<div class="hm-s">아직 이번 접속에서 사진 상태를 보지 않았습니다 — 숫자를 지어내지 않습니다.<br>'
+      + '광고 관리에서 [📷 사진 상태 조회] 를 한 번 누르면 여기에 채워집니다.</div>',
+      '<button class="btn btn-sm" onclick="sxGo(&#39;ads&#39;,0,&#39;운영부&#39;)">확인</button>');
+  }
+  const bits = [];
+  if(box.fix) bits.push('🛠 보정 필요 ' + box.fix);
+  if(box.shoot) bits.push('📸 촬영 필요 ' + box.shoot);
+  if(box.unit) bits.push('🔎 호실사진 확인 ' + box.unit);
+  if(box.review) bits.push('🧐 매칭 검토 ' + box.review);
+  if(box.done) bits.push('✅ 사진 완료 ' + box.done);
+  const head = box.fix ? ('<b>' + box.fix + '</b>건은 보정 한 번이면 끝납니다')
+             : box.shoot ? ('<b>' + box.shoot + '</b>건은 촬영이 필요합니다')
+             : ('<b>' + seen + '</b>건 확인함');
+  return homeCard('📷 오늘 사진 할 일', head,
+    '<div class="hm-s">' + gEsc(bits.join(' · ')) + '<br>본 매물 ' + seen + '건 기준입니다.</div>',
+    '<button class="btn btn-sm" onclick="sxGo(&#39;ads&#39;,0,&#39;운영부&#39;)">열기</button>');
 }
 
 /* 서버에서 세야 하는 두 줄을 뒤늦게 채운다 — 토큰이 없으면 '확인 필요' 로 둔다 */
@@ -14529,7 +14624,7 @@ function homeRender(){
       + '<button class="dd-lkb" onclick="sxGo(&#39;memo&#39;,0,&#39;개발부&#39;)"><b>개발부</b><em>메모·검수·배포</em></button>'
       + '</div></div>'
     : '';
-  el.innerHTML = todayCard() + c1 + c2 + c3 + c4 + c5 + c6 + chiefLink;
+  el.innerHTML = todayCard() + todayCallsCard() + todayPhotoCard() + c1 + c2 + c3 + c4 + c5 + c6 + chiefLink;
   try{ todayFill(); }catch(e){}
 
   // 오른쪽 위젯
