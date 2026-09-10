@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 06:41</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 10:40</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -13609,18 +13609,22 @@ async function fcAdScan(){
      REVIEW_REQUIRED 건물 폴더가 없거나 후보가 여럿이다 - 사람이 봐야 한다
    광고에 나가는 사진은 사무소 규칙상 '보정완료' 폴더 것뿐이다(원본은 워터마크 전).
    그래서 원본만 있으면 준비됐다고 하지 않고, 무엇을 하면 되는지 적어 준다. */
+/* 사진 판정을 한 낱말로 — 새 GAS 는 match 를 준다. 옛 GAS 면 status 로 같은 뜻을 만든다.
+   🔴 이 한 곳에서만 정한다. 사진 판정과 「오늘 사진 할 일」 분류가 어긋나지 않게. */
+function fcAdPhotoMatch(p){
+  if(!p || p.error) return '';
+  var m = String(p.match || '');
+  if(m) return m;
+  var st0 = String(p.status || ''), done = Number(p.done || 0), raw = Number(p.raw || 0);
+  if(st0 === 'bld-only') return 'BUILDING_ONLY';
+  if(st0 === 'unit-hit') return (raw > 0 || done > 0) ? 'EXACT_UNIT' : 'UNIT_EMPTY';
+  return st0 ? 'REVIEW_REQUIRED' : '';
+}
 function fcAdPhotoOk(p){
   if(!p) return { known: false, ok: false, st: '', t: '사진 확인 안 함' };
   if(p.error) return { known: false, ok: false, st: '', t: '조회 실패 - ' + p.error };
   var done = Number(p.done || 0), raw = Number(p.raw || 0);
-  // match 는 새 GAS 가 준다. 아직 옛 GAS 면 status 로 같은 뜻을 만든다(배포 전에도 동작).
-  var m = String(p.match || '');
-  if(!m){
-    var st0 = String(p.status || '');
-    m = (st0 === 'bld-only') ? 'BUILDING_ONLY'
-      : (st0 === 'unit-hit') ? ((raw > 0 || done > 0) ? 'EXACT_UNIT' : 'UNIT_EMPTY')
-      : st0 ? 'REVIEW_REQUIRED' : '';
-  }
+  var m = fcAdPhotoMatch(p);
   if(m === 'REVIEW_REQUIRED')
     return { known: true, ok: false, st: 'REVIEW_REQUIRED',
              t: '사진 폴더를 정하지 못했습니다' + (p.why ? ' - ' + p.why : '')
@@ -14161,19 +14165,57 @@ function fcAdRender(){
     + chip('BLOCKED', cnt['A:BLOCKED'], '#DC2626')
     + chip('POSTED', cnt['A:POSTED'], '#6B7280') + '</div>';
 
-  /* 📷 사진 다음 걸음 — 원본은 있는데 보정만 안 된 매물은 프로그램 한 번이면 끝난다 */
-  var needFix = rows.filter(function(o){
+  /* 📷 오늘 사진 할 일 — 이미 조회해 둔 결과만 다시 읽는다(서버를 다시 부르지 않는다).
+     🔴 대표가 사진 상태를 읽고 해석하는 일을 없앤다. 매물마다 '다음 행동' 하나로 나눠 준다.
+     🔴 건물 사진을 이 방 사진으로 쓰지 않으므로 BUILDING_ONLY 는 '촬영'이 아니라 '호실 확인'이다. */
+  var pTodo = { fix: [], shoot: [], unit: [], review: [], done: [] };
+  var pUnseen = 0;
+  rows.forEach(function(o){
     var p = FC_AD_PHOTO[o.id];
-    return p && !p.error && String(p.match || '') === 'EXACT_UNIT'
-        && Number(p.done || 0) === 0 && Number(p.raw || 0) > 0;
+    if(!p || p.error){ pUnseen++; return; }
+    var m = fcAdPhotoMatch(p), dn = Number(p.done || 0), rw = Number(p.raw || 0);
+    if(m === 'EXACT_UNIT' && dn > 0) pTodo.done.push(o);
+    else if(m === 'EXACT_UNIT' && rw > 0) pTodo.fix.push(o);
+    else if(m === 'EXACT_UNIT' || m === 'UNIT_EMPTY') pTodo.shoot.push(o);
+    else if(m === 'BUILDING_ONLY') pTodo.unit.push(o);
+    else if(m === 'REVIEW_REQUIRED') pTodo.review.push(o);
+    else pUnseen++;
   });
-  if(needFix.length){
+  var PT = [
+    ['fix', '🛠 보정 필요', '#0F6E56',
+     '바탕화면 [브리즈부동산 사진보정] 을 한 번 실행하면 끝납니다 - 프로그램이 드라이브의 「원본」 폴더를 스스로 찾으므로 폴더를 고를 필요가 없습니다. 끝난 뒤 [📷 사진 상태 조회] 를 다시 누르면 「사진 완료」로 옮겨집니다'],
+    ['shoot', '📸 촬영 필요', '#DC2626',
+     '이 호실 폴더는 찾았는데 사진이 0장입니다 - 방문해서 찍어야 합니다'],
+    ['unit', '🔎 호실사진 확인 필요', '#B45309',
+     '건물 폴더는 찾았지만 이 호실 폴더가 없습니다 - 다른 방 사진을 이 방 사진으로 쓰지 않습니다. 사진이 건물 폴더 어딘가에 있는지 먼저 보고, 없으면 그때 촬영입니다'],
+    ['review', '🧐 사진 매칭 검토', '#B45309',
+     '건물 폴더를 하나로 정하지 못했습니다 - 사람이 봐야 합니다'],
+    ['done', '✅ 사진 완료', '#0F6E56',
+     '광고에 쓸 보정완료 사진이 있습니다']
+  ];
+  var pAny = 0;
+  PT.forEach(function(x){ pAny += pTodo[x[0]].length; });
+  if(pAny || pUnseen){
+    var pl = '';
+    PT.forEach(function(x){
+      var L = pTodo[x[0]];
+      if(!L.length) return;
+      pl += '<div style="margin:0 0 7px"><b style="color:' + x[2] + '">' + gEsc(x[1]) + '</b> '
+         + L.length + '건<div class="s" style="margin:1px 0 3px">' + gEsc(x[3]) + '</div>'
+         + L.map(function(o){
+             var d = fcAdData(o);
+             var tail = (d.st === 'DATA_READY') ? '' : ' (자료도 필요)';
+             var nm = [o.apt, o.addr2].filter(Boolean).join(' ');
+             return '<button class="btn btn-xs" style="margin:0 3px 3px 0" onclick="fcAdPhotoLoad(&#39;'
+               + gAttr(o.id) + '&#39;)" title="' + gAttr(nm + tail) + '">'
+               + gEsc(o.id) + gEsc(tail) + '</button>';
+           }).join('')
+         + '</div>';
+    });
     sum += '<div class="dd-c" style="margin:0 0 10px;border-color:#0F6E56;padding:8px 10px">'
-      + '<b>📷 사진 한 걸음</b> — 이 호실 사진이 <b>원본만</b> 있는 매물 ' + needFix.length + '건: '
-      + gEsc(needFix.map(function(o){ return String(o.id); }).join(' ')) + '<br>'
-      + '<span class="s">바탕화면 <b>[브리즈부동산 사진보정]</b> 을 한 번 실행하면 됩니다. '
-      + '프로그램이 드라이브를 훑어 「원본」 폴더를 스스로 찾아 처리하므로 폴더를 고를 필요가 없습니다. '
-      + '끝난 뒤 [📷 사진 상태 조회] 를 다시 눌러 「보정완료」가 실제로 생겼는지 확인합니다 — 확인되면 그때 PHOTO_READY 가 됩니다.</span></div>';
+      + '<b>📷 오늘 사진 할 일</b> <span class="s">— 사진 상태를 읽지 않아도 되게, 다음 행동 하나로 나눠 두었습니다.'
+      + (pUnseen ? (' 아직 안 본 매물 ' + pUnseen + '건은 [📷 사진 상태 조회] 를 누르면 여기에 들어옵니다.') : '')
+      + '</span>' + (pl ? ('<div style="margin:7px 0 0">' + pl + '</div>') : '') + '</div>';
   }
 
   /* 🎯 오늘 할 일 — 한 가지만 채우면 올라가는 매물 */
