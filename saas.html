@@ -400,6 +400,16 @@ body{font-size:13px}
 .sx-rail-b:hover{background:rgba(255,255,255,.12);color:#fff}
 .sx-rail-b.on{background:#fff;color:var(--navy)}
 .sx-list{grid-column:2;grid-row:3;min-width:0;background:#fff;overflow-y:auto;padding-bottom:12px}
+/* ═══ A2-1 공통 ERP Shell (2026-09-11) ═══
+   좌측 업무메뉴 접기 — 🔴 메뉴 항목·권한·라우팅은 하나도 지우지 않는다.
+   접으면 이미 있는 아이콘 레일(76px)만 남는다. 1366 에서 본문이 204px 넓어진다. */
+body.sx-narrow{--nav-w:var(--rail-w)}
+body.sx-narrow .sidebar{grid-template-columns:var(--rail-w)}
+body.sx-narrow .sidebar .sb-header,body.sx-narrow .sx-find,
+body.sx-narrow .sx-list,body.sx-narrow .sidebar .sb-footer{display:none}
+.sx-burger{background:none;border:0;color:inherit;cursor:pointer;font-size:17px;line-height:1;
+  padding:6px 9px;border-radius:8px;opacity:.85}
+.sx-burger:hover{background:rgba(255,255,255,.16);opacity:1}
 .sidebar{border-right:1px solid var(--border)}
 .sx-hit{display:block;padding:7px 12px 7px 22px;margin:0 8px;border-radius:7px;font-size:12.5px;color:var(--t2);cursor:pointer;border:0;background:none;width:calc(100% - 16px);text-align:left}
 .sx-hit:hover{background:var(--navy-l);color:var(--navy)}
@@ -995,7 +1005,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 01:37</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 07:09</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -14053,7 +14063,7 @@ var FC_G1_SEL = '';
 function fcG1Css(){
   return '<style id="fc-g1-css">'
     /* 열 이름 고정 — 아래로 내려도 무엇을 보는지 잃지 않는다 */
-    + '#p-listing .listing-table-wrap{max-height:calc(100vh - 300px);overflow:auto}'
+    + '#p-listing .listing-table-wrap{max-height:calc(100vh - 330px);overflow:auto}'
     + '#p-listing .listing-table-wrap thead th{position:sticky;top:0;background:#F3F4F6;z-index:2}'
     + '#p-listing .listing-table-wrap tbody tr{cursor:pointer}'
     + '#p-listing .listing-table-wrap tbody tr.fc-on{background:#ECFDF5;box-shadow:inset 3px 0 0 #0F6E56}'
@@ -14068,12 +14078,52 @@ function fcG1Css(){
     + '#fc-g1 .g1-kv b{color:#6B7280;font-weight:600;margin-right:4px}'
     + '#fc-g1 .g1-act{display:flex;flex-wrap:wrap;gap:5px}'
     + '#fc-g1 .g1-off{opacity:.45;cursor:not-allowed}'
-    + '@media (min-width:1280px){'
-    +   '#p-listing .fc-g1-split{display:grid;grid-template-columns:minmax(0,1fr) 360px;'
-    +     'gap:14px;align-items:start}'
-    +   '#fc-g1{position:sticky;top:8px;margin:0}'
-    + '}'
-    + '@media (min-width:1700px){#p-listing .fc-g1-split{grid-template-columns:minmax(0,1fr) 420px}}'
+    /* ═══ A2-1 ═══ 코크핏을 표 아래로 내린다.
+       종전에는 1280px 이상에서 오른쪽 360px 를 차지해, 1366 에서 표 칸이 644px 밖에
+       안 남고 13열 중 6열만 보였다(실측). 아래로 내리면 표가 온전히 넓어진다. */
+    + '#p-listing .fc-g1-split{display:block}'
+    + '#fc-g1{position:sticky;bottom:0;z-index:3;margin:10px 0 0;max-height:46vh;overflow:auto;'
+    +   'box-shadow:0 -6px 18px rgba(0,0,0,.07)}'
+    /* 코크핏 머리 — 접기 */
+    + '#fc-g1 .g1-hd{display:flex;align-items:center;gap:8px;margin:0 0 6px}'
+    + '#fc-g1 .g1-hd .g1-t{margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    + '#fc-g1.fold{max-height:none;overflow:visible}'
+    + '#fc-g1.fold .g1-tabs,#fc-g1.fold .g1-body,#fc-g1.fold .g1-act,#fc-g1.fold .g1-s{display:none}'
+    /* 업무 탭 */
+    + '#fc-g1 .g1-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px;'
+    +   'border-bottom:1px solid #E5E7EB;padding-bottom:6px}'
+    + '#fc-g1 .g1-tab{background:#F3F4F6;border:1px solid #E5E7EB;border-radius:7px;'
+    +   'font-size:12px;font-weight:600;color:#6B7280;padding:4px 10px;cursor:pointer}'
+    + '#fc-g1 .g1-tab.on{background:#0F6E56;border-color:#0F6E56;color:#fff}'
+    + '#fc-g1 .g1-body{font-size:12.5px;margin:0 0 8px}'
+    + '#fc-g1 .g1-why{font-size:11.5px;color:#6B7280;margin:4px 0 0;line-height:1.5}'
+    + '#fc-g1 .g1-li{padding:3px 0;border-top:1px dashed #E5E7EB}'
+    + '#fc-g1 .g1-li:first-child{border-top:0}'
+    /* ═══ A2-1 Grid 규격 ═══ 🔴 한 칸이 길어서 표 전체가 늘어나는 것을 막는다.
+       (임대인 명부에서 번호 여러 개가 든 44행 때문에 한 칸이 1,941px 가 된 사고와 같은 원인)
+       글자만 줄여 보여 주고 값은 그대로다 — 전체 값은 코크핏에서 본다. */
+    + '#p-listing .listing-table-wrap td{max-width:220px;overflow:hidden;'
+    +   'text-overflow:ellipsis;white-space:nowrap}'
+    /* 행을 ERP 밀도로 — 한 화면에 더 많은 매물을 나란히 놓고 비교한다.
+       코크핏을 연 채로도 표에 8행 이상이 남아야 한다(1366 기준). */
+    + '#p-listing .listing-table-wrap td,#p-listing .listing-table-wrap th'
+    +   '{padding-top:4px;padding-bottom:4px;line-height:1.35}'
+    + '#p-listing .listing-table-wrap .btn{padding:2px 7px;font-size:11px}'
+    /* 열 우선순위 — 🔴 8·9번은 고객명·연락처(개인정보)다. 좁은 화면에서는 접고
+       필요하면 코크핏 「기본」 탭에서 본다. 2번 접수일은 1440 이상에서만.
+       🔴 자리(nth-child)로 고르므로, 열 순서가 바뀌면 검산이 잡는다. */
+    + '#p-listing .listing-table-wrap th:nth-child(2),'
+    +   '#p-listing .listing-table-wrap td:nth-child(2){display:none}'
+    + '@media (min-width:1400px){#p-listing .listing-table-wrap th:nth-child(2),'
+    +   '#p-listing .listing-table-wrap td:nth-child(2){display:table-cell}}'
+    + '#p-listing .listing-table-wrap th:nth-child(8),'
+    +   '#p-listing .listing-table-wrap td:nth-child(8),'
+    +   '#p-listing .listing-table-wrap th:nth-child(9),'
+    +   '#p-listing .listing-table-wrap td:nth-child(9){display:none}'
+    + '@media (min-width:1850px){#p-listing .listing-table-wrap th:nth-child(8),'
+    +   '#p-listing .listing-table-wrap td:nth-child(8),'
+    +   '#p-listing .listing-table-wrap th:nth-child(9),'
+    +   '#p-listing .listing-table-wrap td:nth-child(9){display:table-cell}}'
     + '</style>';
 }
 function fcG1Find(id){
@@ -14105,26 +14155,125 @@ function fcG1Acts(o){
   out.push(b('🖨 출력', '', false, '출력센터는 아직 없습니다 — 계약서·확인설명서·공부 묶음 출력은 다음 단계입니다'));
   return out.join('');
 }
+/* ═══ A2-2 ═══ 업무 탭 7개. 🔴 읽기 전용이다 — 여기서 고치지 않는다.
+   🔴 지금 실제로 있는 자료와 기존 함수만 쓴다. 없는 기능을 있는 것처럼 만들지 않는다.
+   🔴 매물에는 임대인을 가리키는 키가 없다(HEADERS.listings 68칸 실측). 그래서 임대인 탭은 없다 —
+      건물명·주소로 묶는 추정 연결은 하지 않는다. */
+var FC_G1_TAB = 'base';
+var FC_G1_TABS = [['base','기본'],['photo','사진'],['ad','광고'],
+                  ['match','고객매칭'],['doc','공부'],['file','첨부'],['deal','계약']];
+function fcG1Tab(t){
+  FC_G1_TAB = String(t || 'base');
+  try{ localStorage.setItem('fc_g1_tab', FC_G1_TAB); }catch(e){}
+  fcG1Render();
+}
+function fcG1Fold(){
+  var box = document.getElementById('fc-g1');
+  if(!box) return;
+  var on = box.className.indexOf('fold') < 0;
+  box.className = on ? 'on fold' : 'on';
+  try{ localStorage.setItem('fc_g1_fold', on ? '1' : ''); }catch(e){}
+}
+/* 이 매물로 된 계약 — 🔴 contracts.listingId 는 실제 관계키다(추정 아님) */
+function fcG1Deals(id){
+  var out = [];
+  try{
+    var K = ddArr('contracts') || [];
+    for(var i = 0; i < K.length; i++){
+      if(String(K[i].listingId || '').trim() === String(id)) out.push(K[i]);
+    }
+  }catch(e){}
+  return out;
+}
+function fcG1Body(o){
+  var kv = function(k, v){ return v ? ('<div><b>' + gEsc(k) + '</b>' + gEsc(String(v)) + '</div>') : ''; };
+  var why = function(t){ return '<div class="g1-why">' + t + '</div>'; };
+  var money = String(o.price || '');
+  if(String(o.rentAmt || '').trim()) money += ' / ' + o.rentAmt;
+  var t = FC_G1_TAB;
+
+  if(t === 'photo'){
+    var n = Number(o.photoCnt || 0);
+    return '<div class="g1-kv">' + kv('등록된 사진', n ? (n + '장') : '없음')
+      + kv('드라이브 폴더', String(o.photoUrl || '').trim() ? '연결됨' : '아직 없음') + '</div>'
+      + why('사진은 구글드라이브에 보관됩니다. 아래 [📷 사진] 을 누르면 이 매물의 사진 자리로 갑니다.');
+  }
+  if(t === 'ad'){
+    return '<div class="g1-kv">'
+      + kv('광고중', String(o.adList || '').trim() || '없음')
+      + kv('당근 글번호', o.daangnNo)
+      + kv('네이버', String(o.naverUrl || '').trim() ? '등록됨' : '없음')
+      + kv('조회', o.adViews) + kv('문의', o.adInq)
+      + kv('집계 시각', o.adStatAt) + '</div>'
+      + why('조회·문의 수치는 광고 관리 화면이 모아 둔 값입니다. 여기서 광고를 올리거나 내리지 않습니다.');
+  }
+  if(t === 'match'){
+    var r = null;
+    try{ r = fcListingToCustomers(o); }catch(e){}
+    var main = (r && r.main) || [];
+    if(!main.length) return why('조건이 맞는 손님이 없습니다 — 조건을 넓히거나 새 문의를 기다립니다.');
+    var li = main.slice(0, 8).map(function(c){
+      return '<div class="g1-li">' + gEsc(String(c.name || '이름없음'))
+        + ' · ' + gEsc(String(c.progressStatus || c.step || '진행 미기록')) + '</div>';
+    }).join('');
+    return li + why('맞는 손님 ' + main.length + '명. 🔴 연락처는 여기에 싣지 않습니다 — 고객 명부에서 봅니다.');
+  }
+  if(t === 'doc'){
+    return why('등기부 · 건축물대장 · 토지대장 요청까지만 됩니다.'
+      + ' 발급은 사무실 컴퓨터의 발급 시스템이 하고, 아직 이 화면과 이어져 있지 않습니다.'
+      + ' 🔴 매물 자료에는 공부 진행상태를 적는 칸이 없습니다 — 그래서 여기에 상태를 지어내지 않습니다.');
+  }
+  if(t === 'file'){
+    var loc = [];
+    try{ loc = fcAtLocal(String(o.id || '')); }catch(e){}
+    return '<div class="g1-kv">' + kv('이 기기에만 있는 첨부', loc.length ? (loc.length + '개') : '없음') + '</div>'
+      + (loc.length ? why('🔴 이 파일은 지금 이 컴퓨터에만 있습니다.'
+          + ' 아래 [📎 첨부] 에서 [🔒 서버에 안전보관] 을 누르면 비공개로 보관됩니다.')
+        : why('아래 [📎 첨부] 에서 서버에 보관된 첨부를 보고, 새로 올릴 수 있습니다.'
+          + ' 🔒 보관된 파일은 링크를 알아도 열리지 않습니다.'));
+  }
+  if(t === 'deal'){
+    var ks = fcG1Deals(String(o.id || ''));
+    if(!ks.length) return why('이 매물로 된 계약이 아직 없습니다.'
+      + ' 아래 [📝 계약준비] 를 누르면 아는 값만 옮겨 적은 계약 창이 열립니다.');
+    return ks.slice(0, 6).map(function(k){
+      return '<div class="g1-li">' + gEsc(String(k.apt || k.id))
+        + ' · ' + gEsc(String(k.type || '')) + ' · ' + gEsc(String(k.start || '')) 
+        + ' ~ ' + gEsc(String(k.end || '')) + '</div>';
+    }).join('') + why('계약 ' + ks.length + '건 — 매물번호로 이어진 것만 셉니다(추정 없음).');
+  }
+  /* 기본 */
+  return '<div class="g1-kv">'
+    +   kv('거래', [o.type, o.kind].filter(Boolean).join(' '))
+    +   kv('금액', money)
+    +   kv('면적', o.area) + kv('층', [o.floor, o.totalFloor].filter(Boolean).join('/'))
+    +   kv('방/욕실', [o.rooms, o.baths].filter(Boolean).join('/'))
+    +   kv('담당', o.agent)
+    +   kv('접수일', o.recvDate) + kv('입주가능', o.availDate)
+    +   kv('주소', [o.addr, o.addr2].filter(Boolean).join(' '))
+    +   kv('접수 연락처', [o.cname, o.cphone].filter(Boolean).join(' '))
+    +   kv('메모', o.note)
+    + '</div>';
+}
 function fcG1Render(){
   var box = document.getElementById('fc-g1');
   if(!box) return;
   var o = FC_G1_SEL ? fcG1Find(FC_G1_SEL) : null;
   if(!o){ box.className = ''; box.innerHTML = ''; return; }
   var nm = [o.apt, o.addr2].filter(Boolean).join(' ');
-  var money = String(o.price || '');
-  if(String(o.rentAmt || '').trim()) money += ' / ' + o.rentAmt;
-  var kv = function(k, v){ return v ? ('<div><b>' + gEsc(k) + '</b>' + gEsc(String(v)) + '</div>') : ''; };
-  box.className = 'on';
-  box.innerHTML = '<div class="g1-t">' + gEsc(nm || o.id) + '</div>'
+  var fold = '';
+  try{ fold = localStorage.getItem('fc_g1_fold') || ''; }catch(e){}
+  box.className = fold ? 'on fold' : 'on';
+  var tabs = FC_G1_TABS.map(function(t){
+    return '<button type="button" class="g1-tab' + (FC_G1_TAB === t[0] ? ' on' : '') + '"'
+      + ' onclick="fcG1Tab(&#39;' + t[0] + '&#39;)">' + gEsc(t[1]) + '</button>';
+  }).join('');
+  box.innerHTML = '<div class="g1-hd"><div class="g1-t">' + gEsc(nm || o.id) + '</div>'
+    + '<button type="button" class="btn btn-xs" onclick="fcG1Fold()">'
+    + (fold ? '펼치기' : '접기') + '</button></div>'
     + '<div class="g1-s">' + gEsc(String(o.id || '')) + ' · ' + gEsc(String(o.status || '상태없음')) + '</div>'
-    + '<div class="g1-kv">'
-    +   kv('거래', [o.type, o.kind].filter(Boolean).join(' '))
-    +   kv('금액', money)
-    +   kv('면적', o.area) + kv('층', [o.floor, o.totalFloor].filter(Boolean).join('/'))
-    +   kv('방/욕실', [o.rooms, o.baths].filter(Boolean).join('/'))
-    +   kv('담당', o.agent)
-    +   kv('주소', o.addr)
-    + '</div>'
+    + '<div class="g1-tabs">' + tabs + '</div>'
+    + '<div class="g1-body">' + fcG1Body(o) + '</div>'
     + '<div class="g1-act">' + fcG1Acts(o) + '</div>';
 }
 function fcG1Pick(id){
@@ -14174,7 +14323,34 @@ function fcG1Bind(){
   }
   /* 고쳤다가 돌아와도 고르던 매물과 스크롤 자리를 그대로 */
   if(!FC_G1_SEL){ try{ FC_G1_SEL = localStorage.getItem('fc_g1_sel') || ''; }catch(e){} }
+  /* 보던 탭도 그대로 — 고치고 돌아와도 자리를 잃지 않는다 */
+  try{ FC_G1_TAB = localStorage.getItem('fc_g1_tab') || 'base'; }catch(e){}
   if(FC_G1_SEL) fcG1Pick(FC_G1_SEL);
+}
+/* ═══ A2-1 ═══ 좌측 업무메뉴 접기 단추.
+   🔴 메뉴·권한·라우팅은 손대지 않는다. 폭만 접고, 아이콘 레일은 그대로 남는다. */
+function sxNarrowToggle(){
+  var on = document.body.className.indexOf('sx-narrow') < 0;
+  document.body.classList.toggle('sx-narrow', on);
+  try{ localStorage.setItem('sx_narrow', on ? '1' : ''); }catch(e){}
+  var b = document.getElementById('sx-burger');
+  if(b) b.title = on ? '업무메뉴 펼치기' : '업무메뉴 접기';
+}
+function sxNarrowBoot(){
+  if(document.getElementById('sx-burger')) return;
+  var top = document.querySelector('.sx-top');
+  if(!top) return;
+  var on = '';
+  try{ on = localStorage.getItem('sx_narrow') || ''; }catch(e){}
+  if(on) document.body.classList.add('sx-narrow');
+  var b = document.createElement('button');
+  b.id = 'sx-burger';
+  b.className = 'sx-burger';
+  b.type = 'button';
+  b.textContent = '☰';
+  b.title = on ? '업무메뉴 펼치기' : '업무메뉴 접기';
+  b.onclick = sxNarrowToggle;
+  top.insertBefore(b, top.firstChild);
 }
 /* ── 단추가 하는 일 — 전부 기존 기능을 부른다 ── */
 function fcG1Photo(id){
@@ -14246,6 +14422,7 @@ function fcG1Wrap(){
   try{ if(document.getElementById('p-listing')) fcG1Bind(); }catch(e){}
 }
 function fcG1Boot(){
+  try{ sxNarrowBoot(); }catch(e){}
   try{ fcG1Wrap(); }catch(e){}
   if(!window.__fcG1Wrapped){ try{ setTimeout(fcG1Boot, 300); }catch(e){} }
 }
