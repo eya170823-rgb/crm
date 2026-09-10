@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 18:35</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 18:48</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -15443,6 +15443,125 @@ function fcG4Boot(){
   if(!window.__fcG4Wrapped){ try{ setTimeout(fcG4Boot, 300); }catch(e){} }
 }
 fcG4Boot();
+/* ══ ✍ G5.5 계약서 생성 — 무엇으로 만든 것인지 정직하게 말한다 (2026-09-10) ═════
+   🔴 AI 연결은 하지 않았다. 안전한 서버측 호출 경로가 없기 때문이다(전수조사 결과):
+       · index/gas/build 어디에도 x-api-key · anthropic-version 이 0회다.
+       · GAS 에 AI 프록시 action 이 0개다(doPost action 목록 전수 확인).
+       · 스크립트 속성에 있는 키는 BLDG_API_KEY · KAKAO_REST_KEY · STAFF_TOKENS 뿐이다.
+     → 브라우저 코드에 키를 넣는 것은 금지이고, 새 백엔드를 임의로 만들지 않는다.
+       cwGenerate 의 fetch 는 인증 헤더가 없어 **항상 실패**하고 로컬 초안으로 간다.
+   🔴 고친 것은 딱 하나 — **거짓 표시**다.
+     종전에는 로컬 초안을 만들고도 cwRenderResult 가 상태줄을
+     "✅ 계약서 + 확인설명서 생성 완료!" 로 덮어써서, 쓰는 사람이 AI 가 만든 줄 알았다.
+   🔴 원본 index.html 을 고치지 않는다 — 감싸기(wrap)로만 바꾼다.
+   🔴 계약 문서를 저장하는 DB 를 만들지 않는다(G5.5 범위 밖). 저장되지 않는다는 사실을 적는다. */
+var FC_CW_MODE = '';          /* '' 아직 · 'ai' AI 응답 · 'local' 로컬 초안 */
+function fcCwCss(){
+  return '<style id="fc-cw-css">'
+    + '#fc-cw-badge{border-radius:10px;padding:9px 12px;margin:0 0 10px;font-size:12.5px;line-height:1.7}'
+    + '#fc-cw-badge.local{background:#FFFBEB;border:1px solid #FDE68A;color:#7C3F0A}'
+    + '#fc-cw-badge.ai{background:#ECFDF5;border:1px solid #A7F3D0;color:#0F6E56}'
+    + '#fc-cw-badge b{font-weight:800}'
+    + '#fc-cw-badge .cw-sub{font-size:11.5px;margin-top:4px;opacity:.95}'
+    + '</style>';
+}
+function fcCwBadge(){
+  var host = document.getElementById('cw-step4');
+  if(!host) return;
+  var el = document.getElementById('fc-cw-badge');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'fc-cw-badge';
+    var out = document.getElementById('cw-output-contract');
+    var bar = host.querySelector('.cw-tab-bar');
+    if(bar) bar.parentNode.insertBefore(el, bar);
+    else if(out) out.parentNode.insertBefore(el, out);
+    else host.insertBefore(el, host.firstChild);
+  }
+  var keep = '<div class="cw-sub">🔴 이 문서는 <b>계약 자료에 저장되지 않습니다</b> — '
+    + '이 화면을 벗어나면 사라집니다. 지금 <b>[🖨️ 인쇄]</b> 하거나 <b>[📋 전체 복사]</b> 해 두세요.</div>'
+    + '<div class="cw-sub">🔴 금액·기간·특약은 <b>이 화면에 입력한 값</b>입니다 — '
+    + '계약 자료에서 불러온 것이 아닙니다(계약금·중도금·잔금 칸은 계약 자료에 없습니다).</div>';
+  if(FC_CW_MODE === 'ai'){
+    el.className = 'ai';
+    el.innerHTML = '🤖 <b>AI 생성본</b> — 공인중개사가 최종 확인·서명해야 효력이 생깁니다.' + keep;
+  } else {
+    el.className = 'local';
+    el.innerHTML = '📝 <b>로컬 초안입니다 — AI 가 만든 것이 아닙니다.</b> '
+      + '이 프로그램의 서식으로 채운 초안입니다.'
+      + '<div class="cw-sub">AI 생성 실패 — 이 프로그램에는 Claude API 키가 없어 '
+      + 'AI 호출이 되지 않습니다(브라우저 코드에 키를 넣지 않는 것이 원칙입니다).</div>'
+      + keep;
+  }
+}
+function fcCwWrap(){
+  if(window.__fcCwWrapped) return;
+  if(typeof window.cwRenderResult !== 'function') return;
+  if(!document.getElementById('fc-cw-css')){
+    try{ document.head.insertAdjacentHTML('beforeend', fcCwCss()); }catch(e){}
+  }
+  /* 로컬 초안이 만들어졌는지는 cwBuildLocalDraft 가 불렸는지로 안다 — 가장 확실한 신호 */
+  if(typeof window.cwBuildLocalDraft === 'function'){
+    var _l = window.cwBuildLocalDraft;
+    window.cwBuildLocalDraft = function(){
+      FC_CW_MODE = 'local';
+      return _l.apply(this, arguments);
+    };
+  }
+  if(typeof window.cwGenerate === 'function'){
+    var _g = window.cwGenerate;
+    window.cwGenerate = function(){
+      FC_CW_MODE = 'ai';          /* 응답이 오면 ai · 로컬로 넘어가면 위에서 local 로 바뀐다 */
+      return _g.apply(this, arguments);
+    };
+  }
+  var _r = window.cwRenderResult;
+  window.cwRenderResult = function(full, stEl){
+    var r = _r.apply(this, arguments);
+    /* 🔴 원본이 상태줄을 "✅ 생성 완료" 로 덮어쓴 뒤라 여기서 사실대로 다시 쓴다 */
+    try{
+      var st = stEl || document.getElementById('cw-extract-status');
+      if(st){
+        if(FC_CW_MODE === 'ai'){
+          st.className = 'cw-status-done';
+          st.textContent = '🤖 AI 생성 완료 — 공인중개사 확인 필요';
+        } else {
+          st.className = 'cw-status-err';
+          st.textContent = '📝 로컬 초안으로 만들었습니다 — AI 생성은 실패했습니다(키 없음)';
+        }
+      }
+    }catch(e){}
+    try{ fcCwBadge(); }catch(e){}
+    try{
+      showToast(FC_CW_MODE === 'ai'
+        ? '🤖 AI 생성 완료 — 저장되지 않습니다. 인쇄하거나 복사해 두세요'
+        : '📝 로컬 초안입니다(AI 아님) — 저장되지 않습니다. 인쇄하거나 복사해 두세요');
+    }catch(e){}
+    return r;
+  };
+  /* 인쇄물에는 원본이 "AI 초안입니다" 라고 찍는다 — 로컬 초안이면 먼저 사실을 알린다 */
+  if(typeof window.cwPrint === 'function'){
+    var _p = window.cwPrint;
+    var nl = String.fromCharCode(10);
+    window.cwPrint = function(){
+      if(FC_CW_MODE !== 'ai'){
+        if(!confirm(['이 문서는 <AI 생성본이 아니라> 로컬 초안입니다.', '',
+          '인쇄물 머리에 "AI 초안입니다" 라고 찍히지만,',
+          '실제로는 이 프로그램의 서식으로 채운 초안입니다.', '',
+          '어느 쪽이든 공인중개사가 확인·서명해야 효력이 생깁니다.', '',
+          '인쇄할까요?'].join(nl))) return;
+      }
+      return _p.apply(this, arguments);
+    };
+  }
+  window.__fcCwWrapped = true;
+}
+function fcCwBoot(){
+  try{ fcCwWrap(); }catch(e){}
+  if(!window.__fcCwWrapped){ try{ setTimeout(fcCwBoot, 300); }catch(e){} }
+}
+fcCwBoot();
+
 
 
 /* 화면에서도 「이 칸에 엉뚱한 값이 있다」고 알려 준다 (고치지는 않는다) */
