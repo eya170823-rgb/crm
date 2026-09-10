@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 19:11</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 19:36</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -14967,6 +14967,9 @@ function fcG4Css(){
     +   'padding:1px 8px;margin-left:4px;background:#F3F4F6;color:#374151}'
     + '#fc-g4 .g6-dd.warn{background:#FFFBEB;color:#B45309}'
     + '#fc-g4 .g6-dd.bad{background:#FEF2F2;color:#991B1B}'
+    + '#fc-g4 .g8-sp{white-space:pre-wrap;font-size:12.5px;line-height:1.8;'
+    +   'border:1px solid #E5E7EB;border-radius:8px;padding:8px 10px;margin-top:6px;'
+    +   'max-height:260px;overflow:auto;background:#FAFAFA}'
     + '</style>';
 }
 function fcG4Find(id){
@@ -15090,6 +15093,10 @@ function fcG4Next(c){
   if(!fee) return { k: 'warn', t: '💰 중개보수 금액 확인 필요', why: '중개보수 칸이 비어 있습니다' };
   if(!String(c.feePaidAt || '').trim())
     return { k: 'warn', t: '💰 중개보수 입금 확인 필요', why: '입금일이 비어 있습니다 (사람이 확인해서 적습니다)' };
+  /* 📝 G8 — 특약이 계약에 남아 있지 않으면 알린다. 🔴 어떤 특약이 필요한지는 말하지 않는다. */
+  if(!String(c.specialTerms || '').trim())
+    return { k: 'warn', t: '📝 특약 확인',
+      why: '이 계약에 저장된 특약이 없습니다 (작성 화면에서 만든 뒤 계약을 저장해야 남습니다)' };
   /* 🔴 증빙이 법적으로 필요한지는 코드가 판단하지 않는다 — 근거가 없으면 '확인' 으로만 말한다 */
   if(!String(c.receiptType || '').trim())
     return { k: 'warn', t: '🧾 증빙 확인',
@@ -15183,12 +15190,26 @@ function fcG4Body(c){
   }
 
   if(t === 'special'){
-    return '<div class="g4-none">이 계약에 저장된 특약이 없습니다.</div>'
-      + '<div class="g4-why">🔴 특약은 지금 <b>계약 자료에 저장되지 않습니다</b> — '
-      + '「계약서 / 확인설명서 작성」 화면 안에서만 만들어 계약서에 넣습니다(계약 칸이 아직 없습니다).</div>'
-      + '<div class="g4-row" style="margin-top:6px">그 화면에는 실무 특약 문고가 이미 있습니다 — '
-      + '전월세안전 · 대출 불가시 반환 · 근저당 말소 · 다가구 · 장기수선 · 관리비 · 누수하자 · '
-      + '반려동물 · 실내흡연 · 원상복구 · 옵션파손 · 청소비.</div>'
+    var sp = fcSpOf(c);
+    /* 🔴 작성 화면에 지금 적혀 있는 것(아직 저장 안 됨)과 계약에 저장된 것을 가른다 */
+    var draft = '';
+    try{ draft = fcSpGet(); }catch(e){}
+    var body = sp
+      ? ('<div class="g4-row" style="color:#0F6E56">✅ 이 계약에 저장된 특약입니다</div>'
+         + '<div class="g8-sp">' + gEsc(sp) + '</div>')
+      : ('<div class="g4-none">저장된 특약 없음</div>'
+         + '<div class="g4-why">이 계약에는 아직 특약이 저장돼 있지 않습니다. '
+         + '「계약서 / 확인설명서 작성」 화면에서 특약을 만든 뒤 '
+         + '<b>[📋 계약완료에 등록]</b> → 계약을 <b>저장</b>하면 여기에 남습니다.</div>');
+    var draftBox = '';
+    if(draft && draft !== sp){
+      draftBox = '<div class="g4-why">✍ 작성 화면에 지금 적혀 있는 특약이 있습니다 — '
+        + '<b>작성 중 · 계약에 아직 저장되지 않음</b>입니다. 계약을 저장해야 남습니다.</div>';
+    }
+    return body + draftBox
+      + '<div class="g4-row" style="margin-top:6px">작성 화면에는 실무 특약 문고가 있습니다 — '
+      + '기본 · 전월세안전 · 대출 불가시 반환 · 근저당 말소 · 다가구 · 장기수선 · 관리비 · '
+      + '누수하자 · 반려동물 · 실내흡연 · 원상복구 · 옵션파손 · 청소비.</div>'
       + '<div class="g4-row">고른 특약은 <b>대표·중개사가 확인한 뒤</b> 계약서에 들어갑니다 — 자동 확정하지 않습니다.</div>'
       + '<div style="margin-top:6px"><button class="btn btn-sm" onclick="fcG4GoWriter()">📝 특약 만들러 가기</button></div>';
   }
@@ -15642,6 +15663,117 @@ function fcG4Boot(){
   if(!window.__fcG4Wrapped){ try{ setTimeout(fcG4Boot, 300); }catch(e){} }
 }
 fcG4Boot();
+/* ══ 📝 G8 특약 영구보존 — 계약에 실제로 쓴 특약을 남긴다 (2026-09-10) ═════════
+   🔴 무엇이 끊겨 있었나(G7 P0-2 실측)
+     특약은 계약서 작성기의 cw-special 한 칸에만 있었다. cwRegisterContract 는 계약 모달에
+     주소·유형·금액·당사자·기간만 옮기고 특약은 아예 옮기지 않았고, saveContract 의
+     data 에도 특약이 없었다. 그래서 계약을 다시 열면 특약이 사라져 있었다.
+   🔴 어떻게 고쳤나 — **기존 대기 패턴(cwRiskPending)과 똑같이** 한다.
+     cwRegisterContract 가 불릴 때 cw-special 의 **최종 값 전체**를 대기시켰다가,
+     사람이 계약을 저장할 때 그 계약 행에만 싣는다.
+     🔴 문고 번호가 아니라 사람이 손댄 최종 문장 그대로다.
+     🔴 작성기 화면을 열기만 해서는 아무것도 저장되지 않는다.
+   🔴 계약 id 로만 싣는다 — 건물명·주소·전화로 다른 계약에 붙이지 않는다.
+   🔴 별도 특약 DB 를 만들지 않았다. contracts 한 칸(specialTerms)만 쓴다.
+   🔴 원본 index.html 을 고치지 않는다 — 감싸기(wrap)로만. */
+var FC_SP_PENDING = null;      /* 작성기에서 계약 등록을 누를 때 담아 두는 최종 특약 */
+function fcSpGet(){
+  var el = null;
+  try{ el = document.getElementById('cw-special'); }catch(e){}
+  if(!el) return '';
+  /* 🔴 원문 그대로. 줄바꿈·빈 줄을 건드리지 않는다(조항 사이 빈 줄이 의미를 가진다).
+     양 끝 공백만 없앤다 — 가운데 줄바꿈은 그대로 둔다. */
+  var v = String(el.value == null ? '' : el.value);
+  /* 🔴 정규식을 쓰지 않는다(백틱 템플릿에서 역슬래시가 먹힌다) — 양 끝만 손으로 다듬는다.
+     가운데 줄바꿈·빈 줄은 그대로 둔다. */
+  var a = 0, b = v.length;
+  var sp = ' ' + String.fromCharCode(9) + String.fromCharCode(10) + String.fromCharCode(13);
+  while(a < b && sp.indexOf(v.charAt(a)) >= 0) a++;
+  while(b > a && sp.indexOf(v.charAt(b - 1)) >= 0) b--;
+  return v.slice(a, b);
+}
+/* 계약 한 건의 저장된 특약 */
+function fcSpOf(c){
+  var v = (c || {}).specialTerms;
+  return String(v == null ? '' : v);
+}
+function fcSpWrap(){
+  if(window.__fcSpWrapped) return;
+  if(typeof window.saveContract !== 'function') return;
+
+  /* ① 작성기에서 [계약완료에 등록] 을 누르면 그때의 최종 특약을 대기시킨다 */
+  if(typeof window.cwRegisterContract === 'function'){
+    var _reg = window.cwRegisterContract;
+    window.cwRegisterContract = function(){
+      var r = _reg.apply(this, arguments);
+      try{ FC_SP_PENDING = fcSpGet(); }catch(e){ FC_SP_PENDING = null; }
+      return r;
+    };
+  }
+
+  /* ② 사람이 계약을 저장할 때만 그 계약 행에 싣는다 */
+  var _save = window.saveContract;
+  window.saveContract = function(){
+    var editId = '';
+    try{ editId = String((document.getElementById('ct-edit-id') || {}).value || '').trim(); }catch(e){}
+    var before = 0;
+    try{ before = (contracts || []).length; }catch(e){}
+    var r = _save.apply(this, arguments);
+    /* 원본이 필수칸을 막아 저장하지 않았으면 아무것도 하지 않는다 */
+    try{
+      var K = contracts || [];
+      var target = null;
+      if(editId){
+        for(var i = 0; i < K.length; i++) if(String(K[i].id) === editId) target = K[i];
+      } else if(K.length > before){
+        target = K[K.length - 1];      /* 방금 새로 만든 계약 */
+      }
+      if(target && FC_SP_PENDING !== null && FC_SP_PENDING !== undefined){
+        /* 🔴 계약 id 로 찾은 그 행에만 넣는다 */
+        target.specialTerms = String(FC_SP_PENDING);
+        target.updatedAt = new Date().toISOString();
+        save('contracts', K);
+        FC_SP_PENDING = null;
+        try{ showToast('📝 특약도 이 계약에 저장했습니다'); }catch(e){}
+        try{ if(typeof fcG4Render === 'function') fcG4Render(); }catch(e){}
+      }
+    }catch(e){}
+    return r;
+  };
+
+  /* ③ 계약 → 작성기로 갈 때 저장된 특약을 되살린다(읽기만 — 저장하지 않는다) */
+  if(typeof window.fcG4GoWriter === 'function'){
+    var _go = window.fcG4GoWriter;
+    window.fcG4GoWriter = function(){
+      var r = _go.apply(this, arguments);
+      try{
+        var c = (typeof FC_G4_SEL !== 'undefined' && FC_G4_SEL) ? fcG4Find(FC_G4_SEL) : null;
+        var sp = fcSpOf(c);
+        if(sp){
+          setTimeout(function(){
+            var el = document.getElementById('cw-special');
+            if(!el) return;
+            if(String(el.value || '').trim()){
+              if(!confirm(['이 계약에 저장된 특약이 있습니다.', '',
+                '작성 화면에 지금 적혀 있는 특약을 저장된 것으로 바꿀까요?', '',
+                '(아니오를 고르면 지금 적힌 것을 그대로 둡니다)'].join(String.fromCharCode(10)))) return;
+            }
+            el.value = sp;               /* 🔴 원문 그대로 복원 */
+            try{ showToast('📝 이 계약에 저장된 특약을 불러왔습니다'); }catch(e){}
+          }, 300);
+        }
+      }catch(e){}
+      return r;
+    };
+  }
+  window.__fcSpWrapped = true;
+}
+function fcSpBoot(){
+  try{ fcSpWrap(); }catch(e){}
+  if(!window.__fcSpWrapped){ try{ setTimeout(fcSpBoot, 300); }catch(e){} }
+}
+fcSpBoot();
+
 /* ══ ✍ G5.5 계약서 생성 — 무엇으로 만든 것인지 정직하게 말한다 (2026-09-10) ═════
    🔴 AI 연결은 하지 않았다. 안전한 서버측 호출 경로가 없기 때문이다(전수조사 결과):
        · index/gas/build 어디에도 x-api-key · anthropic-version 이 0회다.
