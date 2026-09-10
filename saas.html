@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 17:13</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 17:43</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -14556,6 +14556,362 @@ function fcG2Boot(){
   if(!window.__fcG2Wrapped){ try{ setTimeout(fcG2Boot, 300); }catch(e){} }
 }
 fcG2Boot();
+/* ══ 🏢 G3 임대인/거래처 업무공간 — 고르면 아래에서 자산과 근거를 본다 (2026-09-10) ═
+   🔴 실측으로 정한 배치 — "8열이라 좁으니 우측 Split 이 유리할 것" 이라는 예상은 **틀렸다**.
+       임대인 표의 최소 내용 폭은 895px 다(관리 228 · 다음 연락 156 · 연락처 135 …).
+       우측에 360px 를 붙이면 1366 에서 표칸이 644px, 1440 에서 718px 로 줄어
+       두 해상도 모두 가로스크롤이 생긴다(1920 에서만 1198px 로 안전).
+       → 임대인도 **위 Grid + 아래 업무공간**. 화면마다 재 보고 정한다.
+   🔴 임대인 목록은 이미 표다(ll-tbody · 9열 · ll-search · ll-filter · nextContact 임박순 자동정렬).
+      표·검색·필터·정렬을 새로 만들지 않는다. 없는 것만 얹는다.
+   🔴 landlords.owner 는 소유자가 아니라 **담당 직원 id** 다. 뜻을 바꾸지 않는다.
+   🔴 전화 하나로 사람·소유자를 확정하지 않는다 — 기존 ldFlags 의 근거를 그대로 보여 준다.
+   🔴 「거래처」 는 별도 DB 가 없다. 새로 만들지 않고 landlords.role(관리업체·중개업소) 로만 본다.
+   🔴 관련자산은 건물명이 같다는 것뿐이다. 소유 확인이 아니라고 화면에 적는다.
+   🔴 서버가 가린 임대인(masked)은 열지 않는다 — 담당자만 안내한다. */
+var FC_G3_SEL = '', FC_G3_TAB = 'base';
+function fcG3Css(){
+  return '<style id="fc-g3-css">'
+    + '#p-landlord .tbl-wrap{max-height:46vh;overflow:auto}'
+    + '#p-landlord .tbl-wrap thead th{position:sticky;top:0;background:#F3F4F6;z-index:2}'
+    + '#p-landlord .tbl-wrap tbody tr[data-lid]{cursor:pointer}'
+    + '#p-landlord .tbl-wrap tbody tr.g3-on{background:#EFF6FF;box-shadow:inset 3px 0 0 #1B4F8A}'
+    + '#fc-g3{display:none;border:1px solid #1B4F8A;border-radius:10px;background:#fff;'
+    +   'margin:10px 0 0;padding:10px 12px}'
+    + '#fc-g3.on{display:block}'
+    + '#fc-g3 .g3-t{font-weight:800;color:#1B4F8A}'
+    + '#fc-g3 .g3-s{font-size:12px;color:#6B7280;margin:0 0 8px}'
+    + '#fc-g3 .g3-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 8px;'
+    +   'border-bottom:1px solid #E5E7EB;padding-bottom:6px}'
+    + '#fc-g3 .g3-tab{border:1px solid #D1D5DB;background:#fff;border-radius:7px;'
+    +   'padding:3px 10px;font-size:12.5px;cursor:pointer}'
+    + '#fc-g3 .g3-tab.on{background:#1B4F8A;color:#fff;border-color:#1B4F8A;font-weight:700}'
+    + '#fc-g3 .g3-body{font-size:12.5px;min-height:52px}'
+    + '#fc-g3 .g3-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}'
+    + '@media (min-width:1100px){#fc-g3 .g3-kv{grid-template-columns:repeat(4,minmax(0,1fr))}}'
+    + '#fc-g3 .g3-kv b{color:#6B7280;font-weight:600;margin-right:4px}'
+    + '#fc-g3 .g3-act{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;'
+    +   'border-top:1px solid #E5E7EB;padding-top:8px}'
+    + '#fc-g3 .g3-off{opacity:.45;cursor:not-allowed}'
+    + '#fc-g3 .g3-row{padding:3px 0;border-bottom:1px solid #F3F4F6}'
+    + '#fc-g3 .g3-why{font-size:11.5px;color:#B45309;margin-top:5px}'
+    + '#fc-g3 .g3-none{color:#6B7280}'
+    + '</style>';
+}
+function fcG3Find(id){
+  var D = [];
+  try{ D = ddArr('landlords') || []; }catch(e){ return null; }
+  for(var i = 0; i < D.length; i++) if(String(D[i].id) === String(id)) return D[i];
+  return null;
+}
+function fcG3Kv(k, v){ return v ? ('<div><b>' + gEsc(k) + '</b>' + gEsc(String(v)) + '</div>') : ''; }
+/* 🔒 서버가 가려 보낸 행인가 — 화면 숨김이 아니라 서버 응답 자체가 비어 있다 */
+function fcG3Masked(l){ return !!(l && l.masked === true); }
+function fcG3LockHtml(l){
+  return '<div class="g3-none">🔒 다른 직원이 담당하는 임대인입니다 — 담당: <b>'
+    + gEsc(String((l && l.ownerName) || '-')) + '</b>'
+    + '<div class="g3-why">연락처·통화 메모·연락주기는 서버가 보내지 않습니다. '
+    + '공동중개가 필요하면 담당자와 협의하세요.</div></div>';
+}
+/* 관련자산 — 🔴 건물명이 같다는 것뿐이다. 소유 확인이 아니다. */
+function fcG3Assets(l){
+  var out = [];
+  if(fcG3Masked(l)) return out;
+  var key = String((l && l.apt) || '').trim();
+  var ad  = String((l && l.addr) || '').trim();
+  if(!key && !ad) return out;
+  var L = [];
+  try{ L = ddArr('listings') || []; }catch(e){ return out; }
+  for(var i = 0; i < L.length; i++){
+    var x = L[i] || {};
+    var why = '';
+    if(key && String(x.apt || '').trim() === key) why = '건물명이 같습니다 (' + key + ')';
+    else if(ad && String(x.addr || '').trim() === ad) why = '주소가 같습니다 (' + ad + ')';
+    if(!why) continue;
+    out.push({ x: x, why: why });
+  }
+  return out;
+}
+/* 거래처 — 별도 DB 가 없다. 같은 명부에서 역할이 관리업체·중개업소인 곳만 본다. */
+var FC_G3_VENDOR = ['관리업체', '중개업소', '관리인'];
+function fcG3Vendors(l){
+  var out = [];
+  if(fcG3Masked(l)) return out;
+  var D = [];
+  try{ D = ddArr('landlords') || []; }catch(e){ return out; }
+  var key = String((l && l.apt) || '').trim();
+  for(var i = 0; i < D.length; i++){
+    var v = D[i] || {};
+    if(String(v.id) === String(l && l.id)) continue;
+    if(v.masked === true) continue;
+    var role = String(v.role || '').trim();
+    if(FC_G3_VENDOR.indexOf(role) < 0) continue;
+    var why = '';
+    var samePhone = false;
+    try{ samePhone = !!(l && l.phone && fcSameNum(v.phone, l.phone)); }catch(e){}
+    if(samePhone) why = '전화번호가 같습니다';
+    else if(key && String(v.apt || '').trim() === key) why = '같은 건물을 맡고 있습니다 (' + key + ')';
+    if(!why) continue;
+    out.push({ v: v, role: role, why: why });
+  }
+  return out;
+}
+function fcG3Body(l){
+  var t = FC_G3_TAB, nl = String.fromCharCode(10);
+  if(fcG3Masked(l)) return fcG3LockHtml(l);
+
+  if(t === 'asset'){
+    var A = fcG3Assets(l);
+    if(!A.length){
+      return '<div class="g3-none">이 임대인에 이어진 매물이 없습니다.</div>'
+        + '<div class="g3-why">🔎 「관련 건물」 칸(현재: '
+        + gEsc(String(l.apt || '(비어 있음)')) + ')과 매물의 건물명이 같아야 묶입니다. '
+        + '건물명 표기가 다르면 안 잡힙니다 — 사람이 확인해서 맞춰 주세요.</div>';
+    }
+    return '<div class="g3-why">🔎 아래는 <b>관련자산</b>입니다 — 건물명·주소가 같아서 묶었을 뿐, '
+      + '소유 관계가 확인된 것이 아닙니다. 소유 확정은 등기부로만 합니다.</div>'
+      + A.slice(0, 30).map(function(a){
+          var x = a.x;
+          return '<div class="g3-row">🏠 <b>' + gEsc(String(x.apt || '')) + ' '
+            + gEsc(String(x.addr2 || '')) + '</b> · ' + gEsc(String(x.status || '-'))
+            + ' · ' + gEsc(String(x.type || '')) + ' ' + gEsc(String(x.price || ''))
+            + (x.rentAmt ? ('/' + gEsc(String(x.rentAmt))) : '')
+            + ' <span style="color:var(--t3)">(' + gEsc(a.why) + ')</span>'
+            + ' <button class="btn btn-sm" onclick="fcG3GoListing(&#39;' + gAttr(String(x.id || '')) + '&#39;)">열기</button>'
+            + '</div>';
+        }).join('')
+      + (A.length > 30 ? ('<div class="g3-why">외 ' + (A.length - 30) + '건</div>') : '');
+  }
+
+  if(t === 'role'){
+    var F = [];
+    try{ F = ldFlags(l) || []; }catch(e){}
+    var blocked = '';
+    try{ blocked = ldBlocked(l) || ''; }catch(e){}
+    return '<div class="g3-kv">'
+        + fcG3Kv('역할', l.role || '(확인 안 됨)')
+        + fcG3Kv('연락처 상태', l.contactStatus || '(비어 있음)')
+        + fcG3Kv('재확인일', l.nextCheck || '(정해지지 않음)')
+        + fcG3Kv('자료 출처', l.source)
+        + '</div>'
+      + (l.roleEvidence ? ('<div class="g3-row">📌 근거 — ' + gEsc(String(l.roleEvidence)) + '</div>') : '')
+      + (l.banReason ? ('<div class="g3-row">🚫 연락금지 사유 — ' + gEsc(String(l.banReason)) + '</div>') : '')
+      + (blocked ? ('<div class="g3-row" style="color:#B45309">📵 자동 연락에서 빠져 있습니다 — '
+          + gEsc(blocked) + '</div>') : '')
+      + (F.length
+          ? F.map(function(f){ return '<div class="g3-row">⚠ ' + gEsc(f.why) + '</div>'; }).join('')
+          : '<div class="g3-none">확인이 필요한 점이 없습니다.</div>');
+  }
+
+  if(t === 'call'){
+    var d = null;
+    try{ d = l.nextContact ? daysLeft(l.nextContact) : null; }catch(e){}
+    var cy = '';
+    try{ cy = LL_CYCLE_LABEL[String(l.cycle)] || ''; }catch(e){}
+    var btns = '';
+    try{
+      btns = FC_CALL_RESULTS.map(function(r){
+        return '<button class="btn btn-sm" style="margin:2px 3px 0 0" onclick="fcCallDo(&#39;'
+          + gAttr(String(l.id)) + '&#39;,&#39;' + gAttr(r.code) + '&#39;)">' + gEsc(r.label) + '</button>';
+      }).join('');
+    }catch(e){}
+    return '<div class="g3-kv">'
+        + fcG3Kv('마지막 연락', l.lastContact || '(기록 없음)')
+        + fcG3Kv('다음 연락일', l.nextContact || '(정해지지 않음)')
+        + fcG3Kv('남은 날', d === null ? '' : (d <= 0 ? (d === 0 ? '오늘' : (Math.abs(d) + '일 지남')) : ('D-' + d)))
+        + fcG3Kv('연락 주기', cy)
+        + '</div>'
+      + '<div style="margin-top:7px">📞 <b>통화 결과를 남깁니다</b> — 고른 결과와 관련된 칸만 적습니다'
+      + '<div style="margin-top:4px">' + btns + '</div>'
+      + '<div class="g3-why">🔴 문자는 여기서 나가지 않습니다. 결과에 따라 매물 상태변경 <b>제안</b>이 만들어지면 '
+      + '대표 결재함에서 [승인] 해야 실제로 바뀝니다.</div></div>';
+  }
+
+  if(t === 'vendor'){
+    var V = fcG3Vendors(l);
+    if(!V.length){
+      return '<div class="g3-none">거래처로 확인된 곳이 없습니다.</div>'
+        + '<div class="g3-why">🔎 거래처는 따로 쌓는 명부가 없습니다. '
+        + '통화 결과에서 <b>[관리처]</b>를 누르면 그 사람의 역할이 「관리업체」로 기록되고, '
+        + '같은 건물이나 같은 번호면 여기에 보입니다.</div>';
+    }
+    return V.slice(0, 20).map(function(o){
+      return '<div class="g3-row">🏢 <b>' + gEsc(String(o.v.name || '이름없음')) + '</b> · '
+        + gEsc(o.role) + ' · ' + gEsc(String(o.v.phone || ''))
+        + ' <span style="color:var(--t3)">(' + gEsc(o.why) + ')</span>'
+        + ' <button class="btn btn-sm" onclick="fcG3Pick(&#39;' + gAttr(String(o.v.id || '')) + '&#39;)">열기</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  /* 기본 */
+  var own = String(l.ownerName || l.owner || '');
+  return '<div class="g3-kv">'
+      + fcG3Kv('연락처', l.phone)
+      + fcG3Kv('주소', l.addr)
+      + fcG3Kv('관련 건물', l.apt)
+      + fcG3Kv('담당 직원', own)
+      + fcG3Kv('마지막 연락', l.lastContact)
+      + fcG3Kv('다음 연락일', l.nextContact)
+      + fcG3Kv('역할', l.role || '(확인 안 됨)')
+      + fcG3Kv('연락처 상태', l.contactStatus || '(비어 있음)')
+      + '</div>'
+    + (l.note ? ('<div class="g3-row" style="white-space:pre-wrap;margin-top:6px">'
+        + gEsc(String(l.note)) + '</div>') : '')
+    + '<div class="g3-why">🔴 「담당 직원」은 이 사람을 맡은 우리 직원입니다 — 건물 소유자가 아닙니다.</div>';
+}
+function fcG3Acts(l){
+  if(fcG3Masked(l)) return '';
+  var id = gAttr(String(l.id || ''));
+  var has = function(n){ return typeof window[n] === 'function'; };
+  var b = function(t, fn, on){
+    return on ? ('<button class="btn btn-sm" onclick="' + fn + '">' + t + '</button>')
+              : ('<button class="btn btn-sm g3-off" disabled title="아직 연결되지 않았습니다">' + t + '</button>');
+  };
+  var out = [];
+  out.push(b('📞 연락 완료', 'markLandlordContacted(&#39;' + id + '&#39;)', has('markLandlordContacted')));
+  out.push(b('📋 연락 결과', 'fcG3Tab(&#39;call&#39;)', typeof FC_CALL_RESULTS !== 'undefined'));
+  out.push(b('✏ 수정', 'openLandlordModal(&#39;' + id + '&#39;)', has('openLandlordModal')));
+  out.push(b('🏠 이 건물 매물', 'fcG3GoBuilding(&#39;' + gAttr(String(l.apt || '')) + '&#39;)',
+    !!String(l.apt || '').trim()));
+  out.push(b('🗑 삭제', 'delLandlord(&#39;' + id + '&#39;)', has('delLandlord')));
+  return out.join('');
+}
+function fcG3Render(){
+  var box = document.getElementById('fc-g3');
+  if(!box) return;
+  var l = FC_G3_SEL ? fcG3Find(FC_G3_SEL) : null;
+  if(!l){ box.className = ''; box.innerHTML = ''; return; }
+  var TABS = [['base', '기본'], ['asset', '관련자산'], ['role', '근거'],
+              ['call', '연락'], ['vendor', '거래처']];
+  var sub = fcG3Masked(l)
+    ? '🔒 담당 ' + String(l.ownerName || '-')
+    : (String(l.phone || '') + (l.apt ? (' · ' + l.apt) : ''));
+  box.className = 'on';
+  box.innerHTML = '<div class="g3-t">' + gEsc(String(l.name || '이름없음')) + '</div>'
+    + '<div class="g3-s">' + gEsc(sub) + '</div>'
+    + '<div class="g3-tabs">' + TABS.map(function(t){
+        return '<button class="g3-tab' + (FC_G3_TAB === t[0] ? ' on' : '')
+          + '" onclick="fcG3Tab(&#39;' + t[0] + '&#39;)">' + gEsc(t[1]) + '</button>';
+      }).join('') + '</div>'
+    + '<div class="g3-body">' + fcG3Body(l) + '</div>'
+    + '<div class="g3-act">' + fcG3Acts(l) + '</div>';
+}
+function fcG3Tab(t){
+  FC_G3_TAB = String(t || 'base');
+  try{ localStorage.setItem('fc_g3_tab', FC_G3_TAB); }catch(e){}
+  fcG3Render();
+}
+function fcG3Pick(id){
+  FC_G3_SEL = String(id || '');
+  try{ localStorage.setItem('fc_g3_sel', FC_G3_SEL); }catch(e){}
+  try{
+    var rows = document.querySelectorAll('#p-landlord .tbl-wrap tbody tr');
+    for(var i = 0; i < rows.length; i++){
+      if(String(rows[i].getAttribute('data-lid') || '') === FC_G3_SEL) rows[i].classList.add('g3-on');
+      else rows[i].classList.remove('g3-on');
+    }
+  }catch(e){}
+  fcG3Render();
+}
+/* 매물 화면으로 넘어가 그 매물을 연다(기존 G1 을 그대로 쓴다) */
+function fcG3GoListing(id){
+  try{ if(typeof sxGo === 'function') sxGo('listing', 0, '운영부'); }catch(e){}
+  try{ setTimeout(function(){ if(typeof fcG1Pick === 'function') fcG1Pick(id); }, 250); }catch(e){}
+}
+/* 이 건물 매물을 매물장에서 찾아 준다 — 새 검색을 만들지 않고 기존 검색칸을 쓴다 */
+function fcG3GoBuilding(apt){
+  var k = String(apt || '').trim();
+  if(!k){ try{ showToast('관련 건물 칸이 비어 있습니다'); }catch(e){} return; }
+  try{ if(typeof sxGo === 'function') sxGo('listing', 0, '운영부'); }catch(e){}
+  try{
+    setTimeout(function(){
+      var s = document.getElementById('listing-search');
+      if(!s){ try{ showToast('매물 검색칸을 찾지 못했습니다'); }catch(e){} return; }
+      s.value = k;
+      try{ s.dispatchEvent(new Event('input', { bubbles: true })); }catch(e){}
+      try{ if(typeof renderListings === 'function') renderListings(); }catch(e){}
+    }, 250);
+  }catch(e){}
+}
+function fcG3Bind(){
+  var panel = document.getElementById('p-landlord');
+  if(!panel) return;
+  var wrap = panel.querySelector('.tbl-wrap');
+  if(!wrap) return;
+  if(!document.getElementById('fc-g3')){
+    var side = document.createElement('div');
+    side.id = 'fc-g3';
+    wrap.parentNode.insertBefore(side, wrap.nextSibling);
+  }
+  var rows = wrap.querySelectorAll('tbody tr');
+  for(var i = 0; i < rows.length; i++){
+    var tr = rows[i];
+    if(tr.__fcG3) continue;
+    tr.__fcG3 = 1;
+    /* 행에서 임대인 id 를 찾는다 — 수정 단추의 onclick 에 id 가 들어 있다.
+       🔒 서버가 가린 행에는 단추가 없다 = id 도 없다. 그 행은 고르지 않고 담당자만 알려 준다. */
+    var rid = '';
+    try{
+      var b = tr.querySelector('button[onclick*="openLandlordModal"]');
+      var m = b ? String(b.getAttribute('onclick') || '') : '';
+      var s1 = m.indexOf("('");
+      if(s1 >= 0){
+        var rest = m.slice(s1 + 2);
+        var e1 = rest.indexOf("'");
+        if(e1 > 0) rid = rest.slice(0, e1);
+      }
+    }catch(e){}
+    if(rid) tr.setAttribute('data-lid', rid);
+    tr.addEventListener('click', function(e){
+      var t = e.target;
+      while(t && t !== this){ if(t.tagName === 'BUTTON' || t.tagName === 'A') return; t = t.parentNode; }
+      var id = this.getAttribute('data-lid');
+      if(!id){
+        try{ showToast('🔒 다른 직원이 담당하는 임대인입니다 — 담당자와 협의하세요'); }catch(e){}
+        return;
+      }
+      fcG3Pick(id);
+    });
+  }
+  if(!FC_G3_SEL){ try{ FC_G3_SEL = localStorage.getItem('fc_g3_sel') || ''; }catch(e){} }
+  try{ FC_G3_TAB = localStorage.getItem('fc_g3_tab') || 'base'; }catch(e){}
+  if(FC_G3_SEL) fcG3Pick(FC_G3_SEL);
+}
+function fcG3Wrap(){
+  if(window.__fcG3Wrapped) return;
+  if(!document.getElementById('fc-g3-css')){
+    try{ document.head.insertAdjacentHTML('beforeend', fcG3Css()); }catch(e){}
+  }
+  var _r = window.renderLandlords;
+  if(typeof _r !== 'function') return;
+  window.renderLandlords = function(){
+    var top = 0;
+    try{ var w = document.querySelector('#p-landlord .tbl-wrap'); if(w) top = w.scrollTop; }catch(e){}
+    var r = _r.apply(this, arguments);
+    try{ fcG3Bind(); }catch(e){}
+    /* 🔴 2026-09-10 G3 에서 잡은 3차 결함 — 「📞 오늘 연락할 사람」 상자를 되살린다.
+       그 상자는 fcWrapSaves() 의 setInterval 로만 붙었는데, fcWrapSaves 는
+       매물장·고객 화면에 들어가야만 돈다(원본 go() 의 listing·customer 분기).
+       그래서 홈의 [열기] 로 임대인 화면에 **바로** 오면 상자가 아예 뜨지 않았다.
+       (2026-09-10 fcDescBoot 때와 같은 유형 — 화면을 옮겨 다녀야만 걸리는 구조)
+       타이머를 새로 깔지 않고, 임대인 목록이 그려질 때 그 자리에서 붙인다. */
+    try{ if(typeof fcCallsMount === 'function') fcCallsMount(); }catch(e){}
+    try{
+      var w2 = document.querySelector('#p-landlord .tbl-wrap');
+      if(w2 && top) w2.scrollTop = top;
+    }catch(e){}
+    return r;
+  };
+  window.__fcG3Wrapped = true;
+  try{ if(document.getElementById('p-landlord')) fcG3Bind(); }catch(e){}
+}
+function fcG3Boot(){
+  try{ fcG3Wrap(); }catch(e){}
+  if(!window.__fcG3Wrapped){ try{ setTimeout(fcG3Boot, 300); }catch(e){} }
+}
+fcG3Boot();
+
 /* 화면에서도 「이 칸에 엉뚱한 값이 있다」고 알려 준다 (고치지는 않는다) */
 function fcAdBadFields(o){
   var out = [];
