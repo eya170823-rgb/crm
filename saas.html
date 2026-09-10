@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 19:36</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 20:05</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -15093,6 +15093,12 @@ function fcG4Next(c){
   if(!fee) return { k: 'warn', t: '💰 중개보수 금액 확인 필요', why: '중개보수 칸이 비어 있습니다' };
   if(!String(c.feePaidAt || '').trim())
     return { k: 'warn', t: '💰 중개보수 입금 확인 필요', why: '입금일이 비어 있습니다 (사람이 확인해서 적습니다)' };
+  /* 📄 G9-B — 보관된 계약서가 없으면 알린다. 🔴 조회하지 않았으면 판단하지 않는다. */
+  var cdr = null;
+  try{ cdr = FC_CD_CACHE[String(c.id)]; }catch(e){}
+  if(cdr !== undefined && cdr !== null && cdr.length === 0)
+    return { k: 'warn', t: '📄 계약서 보관 확인',
+      why: '이 계약에 보관된 문서가 없습니다 (작성 화면에서 [이 계약에 문서 보관])' };
   /* 📝 G8 — 특약이 계약에 남아 있지 않으면 알린다. 🔴 어떤 특약이 필요한지는 말하지 않는다. */
   if(!String(c.specialTerms || '').trim())
     return { k: 'warn', t: '📝 특약 확인',
@@ -15125,13 +15131,14 @@ function fcG4Body(c){
       + 'AI 문장 생성은 꺼져 있습니다. 초안은 <b>중개사가 최종 확인</b>해야 합니다.</div>'
       + '<div class="g4-row">🔴 공적 사실·권리관계·금액·특약은 자동으로 채우지 않습니다. '
       + '등기부·대장을 보고 사람이 적습니다.</div>'
-      + '<div class="g4-why">🔴 만든 계약서·확인설명서는 <b>어디에도 저장되지 않습니다</b> — '
-      + '그 화면을 벗어나면 사라집니다. 만든 자리에서 바로 <b>[🖨️ 인쇄]</b> 하거나 '
-      + '<b>[📋 전체 복사]</b> 해 두세요. 계약에 붙여 두는 기능은 아직 없습니다.</div>'
+      + '<div class="g4-why">📄 만든 계약서·확인설명서는 <b>보관 단추를 눌러야</b> 남습니다 — '
+      + '작성 화면의 <b>[📄 이 계약에 문서 보관]</b> 을 누르면 그때 만든 글자 그대로 계약에 붙습니다. '
+      + '누르지 않고 화면을 벗어나면 사라집니다.</div>'
       + (miss.length
           ? ('<div class="g4-why">🔎 자료 부족 — ' + gEsc(miss.join(' · ')) + ' 이(가) 없습니다. '
              + '먼저 채우면 작성 화면에서 옮겨 적을 것이 줄어듭니다.</div>')
-          : '<div class="g4-row" style="color:#0F6E56">준비된 자료: 소재지 · 면적 · 금액</div>');
+          : '<div class="g4-row" style="color:#0F6E56">준비된 자료: 소재지 · 면적 · 금액</div>')
+      + fcCdBox(c);
   }
 
   if(t === 'docs'){
@@ -15773,6 +15780,267 @@ function fcSpBoot(){
   if(!window.__fcSpWrapped){ try{ setTimeout(fcSpBoot, 300); }catch(e){} }
 }
 fcSpBoot();
+/* ══ 📄 G9-B 계약문서 보관 — 그때 만든 본문 그대로 남긴다 (2026-09-10) ═══════
+   🔴 무엇을 저장하나: cw-output-contract / cw-output-explain 의 **화면에 나온 글자 그대로**.
+      입력값을 다시 조합하지 않고, 생성기를 다시 돌리지도 않는다. 재생성은 복원이 아니다.
+   🔴 언제 저장하나: 사람이 [📄 이 계약에 문서 보관] 을 눌렀을 때만. 생성만으로는 저장 0.
+   🔴 어디에 붙나: contracts.id 완전일치. 계약이 없으면 저장하지 않고 먼저 계약을 저장하라고 말한다.
+   🔴 덮어쓰지 않는다: 같은 계약+종류 안에서 버전을 올려 **새 행**으로 넣는다.
+   🔴 브라우저에 본문을 영구 저장하지 않는다(localStorage 0). 주소창에도 싣지 않는다. */
+var FC_CD_CACHE = {};        /* contractId -> 목록(본문 없음). 화면 진입만으로 서버를 부르지 않는다 */
+var FC_CD_BODY = {};         /* docId -> 본문. 사람이 [저장본 보기] 를 눌렀을 때만 채운다(메모리) */
+
+function fcCdSrc(){
+  /* 저장 당시 실제 경로 — G5.5 가 판정해 둔 값을 그대로 쓴다. 로컬을 ai 라고 적지 않는다. */
+  try{ return (FC_CW_MODE === 'ai') ? 'ai' : 'local'; }catch(e){ return 'local'; }
+}
+function fcCdOut(id){
+  var el = null;
+  try{ el = document.getElementById(id); }catch(e){}
+  return el ? String(el.textContent || '') : '';
+}
+/* 지금 화면에 만들어져 있는 문서를 그 계약에 보관한다 */
+async function fcCdSave(contractId){
+  var cid = String(contractId || '').trim();
+  if(!cid){
+    try{ showToast('먼저 계약을 저장한 뒤 문서를 보관하세요'); }catch(e){}
+    return;
+  }
+  var ct = fcCdOut('cw-output-contract');
+  var ex = fcCdOut('cw-output-explain');
+  if(!ct.trim() && !ex.trim()){
+    try{ showToast('보관할 문서가 없습니다 — 먼저 계약서를 만들어 주세요'); }catch(e){}
+    return;
+  }
+  var src = fcCdSrc();
+  var nl = String.fromCharCode(10);
+  if(!confirm(['지금 화면에 있는 문서를 이 계약에 보관할까요?', '',
+    (ct.trim() ? ('· 계약서 ' + ct.length + '자') : '· 계약서 (없음)'),
+    (ex.trim() ? ('· 확인설명서 ' + ex.length + '자') : '· 확인설명서 (없음)'), '',
+    (src === 'ai' ? 'AI 로 만든 본문입니다.' : '이 프로그램이 만든 로컬 초안입니다.'),
+    '전에 보관한 것은 지우지 않고, 새 버전으로 남깁니다.'].join(nl))) return;
+  var who = '';
+  try{ who = (typeof crmWho === 'function') ? String(crmWho() || '') : ''; }catch(e){}
+  try{
+    var r = await gsCall('contractDocSave', {
+      contractId: cid, source: src, createdBy: who,
+      docs: { contract: ct, explanation: ex }
+    });
+    var res = (r && r.result) || r || {};
+    var got = res.saved || [];
+    /* 🔴 한쪽만 들어갔으면 "전체 저장 완료" 라고 하지 않는다 */
+    var want = (ct.trim() ? 1 : 0) + (ex.trim() ? 1 : 0);
+    var names = got.map(function(x){
+      return (x.docType === 'contract' ? '계약서' : '확인설명서') + ' v' + x.version; }).join(' · ');
+    if(got.length === want && want > 0){
+      try{ showToast('📄 보관했습니다 — ' + names); }catch(e){}
+    } else {
+      try{ showToast('⚠ 일부만 보관됐습니다 — ' + (names || '0건') + ' (보낸 것 ' + want + '개)'); }catch(e){}
+    }
+    FC_CD_CACHE[cid] = null;      /* 다시 읽게 한다 */
+    try{ if(typeof fcG4Render === 'function') fcG4Render(); }catch(e){}
+  }catch(e){
+    try{ showToast('보관 실패: ' + (e && e.message ? e.message : '알 수 없는 오류')); }catch(e2){}
+  }
+}
+/* 목록 불러오기 — 사람이 눌렀을 때만 */
+async function fcCdLoad(contractId){
+  var cid = String(contractId || '').trim();
+  if(!cid) return;
+  var url = '', tok = '';
+  try{ url = getGsUrl(); tok = getGsTok(); }catch(e){}
+  if(!url){ try{ showToast('구글 시트 주소가 없습니다'); }catch(e){} return; }
+  try{ showToast('📄 보관된 문서를 봅니다…'); }catch(e){}
+  try{
+    var r = await fetch(url + '?action=contractDocList&contractId=' + encodeURIComponent(cid)
+      + '&t=' + Date.now() + '&token=' + encodeURIComponent(tok || ''));
+    var j = await r.json();
+    FC_CD_CACHE[cid] = ((j && j.result) || {}).rows || [];
+  }catch(e){
+    FC_CD_CACHE[cid] = [];
+    try{ showToast('보관 문서를 불러오지 못했습니다'); }catch(e2){}
+  }
+  try{ if(typeof fcG4Render === 'function') fcG4Render(); }catch(e){}
+}
+/* 저장본 보기 — 🔴 DB 의 body 를 그대로 읽는다. 생성기를 다시 돌리지 않는다. */
+async function fcCdOpen(contractId, docId){
+  var cid = String(contractId || '').trim(), did = String(docId || '').trim();
+  if(!cid || !did) return;
+  var body = FC_CD_BODY[did];
+  if(body === undefined){
+    var url = '', tok = '';
+    try{ url = getGsUrl(); tok = getGsTok(); }catch(e){}
+    if(!url){ try{ showToast('구글 시트 주소가 없습니다'); }catch(e){} return; }
+    try{
+      var r = await fetch(url + '?action=contractDocList&contractId=' + encodeURIComponent(cid)
+        + '&docId=' + encodeURIComponent(did) + '&body=1'
+        + '&t=' + Date.now() + '&token=' + encodeURIComponent(tok || ''));
+      var j = await r.json();
+      var rows = ((j && j.result) || {}).rows || [];
+      body = rows.length ? String(rows[0].body || '') : '';
+      FC_CD_BODY[did] = body;      /* 🔴 메모리에만. localStorage 에 넣지 않는다 */
+    }catch(e){
+      try{ showToast('저장본을 불러오지 못했습니다'); }catch(e2){}
+      return;
+    }
+  }
+  if(!body){ try{ showToast('저장본이 비어 있습니다'); }catch(e){} return; }
+  fcCdShow(cid, did, body);
+}
+/* 저장본 창 — 🔴 본문은 글자로만 넣는다(태그가 살아나지 않게 textContent 사용) */
+function fcCdShow(cid, did, body){
+  var meta = null;
+  var rows = FC_CD_CACHE[cid] || [];
+  for(var i = 0; i < rows.length; i++) if(String(rows[i].id) === String(did)) meta = rows[i];
+  var host = document.getElementById('fc-cd-view');
+  if(!host){
+    host = document.createElement('div');
+    host.id = 'fc-cd-view';
+    document.body.appendChild(host);
+  }
+  var name = meta ? ((meta.docType === 'contract' ? '계약서' : '확인설명서') + ' v' + meta.version) : '저장본';
+  var sub = meta
+    ? (meta.createdAt + ' · ' + (meta.createdBy || '작성자 미기재') + ' · '
+       + (meta.source === 'ai' ? 'AI 생성본' : '로컬 초안'))
+    : '';
+  host.className = 'on';
+  host.innerHTML = '<div class="cd-box"><div class="cd-hd"><b class="cd-t"></b>'
+    + '<span class="cd-s"></span>'
+    + '<span style="flex:1"></span>'
+    + '<button class="btn btn-sm" onclick="fcCdPrint(&#39;' + gAttr(did) + '&#39;)">🖨 저장본 인쇄</button>'
+    + '<button class="btn btn-sm" onclick="fcCdClose()">닫기</button></div>'
+    + '<pre class="cd-body"></pre></div>';
+  /* 🔴 innerHTML 로 본문을 넣지 않는다 */
+  host.querySelector('.cd-t').textContent = name;
+  host.querySelector('.cd-s').textContent = sub;
+  host.querySelector('.cd-body').textContent = body;
+  host.setAttribute('data-did', did);
+}
+function fcCdClose(){
+  var h = document.getElementById('fc-cd-view');
+  if(h) h.className = '';
+}
+/* 저장본 인쇄 — 🔴 저장된 body 만 쓴다. 입력폼에서 다시 만들지 않는다. */
+function fcCdPrint(did){
+  var body = FC_CD_BODY[String(did || '')];
+  if(!body){ try{ showToast('저장본을 먼저 열어 주세요'); }catch(e){} return; }
+  var host = document.getElementById('fc-cd-view');
+  var name = host ? (host.querySelector('.cd-t') || {}).textContent : '저장본';
+  var sub = host ? (host.querySelector('.cd-s') || {}).textContent : '';
+  var wd = null;
+  try{ wd = window.open('', '_blank'); }catch(e){}
+  if(!wd){ try{ showToast('인쇄 창을 열지 못했습니다'); }catch(e){} return; }
+  wd.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title></title>'
+    + '<style>body{font-family:Malgun Gothic,sans-serif;font-size:12pt;line-height:2;'
+    + 'margin:30mm 20mm;color:#000}pre{white-space:pre-wrap;font-family:inherit}'
+    + '.w{background:#fff3cd;padding:10px;border:1px solid #f0ad4e;border-radius:5px;'
+    + 'font-size:10pt;margin-bottom:20px}@media print{.w{display:none}}</style></head><body>'
+    + '<div class="w">보관된 저장본입니다. 공인중개사 검토·서명 후 효력이 생깁니다.</div>'
+    + '<h3 class="hd"></h3><pre class="bd"></pre></body></html>');
+  wd.document.close();
+  /* 🔴 글자로만 넣는다 */
+  try{
+    wd.document.title = name;
+    wd.document.querySelector('.hd').textContent = name + '   ' + sub;
+    wd.document.querySelector('.bd').textContent = body;
+  }catch(e){}
+  try{ setTimeout(function(){ wd.print(); }, 500); }catch(e){}
+}
+/* Cockpit 문서 목록 — 저장본이 없으면 없다고 적는다(재생성해서 보여 주지 않는다) */
+function fcCdBox(c){
+  var cid = String((c || {}).id || '');
+  var rows = FC_CD_CACHE[cid];
+  var head = '<div class="g4-row" style="margin-top:8px">📄 <b>보관된 문서</b></div>';
+  if(rows === undefined || rows === null){
+    return head + '<div class="g4-row">아직 보지 않았습니다.'
+      + ' <button class="btn btn-sm" onclick="fcCdLoad(&#39;' + gAttr(cid) + '&#39;)">🔎 보관 문서 보기</button></div>';
+  }
+  if(!rows.length){
+    return head + '<div class="g4-none">저장된 계약서 없음 · 저장된 확인설명서 없음</div>'
+      + '<div class="g4-why">계약서 작성 화면에서 문서를 만든 뒤 '
+      + '<b>[📄 이 계약에 문서 보관]</b> 을 눌러야 남습니다.</div>';
+  }
+  var by = { contract: [], explanation: [] };
+  for(var i = 0; i < rows.length; i++){
+    var t = String(rows[i].docType || '');
+    if(by[t]) by[t].push(rows[i]);
+  }
+  var one = function(t, label){
+    var L = by[t];
+    if(!L.length) return '<div class="g4-row"><b>' + label + '</b> <span class="g4-none">저장된 '
+      + label + ' 없음</span></div>';
+    L.sort(function(a, b){ return (parseInt(b.version, 10) || 0) - (parseInt(a.version, 10) || 0); });
+    var top = L[0];
+    var old = L.slice(1);
+    return '<div class="g4-row"><b>' + label + '</b> v' + gEsc(String(top.version))
+      + ' · ' + gEsc(String(top.createdAt || '').slice(0, 16))
+      + ' · ' + gEsc(String(top.createdBy || '작성자 미기재'))
+      + ' · ' + (String(top.source) === 'ai' ? 'AI 생성본' : '로컬 초안')
+      + ' <button class="btn btn-sm" onclick="fcCdOpen(&#39;' + gAttr(cid) + '&#39;,&#39;'
+      + gAttr(String(top.id)) + '&#39;)">저장본 보기</button>'
+      + (old.length
+          ? ('<div class="cd-old">이전 버전 ' + old.length + '개 — '
+             + old.map(function(o){
+                 return '<button class="btn btn-sm" onclick="fcCdOpen(&#39;' + gAttr(cid) + '&#39;,&#39;'
+                   + gAttr(String(o.id)) + '&#39;)">v' + gEsc(String(o.version)) + '</button>'; }).join(' ')
+             + '</div>')
+          : '')
+      + '</div>';
+  };
+  return head + one('contract', '계약서') + one('explanation', '확인설명서')
+    + '<div class="g4-why">🔴 저장본은 <b>그때 만든 글자 그대로</b>입니다 — 다시 만들어 보여 주지 않습니다.</div>';
+}
+function fcCdCss(){
+  return '<style id="fc-cd-css">'
+    + '#fc-g4 .cd-old{font-size:11.5px;color:#6B7280;margin-top:3px}'
+    + '#fc-cd-view{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;'
+    +   'align-items:center;justify-content:center;padding:16px}'
+    + '#fc-cd-view.on{display:flex}'
+    + '#fc-cd-view .cd-box{background:#fff;border-radius:14px;max-width:820px;width:100%;'
+    +   'max-height:86vh;overflow:auto;padding:14px 16px}'
+    + '#fc-cd-view .cd-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}'
+    + '#fc-cd-view .cd-t{font-weight:800;color:#1B4F8A}'
+    + '#fc-cd-view .cd-s{font-size:11.5px;color:#6B7280}'
+    + '#fc-cd-view .cd-body{white-space:pre-wrap;font-size:12.5px;line-height:1.9;'
+    +   'border:1px solid #E5E7EB;border-radius:8px;padding:12px;background:#FAFAFA;margin:0}'
+    + '</style>';
+}
+/* 계약서 작성 화면에 [이 계약에 문서 보관] 단추를 얹는다 — 새 화면을 만들지 않는다 */
+function fcCdMount(){
+  var host = document.getElementById('cw-step4');
+  if(!host || host.style.display === 'none') return;
+  if(document.getElementById('fc-cd-save')) return;
+  var anchor = null;
+  try{
+    anchor = Array.from(host.querySelectorAll('button')).find(function(b){
+      return (b.textContent || '').indexOf('계약완료에 등록') >= 0; });
+  }catch(e){}
+  if(!anchor) return;
+  var b = document.createElement('button');
+  b.id = 'fc-cd-save'; b.type = 'button'; b.className = anchor.className;
+  b.style.cssText = (anchor.style.cssText || '') + ';background:#1B4F8A;color:#fff;border-color:#1B4F8A';
+  b.textContent = '📄 이 계약에 문서 보관';
+  b.title = '지금 화면에 있는 계약서·확인설명서를 계약에 남깁니다(전 버전은 지우지 않습니다)';
+  b.onclick = function(){
+    var cid = '';
+    try{ cid = String((typeof FC_G4_SEL !== 'undefined' && FC_G4_SEL) ? FC_G4_SEL : ''); }catch(e){}
+    if(!cid){
+      try{ showToast('계약을 먼저 고른 뒤(계약 화면에서) 보관해 주세요 — 계약번호가 필요합니다'); }catch(e){}
+      return;
+    }
+    fcCdSave(cid);
+  };
+  anchor.parentNode.insertBefore(b, anchor.nextSibling);
+}
+function fcCdBoot(){
+  if(!document.getElementById('fc-cd-css')){
+    try{ document.head.insertAdjacentHTML('beforeend', fcCdCss()); }catch(e){}
+  }
+  try{ setInterval(fcCdMount, 1200); }catch(e){}
+  window.__fcCdWrapped = true;
+}
+fcCdBoot();
+
 
 /* ══ ✍ G5.5 계약서 생성 — 무엇으로 만든 것인지 정직하게 말한다 (2026-09-10) ═════
    🔴 AI 연결은 하지 않았다. 안전한 서버측 호출 경로가 없기 때문이다(전수조사 결과):
