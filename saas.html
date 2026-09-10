@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 16:38</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 16:57</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -14041,6 +14041,215 @@ function fcFormBoot(){
   if(!window.__fcFormWrapped){ try{ setTimeout(fcFormBoot, 300); }catch(e){} }
 }
 fcFormBoot();
+
+/* ══ 🗂 G1 매물 업무공간 — 표에서 고르면 옆에서 바로 일한다 (2026-09-10) ═════
+   🔴 실측으로 확인한 것
+       매물 목록은 이미 **표**다(renderListings 안 view==='table', 기본값 table, 13열).
+       빠진 것은 ① 스크롤해도 열 이름이 안 보임 ② 행을 고를 수 없음
+                 ③ 고른 매물로 바로 일할 자리가 없음 ④ 고치고 나면 목록 자리를 잃음
+   🔴 표를 새로 만들지 않는다. 기존 표에 얹기만 한다.
+   🔴 지금 실제로 되는 것만 단추로 만든다. 없는 기능(출력센터·영수증)은 만들지 않는다. */
+var FC_G1_SEL = '';
+function fcG1Css(){
+  return '<style id="fc-g1-css">'
+    /* 열 이름 고정 — 아래로 내려도 무엇을 보는지 잃지 않는다 */
+    + '#p-listing .listing-table-wrap{max-height:calc(100vh - 300px);overflow:auto}'
+    + '#p-listing .listing-table-wrap thead th{position:sticky;top:0;background:#F3F4F6;z-index:2}'
+    + '#p-listing .listing-table-wrap tbody tr{cursor:pointer}'
+    + '#p-listing .listing-table-wrap tbody tr.fc-on{background:#ECFDF5;box-shadow:inset 3px 0 0 #0F6E56}'
+    /* 넓은 화면에서만 옆에 붙인다. 좁으면 표 아래로 내려간다(폰에서 표를 밀지 않는다) */
+    + '#fc-g1{display:none;border:1px solid #0F6E56;border-radius:10px;padding:10px 12px;'
+    +   'background:#fff;margin:0 0 12px}'
+    + '#fc-g1.on{display:block}'
+    + '#fc-g1 .g1-t{font-weight:800;color:#0F6E56;margin:0 0 2px}'
+    + '#fc-g1 .g1-s{font-size:12px;color:#6B7280;margin:0 0 8px}'
+    + '#fc-g1 .g1-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px;'
+    +   'font-size:12.5px;margin:0 0 8px}'
+    + '#fc-g1 .g1-kv b{color:#6B7280;font-weight:600;margin-right:4px}'
+    + '#fc-g1 .g1-act{display:flex;flex-wrap:wrap;gap:5px}'
+    + '#fc-g1 .g1-off{opacity:.45;cursor:not-allowed}'
+    + '@media (min-width:1280px){'
+    +   '#p-listing .fc-g1-split{display:grid;grid-template-columns:minmax(0,1fr) 360px;'
+    +     'gap:14px;align-items:start}'
+    +   '#fc-g1{position:sticky;top:8px;margin:0}'
+    + '}'
+    + '@media (min-width:1700px){#p-listing .fc-g1-split{grid-template-columns:minmax(0,1fr) 420px}}'
+    + '</style>';
+}
+function fcG1Find(id){
+  var L = [];
+  try{ L = ddArr('listings') || []; }catch(e){ return null; }
+  for(var i = 0; i < L.length; i++) if(String(L[i].id) === String(id)) return L[i];
+  return null;
+}
+/* 지금 실제로 이어지는 일만 단추로 만든다 — 없는 기능은 회색으로 두고 이유를 적는다 */
+function fcG1Acts(o){
+  var id = String(o.id || ''), q = "&#39;" + gAttr(id) + "&#39;";
+  var b = function(label, call, on, why){
+    if(on) return '<button class="btn btn-xs" onclick="' + call + '">' + gEsc(label) + '</button>';
+    return '<button class="btn btn-xs g1-off" title="' + gAttr(why || '아직 없는 기능입니다')
+         + '" onclick="showToast(&#39;' + gAttr(why || '아직 없는 기능입니다') + '&#39;)">'
+         + gEsc(label) + '</button>';
+  };
+  var has = function(f){ return typeof window[f] === 'function'; };
+  var out = [];
+  out.push(b('✏ 수정', 'openModal(&#39;listing&#39;,' + q + ')', has('openModal')));
+  out.push(b('📷 사진', 'fcG1Photo(' + q + ')', has('openModal') && has('photoPanelOpen')));
+  out.push(b('📢 광고', 'fcG1Ad(' + q + ')', has('sxGo')));
+  out.push(b('👥 고객매칭', 'fcG1Match(' + q + ')', has('fcListingToCustomers')));
+  out.push(b('📄 공부발급', 'fcG1Docs(' + q + ')',
+    has('openModal') && has('requestDocsForOpenListing')));
+  out.push(b('📝 계약준비', 'fcG1Contract(' + q + ')', has('openModal')));
+  out.push(b('🗺 지도', 'showListingMap(' + q + ')', has('showListingMap')));
+  out.push(b('📎 첨부', 'openListingFiles(' + q + ')', has('openListingFiles')));
+  out.push(b('🖨 출력', '', false, '출력센터는 아직 없습니다 — 계약서·확인설명서·공부 묶음 출력은 다음 단계입니다'));
+  return out.join('');
+}
+function fcG1Render(){
+  var box = document.getElementById('fc-g1');
+  if(!box) return;
+  var o = FC_G1_SEL ? fcG1Find(FC_G1_SEL) : null;
+  if(!o){ box.className = ''; box.innerHTML = ''; return; }
+  var nm = [o.apt, o.addr2].filter(Boolean).join(' ');
+  var money = String(o.price || '');
+  if(String(o.rentAmt || '').trim()) money += ' / ' + o.rentAmt;
+  var kv = function(k, v){ return v ? ('<div><b>' + gEsc(k) + '</b>' + gEsc(String(v)) + '</div>') : ''; };
+  box.className = 'on';
+  box.innerHTML = '<div class="g1-t">' + gEsc(nm || o.id) + '</div>'
+    + '<div class="g1-s">' + gEsc(String(o.id || '')) + ' · ' + gEsc(String(o.status || '상태없음')) + '</div>'
+    + '<div class="g1-kv">'
+    +   kv('거래', [o.type, o.kind].filter(Boolean).join(' '))
+    +   kv('금액', money)
+    +   kv('면적', o.area) + kv('층', [o.floor, o.totalFloor].filter(Boolean).join('/'))
+    +   kv('방/욕실', [o.rooms, o.baths].filter(Boolean).join('/'))
+    +   kv('담당', o.agent)
+    +   kv('주소', o.addr)
+    + '</div>'
+    + '<div class="g1-act">' + fcG1Acts(o) + '</div>';
+}
+function fcG1Pick(id){
+  FC_G1_SEL = String(id || '');
+  try{ localStorage.setItem('fc_g1_sel', FC_G1_SEL); }catch(e){}
+  try{
+    var rows = document.querySelectorAll('#p-listing .listing-table-wrap tbody tr');
+    for(var i = 0; i < rows.length; i++){
+      if(String(rows[i].getAttribute('data-fcid') || '') === FC_G1_SEL) rows[i].classList.add('fc-on');
+      else rows[i].classList.remove('fc-on');
+    }
+  }catch(e){}
+  fcG1Render();
+}
+/* 표에 행 선택을 붙이고, 고쳐도 보던 자리를 잃지 않게 한다 */
+function fcG1Bind(){
+  var host = document.getElementById('p-listing');
+  if(!host) return;
+  var wrap = host.querySelector('.listing-table-wrap');
+  if(!wrap) return;
+  /* 표와 상세를 나란히 놓을 자리 */
+  var cards = document.getElementById('listing-cards');
+  if(cards && !document.getElementById('fc-g1')){
+    var split = document.createElement('div');
+    split.className = 'fc-g1-split';
+    cards.parentNode.insertBefore(split, cards);
+    split.appendChild(cards);
+    var side = document.createElement('div');
+    side.id = 'fc-g1';
+    split.appendChild(side);
+  }
+  var rows = wrap.querySelectorAll('tbody tr');
+  for(var i = 0; i < rows.length; i++){
+    var tr = rows[i];
+    if(tr.__fcG1) continue;
+    tr.__fcG1 = 1;
+    /* 행에서 매물번호를 읽는다 — 첫 칸이 매물번호다(표 구조 그대로) */
+    var td = tr.querySelector('td');
+    var rid = td ? String(td.textContent || '').trim() : '';
+    if(rid) tr.setAttribute('data-fcid', rid);
+    tr.addEventListener('click', function(e){
+      /* 칸 안의 기존 단추(지도·첨부·수정)는 그대로 동작하게 둔다 */
+      var t = e.target;
+      while(t && t !== this){ if(t.tagName === 'BUTTON' || t.tagName === 'A') return; t = t.parentNode; }
+      fcG1Pick(this.getAttribute('data-fcid'));
+    });
+  }
+  /* 고쳤다가 돌아와도 고르던 매물과 스크롤 자리를 그대로 */
+  if(!FC_G1_SEL){ try{ FC_G1_SEL = localStorage.getItem('fc_g1_sel') || ''; }catch(e){} }
+  if(FC_G1_SEL) fcG1Pick(FC_G1_SEL);
+}
+/* ── 단추가 하는 일 — 전부 기존 기능을 부른다 ── */
+function fcG1Photo(id){
+  try{ openModal('listing', id); }catch(e){}
+  try{ setTimeout(function(){
+    var el = document.getElementById('photo-panel');
+    if(el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+  }, 200); }catch(e){}
+}
+function fcG1Ad(id){
+  try{ if(typeof fcAdPhotoLoad === 'function') fcAdPhotoLoad(id, true); }catch(e){}
+  try{ sxGo('ads', 0, '운영부'); }catch(e){}
+}
+function fcG1Match(id){
+  var o = fcG1Find(id);
+  if(!o){ showToast('매물을 찾지 못했습니다'); return; }
+  var r = null;
+  try{ r = fcListingToCustomers(o); }catch(e){}
+  var main = (r && r.main) || [];
+  if(!main.length){ showToast('조건이 맞는 손님이 없습니다'); return; }
+  var nl = String.fromCharCode(10);
+  showToast('맞는 손님 ' + main.length + '명' + nl
+    + main.slice(0, 4).map(function(h){ return (h.c.name || '이름없음') + ' — ' + (h.why || ''); }).join(nl));
+  try{ sxGo('customer', 0, '운영부'); }catch(e){}
+}
+function fcG1Docs(id){
+  try{ openModal('listing', id); }catch(e){}
+  try{ setTimeout(function(){
+    if(typeof requestDocsForOpenListing === 'function') requestDocsForOpenListing();
+  }, 300); }catch(e){}
+}
+function fcG1Contract(id){
+  var o = fcG1Find(id);
+  try{ openModal('contract', null); }catch(e){ return; }
+  if(!o) return;
+  /* 매물에서 아는 것만 옮겨 적는다 — 없는 값을 지어내지 않는다 */
+  try{ setTimeout(function(){
+    /* 🔴 계약 폼의 실제 칸 이름만 쓴다(ct-*). 없는 칸을 지어내지 않는다.
+       계약 폼에는 호수·월세 칸이 따로 없어 매물명에 호수를 붙여 적는다. */
+    var apt = [o.apt, o.addr2].filter(Boolean).join(' ');
+    var map = [['ct-apt', apt], ['ct-type', o.type], ['ct-price', o.price],
+               ['ct-lname', o.cname], ['ct-lphone', o.cphone]];
+    for(var i = 0; i < map.length; i++){
+      var el = document.getElementById(map[i][0]);
+      if(el && !String(el.value || '').trim() && map[i][1]) el.value = map[i][1];
+    }
+  }, 120); }catch(e){}
+}
+function fcG1Wrap(){
+  if(window.__fcG1Wrapped) return;
+  if(!document.getElementById('fc-g1-css')){
+    try{ document.head.insertAdjacentHTML('beforeend', fcG1Css()); }catch(e){}
+  }
+  var _r = window.renderListings;
+  if(typeof _r !== 'function') return;
+  window.renderListings = function(){
+    /* 고치기 전 보던 자리를 기억해 둔다 */
+    var top = 0;
+    try{ var w = document.querySelector('#p-listing .listing-table-wrap'); if(w) top = w.scrollTop; }catch(e){}
+    var r = _r.apply(this, arguments);
+    try{ fcG1Bind(); }catch(e){}
+    try{
+      var w2 = document.querySelector('#p-listing .listing-table-wrap');
+      if(w2 && top) w2.scrollTop = top;      /* 자리 보존 */
+    }catch(e){}
+    return r;
+  };
+  window.__fcG1Wrapped = true;
+  try{ if(document.getElementById('p-listing')) fcG1Bind(); }catch(e){}
+}
+function fcG1Boot(){
+  try{ fcG1Wrap(); }catch(e){}
+  if(!window.__fcG1Wrapped){ try{ setTimeout(fcG1Boot, 300); }catch(e){} }
+}
+fcG1Boot();
 /* 화면에서도 「이 칸에 엉뚱한 값이 있다」고 알려 준다 (고치지는 않는다) */
 function fcAdBadFields(o){
   var out = [];
