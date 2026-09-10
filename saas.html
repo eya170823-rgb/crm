@@ -1005,7 +1005,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 07:09</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 08:35</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -14099,6 +14099,31 @@ function fcG1Css(){
     + '#fc-g1 .g1-why{font-size:11.5px;color:#6B7280;margin:4px 0 0;line-height:1.5}'
     + '#fc-g1 .g1-li{padding:3px 0;border-top:1px dashed #E5E7EB}'
     + '#fc-g1 .g1-li:first-child{border-top:0}'
+    /* ═══ A2-3 ═══ 기본 탭 바로 고치기 — 웹 폼이 아니라 ERP 입력감으로 조밀하게 */
+    + '#fc-g1 .g1-ed{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));'
+    +   'gap:3px 8px;margin:0 0 8px}'
+    + '@media (max-width:1100px){#fc-g1 .g1-ed{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+    + '#fc-g1 .g1-f{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:5px}'
+    + '#fc-g1 .g1-f > span{font-size:11.5px;color:#6B7280;font-weight:600;text-align:right}'
+    + '#fc-g1 .g1-f input,#fc-g1 .g1-f select{height:30px;min-width:0;width:100%;'
+    +   'border:1px solid #D1D5DB;border-radius:6px;padding:0 7px;font-size:12.5px;'
+    +   'background:#fff;outline:none}'
+    + '#fc-g1 .g1-f input:focus,#fc-g1 .g1-f select:focus{border-color:#0F6E56;'
+    +   'box-shadow:0 0 0 2px rgba(15,110,86,.12)}'
+    + '#fc-g1 .g1-f.wide{grid-column:span 2}'
+    + '#fc-g1 .g1-f textarea{min-height:30px;width:100%;border:1px solid #D1D5DB;'
+    +   'border-radius:6px;padding:5px 7px;font-size:12.5px;resize:vertical;outline:none}'
+    + '#fc-g1 .g1-ro{font-size:11.5px;color:#6B7280;margin:0 0 6px;line-height:1.6}'
+    + '#fc-g1 .g1-ro b{color:#374151}'
+    + '#fc-g1 .g1-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;'
+    +   'border-top:1px dashed #E5E7EB;padding-top:7px;margin:0 0 6px}'
+    + '#fc-g1 .g1-dirty{background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;'
+    +   'border-radius:6px;font-size:11.5px;font-weight:700;padding:2px 8px}'
+    + '#fc-g1 .g1-ok{color:#6B7280;font-size:11.5px}'
+    + '#fc-g1 .g1-err{background:#FEE2E2;border:1px solid #FCA5A5;color:#991B1B;'
+    +   'border-radius:6px;font-size:11.5px;font-weight:700;padding:2px 8px}'
+    + '#fc-g1 .g1-guard{background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;'
+    +   'padding:8px 10px;font-size:12.5px;color:#92400E}'
     /* ═══ A2-1 Grid 규격 ═══ 🔴 한 칸이 길어서 표 전체가 늘어나는 것을 막는다.
        (임대인 명부에서 번호 여러 개가 든 44행 때문에 한 칸이 1,941px 가 된 사고와 같은 원인)
        글자만 줄여 보여 주고 값은 그대로다 — 전체 값은 코크핏에서 본다. */
@@ -14163,6 +14188,11 @@ var FC_G1_TAB = 'base';
 var FC_G1_TABS = [['base','기본'],['photo','사진'],['ad','광고'],
                   ['match','고객매칭'],['doc','공부'],['file','첨부'],['deal','계약']];
 function fcG1Tab(t){
+  /* 🔴 탭을 옮기는 것만으로 저장되지 않는다. 고치던 것이 있으면 먼저 정하게 한다. */
+  if(FC_G1_DIRTY && String(t || '') !== 'base'){
+    try{ showToast('먼저 [저장] 또는 [취소] 를 눌러 주세요 — 고치던 내용이 있습니다'); }catch(e){}
+    return;
+  }
   FC_G1_TAB = String(t || 'base');
   try{ localStorage.setItem('fc_g1_tab', FC_G1_TAB); }catch(e){}
   fcG1Render();
@@ -14184,6 +14214,184 @@ function fcG1Deals(id){
     }
   }catch(e){}
   return out;
+}
+/* ═══ A2-3 ═══ 「기본」 탭에서 바로 고치기.
+   🔴 고칠 수 있는 칸은 **기존 수정 모달에 칸이 있고** 교차 검증 함정이 없는 것만이다.
+      (HEADERS.listings 와 saveListing 을 실측해 고른 13칸)
+   🔴 못 고치는 칸은 이유를 적고 읽기로 둔다 — 억지로 고치게 만들지 않는다:
+      주소·매물명(필수+지도·대장·광고 대장 연동) / 거래유형·물건유형(월세·지목 연쇄 검증)
+      호수(모달 전용 변환 로직) / 담당(🔴 모달에도 칸이 없다 = 저장 경로가 없다)
+   🔴 저장은 기존 단건 경로 gsUpsertOne 만 쓴다. save() 는 부르지 않는다 —
+      save() 는 adsFlatten 이 전 행의 칸을 늘려 매물 전체를 다시 올린다(실측).
+   🔴 자동 저장은 없다. [저장] 을 눌러야 서버로 간다. */
+var FC_G1_DIRTY = false, FC_G1_SNAP = null, FC_G1_PEND = '', FC_G1_BUSY = false, FC_G1_ERR = '';
+/* 🔴 보호 막대가 떠 있는 동안 입력칸이 화면에서 사라진다 — 넣던 값을 여기 들고 있는다 */
+var FC_G1_KEEP = null;
+var FC_G1_EDIT = [
+  ['price','거래가','t'], ['rentAmt','월세','t'],
+  ['area','면적','t'], ['floor','층','t'], ['totalFloor','총층','t'],
+  ['rooms','방','t'], ['baths','욕실','t'],
+  ['recvDate','접수일','d'], ['availDate','입주가능','t'],
+  ['status','상태','s'], ['cname','접수고객','t'], ['cphone','연락처','t'],
+  ['note','메모','a']
+];
+/* 상태 옵션 — 🔴 기존 모달의 목록을 그대로 쓴다(지어내지 않는다) */
+var FC_G1_ST = ['접수','상담중','계약완료','임대중','거래완료','보류'];
+function fcG1El(f){ return document.getElementById('g1e-' + f); }
+function fcG1Vals(){
+  var v = {}, n = 0;
+  for(var i = 0; i < FC_G1_EDIT.length; i++){
+    var el = fcG1El(FC_G1_EDIT[i][0]);
+    if(el){ v[FC_G1_EDIT[i][0]] = String(el.value == null ? '' : el.value).trim(); n++; }
+  }
+  /* 🔴 입력칸이 화면에 없을 때(보호 막대 중)는 들고 있던 값을 쓴다 —
+     빈 값으로 덮어써서 고친 내용을 날리면 안 된다. */
+  if(!n && FC_G1_KEEP) return FC_G1_KEEP;
+  return v;
+}
+/* 날짜 모양 검사 — 🔴 정규식을 쓰지 않는다(생성기 백틱 함정) */
+function fcG1IsDate(s){
+  s = String(s || '');
+  if(s.length !== 10) return false;
+  if(s.charAt(4) !== '-' || s.charAt(7) !== '-') return false;
+  var pos = [0,1,2,3,5,6,8,9];
+  for(var i = 0; i < pos.length; i++){
+    if('0123456789'.indexOf(s.charAt(pos[i])) < 0) return false;
+  }
+  return true;
+}
+/* 바뀐 칸이 있나 — 원래 값으로 되돌리면 다시 '안 바뀜' 이 된다 */
+function fcG1Diff(){
+  if(!FC_G1_SNAP) return [];
+  var v = fcG1Vals(), out = [];
+  for(var k in v){ if(String(v[k]) !== String(FC_G1_SNAP[k] == null ? '' : FC_G1_SNAP[k])) out.push(k); }
+  return out;
+}
+function fcG1Bar(msg){
+  var bar = document.getElementById('g1-bar');
+  if(!bar) return;
+  var d = fcG1Diff();
+  FC_G1_DIRTY = d.length > 0;
+  var head = FC_G1_BUSY ? '<span class="g1-ok">저장 중…</span>'
+    : FC_G1_ERR ? ('<span class="g1-err">저장 실패</span><span class="g1-ok">' + gEsc(FC_G1_ERR) + '</span>')
+    : FC_G1_DIRTY ? ('<span class="g1-dirty">● 변경됨 ' + d.length + '칸</span>')
+    : '<span class="g1-ok">고친 것 없음</span>';
+  if(msg) head = '<span class="g1-ok">' + gEsc(msg) + '</span>';
+  var dis = (FC_G1_BUSY || !FC_G1_DIRTY) ? ' disabled' : '';
+  bar.innerHTML = head
+    + ' <button type="button" class="btn btn-xs" onclick="fcG1Save()"' + dis + '>저장</button>'
+    + ' <button type="button" class="btn btn-xs" onclick="fcG1Cancel()"' + dis + '>취소</button>';
+}
+function fcG1Mark(){ FC_G1_ERR = ''; fcG1Bar(); }
+/* 고칠 수 있는 칸을 그린다 */
+function fcG1Form(o){
+  FC_G1_SNAP = {};
+  var html = '';
+  for(var i = 0; i < FC_G1_EDIT.length; i++){
+    var f = FC_G1_EDIT[i][0], lab = FC_G1_EDIT[i][1], kind = FC_G1_EDIT[i][2];
+    var val = String(o[f] == null ? '' : o[f]);
+    FC_G1_SNAP[f] = val;
+    var id = 'g1e-' + f;
+    var inp;
+    if(kind === 's'){
+      var op = '';
+      for(var j = 0; j < FC_G1_ST.length; j++){
+        op += '<option value="' + gAttr(FC_G1_ST[j]) + '"'
+            + (val === FC_G1_ST[j] ? ' selected' : '') + '>' + gEsc(FC_G1_ST[j]) + '</option>';
+      }
+      inp = '<select id="' + id + '" oninput="fcG1Mark()" onchange="fcG1Mark()">' + op + '</select>';
+    } else if(kind === 'a'){
+      inp = '<textarea id="' + id + '" rows="2" oninput="fcG1Mark()">' + gEsc(val) + '</textarea>';
+    } else if(kind === 'd'){
+      inp = '<input id="' + id + '" type="date" value="' + gAttr(val) + '" oninput="fcG1Mark()">';
+    } else {
+      inp = '<input id="' + id + '" type="text" value="' + gAttr(val) + '" oninput="fcG1Mark()">';
+    }
+    html += '<div class="g1-f' + (kind === 'a' ? ' wide' : '') + '"><span>' + gEsc(lab) + '</span>' + inp + '</div>';
+  }
+  return '<div class="g1-ed">' + html + '</div>'
+    + '<div class="g1-bar" id="g1-bar"></div>';
+}
+/* 여기서 못 고치는 것 — 이유를 적는다 */
+function fcG1Ro(o){
+  var v = function(k){ return String(o[k] == null ? '' : o[k]) || '-'; };
+  return '<div class="g1-ro">'
+    + '<b>주소</b> ' + gEsc(v('addr')) + ' ' + gEsc(v('addr2'))
+    + ' · <b>매물명</b> ' + gEsc(v('apt'))
+    + ' · <b>거래</b> ' + gEsc(v('type')) + ' ' + gEsc(v('kind'))
+    + ' · <b>담당</b> ' + gEsc(v('agent'))
+    + '<br>이 다섯 가지는 여기서 고치지 않습니다 — 주소·매물명은 지도·대장·광고 대장과 함께 확인해야 하고,'
+    + ' 거래유형·물건유형은 월세·지목 같은 딸린 필수값이 있습니다.'
+    + ' 담당은 기존 수정 창에도 칸이 없어 저장할 길이 없습니다. [✏ 수정] 에서 하세요.</div>';
+}
+/* 저장 — 🔴 이 매물 한 건만 올린다 */
+async function fcG1Save(){
+  if(FC_G1_BUSY) return;
+  var o = FC_G1_SEL ? fcG1Find(FC_G1_SEL) : null;
+  if(!o){ try{ showToast('매물을 찾지 못했습니다'); }catch(e){} return; }
+  var v = fcG1Vals();
+  /* 검증 — 기존 saveListing 과 같은 규칙만 옮긴다 */
+  if(!String(v.price || '').trim()){ try{ showToast('거래가는 필수입니다'); }catch(e){} return; }
+  var tp = String(o.type || '');
+  if((tp === '월세' || tp === '연세' || tp === '단기') && !String(v.rentAmt || '').trim()){
+    try{ showToast('거래유형이 ' + tp + '인 경우 월세(만원)는 필수입니다'); }catch(e){} return; }
+  var av = String(v.availDate || '').trim();
+  if(av && av !== '즉시입주' && !fcG1IsDate(av)){
+    try{ showToast('입주가능일은 「즉시입주」 또는 2026-10-01 모양으로 넣어 주세요'); }catch(e){} return; }
+  if(String(v.status || '') === '계약완료' && String(o.status || '') !== '계약완료'){
+    try{ showToast('계약완료로 바꾸는 것은 [✏ 수정] 창에서 해 주세요 — 계약 자동 연결이 함께 돌아야 합니다'); }catch(e){}
+    return; }
+  FC_G1_BUSY = true; FC_G1_ERR = ''; fcG1Bar('저장 중…');
+  var keys = [], bak = {};
+  for(var k in v){ keys.push(k); bak[k] = o[k]; o[k] = v[k]; }
+  var moved = FC_G1_PEND;
+  try{
+    await gsUpsertOne('listings', o);
+    /* 방금 올렸으니 '이미 올린 것' 으로 도장을 찍는다 — 다음 저장이 전체를 다시 올리지 않게 */
+    try{ gsShadowSet('listings', gsChanged('listings', ddArr('listings')).next); }catch(e){}
+    /* 🔴 이 기기에도 적어 둔다. save() 를 쓰지 않는다(전체 올리기 방지) */
+    try{ localStorage.setItem((typeof K !== 'undefined' && K.listings) ? K.listings : 'crm_listings',
+      JSON.stringify(ddArr('listings'))); }catch(e){}
+    FC_G1_DIRTY = false; FC_G1_SNAP = null; FC_G1_PEND = ''; FC_G1_KEEP = null;
+    try{ showToast('저장했습니다 ✓'); }catch(e){}
+    try{ renderListings(); }catch(e){}
+    FC_G1_BUSY = false;
+    if(moved){ fcG1Pick(moved); return; }
+    fcG1Render();
+    return;
+  }catch(e){
+    /* 🔴 조용히 되돌리지 않는다 — 넣은 값은 화면에 그대로 두고 실패를 알린다.
+       메모리 값만 되돌려 목록이 '저장된 것처럼' 보이지 않게 한다. */
+    for(var i = 0; i < keys.length; i++) o[keys[i]] = bak[keys[i]];
+    FC_G1_ERR = (e && e.message) ? String(e.message).slice(0, 90) : '보내지 못했습니다';
+    FC_G1_BUSY = false;
+    fcG1Bar();
+    try{ showToast('저장 실패 — 넣은 값은 그대로 있습니다: ' + FC_G1_ERR); }catch(e2){}
+  }
+}
+/* 취소 — 🔴 서버를 부르지 않고 마지막 저장값으로 되돌린다 */
+function fcG1Cancel(){
+  FC_G1_DIRTY = false; FC_G1_SNAP = null; FC_G1_ERR = ''; FC_G1_PEND = ''; FC_G1_KEEP = null;
+  fcG1Render();
+}
+function fcG1Drop(){
+  var go2 = FC_G1_PEND;
+  FC_G1_DIRTY = false; FC_G1_SNAP = null; FC_G1_ERR = ''; FC_G1_PEND = ''; FC_G1_KEEP = null;
+  if(go2) fcG1Pick(go2); else fcG1Render();
+}
+/* 「그대로 있기」 — 🔴 고치던 값을 그대로 살려 둔다(조용히 버리지 않는다) */
+function fcG1Stay(){
+  var keep = FC_G1_KEEP;
+  FC_G1_PEND = '';
+  fcG1Render();
+  if(keep){
+    for(var k in keep){
+      var el = fcG1El(k);
+      if(el) el.value = keep[k];
+    }
+  }
+  FC_G1_KEEP = null;
+  fcG1Bar();
 }
 function fcG1Body(o){
   var kv = function(k, v){ return v ? ('<div><b>' + gEsc(k) + '</b>' + gEsc(String(v)) + '</div>') : ''; };
@@ -14242,24 +14450,29 @@ function fcG1Body(o){
         + ' ~ ' + gEsc(String(k.end || '')) + '</div>';
     }).join('') + why('계약 ' + ks.length + '건 — 매물번호로 이어진 것만 셉니다(추정 없음).');
   }
-  /* 기본 */
-  return '<div class="g1-kv">'
-    +   kv('거래', [o.type, o.kind].filter(Boolean).join(' '))
-    +   kv('금액', money)
-    +   kv('면적', o.area) + kv('층', [o.floor, o.totalFloor].filter(Boolean).join('/'))
-    +   kv('방/욕실', [o.rooms, o.baths].filter(Boolean).join('/'))
-    +   kv('담당', o.agent)
-    +   kv('접수일', o.recvDate) + kv('입주가능', o.availDate)
-    +   kv('주소', [o.addr, o.addr2].filter(Boolean).join(' '))
-    +   kv('접수 연락처', [o.cname, o.cphone].filter(Boolean).join(' '))
-    +   kv('메모', o.note)
-    + '</div>';
+  /* 기본 — 🔴 A2-3: 여기서 바로 고친다. 저장은 [저장] 을 눌러야 한다. */
+  return fcG1Ro(o) + fcG1Form(o);
 }
 function fcG1Render(){
   var box = document.getElementById('fc-g1');
   if(!box) return;
   var o = FC_G1_SEL ? fcG1Find(FC_G1_SEL) : null;
   if(!o){ box.className = ''; box.innerHTML = ''; return; }
+  /* 🔴 고치던 것이 있는데 다른 매물을 눌렀을 때 — 사람이 고르게 한다(confirm 창을 띄우지 않는다) */
+  if(FC_G1_PEND){
+    var tgt = fcG1Find(FC_G1_PEND);
+    box.className = 'on';
+    box.innerHTML = '<div class="g1-guard">저장하지 않은 변경이 있습니다 — '
+      + gEsc([o.apt, o.addr2].filter(Boolean).join(' ') || String(o.id))
+      + '<br>' + gEsc(tgt ? ([tgt.apt, tgt.addr2].filter(Boolean).join(' ') || String(tgt.id)) : FC_G1_PEND)
+      + ' 로 넘어가려면 먼저 정하세요.'
+      + '<div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap">'
+      + '<button type="button" class="btn btn-xs" onclick="fcG1Save()">저장하고 이동</button>'
+      + '<button type="button" class="btn btn-xs" onclick="fcG1Drop()">변경 버리고 이동</button>'
+      + '<button type="button" class="btn btn-xs" onclick="fcG1Stay()">그대로 있기</button>'
+      + '</div></div>';
+    return;
+  }
   var nm = [o.apt, o.addr2].filter(Boolean).join(' ');
   var fold = '';
   try{ fold = localStorage.getItem('fc_g1_fold') || ''; }catch(e){}
@@ -14275,8 +14488,17 @@ function fcG1Render(){
     + '<div class="g1-tabs">' + tabs + '</div>'
     + '<div class="g1-body">' + fcG1Body(o) + '</div>'
     + '<div class="g1-act">' + fcG1Acts(o) + '</div>';
+  /* 기본 탭일 때만 바가 있다 */
+  if(document.getElementById('g1-bar')) fcG1Bar();
 }
 function fcG1Pick(id){
+  /* 🔴 A2-3 — 고치던 것이 있으면 조용히 버리지 않는다. 고를 자리를 그대로 두고 물어본다. */
+  if(FC_G1_DIRTY && String(id || '') !== FC_G1_SEL){
+    FC_G1_KEEP = fcG1Vals();          /* 넣던 값을 들고 간다 */
+    FC_G1_PEND = String(id || '');
+    fcG1Render();
+    return;
+  }
   FC_G1_SEL = String(id || '');
   try{ localStorage.setItem('fc_g1_sel', FC_G1_SEL); }catch(e){}
   try{
