@@ -995,7 +995,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 16:57</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-10 17:13</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -14250,6 +14250,312 @@ function fcG1Boot(){
   if(!window.__fcG1Wrapped){ try{ setTimeout(fcG1Boot, 300); }catch(e){} }
 }
 fcG1Boot();
+
+/* ══ 👥 G2 고객 업무공간 — 고르면 아래에서 영업을 이어 간다 (2026-09-10) ═════
+   🔴 실측으로 정한 배치 (G1 의 우측 Split 을 그대로 복사하지 않았다)
+       고객 표는 열 11개가 넓어 1920 에서도 1572px 를 쓴다(연락처 176 · 예산 178 · 진행단계 226).
+       옆에 상세를 붙이면 표가 1200px 로 줄어 가로스크롤이 생긴다.
+       → 고객은 **위 Grid + 아래 Detail**. 상세를 가로로 넓게 편다.
+   🔴 고객 목록도 이미 표다(cust-tbody · 11열 · 검색/구분/유형/진행/정렬 필터 5개).
+      표·검색·필터·정렬을 새로 만들지 않는다. 없는 것만 얹는다.
+   🔴 실제로 저장된 것이 없는 '이력' 탭은 만들지 않는다(가짜 이력 금지). */
+var FC_G2_SEL = '', FC_G2_TAB = 'base';
+function fcG2Css(){
+  return '<style id="fc-g2-css">'
+    + '#p-customer .tbl-wrap{max-height:46vh;overflow:auto}'
+    + '#p-customer .tbl-wrap thead th{position:sticky;top:0;background:#F3F4F6;z-index:2}'
+    + '#p-customer .tbl-wrap tbody tr{cursor:pointer}'
+    + '#p-customer .tbl-wrap tbody tr.fc-on{background:#EFF6FF;box-shadow:inset 3px 0 0 #1B4F8A}'
+    + '#fc-g2{display:none;border:1px solid #1B4F8A;border-radius:10px;background:#fff;'
+    +   'margin:10px 0 0;padding:10px 12px}'
+    + '#fc-g2.on{display:block}'
+    + '#fc-g2 .g2-t{font-weight:800;color:#1B4F8A}'
+    + '#fc-g2 .g2-s{font-size:12px;color:#6B7280;margin:0 0 8px}'
+    + '#fc-g2 .g2-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 8px;'
+    +   'border-bottom:1px solid #E5E7EB;padding-bottom:6px}'
+    + '#fc-g2 .g2-tab{border:1px solid #D1D5DB;background:#fff;border-radius:7px;'
+    +   'padding:3px 10px;font-size:12.5px;cursor:pointer}'
+    + '#fc-g2 .g2-tab.on{background:#1B4F8A;color:#fff;border-color:#1B4F8A;font-weight:700}'
+    + '#fc-g2 .g2-body{font-size:12.5px;min-height:52px}'
+    + '#fc-g2 .g2-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}'
+    + '@media (min-width:1100px){#fc-g2 .g2-kv{grid-template-columns:repeat(4,minmax(0,1fr))}}'
+    + '#fc-g2 .g2-kv b{color:#6B7280;font-weight:600;margin-right:4px}'
+    + '#fc-g2 .g2-act{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;'
+    +   'border-top:1px solid #E5E7EB;padding-top:8px}'
+    + '#fc-g2 .g2-off{opacity:.45;cursor:not-allowed}'
+    + '#fc-g2 .g2-row{padding:3px 0;border-bottom:1px solid #F3F4F6}'
+    + '</style>';
+}
+function fcG2Find(id){
+  var C = [];
+  try{ C = ddArr('customers') || []; }catch(e){ return null; }
+  for(var i = 0; i < C.length; i++) if(String(C[i].id) === String(id)) return C[i];
+  return null;
+}
+function fcG2Kv(k, v){ return v ? ('<div><b>' + gEsc(k) + '</b>' + gEsc(String(v)) + '</div>') : ''; }
+function fcG2Body(c){
+  var t = FC_G2_TAB;
+  if(t === 'match'){
+    var r = null;
+    try{ r = fcCustToListings(c); }catch(e){}
+    var main = (r && r.main) || [];
+    if(!main.length) return '<div class="g2-row">조건에 맞는 매물이 없습니다 — 조건을 넓히거나 새 매물을 기다립니다</div>';
+    return main.slice(0, 8).map(function(h){
+      var l = h.l || {};
+      return '<div class="g2-row"><b>' + gEsc([l.apt, l.addr2].filter(Boolean).join(' ')) + '</b> '
+        + gEsc([l.type, l.price, l.rentAmt].filter(Boolean).join(' / ')) + ' '
+        + '<span style="color:#6B7280">' + gEsc(String(h.why || '')) + '</span> '
+        + '<button class="btn btn-xs" onclick="fcG2GoListing(&#39;' + gAttr(String(l.id)) + '&#39;)">매물 열기</button></div>';
+    }).join('');
+  }
+  if(t === 'visit'){
+    var V = [];
+    try{ V = (ddArr('visits') || []).filter(function(v){
+      return String(v.custId || '') === String(c.id) || String(v.name || '') === String(c.name || '');
+    }); }catch(e){}
+    if(!V.length) return '<div class="g2-row">이 손님으로 기록된 임장이 없습니다</div>';
+    return V.slice(0, 8).map(function(v){
+      return '<div class="g2-row">' + gEsc(String(v.at || '').slice(0, 16)) + ' · '
+        + gEsc(String(v.kind || '')) + ' · ' + gEsc(String(v.memo || v.note || '')) + '</div>';
+    }).join('');
+  }
+  if(t === 'recall'){
+    var d = String(c.nextAction || c.nextContact || '').slice(0, 10);
+    var today = fcToday();
+    var late = d && d < today;
+    return '<div class="g2-kv">'
+      + fcG2Kv('다음 연락일', d || '(정해지지 않음)')
+      + fcG2Kv('상태', c.progressStatus || '진행중')
+      + fcG2Kv('마감 희망', c.deadline)
+      + '</div>'
+      + '<div class="g2-row" style="margin-top:6px">'
+      + (d ? (late ? '🔴 연락할 날이 지났습니다 — 먼저 전화하는 쪽이 계약을 가져갑니다'
+                   : '예정일까지 기다립니다')
+           : '다음 연락일이 비어 있습니다 — [수정] 에서 넣으면 오늘 할 일에 잡힙니다') + '</div>';
+  }
+  if(t === 'contract'){
+    var K = [];
+    try{ K = (ddArr('contracts') || []).filter(function(k){
+      return String(k.tenantName || '') === String(c.name || '')
+          || String(k.tenantPhone || '').replace(/[^0-9]/g, '') === String(c.phone || '').replace(/[^0-9]/g, '');
+    }); }catch(e){}
+    if(!K.length) return '<div class="g2-row">이 손님으로 된 계약이 아직 없습니다</div>';
+    return K.slice(0, 6).map(function(k){
+      return '<div class="g2-row"><b>' + gEsc(String(k.apt || '')) + '</b> '
+        + gEsc([k.type, k.price].filter(Boolean).join(' ')) + ' · '
+        + gEsc(String(k.start || '')) + ' ~ ' + gEsc(String(k.end || '')) + '</div>';
+    }).join('');
+  }
+  /* 기본 */
+  return '<div class="g2-kv">'
+    + fcG2Kv('구분', c.role) + fcG2Kv('거래', c.type)
+    + fcG2Kv('지역', c.region) + fcG2Kv('매물종류', c.propType)
+    + fcG2Kv('예산', c.budget) + fcG2Kv('면적', c.areaSize)
+    + fcG2Kv('접수일', c.recvDate) + fcG2Kv('마감', c.deadline)
+    + fcG2Kv('진행', c.progressStatus) + fcG2Kv('담당', c.agent)
+    + fcG2Kv('연락처', c.phone)
+    + '</div>'
+    + (String(c.note || '').trim()
+        ? ('<div class="g2-row" style="margin-top:6px"><b style="color:#6B7280">메모</b> '
+           + gEsc(String(c.note).slice(0, 300)) + '</div>') : '');
+}
+function fcG2Acts(c){
+  var q = "&#39;" + gAttr(String(c.id || '')) + "&#39;";
+  var has = function(f){ return typeof window[f] === 'function'; };
+  var b = function(label, call, on, why){
+    if(on) return '<button class="btn btn-xs" onclick="' + call + '">' + gEsc(label) + '</button>';
+    return '<button class="btn btn-xs g2-off" onclick="showToast(&#39;' + gAttr(why) + '&#39;)">'
+         + gEsc(label) + '</button>';
+  };
+  var out = [];
+  out.push(b('✏ 수정', 'openModal(&#39;customer&#39;,' + q + ')', has('openModal')));
+  out.push(b('🏠 추천매물', 'fcG2Tab(&#39;match&#39;)', has('fcCustToListings')));
+  out.push(b('📅 임장 일정', 'addVisitCal(' + q + ')', has('addVisitCal'),
+    '임장 일정 기능을 찾지 못했습니다'));
+  out.push(b('🔁 재접촉', 'fcG2Tab(&#39;recall&#39;)', true));
+  out.push(b('📝 계약준비', 'fcG2Contract(' + q + ')', has('openModal')));
+  out.push(b('💬 상담결과', 'openModal(&#39;customer&#39;,' + q + ')', has('openModal')));
+  /* 🔒 문자는 대표 승인 정책 그대로 — 여기서 보내지 않고 기존 문자 화면으로만 보낸다 */
+  out.push(b('✉ 문자', 'fcG2Sms()', typeof sxGo === 'function'));
+  return out.join('');
+}
+function fcG2Render(){
+  var box = document.getElementById('fc-g2');
+  if(!box) return;
+  var c = FC_G2_SEL ? fcG2Find(FC_G2_SEL) : null;
+  if(!c){ box.className = ''; box.innerHTML = ''; return; }
+  var TABS = [['base', '기본'], ['match', '추천매물'], ['visit', '임장'],
+              ['recall', '재접촉'], ['contract', '계약']];
+  box.className = 'on';
+  box.innerHTML = '<div class="g2-t">' + gEsc(String(c.name || '이름없음')) + '</div>'
+    + '<div class="g2-s">' + gEsc(String(c.phone || '')) + ' · '
+      + gEsc(String(c.progressStatus || '진행중')) + '</div>'
+    + '<div class="g2-tabs">' + TABS.map(function(t){
+        return '<button class="g2-tab' + (FC_G2_TAB === t[0] ? ' on' : '')
+          + '" onclick="fcG2Tab(&#39;' + t[0] + '&#39;)">' + gEsc(t[1]) + '</button>';
+      }).join('') + '</div>'
+    + '<div class="g2-body">' + fcG2Body(c) + '</div>'
+    + '<div class="g2-act">' + fcG2Acts(c) + '</div>';
+}
+function fcG2Tab(t){
+  FC_G2_TAB = String(t || 'base');
+  try{ localStorage.setItem('fc_g2_tab', FC_G2_TAB); }catch(e){}
+  fcG2Render();
+}
+function fcG2Pick(id){
+  FC_G2_SEL = String(id || '');
+  try{ localStorage.setItem('fc_g2_sel', FC_G2_SEL); }catch(e){}
+  try{
+    var rows = document.querySelectorAll('#p-customer .tbl-wrap tbody tr');
+    for(var i = 0; i < rows.length; i++){
+      if(String(rows[i].getAttribute('data-fcid') || '') === FC_G2_SEL) rows[i].classList.add('fc-on');
+      else rows[i].classList.remove('fc-on');
+    }
+  }catch(e){}
+  fcG2Render();
+}
+function fcG2GoListing(id){
+  try{ if(typeof sxGo === 'function') sxGo('listing', 0, '운영부'); }catch(e){}
+  try{ setTimeout(function(){ if(typeof fcG1Pick === 'function') fcG1Pick(id); }, 250); }catch(e){}
+}
+function fcG2Contract(id){
+  var c = fcG2Find(id);
+  try{ openModal('contract', null); }catch(e){ return; }
+  if(!c) return;
+  /* 🔴 계약 폼의 실제 칸(ct-*)만, 빈 칸만 채운다 */
+  try{ setTimeout(function(){
+    var map = [['ct-tname', c.name], ['ct-tphone', c.phone], ['ct-type', c.type]];
+    for(var i = 0; i < map.length; i++){
+      var el = document.getElementById(map[i][0]);
+      if(el && !String(el.value || '').trim() && map[i][1]) el.value = map[i][1];
+    }
+  }, 120); }catch(e){}
+}
+function fcG2Sms(){
+  showToast('문자는 대표 승인 뒤에 나갑니다 — 문자 화면에서 확인하세요');
+  try{ sxGo('sms5', 0, '운영부'); }catch(e){ try{ sxGo('sms', 0, '운영부'); }catch(e2){} }
+}
+/* 🔎 전화번호가 겹치는 기존 고객 — 막지 않고 알려만 준다(자동 병합 금지) */
+function fcG2DupHost(){
+  var host = document.getElementById('fc-g2-dup');
+  if(host) return host;
+  var ph = document.getElementById('c-phone');
+  var g = ph && ph.closest ? ph.closest('.form-group') : null;
+  if(!g) return null;
+  host = document.createElement('div');
+  host.id = 'fc-g2-dup'; host.className = 'fc-hint fc-wide';
+  host.style.cssText = 'display:none;background:#FEF3C7;border:1px solid #B45309;'
+    + 'border-radius:8px;padding:6px 9px;color:#111';
+  g.parentNode.insertBefore(host, g.nextSibling);
+  if(!ph.__fcDup){ ph.__fcDup = 1; ph.addEventListener('input', function(){ try{ fcG2DupCheck(); }catch(e){} }); }
+  return host;
+}
+function fcG2DupCheck(){
+  var el = document.getElementById('c-phone');
+  var host = fcG2DupHost();
+  if(!el || !host) return;
+  var v = String(el.value || '').trim();
+  var cur = '';
+  try{ cur = String(document.getElementById('c-edit-id') ? document.getElementById('c-edit-id').value : ''); }catch(e){}
+  if(!v){ host.style.display = 'none'; host.innerHTML = ''; return; }
+  var hit = [];
+  try{
+    (ddArr('customers') || []).forEach(function(c){
+      if(cur && String(c.id) === cur) return;
+      if(typeof fcSameNum === 'function' && fcSameNum(c.phone, v)) hit.push(c);
+    });
+  }catch(e){}
+  if(!hit.length){ host.style.display = 'none'; host.innerHTML = ''; return; }
+  host.style.display = '';
+  host.innerHTML = '<b>🔎 같은 번호의 기존 고객 ' + hit.length + '명</b> '
+    + '<span class="s">— 같은 사람인지 확인해 주세요. 자동으로 합치지 않습니다.</span> '
+    + hit.slice(0, 3).map(function(c){
+        return '<button type="button" class="btn btn-xs" style="margin-left:4px" onclick="fcG2OpenDup(&#39;'
+          + gAttr(String(c.id)) + '&#39;)">' + gEsc(String(c.name || '이름없음')) + ' 열기</button>';
+      }).join('');
+}
+function fcG2OpenDup(id){
+  try{ closeModal('customer'); }catch(e){}
+  try{ sxGo('customer', 0, '운영부'); }catch(e){}
+  try{ setTimeout(function(){ fcG2Pick(id); }, 250); }catch(e){}
+}
+function fcG2Bind(){
+  var panel = document.getElementById('p-customer');
+  if(!panel) return;
+  var wrap = panel.querySelector('.tbl-wrap');
+  if(!wrap) return;
+  if(!document.getElementById('fc-g2')){
+    var side = document.createElement('div');
+    side.id = 'fc-g2';
+    wrap.parentNode.insertBefore(side, wrap.nextSibling);
+  }
+  var rows = wrap.querySelectorAll('tbody tr');
+  for(var i = 0; i < rows.length; i++){
+    var tr = rows[i];
+    if(tr.__fcG2) continue;
+    tr.__fcG2 = 1;
+    /* 행에서 고객 id 를 찾는다 — 수정 단추의 onclick 에 id 가 들어 있다 */
+    var rid = '';
+    try{
+      var b = tr.querySelector('button[onclick*="customer"]');
+      var m = b ? String(b.getAttribute('onclick') || '') : '';
+      var s1 = m.indexOf("','");
+      if(s1 >= 0){
+        var rest = m.slice(s1 + 3);
+        var e1 = rest.indexOf("'");
+        if(e1 > 0) rid = rest.slice(0, e1);
+      }
+    }catch(e){}
+    if(rid) tr.setAttribute('data-fcid', rid);
+    tr.addEventListener('click', function(e){
+      var t = e.target;
+      while(t && t !== this){ if(t.tagName === 'BUTTON' || t.tagName === 'A') return; t = t.parentNode; }
+      fcG2Pick(this.getAttribute('data-fcid'));
+    });
+  }
+  if(!FC_G2_SEL){ try{ FC_G2_SEL = localStorage.getItem('fc_g2_sel') || ''; }catch(e){} }
+  try{ FC_G2_TAB = localStorage.getItem('fc_g2_tab') || 'base'; }catch(e){}
+  if(FC_G2_SEL) fcG2Pick(FC_G2_SEL);
+}
+function fcG2Wrap(){
+  if(window.__fcG2Wrapped) return;
+  if(!document.getElementById('fc-g2-css')){
+    try{ document.head.insertAdjacentHTML('beforeend', fcG2Css()); }catch(e){}
+  }
+  var _r = window.renderCustomers;
+  if(typeof _r !== 'function') return;
+  window.renderCustomers = function(){
+    var top = 0;
+    try{ var w = document.querySelector('#p-customer .tbl-wrap'); if(w) top = w.scrollTop; }catch(e){}
+    var r = _r.apply(this, arguments);
+    try{ fcG2Bind(); }catch(e){}
+    try{
+      var w2 = document.querySelector('#p-customer .tbl-wrap');
+      if(w2 && top) w2.scrollTop = top;
+    }catch(e){}
+    return r;
+  };
+  /* 고객 창이 열리면 전화 겹침 안내 자리를 만든다 */
+  var _open = window.openModal;
+  if(typeof _open === 'function' && !window.__fcG2Modal){
+    window.openModal = function(kind){
+      var r = _open.apply(this, arguments);
+      if(String(kind) === 'customer'){
+        try{ fcG2DupHost(); fcG2DupCheck(); }catch(e){}
+        try{ setTimeout(function(){ try{ fcG2DupHost(); fcG2DupCheck(); }catch(e){} }, 60); }catch(e){}
+      }
+      return r;
+    };
+    window.__fcG2Modal = true;
+  }
+  window.__fcG2Wrapped = true;
+  try{ if(document.getElementById('p-customer')) fcG2Bind(); }catch(e){}
+}
+function fcG2Boot(){
+  try{ fcG2Wrap(); }catch(e){}
+  if(!window.__fcG2Wrapped){ try{ setTimeout(fcG2Boot, 300); }catch(e){} }
+}
+fcG2Boot();
 /* 화면에서도 「이 칸에 엉뚱한 값이 있다」고 알려 준다 (고치지는 않는다) */
 function fcAdBadFields(o){
   var out = [];
