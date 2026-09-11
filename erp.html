@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '0.5';
-var ERP_BUILD = '2026-09-11 20:55';
+var ERP_VER = '0.6';
+var ERP_BUILD = '2026-09-11 21:45';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -239,11 +239,11 @@ var MENU = [
   ['today','오늘업무',[['today','오늘 할 일',1]]],
   ['crm','영업CRM',[['inbox','통합 인입함',1],['cust','고객 명부',0],['lead','상담·리드',0],['visit','임장',0]]],
   ['ops','운영부',[['photo','촬영 필요',1],['listing','매물장',0],['vac','공실 승인함',0],['landlord','임대인 명부',0]]],
-  ['ad','광고·마케팅',[['admgr','광고관리',1],['copy','광고문 작성',0],['adstat','광고 성과',0]]],
+  ['ad','광고·마케팅',[['admgr','광고관리',1],['mkt','마케팅',1],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
-  ['group','그룹웨어',[['appr','결재함',0],['sched','일정',0],['board','공지',0]]],
-  ['data','데이터센터',[['collect','수집매물',0],['bldg','건물·대장',0],['stat','통계',0]]],
-  ['admin','관리부',[['staff','직원·권한',1],['cfg','환경설정',0],['log','변경이력',0]]]
+  ['group','그룹웨어',[['gw','업무·결재',1],['academy','아카데미',1],['board','공지',0]]],
+  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',0],['bldg','건물·대장',0]]],
+  ['admin','관리부',[['base','기본관리',1],['auto','자동화관리',1],['staff','직원·권한',1],['log','변경이력',0]]]
 ];
 var CUR = { m1:'today', m2:'today' };
 
@@ -289,7 +289,7 @@ function drawSide(){
 }
 
 /* ── 데이터 ────────────────────────────────────────────────────── */
-var DB = { inbox:null, listings:null, landlords:null, contracts:null, err:'', loading:false };
+var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:null, err:'', loading:false };
 
 async function jget(params){
   var u = gsUrl(), t = gsTok();
@@ -617,6 +617,7 @@ function viewToday(){
     kpi('광고 막힘', adBlocked.length, adBlocked.length ? 'w' : '', "AD_FILT='photo';go('ad','admgr')") +
     kpi('수정·내림 필요', adFix.length, adFix.length ? 'w' : '', "AD_FILT='fix';go('ad','admgr')") +
   '</div>' +
+  ctTodayStrip() +
   '<div class="card"><table><colgroup><col style="width:130px"><col style="width:92px"><col><col style="width:96px"></colgroup>' +
   '<thead><tr><th>수신일시</th><th>출처</th><th>내용</th><th>상태</th></tr></thead><tbody>' +
   (un.length ? un.slice(0,8).map(function(r){
@@ -639,6 +640,33 @@ function go(m1, m2, src){
   drawNav(); route();
 }
 
+/* 오늘업무 위쪽 한 줄 — 임장·계약·잔금·만기·오류를 숫자로만 */
+function ctTodayStrip(){
+  var ct = DB.contracts;
+  if(ct === null){ loadContracts(); }
+  var arr = ct || [];
+  var bal = arr.filter(function(c){
+    var d = ctDaysTo(c.balanceDue);
+    return !String(c.balancePaidAt||'').trim() && d !== null && d <= 7; }).length;
+  var exp = arr.filter(function(c){ var d = ctDaysTo(c.end); return d !== null && d <= 60; }).length;
+  var soon = arr.filter(function(c){ var d = ctDaysTo(c.start); return d !== null && d >= 0 && d <= 14; }).length;
+  var dq = 0;
+  try{ dq = dqCheck().items.reduce(function(s2, x){ return s2 + x.n; }, 0); }catch(e){ dq = 0; }
+  var cells = [
+    ['임장', '준비 중', ''],
+    ['계약 예정', ct === null ? '…' : soon, "go('deal','contract')"],
+    ['잔금', ct === null ? '…' : bal, "go('deal','settle')"],
+    ['만기', ct === null ? '…' : exp, "go('deal','settle')"],
+    ['손볼 자료', dq || '…', "go('data','stat')"]
+  ];
+  return '<div class="card" style="margin:0 0 14px"><div class="sbody" style="padding:10px 13px">' +
+    '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">' +
+    cells.map(function(c){
+      return '<span' + (c[2] ? (' onclick="' + c[2] + '" style="cursor:pointer"') : '') + '>' +
+        '<span style="font-size:12.5px;color:var(--t3)">' + esc(c[0]) + '</span> ' +
+        '<b style="font-size:16px">' + esc(String(c[1])) + '</b></span>'; }).join('') +
+    '</div></div></div>';
+}
 /* ── 통합 인입함 ── */
 function inboxRows(){
   var rows = (DB.inbox || []).slice();
@@ -1097,8 +1125,8 @@ function viewSearch(q){
   (DB.landlords||[]).forEach(function(o){ if(o.apt && sq(o.apt).toLowerCase().indexOf(sq(ql)) >= 0) bl[o.apt] = bl[o.apt]||0; });
 
   var h = '<div class="crumb">통합검색</div><div class="h1row"><h1>“' + esc(q) + '” 검색 결과</h1></div>';
-  h += '<div class="note i">지금 검색되는 것: <b>건물 · 매물 · 임대인 · 인입함</b>. ' +
-       '고객 · 계약 · 호실이력은 <b>아직 연결되지 않았습니다</b>(가짜 결과를 만들지 않습니다).</div>';
+  h += '<div class="note i">검색되는 것: <b>건물 · 매물 · 임대인 · 인입함 · 고객 · 계약 · 직원</b>. ' +
+       '🔴 전화번호는 권한에 따라 가려집니다. 직원 접속 토큰은 검색 결과에 나오지 않습니다.</div>';
   h += '<div class="srchg"><h4>건물 ' + Object.keys(bl).length + '</h4>' +
     (Object.keys(bl).length ? Object.keys(bl).map(function(k){
       return '<div class="srow">' + esc(k) + ' <span style="color:var(--t3)">· 매물 ' + (bl[k]||0) + '건</span></div>'; }).join('')
@@ -1119,7 +1147,39 @@ function viewSearch(q){
         '<span class="mono" style="color:var(--t3)">' + esc(String(o.when||'').slice(0,16)) + '</span> · ' +
         esc(maskSecret(String(o.text||'')).slice(0,70)) + '</div>'; }).join('')
       : '<div class="srow" style="color:var(--t3)">없음</div>') + '</div>';
-  h += '<div class="srchg"><h4>고객 · 계약</h4><div class="srow" style="color:var(--t3)">아직 연결되지 않았습니다</div></div>';
+  /* 고객 */
+  var CU = (DB.customers||[]).filter(function(o){
+    return [o.name,o.phone,o.region,o.propType].join(' ').toLowerCase().indexOf(ql) >= 0 ||
+           (qd && nDigit(o.phone).indexOf(qd) >= 0); }).slice(0,20);
+  h += '<div class="srchg"><h4>고객 ' + (DB.customers === null ? '(불러오는 중)' : CU.length) + '</h4>' +
+    (DB.customers === null ? '<div class="srow" style="color:var(--t3)">고객 자료를 불러오는 중…</div>'
+     : (CU.length ? CU.map(function(o){
+        return '<div class="srow">' + esc(o.name||'(이름없음)') + ' · ' + esc(o.type||'') +
+          ' <span class="mono" style="color:var(--t3)">' + esc(phoneShow(o.phone)) + '</span>' +
+          ' <span style="color:var(--t3)">' + esc(o.progressStatus||'') + '</span></div>'; }).join('')
+        : '<div class="srow" style="color:var(--t3)">없음</div>')) + '</div>';
+  if(DB.customers === null) loadCustomers();
+  /* 계약 */
+  var CT = (DB.contracts||[]).filter(function(o){
+    return [o.id,o.apt,o.addr2,o.tenantName,o.landlordName].join(' ').toLowerCase().indexOf(ql) >= 0; }).slice(0,20);
+  h += '<div class="srchg"><h4>계약 ' + (DB.contracts === null ? '(불러오는 중)' : CT.length) + '</h4>' +
+    (DB.contracts === null ? '<div class="srow" style="color:var(--t3)">계약 자료를 불러오는 중…</div>'
+     : (CT.length ? CT.map(function(o){
+        return '<div class="srow" onclick="CT_SEL=&#39;' + esc(o.id) + '&#39;;go(&#39;deal&#39;,&#39;contract&#39;)">' +
+          '<b>' + esc(o.id) + '</b> · ' + esc((o.apt||'') + ' ' + (o.addr2||'')) +
+          ' <span style="color:var(--t3)">' + esc(o.start||'') + '~' + esc(o.end||'') + '</span></div>'; }).join('')
+        : '<div class="srow" style="color:var(--t3)">없음</div>')) + '</div>';
+  if(DB.contracts === null) loadContracts();
+  /* 직원 */
+  var ST = (STAFF||[]).filter(function(o){
+    return [o.id,o.name].join(' ').toLowerCase().indexOf(ql) >= 0; }).slice(0,20);
+  h += '<div class="srchg"><h4>직원 ' + (STAFF === null ? '(불러오는 중)' : ST.length) + '</h4>' +
+    (STAFF === null ? '<div class="srow" style="color:var(--t3)">직원 자료를 불러오는 중…</div>'
+     : (ST.length ? ST.map(function(o){
+        return '<div class="srow">' + esc(o.name||'-') + ' <span class="mono" style="color:var(--t3)">' +
+          esc(o.id) + '</span> <span style="color:var(--t3)">🔴 토큰 비표시</span></div>'; }).join('')
+        : '<div class="srow" style="color:var(--t3)">없음</div>')) + '</div>';
+  if(STAFF === null) loadStaff();
   return h;
 }
 
@@ -1399,8 +1459,13 @@ function adPanel(){
     '<dt>주소</dt><dd>' + esc(o.addr||'-') + '</dd>' +
     '<dt>상태</dt><dd>' + esc(o.status||'-') + '</dd>' +
     '<dt>사진</dt><dd>' + esc(r.ph.code) + '</dd></dl>';
-  if(r.ph.code !== 'PHOTO_READY')
+  if(r.ph.code !== 'PHOTO_READY'){
     h += '<div class="note b">🔴 ' + esc(r.ph.why) + '<br>사진이 없으면 어떤 채널에도 올리지 않습니다.</div>';
+    if(r.ph.others && r.ph.others.length)
+      h += '<div class="note w">같은 건물 다른 호실 사진: ' +
+        r.ph.others.map(function(x){ return esc(x.name) + ' ' + (x.raw + x.done) + '장'; }).join(' · ') +
+        '<br>🔴 <b>이 호실 광고사진으로 쓰지 않습니다.</b> 건물 외관·공용부는 참고용일 뿐입니다.</div>';
+  }
 
   h += '<div class="sec"><h4>채널별 상태</h4>';
   AD_CH.forEach(function(c){
@@ -2117,6 +2182,517 @@ function ctPickListing(id){
   route();
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   관리부 · 자동화 · 데이터센터 · 그룹웨어
+   🔴 실제로 확인할 수 있는 것만 수치로 적고, 나머지는 "확인 전"이라고 적는다.
+   🔴 위험한 일(영구삭제·전체내보내기·권한변경)은 버튼을 잠그거나 2단계 확인.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 자동화 상태 — 실제 자료의 최신 시각으로만 말한다 ─────────── */
+function autoMaxWhen(rows, pick){
+  var best = '';
+  (rows || []).forEach(function(r){
+    var v = String(pick(r) || '').trim();
+    if(v && v > best) best = v;
+  });
+  return best;
+}
+function autoToday(rows, pick){
+  var t = todayStr(), n = 0;
+  (rows || []).forEach(function(r){ if(String(pick(r) || '').indexOf(t) === 0) n++; });
+  return n;
+}
+function autoList(){
+  var inb = DB.inbox || [];
+  var W = function(r){ return r.when; };
+  var sms = inb.filter(function(r){ return ['SMS','MMS'].indexOf(srcOf(r.kind, r.text)) >= 0; });
+  var call = inb.filter(function(r){ return ['통화녹음','부재중전화'].indexOf(srcOf(r.kind, r.text)) >= 0; });
+  var photo = inb.filter(function(r){ return srcOf(r.kind, r.text) === '사진접수'; });
+  var L = DB.listings || [];
+  var adAt = autoMaxWhen(L, function(o){
+    var b = '';
+    AD_CH.forEach(function(c){ var a = adOf(o, c.key); if(a && a.at && a.at > b) b = a.at; });
+    return b;
+  });
+  var adOnN = L.filter(function(o){ return AD_CH.some(function(c){ return adOn(o, c.key); }); }).length;
+  var un = inb.filter(function(r){ return !r.reg; }).length;
+  return [
+    { key:'sms', name:'문자수집', run:'폰 → 구글서버 → 인입함',
+      last: autoMaxWhen(sms, W), today: autoToday(sms, W), n: sms.length,
+      next:'문자가 오면 바로(폴백 10분)', state: sms.length ? 'ok' : 'none',
+      note:'MacroDroid → GAS 문자수신함 → 인입함' },
+    { key:'call', name:'통화 AI', run:'통화녹음 → 글자변환 → 인입함',
+      last: autoMaxWhen(call, W), today: autoToday(call, W), n: call.length,
+      next:'녹음이 올라오면', state: call.length ? 'ok' : 'none',
+      note:'PC 가 켜져 있을 때만 (AI 요약 포함)' },
+    { key:'vac', name:'공실수집(사진판독)', run:'드라이브 문자사진 → OCR → 공실현황',
+      last: autoMaxWhen(photo, W), today: autoToday(photo, W), n: photo.length,
+      next:'10분마다', state: photo.length ? 'ok' : 'none',
+      note:'사진을 넣으면 10분 안에 글자를 읽는다' },
+    { key:'cust', name:'고객분류', run:'인입함 → 고객·임대인·매물로 나누기',
+      last:'', today: 0, n: un, next:'사람이 확인함', state:'manual',
+      note:'미처리 ' + un + '건 — 아직 사람이 고른다(자동 분류 아님)' },
+    { key:'ad', name:'광고', run:'매물 → 채널 게시',
+      last: adAt, today: 0, n: adOnN, next:'사람이 올림', state: adOnN ? 'ok' : 'none',
+      note:'🔴 자동 게시는 검증 전 — 지금은 사람이 각 사이트에서' },
+    { key:'web', name:'웹수집(당근·오일장)', run:'수집매물 표에 쌓임',
+      last:'', today: null, n: null, next:'예약(트리거)', state:'unknown',
+      note:'🔴 이 화면에서는 확인 전 — 수집매물 표를 따로 읽어야 한다' },
+    { key:'mkt', name:'마케팅 발행', run:'블로그·인스타 등',
+      last:'', today: null, n: null, next:'', state:'unknown',
+      note:'🔴 확인 전 — 연결된 자동 발행이 없다' }
+  ];
+}
+function viewAuto(){
+  if(DB.err) return crumb() + '<div class="h1row"><h1>자동화관리</h1></div>' + keyBox();
+  var A = autoList();
+  var okN = A.filter(function(a){ return a.state === 'ok'; }).length;
+  var unk = A.filter(function(a){ return a.state === 'unknown'; }).length;
+  var todaySum = A.reduce(function(s, a){ return s + (a.today || 0); }, 0);
+  var h = crumb() + '<div class="h1row"><h1>자동화관리</h1><span class="cnt">자동 ' +
+    '<b>' + A.length + '</b>가지 · 오늘 처리 <b>' + todaySum + '</b>건</span></div>' +
+    '<div class="kpis">' +
+      kpi('돌고 있음', okN, 'g', '') +
+      kpi('오늘 처리', todaySum, '', '') +
+      kpi('사람이 하는 것', A.filter(function(a){ return a.state === 'manual'; }).length, 'w', '') +
+      kpi('확인 전', unk, unk ? 'w' : '', '') +
+    '</div>' +
+    '<div class="note i">🔴 여기 숫자는 <b>실제 자료에서 읽은 것</b>입니다. 확인할 수 없는 것은 ' +
+    '“확인 전”이라고 적고 숫자를 지어내지 않습니다.</div>' +
+    '<div class="card"><div class="tblwrap"><table>' +
+    '<colgroup><col style="width:150px"><col><col style="width:124px"><col style="width:78px">' +
+    '<col style="width:78px"><col style="width:140px"><col style="width:84px"></colgroup>' +
+    '<thead><tr><th>자동화</th><th>하는 일</th><th>마지막</th><th>오늘</th><th>누적</th>' +
+    '<th>다음</th><th>상태</th></tr></thead><tbody>';
+  A.forEach(function(a){
+    var st = { ok:['p-ok','돌고 있음'], none:['p-mute','기록 없음'],
+               manual:['p-warn','사람이 함'], unknown:['p-warn','확인 전'] }[a.state];
+    h += '<tr><td><b>' + esc(a.name) + '</b><br><span style="font-size:11.5px;color:var(--t3)">' +
+      esc(a.note) + '</span></td>' +
+      '<td><span class="ell">' + esc(a.run) + '</span></td>' +
+      '<td class="mono">' + esc(a.last ? String(a.last).slice(0,16) : '-') + '</td>' +
+      '<td class="mono">' + (a.today === null ? '-' : a.today) + '</td>' +
+      '<td class="mono">' + (a.n === null ? '-' : a.n) + '</td>' +
+      '<td>' + esc(a.next || '-') + '</td>' +
+      '<td><span class="pill ' + st[0] + '">' + st[1] + '</span></td></tr>';
+  });
+  h += '</tbody></table></div></div>';
+  return h;
+}
+
+/* ── 데이터 품질 — 실제 자료로만 센다 ──────────────────────────── */
+function dqCheck(){
+  var L = DB.listings || [], LD = DB.landlords || [], C = DB.customers || [];
+  var live = L.filter(adLive);
+  var out = { items: [] };
+  function add(name, list, why, go2){
+    out.items.push({ name:name, n:list.length, rows:list.slice(0, 60), why:why, go:go2 || '' });
+  }
+  /* 필수값 누락 — 광고에 꼭 필요한 칸 */
+  add('매물 필수값 누락', live.filter(function(o){
+    return NEED_COMMON.some(function(f){ return !String(o[f[0]]||'').trim(); }); }),
+    '건물·주소·호실·거래유형·보증금 중 빈 칸', 'ad');
+  /* 중복 가능성 — 같은 건물+호실이 둘 이상 */
+  var key = {}, dup = [];
+  live.forEach(function(o){
+    var k = sq(o.apt) + '|' + sq(o.addr2);
+    if(!sq(o.apt) || !sq(o.addr2)) return;
+    key[k] = (key[k] || []).concat([o]);
+  });
+  Object.keys(key).forEach(function(k){ if(key[k].length > 1) dup = dup.concat(key[k]); });
+  add('같은 호실이 둘 이상', dup, '건물+호실이 겹치는 살아 있는 매물', '');
+  /* 사진 없음 */
+  add('사진 없음', live.filter(function(o){
+    var p = adPhotoOf(o); return p.code === 'PHOTO_REQUIRED'; }), '그 호실 사진이 없다', 'photo');
+  /* 임대인 역할 미확인 */
+  add('임대인 역할 미확인', LD.filter(function(o){
+    return !String(o.role||'').trim() && String(o.phone||'').trim(); }).slice(0, 400),
+    'role 이 비어 있다(소유자인지 확인 안 됨)', '');
+  /* 오래된 매물 */
+  add('오래 안 건드린 매물(60일+)', live.filter(function(o){
+    var d = ctDaysTo(String(o.updatedAt||'').slice(0,10));
+    return d !== null && d < -60; }), 'updatedAt 이 60일보다 오래', '');
+  /* 주소/건물 불일치 — 매물 주소에 건물 지번이 없음 */
+  add('주소에 지번이 없음', live.filter(function(o){
+    return String(o.addr||'').trim() && !/\d{1,5}-?\d{0,4}/.test(String(o.addr)); }),
+    '주소에 번지가 안 보인다', '');
+  /* 종료상태 오류 — 계약완료인데 광고가 살아 있음 */
+  add('계약완료인데 광고가 살아 있음', L.filter(function(o){
+    return TAKEDOWN_ST.indexOf(String(o.status||'')) >= 0
+        && AD_CH.some(function(c){ return adOn(o, c.key); }); }), '광고를 내려야 한다', 'ad');
+  /* 고객 다음 행동 없음 */
+  add('고객 다음 행동 날짜 없음', C.filter(function(o){
+    return String(o.progressStatus||'') !== '종료' && !String(o.nextAction||'').trim(); }),
+    'nextAction 이 없으면 방치된다', '');
+  return out;
+}
+var DQ_OPEN = '';
+function viewData(){
+  if(DB.err) return crumb() + '<div class="h1row"><h1>데이터센터</h1></div>' + keyBox();
+  if(DB.customers === null){ loadCustomers();
+    return crumb() + '<div class="h1row"><h1>데이터센터</h1></div>' +
+      '<div class="card"><div class="empty">자료를 불러오는 중…</div></div>'; }
+  var L = DB.listings || [], C = DB.customers || [], LD = DB.landlords || [];
+  var live = L.filter(adLive);
+  var adRows = adAll().filter(function(r){ return adLive(r.o); });
+  var posted = adRows.filter(function(r){ return r.goalDone > 0; }).length;
+  var ct = DB.contracts || [];
+  var fee = 0;
+  ct.forEach(function(c){ var n = Number(String(c.feeAmt||'').replace(/[^0-9.-]/g,'')); if(!isNaN(n)) fee += n; });
+  var dq = dqCheck();
+  var bad = dq.items.reduce(function(s, x){ return s + x.n; }, 0);
+
+  var h = crumb() + '<div class="h1row"><h1>데이터센터</h1><span class="cnt">매물 <b>' + L.length +
+    '</b> · 고객 <b>' + C.length + '</b> · 임대인 <b>' + LD.length + '</b> · 계약 <b>' + ct.length + '</b></span></div>' +
+    '<div class="kpis">' +
+      kpi('거래 가능 매물', live.length, 'g', '') +
+      kpi('광고 나간 매물', posted, '', "go('ad','admgr')") +
+      kpi('계약', ct.length, '', "go('deal','contract')") +
+      kpi('중개보수 합계(원)', fee.toLocaleString(), '', "go('deal','settle')") +
+      kpi('손볼 자료', bad, bad ? 'w' : '', '') +
+    '</div>';
+
+  /* 현황 요약 */
+  var byStatus = {}, byKind = {}, byType = {};
+  L.forEach(function(o){
+    byStatus[String(o.status||'(빈칸)')] = (byStatus[String(o.status||'(빈칸)')]||0) + 1;
+    byKind[String(o.kind||'(빈칸)')] = (byKind[String(o.kind||'(빈칸)')]||0) + 1;
+    byType[String(o.type||'(빈칸)')] = (byType[String(o.type||'(빈칸)')]||0) + 1;
+  });
+  function bars(title, obj){
+    var keys = Object.keys(obj).sort(function(a,b){ return obj[b]-obj[a]; });
+    var max = keys.length ? obj[keys[0]] : 1;
+    return '<div class="sec"><h4>' + esc(title) + '</h4>' + keys.map(function(k){
+      return '<div style="display:flex;align-items:center;gap:8px;margin:0 0 4px">' +
+        '<span style="width:112px;font-size:12.5px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+        esc(k) + '</span>' +
+        '<span style="flex:1;height:9px;background:var(--mute-bg);border-radius:5px;overflow:hidden">' +
+        '<span style="display:block;height:100%;width:' + Math.round(obj[k]*100/max) + '%;background:var(--brand)"></span></span>' +
+        '<span class="mono" style="width:38px;text-align:right;font-size:12.5px">' + obj[k] + '</span></div>';
+    }).join('') + '</div>';
+  }
+  h += '<div class="card"><div class="sbody">' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px">' +
+    bars('매물 상태', byStatus) + bars('매물 유형', byKind) + bars('거래 유형', byType) +
+    '</div></div></div>';
+
+  /* 데이터 품질 */
+  h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+    '<h4 style="margin:0 0 4px;font-size:14px">데이터 품질</h4>' +
+    '<div style="font-size:12.5px;color:var(--t2);margin:0 0 10px">🔴 실제 자료를 세어 본 것입니다. ' +
+    '고치는 것은 사람이 합니다 — 여기서 자동으로 바꾸지 않습니다.</div><ul class="steps">';
+  dq.items.forEach(function(x){
+    h += '<li><i>' + (x.n ? '⚠' : '✅') + '</i><span><b>' + esc(x.name) + '</b> ' +
+      '<span style="color:var(--t3);font-size:12px">' + esc(x.why) + '</span></span>' +
+      '<b>' + x.n + '건</b>' +
+      (x.n ? (' <button class="btn sm" onclick="DQ_OPEN=(DQ_OPEN===&#39;' + esc(x.name) +
+        '&#39;?&#39;&#39;:&#39;' + esc(x.name) + '&#39;);route()">보기</button>') : '') + '</li>';
+    if(DQ_OPEN === x.name && x.n){
+      h += '<li style="display:block"><div class="tblwrap"><table><thead><tr>' +
+        '<th>번호</th><th>건물/호실</th><th>상태</th></tr></thead><tbody>' +
+        x.rows.map(function(o){
+          return '<tr><td class="mono">' + esc(o.id||'-') + '</td><td>' +
+            esc((o.apt||o.name||'') + ' ' + (o.addr2||'')) + '</td><td>' +
+            esc(o.status||o.role||o.progressStatus||'-') + '</td></tr>'; }).join('') +
+        '</tbody></table></div></li>';
+    }
+  });
+  h += '</ul></div></div>';
+  return h;
+}
+
+/* ── 그룹웨어 ──────────────────────────────────────────────────── */
+var APPR = null, APPR_ERR = '', APPR_LOADING = false;
+async function loadAppr(){
+  if(APPR !== null || APPR_LOADING) return;
+  APPR_LOADING = true;
+  try{
+    var j = await jget({ action:'approvalList' });
+    APPR = (j.result && j.result.rows) || j.result || j.data || [];
+    if(!Array.isArray(APPR)) APPR = [];
+  }catch(e){ APPR = []; APPR_ERR = String((e && e.message) || e); }
+  APPR_LOADING = false;
+  route();
+}
+function viewGroup(){
+  if(APPR === null){ loadAppr();
+    return crumb() + '<div class="h1row"><h1>그룹웨어</h1></div>' +
+      '<div class="card"><div class="empty">결재함을 불러오는 중…</div></div>'; }
+  var wait = APPR.filter(function(a){ return String(a.status||'') === '대기'; });
+  var inb = DB.inbox || [];
+  var un = inb.filter(function(r){ return !r.reg; }).length;
+  var shoot = photoTasks().length;
+  var h = crumb() + '<div class="h1row"><h1>그룹웨어</h1><span class="cnt">결재 대기 <b>' +
+    wait.length + '</b>건</span></div>' +
+    '<div class="kpis">' +
+      kpi('결재 대기', wait.length, wait.length ? 'w' : '', '') +
+      kpi('오늘 할 일(인입)', un, un ? 'w' : '', "go('crm','inbox')") +
+      kpi('촬영 필요', shoot, shoot ? 'b' : '', "go('ops','photo')") +
+      kpi('공지', 0, '', '') +
+    '</div>';
+  if(APPR_ERR) h += '<div class="note w">결재함을 읽지 못했습니다: ' + esc(APPR_ERR) + '</div>';
+
+  h += '<div class="card"><div class="sbody"><h4 style="margin:0 0 8px;font-size:14px">결재 대기</h4>';
+  if(!APPR.length) h += '<div class="empty" style="padding:16px">결재할 것이 없습니다</div>';
+  else {
+    h += '<div class="tblwrap"><table><colgroup><col style="width:110px"><col><col style="width:100px">' +
+      '<col style="width:100px"><col style="width:84px"></colgroup>' +
+      '<thead><tr><th>종류</th><th>제목</th><th>올린 사람</th><th>올린 날</th><th>상태</th></tr></thead><tbody>' +
+      APPR.slice(0, 40).map(function(a){
+        return '<tr><td>' + esc(a.kind||'-') + '</td><td><span class="ell">' + esc(a.title||'-') + '</span></td>' +
+          '<td>' + esc(a.requester||'-') + '</td><td class="mono">' + esc(String(a.requestedAt||'').slice(0,10)) + '</td>' +
+          '<td><span class="pill ' + (String(a.status||'')==='대기'?'p-warn':'p-mute') + '">' +
+          esc(a.status||'-') + '</span></td></tr>'; }).join('') + '</tbody></table></div>';
+  }
+  h += '<div class="note b" style="margin-top:10px">🔴 결재 승인·반려는 기존 화면에서 합니다. ' +
+    '여기서는 보기만 합니다.</div></div></div>';
+
+  h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+    '<h4 style="margin:0 0 8px;font-size:14px">업무일지 · 공지 · 일정 · 자료</h4><ul class="steps">' +
+    '<li><i>📝</i><span><b>업무일지</b> — 직원별 처리 건수로 대신 봅니다(아래 담당별 집계)</span></li>' +
+    '<li><i>📢</i><span><b>공지</b> — 아직 공지 자료가 없습니다(만들어 내지 않습니다)</span></li>' +
+    '<li><i>📅</i><span><b>일정</b> — 계약 잔금·만기가 <b>수납·정산</b>에 모입니다</span></li>' +
+    '<li><i>📚</i><span><b>자료·매뉴얼</b> — <b>아카데미</b>에서 봅니다</span></li>' +
+    '</ul><div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' +
+    '<button class="btn" onclick="go(&#39;deal&#39;,&#39;settle&#39;)">일정 보기</button>' +
+    '<button class="btn" onclick="go(&#39;admin&#39;,&#39;staff&#39;)">직원별 담당</button>' +
+    '<button class="btn" onclick="go(&#39;group&#39;,&#39;academy&#39;)">아카데미</button>' +
+    '</div></div></div>';
+  return h;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   마케팅 · 아카데미 · 관리부 · 통합검색 확장 · 오늘업무 강화
+   🔴 광고(게시)와 마케팅(콘텐츠)을 나눈다. 없는 사실을 만들지 않는다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 마케팅: 원소스 멀티유즈 ───────────────────────────────────── */
+var MK_SEL = null, MK_CH = '블로그';
+var MK_CHANNELS = [
+  { key:'블로그',  label:'네이버 블로그', auto:false, note:'발행기는 따로 있습니다(연결 확인 전)' },
+  { key:'인스타',  label:'인스타그램',   auto:false, note:'자동 게시 없음 — 문구만 만듭니다' },
+  { key:'릴스',    label:'릴스·쇼츠',    auto:false, note:'대본만 만듭니다' },
+  { key:'문자',    label:'문자 안내문',  auto:false, note:'🔴 발송하지 않습니다' }
+];
+function mkFacts(o){
+  /* 🔴 매물에 실제로 있는 값만 쓴다 */
+  var f = [];
+  if(o.kind) f.push(['유형', o.kind]);
+  if(o.type) f.push(['거래', o.type]);
+  var money = adMoney(o); if(money) f.push(['가격', money + '만']);
+  if(o.feeAmt) f.push(['관리비', o.feeAmt + '만']);
+  if(o.area) f.push(['면적', o.area]);
+  if(o.rooms) f.push(['방', o.rooms]);
+  if(o.baths) f.push(['욕실', o.baths]);
+  if(o.floor) f.push(['층', o.floor + (o.totalFloor ? ('/' + o.totalFloor) : '')]);
+  if(o.direction) f.push(['향', o.direction]);
+  if(o.parking) f.push(['주차', o.parking]);
+  if(o.pets) f.push(['반려동물', o.pets]);
+  if(o.options) f.push(['옵션', String(o.options)]);
+  if(o.availDate) f.push(['입주', o.availDate]);
+  return f;
+}
+function mkContent(o, ch){
+  var nl = String.fromCharCode(10);
+  var head = [o.apt, o.addr2].filter(Boolean).join(' ');
+  var facts = mkFacts(o);
+  var line = facts.map(function(x){ return x[0] + ' ' + x[1]; }).join(' · ');
+  var addr = String(o.addr||'').trim();
+  var out = {};
+  if(ch === '블로그'){
+    out.title = head + ' ' + (o.type||'') + ' ' + (adMoney(o)||'') + ' 매물 안내';
+    out.body = [
+      head + (addr ? (' (' + addr + ')') : ''), '',
+      '■ 매물 정보',
+      facts.map(function(x){ return '· ' + x[0] + ' : ' + x[1]; }).join(nl), '',
+      '■ 안내',
+      '· 확인된 내용만 적었습니다. 더 필요한 정보는 문의 주시면 확인해 드립니다.',
+      '', '브리즈부동산중개'
+    ].join(nl);
+  } else if(ch === '인스타'){
+    out.title = head + ' ' + (adMoney(o)||'');
+    out.body = [
+      '[' + head + ']', (o.type||'') + ' ' + (adMoney(o)||'') + '만',
+      line, '', '· 자세한 조건은 프로필 링크·문의로',
+      '#제주원룸 #' + String(o.apt||'').replace(/\s/g,'') + ' #브리즈부동산중개'
+    ].filter(Boolean).join(nl);
+    out.cards = facts.slice(0, 5).map(function(x, i){
+      return (i+1) + '. ' + x[0] + ' — ' + x[1]; }).join(nl);
+  } else if(ch === '릴스'){
+    out.title = head + ' ' + (adMoney(o)||'') + ' 둘러보기';
+    out.body = [
+      '[0~2초] ' + head + ' ' + (o.type||'') + ' ' + (adMoney(o)||'') + '만',
+      '[2~6초] ' + (facts[0] ? (facts[0][0] + ' ' + facts[0][1]) : '내부 모습'),
+      '[6~12초] ' + facts.slice(1, 4).map(function(x){ return x[0] + ' ' + x[1]; }).join(', '),
+      '[12~15초] 문의는 브리즈부동산중개',
+      '', '🔴 촬영 전이라면 먼저 사진·영상이 필요합니다.'
+    ].join(nl);
+    out.thumb = head + nl + (adMoney(o)||'') + '만';
+  } else {
+    out.title = head + ' 안내';
+    out.body = [
+      '[브리즈부동산중개]', head + ' ' + (o.type||'') + ' ' + (adMoney(o)||'') + '만',
+      line, '자세한 내용 문의 주세요.'
+    ].filter(Boolean).join(nl);
+  }
+  out.missing = [];
+  ['area','rooms','baths','floor','direction','availDate'].forEach(function(k){
+    if(!String(o[k]||'').trim()) out.missing.push(
+      ({area:'면적',rooms:'방 수',baths:'욕실 수',floor:'층',direction:'향',availDate:'입주일'})[k]);
+  });
+  return out;
+}
+function viewMkt(){
+  if(DB.err) return crumb() + '<div class="h1row"><h1>마케팅</h1></div>' + keyBox();
+  var L = (DB.listings || []).filter(adLive);
+  var h = crumb() + '<div class="h1row"><h1>마케팅</h1><span class="cnt">콘텐츠 만들 수 있는 매물 <b>' +
+    L.length + '</b>건</span></div>' +
+    '<div class="note i"><b>광고와 마케팅은 다릅니다.</b> 광고는 플랫폼에 <b>매물을 올리는 일</b>,' +
+    ' 마케팅은 <b>콘텐츠를 만들어 알리는 일</b>입니다. 이 화면은 콘텐츠만 만듭니다.</div>' +
+    '<div class="note b">🔴 자동 발행하지 않습니다. 문자도 보내지 않습니다. ' +
+    '만든 글은 복사해서 각 채널에 올립니다.</div>' +
+    '<div class="kpis">' +
+      MK_CHANNELS.map(function(c){
+        return kpi(c.label, '확인 전', '', ''); }).join('') +
+    '</div>' +
+    '<div class="card"><div class="sbody">' +
+    '<div style="font-size:12.5px;color:var(--t3);margin:0 0 6px">매물 고르기</div>' +
+    '<select onchange="MK_SEL=this.value;route()" style="width:100%;max-width:560px;padding:8px 10px;' +
+    'border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--t1)">' +
+    '<option value="">(고르세요)</option>' +
+    L.map(function(o){
+      return '<option value="' + esc(o.id) + '"' + (MK_SEL===String(o.id)?' selected':'') + '>' +
+        esc(o.id + ' · ' + (o.apt||'') + ' ' + (o.addr2||'') + ' · ' + (o.type||'') + ' ' + (adMoney(o)||'')) +
+        '</option>'; }).join('') + '</select>';
+  var o = L.filter(function(x){ return String(x.id) === String(MK_SEL); })[0];
+  if(!o){
+    h += '<div class="empty" style="padding:24px">매물을 고르면 블로그·인스타·릴스·문자 글이 한 번에 만들어집니다</div>' +
+      '</div></div>';
+    return h;
+  }
+  h += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin:12px 0">' +
+    MK_CHANNELS.map(function(c){
+      return '<button class="btn sm' + (MK_CH===c.key?' pri':'') + '" onclick="MK_CH=&#39;' + c.key +
+        '&#39;;route()">' + esc(c.label) + '</button>'; }).join('') + '</div>';
+  var ch = MK_CHANNELS.filter(function(c){ return c.key === MK_CH; })[0];
+  var cp = mkContent(o, MK_CH);
+  h += '<div style="font-size:12px;color:var(--t3);margin:0 0 6px">' + esc(ch.note) + '</div>' +
+    '<div style="font-size:12.5px;color:var(--t3);margin:8px 0 3px">제목</div>' +
+    '<pre class="raw">' + esc(maskSecret(cp.title)) + '</pre>' +
+    '<div style="font-size:12.5px;color:var(--t3);margin:8px 0 3px">본문</div>' +
+    '<pre class="raw">' + esc(maskSecret(cp.body)) + '</pre>';
+  if(cp.cards) h += '<div style="font-size:12.5px;color:var(--t3);margin:8px 0 3px">카드뉴스 문구</div>' +
+    '<pre class="raw">' + esc(maskSecret(cp.cards)) + '</pre>';
+  if(cp.thumb) h += '<div style="font-size:12.5px;color:var(--t3);margin:8px 0 3px">썸네일 문구</div>' +
+    '<pre class="raw">' + esc(maskSecret(cp.thumb)) + '</pre>';
+  if(cp.missing.length) h += '<div class="note w" style="margin-top:10px">🔴 이 매물에 없는 값이라 ' +
+    '<b>글에 넣지 않았습니다</b>: ' + esc(cp.missing.join(' · ')) + '</div>';
+  var ph = adPhotoOf(o);
+  if(ph.code !== 'PHOTO_READY') h += '<div class="note b" style="margin-top:8px">🔴 이 호실 사진이 없습니다(' +
+    esc(ph.code) + ') — 콘텐츠는 만들 수 있지만 사진 없이 올리지 않습니다.</div>';
+  h += '<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">' +
+    '<button class="btn" disabled title="🔴 자동 발행은 검증 전입니다">발행 (검증 전)</button>' +
+    '<button class="btn" disabled title="다음 단계">검수 요청</button>' +
+    '<button class="btn" onclick="go(&#39;ad&#39;,&#39;admgr&#39;)">광고 상태 보기</button>' +
+    '</div>';
+  h += '<div class="sec" style="margin-top:14px"><h4>마케팅 흐름</h4><div style="display:flex;flex-wrap:wrap;gap:5px">' +
+    ['매물/정보','콘텐츠 초안','채널별 재작성','검수','게시준비','문의유입','고객등록','계약전환']
+      .map(function(x, i){
+        var on = (i <= 2);
+        return '<span class="pill ' + (on ? 'p-ok' : 'p-mute') + '">' + (i+1) + '. ' + x + '</span>'; }).join('') +
+    '</div><div style="font-size:12px;color:var(--t3);margin-top:6px">초록 = 지금 되는 단계</div></div>';
+  h += '</div></div>';
+  return h;
+}
+
+/* ── 아카데미 ──────────────────────────────────────────────────── */
+var ACA = [
+  ['신입 온보딩', ['ERP 첫 화면 보는 법','오늘업무 읽는 법','권한과 담당'], 'today'],
+  ['매물접수 매뉴얼', ['통화·문자에서 매물 뽑기','건물·호실 대조','매물 접수하기'], 'inbox'],
+  ['고객응대', ['인입함에서 고객 찾기','재접촉 날짜 정하기'], 'inbox'],
+  ['광고등록', ['사진 없으면 못 올린다','채널별 필수값','광고문구 만들기'], 'admgr'],
+  ['계약업무', ['계약 등록','필요서류 8종','특약 적기'], 'contract'],
+  ['정산', ['계약금·중도금·잔금','중개보수 받기'], 'settle'],
+  ['시스템 사용법', ['통합검색','테마 바꾸기','자동화 상태 보기'], 'auto']
+];
+function viewAcademy(){
+  var h = crumb() + '<div class="h1row"><h1>아카데미</h1><span class="cnt">과정 <b>' +
+    ACA.length + '</b>개</span></div>' +
+    '<div class="note i">지금은 <b>차례만</b> 만들어 두었습니다. 각 줄을 누르면 그 일을 하는 화면으로 갑니다.<br>' +
+    '🔴 아직 글로 된 교재는 없습니다 — 없는 내용을 만들어 넣지 않았습니다. ' +
+    '기존 📘 이용 가이드(그림 설명)는 기존 CRM 화면에 있습니다.</div>' +
+    '<div class="card"><div class="sbody"><ul class="steps">';
+  ACA.forEach(function(a, i){
+    h += '<li><i>' + (i+1) + '</i><span><b>' + esc(a[0]) + '</b><br>' +
+      '<span style="color:var(--t3);font-size:12px">' + esc(a[1].join(' · ')) + '</span></span>' +
+      '<button class="btn sm" onclick="acaGo(&#39;' + a[2] + '&#39;)">해보기</button></li>';
+  });
+  h += '</ul><div style="margin-top:12px"><button class="btn" onclick="location.href=&#39;./saas.html&#39;">' +
+    '기존 📘 이용 가이드 열기</button></div></div></div>';
+  return h;
+}
+function acaGo(k){
+  var map = { today:['today','today'], inbox:['crm','inbox'], admgr:['ad','admgr'],
+              contract:['deal','contract'], settle:['deal','settle'], auto:['admin','auto'] };
+  var m = map[k] || ['today','today'];
+  go(m[0], m[1]);
+}
+
+/* ── 관리부(기본관리) ──────────────────────────────────────────── */
+function viewAdmin(){
+  var L = DB.listings || [], LD = DB.landlords || [], C = DB.customers || [];
+  var h = crumb() + '<div class="h1row"><h1>기본관리</h1><span class="cnt">대표 관리자 화면</span></div>' +
+    '<div class="note b">🔴 여기 있는 위험한 일(영구삭제·전체 내보내기·권한 변경)은 ' +
+    '<b>이 화면에서 실행하지 않습니다</b>. 기존 설정 화면에서 2단계 확인을 거쳐 합니다.</div>';
+  var groups = [
+    ['기본관리', [
+      ['회사 정보', '브리즈부동산중개 · 등록번호 50110-2026-00057', '보기'],
+      ['도장·계좌', '🔴 민감 — 이 화면에 표시하지 않습니다', '잠금'],
+      ['영업시간·연락처', '기존 설정 화면', '잠금']]],
+    ['정보관리', [
+      ['매물 ' + L.length + '건', '거래 가능 ' + L.filter(adLive).length + '건', '보기'],
+      ['임대인 ' + LD.length + '명', '🔴 전체 임대인 DB는 대량수정 금지', '보기'],
+      ['고객 ' + (C ? C.length : '?') + '명', '', '보기']]],
+    ['데이터관리', [
+      ['백업', '시트 자동백업 트리거 · 05_보관 폴더', '잠금'],
+      ['전체 DB 내보내기', '🔴 개인정보 포함 — 대표 확인 필요', '잠금'],
+      ['영구삭제', '🔴 자동 실행 금지(삭제로그·묘비 유지)', '잠금'],
+      ['데이터 품질 점검', '실제 자료로 집계합니다', '데이터센터']]],
+    ['사용자관리', [
+      ['직원·권한', '토큰은 마스킹해서 봅니다', '직원'],
+      ['권한 변경', '🔴 기존 설정 화면에서', '잠금']]],
+    ['환경설정', [
+      ['구글시트 연결', gsUrl() ? '연결됨' : '🔴 토큰 없음', '보기'],
+      ['테마', '흰색·다크·시스템 (오른쪽 위 ◐)', '보기']]],
+    ['보안관리', [
+      ['접속 토큰', '🔴 화면에 원문을 보여 주지 않습니다', '잠금'],
+      ['권한 차단', '서버가 막습니다(화면 숨김 아님)', '보기'],
+      ['민감정보 가리기', '비밀번호·출입번호 자동 가림 — 켜져 있음', '보기']]],
+    ['자동화관리', [
+      ['자동화 상태', '실제 자료로 확인', '자동화']]]
+  ];
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">';
+  groups.forEach(function(g){
+    h += '<div class="card"><div class="sbody"><h4 style="margin:0 0 8px;font-size:13.5px">' +
+      esc(g[0]) + '</h4><ul class="steps">';
+    g[1].forEach(function(it){
+      var act = it[2];
+      var btn = act === '잠금'
+        ? '<button class="btn sm" disabled title="🔴 이 화면에서 실행하지 않습니다">잠금</button>'
+        : (act === '데이터센터' ? '<button class="btn sm" onclick="go(&#39;data&#39;,&#39;stat&#39;)">열기</button>'
+        : (act === '직원' ? '<button class="btn sm" onclick="go(&#39;admin&#39;,&#39;staff&#39;)">열기</button>'
+        : (act === '자동화' ? '<button class="btn sm" onclick="go(&#39;admin&#39;,&#39;auto&#39;)">열기</button>'
+        : '<span class="pill p-mute">보기</span>')));
+      h += '<li><i>·</i><span><b>' + esc(it[0]) + '</b>' +
+        (it[1] ? ('<br><span style="color:var(--t3);font-size:12px">' + esc(it[1]) + '</span>') : '') +
+        '</span>' + btn + '</li>';
+    });
+    h += '</ul></div></div>';
+  });
+  h += '</div>';
+  return h;
+}
+
 /* ── 라우팅 ── */
 var SEARCH = '';
 function route(){
@@ -2128,6 +2704,12 @@ function route(){
   else if(CUR.m2 === 'admgr') m.innerHTML = viewAd();
   else if(CUR.m2 === 'photo') m.innerHTML = viewPhoto();
   else if(CUR.m2 === 'settle') m.innerHTML = viewSettle();
+  else if(CUR.m2 === 'base') m.innerHTML = viewAdmin();
+  else if(CUR.m2 === 'auto') m.innerHTML = viewAuto();
+  else if(CUR.m2 === 'stat') m.innerHTML = viewData();
+  else if(CUR.m2 === 'gw') m.innerHTML = viewGroup();
+  else if(CUR.m2 === 'academy') m.innerHTML = viewAcademy();
+  else if(CUR.m2 === 'mkt') m.innerHTML = viewMkt();
   else if(CUR.m2 === 'staff') m.innerHTML = viewStaff();
   else if(CUR.m2 === 'contract'){
     if(DB.contracts === null){
@@ -2159,6 +2741,18 @@ function bindBar(){
   if(ft) ft.onchange = function(){ UI.st = ft.value; route(); };
 }
 async function reload(){ await loadAll(true); route(); }
+/* 고객은 쓰는 화면에서만 부른다 — 첫 화면을 무겁게 하지 않는다 */
+var CU_LOADING = false;
+async function loadCustomers(){
+  if(DB.customers !== null || CU_LOADING) return;
+  CU_LOADING = true;
+  try{
+    var d = await jget({ action:'getAll', type:'customers' });
+    DB.customers = d.data || d.result || [];
+  }catch(e){ DB.customers = []; DB.cuErr = String((e && e.message) || e); }
+  CU_LOADING = false;
+  route();
+}
 /* 계약 자료는 계약 화면에 들어갈 때만 부른다 — 첫 화면을 무겁게 하지 않는다.
    🔴 여기서 실패해도 DB.err 를 세우지 않는다(다른 화면이 멀쩡해야 한다). */
 var CT_LOADING = false;
