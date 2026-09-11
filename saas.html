@@ -1048,7 +1048,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 13:27</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 13:50</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -19473,6 +19473,107 @@ function vxPick(unit, act, val){
   try{ showToast(msg + ' — 🔴 아직 저장되지 않았습니다'); }catch(e){}
   vxCards();
 }
+/* 🔴 A2-10 — 승인 → 기존 매물 **한 건의 승인된 칸만** 실제로 저장한다.
+   A2-3 에서 검증된 gsUpsertOne 경로만 쓴다(save() 는 전체를 다시 올리므로 쓰지 않는다).
+   후보 객체를 통째로 덮어쓰지 않는다 — 지금 매물장에 있는 객체를 기준으로
+   승인된 칸만 바꿔 보낸다(규칙 9: 부분 객체를 보내면 나머지 칸이 지워진다).
+   🔴 아래 VX_SAVE_ALLOW 는 **A2-10 검증 한정 안전장치**다.
+      일반화 Gate 에서 이 상수와 그것을 보는 if 문을 지운다. 그때까지는
+      대표가 다른 호실의 [승인] 을 눌러도 화면 표시만 되고 저장되지 않는다. */
+var VX_SAVE_ALLOW = { '201호': 'R260827-04' };
+var VX_SAVING = '';
+function vxFind(unit){
+  var c = null, i;
+  if(!VX_CUR) return null;
+  for(i = 0; i < VX_CUR.cands.length; i++) if(VX_CUR.cands[i].unit === unit) c = VX_CUR.cands[i];
+  return c;
+}
+/* 지금 매물장에서 건물+호실로 다시 찾는다 — 화면이 들고 있던 결과를 믿지 않는다 */
+function vxReExact(c){
+  var L = [], i, hit = [];
+  try{ L = ddArr('listings') || []; }catch(e){ L = []; }
+  for(i = 0; i < L.length; i++)
+    if(vxNk(L[i].apt) === vxNk(c.src.apt) && vxNk(L[i].addr2) === vxNk(c.src.addr2)) hit.push(L[i]);
+  return hit;
+}
+async function vxApprove(unit){
+  if(VX_SAVING){ try{ showToast('저장 중입니다'); }catch(e){} return; }
+  var c = vxFind(unit);
+  if(!c){ try{ showToast('그 호실을 찾지 못했습니다'); }catch(e){} return; }
+  /* 가격변경이 아닌 것(신규·확인필요)은 아직 저장 경로가 없다 — 표시만 한다 */
+  if(c.classification !== 'CHANGE_CANDIDATE'){ vxPick(unit, 'approve'); return; }
+  /* 🔴 검증 한정 안전장치 */
+  if(VX_SAVE_ALLOW[unit] !== String(c.listingId)){
+    try{ showToast('지금은 201호 한 건만 실제로 반영합니다 — 나머지는 표시만 합니다'); }catch(e){}
+    vxPick(unit, 'approve');
+    return;
+  }
+  /* 🔴 저장 직전 EXACT 재확인 */
+  var hit = vxReExact(c);
+  if(hit.length !== 1){
+    try{ showToast('같은 호실이 ' + hit.length + '건이라 저장하지 않습니다 — 사람이 확인해 주세요'); }catch(e){}
+    return;
+  }
+  var row = hit[0];
+  if(String(row.id) !== String(c.listingId)){
+    try{ showToast('매물번호가 달라졌습니다(' + row.id + ') — 저장하지 않습니다'); }catch(e){}
+    return;
+  }
+  /* 🔴 동시변경 방지 — 후보를 만든 뒤 다른 곳에서 값이 바뀌었으면 덮어쓰지 않는다 */
+  var fields = [], f;
+  for(f in c.candidate) fields.push(f);
+  if(!fields.length){ try{ showToast('바꿀 것이 없습니다'); }catch(e){} return; }
+  for(f = 0; f < fields.length; f++){
+    var now = String(row[fields[f]] == null ? '' : row[fields[f]]).trim();
+    var was = String(c.before[fields[f]] == null ? '' : c.before[fields[f]]).trim();
+    if(now !== was){
+      try{ showToast('기존값이 후보 생성 후 변경되었습니다 (' + (c.labels[fields[f]] || fields[f])
+        + ' ' + was + ' → ' + now + ') — 저장하지 않습니다. 다시 불러와 확인해 주세요'); }catch(e){}
+      return;
+    }
+  }
+  /* 🔴 저장 전 최종 확인 — 무엇이 어떻게 바뀌는지 사람이 보고 누른다 */
+  var lines = [];
+  for(f = 0; f < fields.length; f++)
+    lines.push((c.labels[fields[f]] || fields[f]) + '  ' + c.before[fields[f]] + '만 → '
+               + c.candidate[fields[f]] + '만');
+  var nl = String.fromCharCode(10);
+  var msg = (c.building || '') + ' ' + unit + nl + lines.join(nl) + nl
+          + '기존매물 수정  ' + row.id + nl + nl + '이대로 매물장에 반영할까요?';
+  var yes = false;
+  try{ yes = window.confirm(msg); }catch(e){ yes = false; }
+  if(!yes) return;
+  /* 저장 — 지금 매물장 객체를 기준으로 승인된 칸만 바꾼다 */
+  VX_SAVING = unit;
+  var bak = {};
+  for(f = 0; f < fields.length; f++){ bak[fields[f]] = row[fields[f]]; row[fields[f]] = c.candidate[fields[f]]; }
+  vxCards();
+  try{
+    await gsUpsertOne('listings', row);
+    /* 방금 올렸으니 도장을 찍는다 — 다음 저장이 전체를 다시 올리지 않게(A2-3 과 같은 처리) */
+    try{ gsShadowSet('listings', gsChanged('listings', ddArr('listings')).next); }catch(e){}
+    /* 🔴 이 기기에도 적어 둔다. save() 를 쓰지 않는다(전체 올리기 방지) */
+    try{ localStorage.setItem((typeof K !== 'undefined' && K.listings) ? K.listings : 'crm_listings',
+      JSON.stringify(ddArr('listings'))); }catch(e){}
+    VX_PICK[unit] = { act: 'saved', val: null };
+    VX_SAVING = '';
+    try{ showToast('매물장에 반영했습니다 ✓ ' + row.id); }catch(e){}
+    try{ renderListings(); }catch(e){}
+    /* 바뀐 매물장으로 다시 분류한다 — 반영된 호실은 '동일' 로 내려가야 한다 */
+    try{
+      for(var k = 0; k < VX_CUR.struct.units.length; k++)
+        VX_CUR.cands[k] = vxClassify(VX_CUR.struct.units[k], VX_CUR.struct.cols);
+    }catch(e){}
+    vxCards();
+  }catch(e){
+    /* 🔴 조용히 넘기지 않는다. 메모리 값은 되돌려 '저장된 것처럼' 보이지 않게 한다 */
+    for(f = 0; f < fields.length; f++) row[fields[f]] = bak[fields[f]];
+    VX_SAVING = '';
+    vxCards();
+    try{ showToast('저장 실패 — 매물장은 그대로입니다: '
+      + ((e && e.message) ? String(e.message).slice(0, 80) : '보내지 못했습니다')); }catch(e2){}
+  }
+}
 function vxInput(unit){
   var v = prompt('월세를 만원 단위 숫자로 넣어 주세요 (예: 47)');
   if(v === null) return;
@@ -19511,7 +19612,7 @@ function vxCard(c){
     + '<div class="vx-hd"><span class="dd-st ' + cls + '-st">' + tag + '</span>'
     + '<b>' + gEsc(c.unit) + '</b>'
     + (pick ? ('<span class="ap-st s2">' + gEsc({ approve: '승인 예정', keep: '기존값 유지',
-        hold: '보류', fix: '확인 ' + (pick.val || '') + '만' }[pick.act] || '표시') + '</span>') : '')
+        hold: '보류', saved: '✓ 매물장에 반영함', fix: '확인 ' + (pick.val || '') + '만' }[pick.act] || '표시') + '</span>') : '')
     + '</div>';
   if(c.classification === 'NEW_CANDIDATE'){
     h += '<div class="vx-b">' + gEsc([u.rentAmt ? ('월세 ' + u.rentAmt + '만') : '',
@@ -19528,8 +19629,10 @@ function vxCard(c){
       h += '<div class="vx-chgrow"><span>' + gEsc(c.labels[f] || f) + '</span>'
         + '<b>' + gEsc(c.before[f]) + '만</b> → <b class="vx-to">' + gEsc(c.candidate[f]) + '만</b></div>';
     }
+    /* 🔴 A2-10 — 가격변경만 [승인] 에서 실제로 저장한다(그 호실 한 건의 그 칸만) */
     h += '<div class="vx-act">'
-      + '<button class="vx-btn ok" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;approve&#39;)">승인</button>'
+      + '<button class="vx-btn ok" onclick="vxApprove(&#39;' + gAttr(c.unit) + '&#39;)">'
+      + (VX_SAVING === c.unit ? '반영 중…' : '승인') + '</button>'
       + '<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;keep&#39;)">기존유지</button>'
       + '<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;hold&#39;)">보류</button>'
       + '<button class="vx-btn" onclick="vxDetail(&#39;' + gAttr(c.unit) + '&#39;)">상세보기</button></div>'
@@ -19627,7 +19730,9 @@ function vxCards(){
       h += '<div class="vx-list">' + sb + '</div>';
     }
   }
-  h += '<div class="vx-foot">🔴 이번 단계에서는 <b>저장되지 않습니다</b>. 고른 것은 화면에만 표시됩니다.</div>';
+  /* 🔴 A2-10 — 저장이 붙은 뒤로 '아무것도 저장되지 않는다' 는 거짓이 되었다. 사실대로 적는다. */
+  h += '<div class="vx-foot">🔴 <b>가격변경</b>의 [승인] 만 매물장에 반영됩니다 — 누르면 확인창이 뜨고,'
+    + ' 그 호실 한 건의 그 칸만 바뀝니다. 신규·확인필요·동일은 아직 화면 표시만 합니다.</div>';
   box.innerHTML = h;
 }
 /* 공실표 고르기 — 기존 표를 목록으로 쓴다 */
@@ -19637,7 +19742,7 @@ function vxRender(total){
   const isDone = t => /계약(완료|됐|되었)|나갔|마감/.test(String(t || ''));
   box.innerHTML = '<div class="dd-c"><div class="dd-h">🏢 공실 문자에서 후보 만들기 · 최근 ' + rows.length + '건 (전체 ' + (total || rows.length) + '건)</div>'
     + '<div class="s" style="margin:-6px 0 10px">한 줄을 고르면 호실별 후보로 펼칩니다. '
-    + '🔴 이번 단계에서는 저장되지 않습니다.</div>'
+    + '🔴 가격변경 [승인] 만 매물장에 반영됩니다(확인창이 뜹니다).</div>'
     + (rows.length ? '<div style="overflow-x:auto"><table class="dd-t"><thead><tr><th>날짜</th><th>건물</th><th>내용</th><th></th></tr></thead><tbody>'
       + rows.map((r, i) => {
           const done = isDone(r.text);
