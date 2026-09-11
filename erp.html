@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '0.1';
-var ERP_BUILD = '2026-09-11 18:20';
+var ERP_VER = '0.3';
+var ERP_BUILD = '2026-09-11 19:30';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -238,8 +238,8 @@ document.getElementById('btnTheme').onclick = function(){
 var MENU = [
   ['today','오늘업무',[['today','오늘 할 일',1]]],
   ['crm','영업CRM',[['inbox','통합 인입함',1],['cust','고객 명부',0],['lead','상담·리드',0],['visit','임장',0]]],
-  ['ops','운영부',[['listing','매물장',0],['vac','공실 승인함',0],['landlord','임대인 명부',0],['photo','사진 관리',0]]],
-  ['ad','광고·마케팅',[['admgr','광고 관리',0],['copy','광고문 작성',0],['adstat','광고 성과',0]]],
+  ['ops','운영부',[['photo','촬영 필요',1],['listing','매물장',0],['vac','공실 승인함',0],['landlord','임대인 명부',0]]],
+  ['ad','광고·마케팅',[['admgr','광고관리',1],['copy','광고문 작성',0],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',0],['settle','수납·정산',0],['doc','공부·서류',0]]],
   ['group','그룹웨어',[['appr','결재함',0],['sched','일정',0],['board','공지',0]]],
   ['data','데이터센터',[['collect','수집매물',0],['bldg','건물·대장',0],['stat','통계',0]]],
@@ -599,20 +599,23 @@ function viewToday(){
   var photo = un.filter(function(r){ return srcOf(r.kind, r.text) === '사진접수'; });
   var L = DB.listings || [];
   var recv = L.filter(function(o){ return String(o.status||'') === '접수'; });
-  var noPhoto = recv.filter(function(o){
-    var p = judgePhoto({code:'SAME',hit:o}, matchBuilding({name:o.apt,bld:o.apt,text:o.addr}, {unit:o.addr2}), {unit:o.addr2}, {name:o.apt,bld:o.apt});
-    return p.code === 'PHOTO_REQUIRED' || p.code === 'BUILDING_ONLY' || p.code === 'REVIEW_REQUIRED';
-  });
+  var shoot = photoTasks();
+  var adRows = adAll();
+  var adLiveRows = adRows.filter(function(r){ return adLive(r.o); });
+  var adReady = adLiveRows.filter(function(r){ return r.worst === 'AD_READY'; });
+  var adBlocked = adLiveRows.filter(function(r){ return r.worst === 'PHOTO_REQUIRED' || r.worst === 'DATA_REQUIRED'; });
+  var adFix = adRows.filter(function(r){ return r.stale || r.takedown; });
   return crumb() +
   '<div class="h1row"><h1>오늘 할 일</h1><span class="cnt">' +
-    '인입 미처리 <b class="hot">' + un.length + '</b>건 · 매물 <b>' + L.length + '</b>건</span></div>' +
+    '인입 미처리 <b class="hot">' + un.length + '</b>건 · 매물 <b>' + L.length + '</b>건 · ' +
+    '촬영 필요 <b class="hot">' + shoot.length + '</b>건</span></div>' +
   '<div class="kpis">' +
-    kpi('인입 미처리', un.length, un.length ? 'w' : '', "go('crm','inbox')") +
-    kpi('통화 인입', call.length, '', "go('crm','inbox','통화녹음')") +
-    kpi('사진 인입', photo.length, '', "go('crm','inbox','사진접수')") +
-    kpi('접수 상태 매물', recv.length, 'g', '') +
-    kpi('사진 필요', noPhoto.length, noPhoto.length ? 'w' : '', '') +
-    kpi('오류·확인필요', 0, '', '') +
+    kpi('신규 인입', un.length, un.length ? 'w' : '', "go('crm','inbox')") +
+    kpi('신규 매물후보', call.length, '', "go('crm','inbox','통화녹음')") +
+    kpi('촬영 필요', shoot.length, shoot.length ? 'b' : '', "go('ops','photo')") +
+    kpi('광고 준비됨', adReady.length, adReady.length ? 'g' : '', "AD_FILT='ready';go('ad','admgr')") +
+    kpi('광고 막힘', adBlocked.length, adBlocked.length ? 'w' : '', "AD_FILT='photo';go('ad','admgr')") +
+    kpi('수정·내림 필요', adFix.length, adFix.length ? 'w' : '', "AD_FILT='fix';go('ad','admgr')") +
   '</div>' +
   '<div class="card"><table><colgroup><col style="width:130px"><col style="width:92px"><col><col style="width:96px"></colgroup>' +
   '<thead><tr><th>수신일시</th><th>출처</th><th>내용</th><th>상태</th></tr></thead><tbody>' +
@@ -1120,6 +1123,389 @@ function viewSearch(q){
   return h;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   광고자동화 1차 — 🔴 실제 외부 게시는 하지 않는다.
+   기존 CRM 규약을 그대로 쓴다(새로 만들지 않는다):
+     · PLATFORMS 7채널 · STATUS_OFF_MARKET · ads 필드({on,no,url,at,chk,memo})
+     · adSnapshot/adHash → 값이 바뀌면 '수정필요'
+     · 당근 필수칸은 DAANGN_HEADERS 실측 규격에서 가져온다
+   근거 없는 채널 규칙은 만들지 않고 '확인 전'이라고 적는다.
+   ═══════════════════════════════════════════════════════════════════ */
+var AD_CH = [
+  { key:'daangn',   label:'당근',   dedup:'unit',    validDays:0,  bulk:true  },
+  { key:'zigbang',  label:'직방',   dedup:'listing', validDays:30, bulk:false },
+  { key:'dabang',   label:'다방',   dedup:'listing', validDays:30, bulk:false },
+  { key:'naver',    label:'네이버', dedup:'listing', validDays:90, bulk:false },
+  { key:'isj',      label:'이실장', dedup:'listing', validDays:0,  bulk:false },
+  { key:'peterpan', label:'피터팬', dedup:'none',    validDays:0,  bulk:false },
+  { key:'blog',     label:'블로그', dedup:'none',    validDays:0,  bulk:false }
+];
+var AD_GOAL = ['daangn','zigbang','dabang','naver'];   /* 진행률 분모가 되는 목표 채널 */
+var STATUS_OFF = ['계약완료','임대중','거래완료','보류'];
+var TAKEDOWN_ST = ['계약완료','임대중','거래완료'];
+
+function adOf(o, k){ return (o && o.ads && o.ads[k]) || null; }
+function adOn(o, k){ var a = adOf(o,k); return !!(a && a.on); }
+function adLive(o){ return STATUS_OFF.indexOf(String(o.status||'')) < 0; }
+function adSnapshot(o){
+  var opt = Array.isArray(o.options) ? o.options.join(',') : String(o.options||'');
+  return [o.type,o.price,o.rentAmt,o.area,o.rooms,o.baths,o.floor,o.totalFloor,
+          o.feeAmt,o.availDate,opt,o.desc].join('¦');
+}
+function adHash(s){
+  var h = 0; s = String(s==null?'':s);
+  for(var i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) | 0;
+  return String(h);
+}
+function adStale(o, k){
+  var a = adOf(o,k);
+  return !!(a && a.on && a.chk && a.chk !== adHash(adSnapshot(o)));
+}
+function adExpired(o, k){
+  var ch = AD_CH.filter(function(c){ return c.key===k; })[0] || {};
+  var a = adOf(o,k);
+  if(!a || !a.on || !a.at || !ch.validDays) return false;
+  var t = Date.parse(String(a.at).replace(/\./g,'-'));
+  if(isNaN(t)) return false;
+  return (Date.now() - t) > ch.validDays * 86400000;
+}
+
+/* ── 필수항목 — 있는 근거만 쓴다 ───────────────────────────────── */
+var NEED_COMMON = [['kind','매물유형'],['type','거래유형'],['price','보증금/매매가'],
+                   ['addr','주소'],['addr2','상세주소']];
+var NEED_RENT   = [['rentAmt','월세']];
+/* 🔴 당근 규격(DAANGN_HEADERS 실측) — 과거 누락 사고가 있던 칸 */
+var NEED_DAANGN = [['area','면적'],['rooms','방 수'],['baths','욕실 수'],
+                   ['floor','층'],['totalFloor','총 층']];
+function adMissing(o, k){
+  var need = NEED_COMMON.slice();
+  if(['월세','연세','단기','단기임대'].indexOf(String(o.type||'')) >= 0) need = need.concat(NEED_RENT);
+  if(k === 'daangn') need = need.concat(NEED_DAANGN);
+  var miss = [];
+  need.forEach(function(f){
+    if(!String(o[f[0]] == null ? '' : o[f[0]]).trim()) miss.push(f[1]);
+  });
+  return miss;
+}
+/* 그 매물의 사진 상태(드라이브 실측 인덱스) */
+function adPhotoOf(o){
+  var bm = { bldg:o.apt, addr:o.addr, jibun:(String(o.addr||'').match(/(\d{1,5}-\d{1,4})/)||[])[1]||'' };
+  return judgePhoto({ code:'SAME', hit:o }, bm, { unit:o.addr2 }, { name:o.apt, bld:o.apt, text:o.addr });
+}
+/* ── 채널 하나의 광고 상태 ─────────────────────────────────────── */
+function adState(o, k, ph){
+  var a = adOf(o,k);
+  if(TAKEDOWN_ST.indexOf(String(o.status||'')) >= 0 && a && a.on)
+    return { code:'TAKEDOWN_REQUIRED', why:'매물이 ' + o.status + ' 인데 광고가 올라가 있습니다', miss:[] };
+  if(!adLive(o)) return { code:'REVIEW_REQUIRED', why:'광고 대상이 아닌 상태(' + (o.status||'') + ')', miss:[] };
+  var miss = adMissing(o, k);
+  if(a && a.on){
+    if(adStale(o,k)) return { code:'POSTED', sub:'수정필요', why:'광고 올린 뒤 매물 값이 바뀌었습니다', miss:miss };
+    if(adExpired(o,k)) return { code:'POSTED', sub:'갱신필요', why:'게시한 지 오래됐습니다', miss:miss };
+    return { code:'POSTED', why:'게시 중' + (a.at ? (' · ' + a.at) : ''), miss:miss };
+  }
+  if(miss.length) return { code:'DATA_REQUIRED', why:'필수항목 부족', miss:miss };
+  if(!ph || ph.code !== 'PHOTO_READY')
+    return { code:'PHOTO_REQUIRED', why:(ph && ph.why) || '광고에 쓸 이 호실 사진이 없습니다', miss:[] };
+  return { code:'AD_READY', why:'필수항목·사진이 갖춰졌습니다', miss:[] };
+}
+/* 매물 한 건의 채널 전체 */
+function adRow(o){
+  var ph = adPhotoOf(o);
+  var byCh = {};
+  AD_CH.forEach(function(c){ byCh[c.key] = adState(o, c.key, ph); });
+  var goalDone = AD_GOAL.filter(function(k){ return byCh[k].code === 'POSTED'; }).length;
+  var worst = 'AD_READY';
+  var rank = { TAKEDOWN_REQUIRED:0, REVIEW_REQUIRED:1, DATA_REQUIRED:2, PHOTO_REQUIRED:3, AD_READY:4, POSTED:5 };
+  AD_GOAL.forEach(function(k){ if(rank[byCh[k].code] < rank[worst]) worst = byCh[k].code; });
+  return { o:o, ph:ph, ch:byCh, goalDone:goalDone, goalTotal:AD_GOAL.length, worst:worst,
+           stale: AD_GOAL.some(function(k){ return byCh[k].sub === '수정필요'; }),
+           takedown: AD_GOAL.some(function(k){ return byCh[k].code === 'TAKEDOWN_REQUIRED'; }) };
+}
+function adAll(){
+  return (DB.listings || []).map(adRow);
+}
+
+/* ── 광고문구 — 🔴 없는 정보를 만들지 않는다 ───────────────────── */
+function adMoney(o){
+  var t = String(o.type||'');
+  if(t === '매매') return o.price ? (o.price + '만원') : '';
+  if(!o.price && !o.rentAmt) return '';
+  return (o.price||'?') + '/' + (o.rentAmt||'?');
+}
+function adFacts(o){
+  var f = [];
+  if(o.kind) f.push(o.kind);
+  if(o.area) f.push('면적 ' + o.area);
+  if(o.rooms) f.push('방 ' + o.rooms);
+  if(o.baths) f.push('욕실 ' + o.baths);
+  if(o.floor) f.push(o.floor + (o.totalFloor ? ('/' + o.totalFloor) : ''));
+  if(o.direction) f.push(o.direction);
+  if(o.feeAmt) f.push('관리비 ' + o.feeAmt + '만');
+  if(o.parking) f.push('주차 ' + o.parking);
+  if(o.availDate) f.push('입주 ' + o.availDate);
+  return f;
+}
+function adCopy(o, k){
+  var nl = String.fromCharCode(10);
+  var money = adMoney(o);
+  var head = [o.apt, o.addr2].filter(Boolean).join(' ');
+  var facts = adFacts(o);
+  var t = String(o.type||'');
+  var title, body;
+  if(k === 'daangn'){
+    title = [head, t, money].filter(Boolean).join(' ');
+    body = [head + (o.addr ? (' (' + o.addr + ')') : ''), t + ' ' + money,
+            facts.join(' · '), '', '브리즈부동산중개'].filter(Boolean).join(nl);
+  } else if(k === 'zigbang' || k === 'dabang'){
+    title = [head, o.kind, t, money].filter(Boolean).join(' ');
+    body = [head, t + ' ' + money, facts.join(' · '), '',
+            '자세한 조건은 문의 주시면 안내드립니다.', '브리즈부동산중개'].filter(Boolean).join(nl);
+  } else if(k === 'naver'){
+    title = [o.apt, o.kind, t, money].filter(Boolean).join(' ');
+    body = [facts.join(' · '), o.addr].filter(Boolean).join(nl);
+  } else if(k === 'blog'){
+    title = [o.apt, o.addr2, t, money].filter(Boolean).join(' ') + ' 매물 안내';
+    body = [head + ' ' + t + ' ' + money, '', facts.map(function(x){ return '· ' + x; }).join(nl),
+            '', '문의: 브리즈부동산중개'].filter(Boolean).join(nl);
+  } else {
+    title = [head, t, money].filter(Boolean).join(' ');
+    body = [head, t + ' ' + money, facts.join(' · ')].filter(Boolean).join(nl);
+  }
+  /* 🔴 민감정보·과장표현은 넣지 않는다 */
+  return { title: maskSecret(title), body: maskSecret(body),
+           missing: adMissing(o, k) };
+}
+
+/* ── 촬영필요 업무 ─────────────────────────────────────────────── */
+function photoTasks(){
+  return (DB.listings || []).filter(adLive).map(function(o){
+    var ph = adPhotoOf(o);
+    return { o:o, ph:ph };
+  }).filter(function(x){
+    return x.ph.code === 'PHOTO_REQUIRED' || x.ph.code === 'BUILDING_ONLY';
+  }).sort(function(a, b){
+    /* 접수 상태 · 최근 접수 먼저 */
+    var pa = (a.o.status === '접수' ? 0 : 1), pb = (b.o.status === '접수' ? 0 : 1);
+    if(pa !== pb) return pa - pb;
+    return String(b.o.recvDate||'').localeCompare(String(a.o.recvDate||''));
+  });
+}
+
+/* ── 광고관리 화면 ─────────────────────────────────────────────── */
+var AD_SEL = null, AD_FILT = '';
+function adPill(st){
+  var m = { AD_READY:['p-ok','AD_READY'], POSTED:['p-brand','게시중'],
+            PHOTO_REQUIRED:['p-bad','사진필요'], DATA_REQUIRED:['p-warn','정보부족'],
+            REVIEW_REQUIRED:['p-warn','확인필요'], TAKEDOWN_REQUIRED:['p-bad','내림필요'],
+            POSTING:['p-warn','게시중…'], FAILED:['p-bad','실패'] }[st.code] || ['p-mute', st.code];
+  var lab = st.sub ? (m[1] + '·' + st.sub) : m[1];
+  return '<span class="pill ' + (st.sub ? 'p-warn' : m[0]) + '">' + esc(lab) + '</span>';
+}
+function adMini(st){
+  if(st.code === 'POSTED') return st.sub ? '<span class="pill p-warn">' + esc(st.sub) + '</span>'
+                                         : '<span class="pill p-brand">게시</span>';
+  if(st.code === 'AD_READY') return '<span class="pill p-ok">준비</span>';
+  if(st.code === 'TAKEDOWN_REQUIRED') return '<span class="pill p-bad">내림</span>';
+  if(st.code === 'PHOTO_REQUIRED') return '<span class="pill p-bad">사진</span>';
+  if(st.code === 'DATA_REQUIRED') return '<span class="pill p-warn">정보</span>';
+  return '<span class="pill p-mute">-</span>';
+}
+function viewAd(){
+  if(DB.err) return crumb() + '<div class="h1row"><h1>광고관리</h1></div>' + keyBox();
+  var rows = adAll();
+  var live = rows.filter(function(r){ return adLive(r.o); });
+  var ready = live.filter(function(r){ return r.worst === 'AD_READY'; });
+  var posted = rows.filter(function(r){ return r.goalDone > 0; });
+  var needPhoto = live.filter(function(r){ return r.worst === 'PHOTO_REQUIRED'; });
+  var needFix = rows.filter(function(r){ return r.stale; });
+  var needDown = rows.filter(function(r){ return r.takedown; });
+  var doneN = 0, totN = live.length * AD_GOAL.length;
+  live.forEach(function(r){ doneN += r.goalDone; });
+  var pct = totN ? Math.round(doneN * 100 / totN) : 0;
+
+  var show = live;
+  if(AD_FILT === 'ready') show = ready;
+  else if(AD_FILT === 'photo') show = needPhoto;
+  else if(AD_FILT === 'fix') show = needFix;
+  else if(AD_FILT === 'down') show = needDown;
+  else if(AD_FILT === 'posted') show = posted;
+
+  var h = crumb() +
+  '<div class="h1row"><h1>광고관리</h1><span class="cnt">광고대상 <b>' + live.length + '</b>건 · ' +
+    '진행률 <b>' + pct + '%</b> (' + doneN + '/' + totN + ' = 매물 ' + live.length + ' × 목표채널 ' + AD_GOAL.length + ')' +
+    (AD_FILT ? ' · 지금 화면 <b>' + show.length + '</b>건' : '') + '</span></div>' +
+  '<div class="kpis">' +
+    kpi('광고대상', live.length, '', "AD_FILT='';route()") +
+    kpi('AD_READY', ready.length, ready.length?'g':'', "AD_FILT='ready';route()") +
+    kpi('게시중', posted.length, '', "AD_FILT='posted';route()") +
+    kpi('사진필요', needPhoto.length, needPhoto.length?'b':'', "AD_FILT='photo';route()") +
+    kpi('수정필요', needFix.length, needFix.length?'w':'', "AD_FILT='fix';route()") +
+    kpi('내림필요', needDown.length, needDown.length?'b':'', "AD_FILT='down';route()") +
+  '</div>';
+
+  if(UI.help) h += '<div class="note i"><b>이 화면 사용법</b><br>' +
+    '· 진행률은 매물 수가 아니라 <b>매물 × 목표채널(' + AD_GOAL.map(function(k){
+        return AD_CH.filter(function(c){return c.key===k;})[0].label; }).join('·') + ')</b> 조합으로 셉니다.<br>' +
+    '· 한 줄을 누르면 오른쪽에 채널별 상태와 <b>광고문구</b>가 나옵니다.<br>' +
+    '· 🔴 <b>실제 게시는 이 화면에서 하지 않습니다</b>. 문구 만들기와 게시는 다른 일입니다.</div>';
+
+  h += '<div class="note b">🔴 이 화면은 외부 사이트에 <b>광고를 올리지 않습니다</b>. ' +
+       '게시·수정·내림은 아직 사람이 각 사이트에서 합니다(자동 게시는 검증 전).</div>';
+
+  h += '<div class="split' + (AD_SEL ? ' open' : '') + '"><div class="card"><div class="tblwrap"><table>' +
+  '<colgroup><col style="width:104px"><col><col style="width:74px"><col style="width:92px">' +
+  '<col style="width:74px"><col style="width:58px"><col style="width:58px"><col style="width:58px">' +
+  '<col style="width:58px"><col style="width:64px"><col style="width:96px"></colgroup>' +
+  '<thead><tr><th>매물번호</th><th>건물/호실</th><th>거래</th><th>가격</th><th>사진</th>' +
+  AD_GOAL.map(function(k){ return '<th>' + esc(AD_CH.filter(function(c){return c.key===k;})[0].label) + '</th>'; }).join('') +
+  '<th>진행률</th><th>상태</th></tr></thead><tbody>';
+  if(!show.length) h += '<tr><td colspan="11" class="empty">해당하는 매물이 없습니다</td></tr>';
+  show.forEach(function(r){
+    var o = r.o;
+    h += '<tr' + (AD_SEL === o.id ? ' class="sel"' : '') + ' onclick="AD_SEL=&#39;' + esc(o.id) + '&#39;;route()">' +
+      '<td class="mono">' + esc(o.id) + '</td>' +
+      '<td><span class="ell">' + esc((o.apt||'') + ' ' + (o.addr2||'')) + '</span></td>' +
+      '<td>' + esc(o.type||'-') + '</td>' +
+      '<td class="mono">' + esc(adMoney(o) || '-') + '</td>' +
+      '<td>' + (r.ph.code === 'PHOTO_READY' ? '<span class="pill p-ok">있음</span>'
+              : (r.ph.code === 'BUILDING_ONLY' ? '<span class="pill p-warn">건물만</span>'
+              : '<span class="pill p-bad">없음</span>')) + '</td>' +
+      AD_GOAL.map(function(k){ return '<td>' + adMini(r.ch[k]) + '</td>'; }).join('') +
+      '<td class="mono">' + r.goalDone + '/' + r.goalTotal + '</td>' +
+      '<td>' + adPill(r.ch[AD_GOAL[0]]) + '</td></tr>';
+  });
+  h += '</tbody></table></div>' +
+    '<div class="actbar">' +
+      '<button class="btn" disabled title="다음 단계">당근 엑셀 만들기</button>' +
+      '<button class="btn" disabled title="🔴 외부 게시는 검증 전입니다">실제 게시 (검증 전)</button>' +
+      '<button class="btn" disabled title="다음 단계">일괄 내림</button>' +
+      '<span style="flex:1"></span>' +
+      '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 실제 게시 0건</span>' +
+    '</div></div>';
+  if(AD_SEL) h += adPanel();
+  h += '</div>';
+  return h;
+}
+function adPanel(){
+  var o = (DB.listings||[]).filter(function(x){ return String(x.id) === String(AD_SEL); })[0];
+  if(!o) return '';
+  var r = adRow(o);
+  var h = '<div class="side"><h3><span>' + esc(o.id) + ' · ' + esc((o.apt||'') + ' ' + (o.addr2||'')) + '</span>' +
+    '<button class="btn sm" onclick="AD_SEL=null;route()">닫기</button></h3><div class="sbody">';
+  h += '<dl class="kv">' +
+    '<dt>거래</dt><dd>' + esc(o.type||'-') + ' / ' + esc(o.kind||'-') + '</dd>' +
+    '<dt>가격</dt><dd>' + esc(adMoney(o)||'-') + '</dd>' +
+    '<dt>주소</dt><dd>' + esc(o.addr||'-') + '</dd>' +
+    '<dt>상태</dt><dd>' + esc(o.status||'-') + '</dd>' +
+    '<dt>사진</dt><dd>' + esc(r.ph.code) + '</dd></dl>';
+  if(r.ph.code !== 'PHOTO_READY')
+    h += '<div class="note b">🔴 ' + esc(r.ph.why) + '<br>사진이 없으면 어떤 채널에도 올리지 않습니다.</div>';
+
+  h += '<div class="sec"><h4>채널별 상태</h4>';
+  AD_CH.forEach(function(c){
+    var st = r.ch[c.key], a = adOf(o, c.key);
+    h += '<div style="padding:7px 0;border-bottom:1px dashed var(--line2)">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
+      '<b>' + esc(c.label) + '</b>' + adPill(st) + '</div>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin-top:3px">' + esc(st.why) + '</div>' +
+      (st.miss && st.miss.length ? '<div class="note w" style="margin:6px 0 0">누락: ' +
+         st.miss.map(function(m,i){ return (i+1) + ') ' + esc(m); }).join(' · ') + '</div>' : '') +
+      '<div style="font-size:11.5px;color:var(--t3);margin-top:3px">' +
+        '계정·자동게시: 확인 전 · 방식 ' + (c.bulk ? '엑셀 일괄' : '수동') +
+        (c.validDays ? (' · 유효 ' + c.validDays + '일') : '') +
+        (a && a.at ? (' · 게시일 ' + esc(a.at)) : '') +
+        (a && a.no ? (' · 번호 ' + esc(a.no)) : '') + '</div></div>';
+  });
+  h += '<div style="font-size:12px;color:var(--t3);margin-top:8px">🔴 제주오일장은 이 시스템에 ' +
+       '<b>광고 채널로 등록돼 있지 않습니다</b>(수집 쪽에만 있습니다) — 없는 채널을 만들지 않았습니다.</div></div>';
+
+  /* 광고문구 */
+  h += '<div class="sec"><h4>광고문구 (문구 만들기 ≠ 게시)</h4>';
+  ['daangn','zigbang','dabang','naver','blog'].forEach(function(k){
+    var c = AD_CH.filter(function(x){ return x.key===k; })[0];
+    var cp = adCopy(o, k);
+    h += '<div style="margin:0 0 10px">' +
+      '<div style="font-size:12.5px;color:var(--t3);margin-bottom:3px">' + esc(c.label) + ' 제목</div>' +
+      '<pre class="raw">' + esc(cp.title) + '</pre>' +
+      '<div style="font-size:12.5px;color:var(--t3);margin:6px 0 3px">' + esc(c.label) + ' 본문</div>' +
+      '<pre class="raw">' + esc(cp.body) + '</pre>' +
+      (cp.missing.length ? '<div class="note w" style="margin-top:6px">이 채널 누락: ' +
+        esc(cp.missing.join(' · ')) + ' — 채워야 올릴 수 있습니다</div>' : '') +
+      '</div>';
+  });
+  h += '<div class="note b">🔴 문구에 없는 정보를 지어내지 않습니다. 비밀번호·개인정보는 넣지 않습니다.</div></div>';
+
+  /* 광고 이력 */
+  h += '<div class="sec"><h4>광고 이력</h4>';
+  var hist = [];
+  AD_CH.forEach(function(c){
+    var a = adOf(o, c.key);
+    if(a && a.on && a.at) hist.push(esc(a.at) + ' · ' + esc(c.label) + ' 게시' + (a.no ? (' (' + esc(a.no) + ')') : ''));
+  });
+  h += hist.length ? ('<ul class="steps">' + hist.map(function(x){
+        return '<li><i>·</i><span>' + x + '</span></li>'; }).join('') + '</ul>')
+    : '<div class="empty" style="padding:14px">아직 광고 이력이 없습니다<br>' +
+      '<span style="font-size:12px">(오늘부터 실제 상태 변경이 생기면 여기에 쌓입니다 — 과거 이력을 만들어 내지 않습니다)</span></div>';
+  h += '</div>';
+
+  h += '<div class="sec"><h4>할 일</h4><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    (r.ph.code !== 'PHOTO_READY'
+      ? '<button class="btn pri" onclick="go(&#39;ops&#39;,&#39;photo&#39;)">촬영필요 목록으로</button>' : '') +
+    '<button class="btn" disabled title="🔴 외부 게시는 검증 전입니다">실제 게시 (검증 전)</button>' +
+    '<button class="btn" disabled title="다음 단계">광고 수정</button>' +
+    '<button class="btn" disabled title="다음 단계">광고 내림</button>' +
+    '</div></div>';
+  h += '</div></div>';
+  return h;
+}
+
+/* ── 촬영필요 ──────────────────────────────────────────────────── */
+function viewPhoto(){
+  if(DB.err) return crumb() + '<div class="h1row"><h1>촬영 필요</h1></div>' + keyBox();
+  var t = photoTasks();
+  var byBld = {};
+  t.forEach(function(x){ byBld[x.o.apt || '(건물 미상)'] = (byBld[x.o.apt || '(건물 미상)'] || 0) + 1; });
+  var h = crumb() +
+    '<div class="h1row"><h1>촬영 필요</h1><span class="cnt">총 <b>' + t.length + '</b>건 · 건물 <b>' +
+      Object.keys(byBld).length + '</b>곳</span></div>' +
+    '<div class="kpis">' +
+      kpi('촬영 필요', t.length, t.length?'b':'', '') +
+      kpi('접수 상태', t.filter(function(x){ return x.o.status === '접수'; }).length, 'w', '') +
+      kpi('건물 외관만 있음', t.filter(function(x){ return x.ph.code === 'BUILDING_ONLY'; }).length, '', '') +
+      kpi('사진 아예 없음', t.filter(function(x){ return x.ph.code === 'PHOTO_REQUIRED'; }).length, '', '') +
+    '</div>' +
+    '<div class="note i">🔴 출입 비밀번호는 이 목록에 표시하지 않습니다. 필요하면 매물 상세에서 권한 확인 후 봅니다.</div>' +
+    '<div class="card"><div class="tblwrap"><table>' +
+    '<colgroup><col style="width:104px"><col style="width:150px"><col style="width:68px"><col>' +
+    '<col style="width:110px"><col style="width:80px"><col style="width:84px"><col style="width:74px"></colgroup>' +
+    '<thead><tr><th>매물번호</th><th>건물</th><th>호실</th><th>주소</th><th>사진상태</th>' +
+    '<th>연락</th><th>담당</th><th>우선순위</th></tr></thead><tbody>';
+  if(!t.length) h += '<tr><td colspan="8" class="empty">촬영이 필요한 매물이 없습니다</td></tr>';
+  t.forEach(function(x, i){
+    var o = x.o;
+    var phone = String(o.cphone || '').trim();
+    h += '<tr onclick="AD_SEL=&#39;' + esc(o.id) + '&#39;;go(&#39;ad&#39;,&#39;admgr&#39;)">' +
+      '<td class="mono">' + esc(o.id) + '</td>' +
+      '<td><span class="ell">' + esc(o.apt||'-') + '</span></td>' +
+      '<td>' + esc(o.addr2||'-') + '</td>' +
+      '<td><span class="ell">' + esc(o.addr||'-') + '</span></td>' +
+      '<td>' + (x.ph.code === 'BUILDING_ONLY' ? '<span class="pill p-warn">건물 외관만</span>'
+                                              : '<span class="pill p-bad">사진 없음</span>') + '</td>' +
+      '<td class="mono"><span class="ell">' + esc(phone ? phoneShow(phone) : '-') + '</span></td>' +
+      '<td>' + esc(o.agent || '-') + '</td>' +
+      '<td>' + (o.status === '접수' ? '<span class="pill p-bad">높음</span>'
+                                    : '<span class="pill p-mute">보통</span>') + '</td></tr>';
+  });
+  h += '</tbody></table></div><div class="actbar">' +
+    '<button class="btn" disabled title="다음 단계">촬영 일정 잡기</button>' +
+    '<button class="btn" disabled title="다음 단계">임대인에게 연락</button>' +
+    '<span style="flex:1"></span>' +
+    '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 문자 발송 0건</span>' +
+    '</div></div>';
+  return h;
+}
+
 /* ── 라우팅 ── */
 var SEARCH = '';
 function route(){
@@ -1128,6 +1514,8 @@ function route(){
   if(DB.loading && !DB.inbox){ m.innerHTML = crumb() + '<div class="card"><div class="empty">불러오는 중…</div></div>'; return; }
   if(CUR.m2 === 'today') m.innerHTML = viewToday();
   else if(CUR.m2 === 'inbox') m.innerHTML = viewInbox();
+  else if(CUR.m2 === 'admgr') m.innerHTML = viewAd();
+  else if(CUR.m2 === 'photo') m.innerHTML = viewPhoto();
   else {
     var g = MENU.filter(function(x){ return x[0]===CUR.m1; })[0];
     var s = g[2].filter(function(x){ return x[0]===CUR.m2; })[0];
