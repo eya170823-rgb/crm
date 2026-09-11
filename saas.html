@@ -1048,7 +1048,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 11:58</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 13:27</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -19366,6 +19366,16 @@ function vxClassify(u, cols){
   /* 먼저 위험 사유 */
   if(u._badRent) o.issue.push({ code: 'OCR_DIGIT_CORRUPTION', field: '월세', raw: u._badRent.raw, why: u._badRent.why });
   if(u._badDep) o.issue.push({ code: 'OCR_DIGIT_CORRUPTION', field: '보증금', raw: u._badDep.raw, why: u._badDep.why });
+  /* 🔴 A2-9C 거짓 SAME 방지 — 비교할 핵심 열(월세) 자체를 못 읽었는데 기존 매물을
+     '바뀐 것 없음'으로 단정하면 안 된다. A2-9B 실측: 원문이 400자로 잘려 월세 0/9 이었고
+     EXACT_1 5건이 전부 SAME 으로 보였다(가격변경 2건을 놓쳤다).
+     '후보값 없으면 기존값 유지' 원칙은 그대로다 — 저장을 바꾸는 것이 아니라
+     사람에게 올릴 뿐이다. 기존 REVIEW_REQUIRED 를 쓴다(새 분류 안 만든다). */
+  if(o.match === 'EXACT_1' && cols && cols.got && cols.rent === false
+     && !String(u.rentAmt == null ? '' : u.rentAmt).trim()){
+    o.issue.push({ code: 'PRICE_COLUMN_UNREAD', field: '월세', raw: '',
+                   why: '공실표의 월세 열을 읽지 못했습니다 (' + cols.got.rent + '/' + cols.got.room + ')' });
+  }
   if(o.match === 'MULTI_MATCH') o.issue.push({ code: 'MULTI_MATCH', why: '같은 호실이 여러 건' });
   /* 값 비교 — 🔴 후보값이 비면 비교하지 않는다(기존값 유지) */
   if(o.match === 'EXACT_1'){
@@ -19529,7 +19539,9 @@ function vxCard(c){
       var is = c.issue[q];
       var cur = c.row ? String(c.row[is.field === '월세' ? 'rentAmt' : 'price'] || '') : '';
       h += '<div class="vx-b">기존 ' + gEsc(is.field) + ' <b>' + gEsc(cur || '(빈칸)') + '만</b></div>'
-        + '<div class="vx-w">OCR 원문 <b>' + gEsc(is.raw || '') + '</b> · 판독불가 (' + gEsc(is.why || '') + ')</div>';
+        + '<div class="vx-w">' + (is.raw ? ('OCR 원문 <b>' + gEsc(is.raw) + '</b> · 판독불가 ') : '')
+        + '(' + gEsc(is.why || '') + ')'
+        + (is.raw ? '' : ' — 🔴 이 공실표만으로는 바뀌었는지 알 수 없습니다') + '</div>';
       var guess = is.raw ? vxDigits(String(is.raw)) : null;
       var gm = guess ? String(Math.round(Number(guess.length >= 6 ? guess : guess + '0') / 10000)) : '';
       h += '<div class="vx-act">'
@@ -19595,6 +19607,12 @@ function vxCards(){
   if(!s.cols.dir) miss.push('방향(' + s.cols.got.dir + '/' + s.cols.got.room + ')');
   if(miss.length) h += '<div class="vx-w" style="margin:8px 0 0">읽힌 개수가 호실 수와 달라 비워 둔 칸: '
     + gEsc(miss.join(' · ')) + ' — 🔴 추측해서 채우지 않았습니다</div>';
+  /* 🔴 A2-9C — 월세는 가격변경 판단의 핵심이라 따로 크게 알린다.
+     월세를 한 개도 못 읽었거나 호실 수와 맞지 않으면 '바뀐 것 없음'을 믿어선 안 된다. */
+  if(!s.cols.rent) h += '<div class="vx-w" style="margin:8px 0 0;border-color:#DC2626;color:#B91C1C">'
+    + '🔴 월세를 읽지 못했습니다 (' + s.cols.got.rent + '/' + s.cols.got.room + ')'
+    + ' — 가격변경 여부를 판단할 수 없습니다. 🔴 기존 매물은 「바뀐 것 없음」으로 넘기지 않고'
+    + ' <b>확인필요</b>로 올립니다</div>';
   h += '</div>';
   var body = '';
   for(i = 0; i < C.length; i++) if(C[i].classification !== 'SAME') body += vxCard(C[i]);
