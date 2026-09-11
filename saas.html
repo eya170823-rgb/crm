@@ -525,6 +525,49 @@ table td,table th{font-size:12.5px}
 /* 📊 부서 현황 대시보드 — 각 부서 첫 화면 (2026-09-08 대표 지시) */
 .dd-wrap{display:grid;gap:14px}
 .dd-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+/* ═══ A2-8 공실 후보 승인함 (2026-09-11) ═══
+   🔴 기존 .dd-c/.dd-kpi/.dd-st/.ap-st 를 그대로 쓰고, 카드와 터치 크기만 더한다. */
+.vx-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.vx-warn{margin:9px 0 0;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;
+  border-radius:8px;padding:7px 10px;font-size:12px;line-height:1.5}
+.vx-list{display:grid;gap:10px;margin:10px 0 0}
+.vx-card{background:#fff;border:1px solid var(--border);border-left-width:4px;
+  border-radius:12px;padding:11px 13px}
+.vx-card.vx-new{border-left-color:#2563EB}
+.vx-card.vx-chg{border-left-color:#C2410C}
+.vx-card.vx-rev{border-left-color:#B91C1C}
+.vx-card.vx-same{border-left-color:#D1D5DB;opacity:.8}
+.vx-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 6px}
+.vx-hd b{font-size:15px}
+.dd-st.vx-new-st{background:#DBEAFE;color:#1D4ED8}
+.dd-st.vx-chg-st{background:#FFEDD5;color:#C2410C}
+.dd-st.vx-rev-st{background:#FEE2E2;color:#B91C1C}
+.dd-st.vx-same-st{background:var(--bg3);color:var(--t3)}
+.vx-b{font-size:13px;color:var(--t1);margin:2px 0}
+.vx-w{font-size:12px;color:#B45309;margin:4px 0 0;line-height:1.5}
+.vx-chgrow{display:flex;align-items:baseline;gap:8px;font-size:15px;margin:4px 0}
+.vx-chgrow span{font-size:12px;color:var(--t3);min-width:52px}
+.vx-to{color:#C2410C}
+.vx-act{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0 0}
+/* 🔴 터치 목표 — 모바일에서 44px 이상. 승인/보류는 되돌리기 어려워 오터치가 위험하다 */
+.vx-btn{min-height:34px;padding:7px 13px;border:1px solid var(--border);background:#fff;
+  border-radius:9px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer}
+.vx-btn:hover{border-color:var(--navy);color:var(--navy)}
+.vx-btn.ok{background:#0F6E56;border-color:#0F6E56;color:#fff}
+.vx-d{margin:8px 0 0;border-top:1px dashed var(--border);padding-top:7px}
+.vx-dh,.vx-drow{display:grid;grid-template-columns:70px 1fr 1fr 96px;gap:6px;font-size:12px;padding:3px 0}
+.vx-dh{color:var(--t3);font-weight:700;border-bottom:1px solid var(--border)}
+.vx-drow i{font-style:normal;color:var(--t3)}
+.vx-foot{margin:12px 0 0;font-size:12px;color:#B91C1C;font-weight:600}
+#vx-back{margin:0 0 10px}
+@media(max-width:620px){
+  .vx-btn{min-height:44px;padding:11px 14px;font-size:13.5px;flex:1 1 auto}
+  .vx-act{gap:7px}
+  .vx-list{gap:12px}
+  .vx-dh,.vx-drow{grid-template-columns:58px 1fr 1fr;font-size:11.5px}
+  .vx-dh i,.vx-drow i{display:none}
+  .vx-chgrow{font-size:16px}
+}
 .dd-row{display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start}
 .dd-row3{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 .dd-c{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 15px;box-shadow:var(--sh)}
@@ -1005,7 +1048,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 08:35</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 11:58</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -19147,6 +19190,203 @@ function pzOpenWith(txt, msg){
   }, 420);
 }
 
+/* ══ 🏢 A2-8 공실표 후보 승인함 — 구조화·분류 (2026-09-11) ══
+   🔴 A2-4 구조화 · A2-5 EXACT 대조 · A2-6 분류 규칙을 그대로 옮긴 것이다.
+   🔴 생성기 백틱 템플릿 안이라 정규식을 쓰지 않는다 — indexOf/charAt 으로만 읽는다.
+   🔴 이 블록은 아무것도 저장하지 않는다. 화면에 보여 줄 후보를 만들 뿐이다. */
+var VX_GARBAGE = '叫匍따側開%';
+function vxDigits(s){
+  var t = '', c;
+  for(var i = 0; i < s.length; i++){
+    c = s.charAt(i);
+    if(c >= '0' && c <= '9') t += c;
+    else if(VX_GARBAGE.indexOf(c) >= 0) t += '0';
+    else if(c === ',' || c === '.' || c === ' ') continue;
+    else return null;
+  }
+  return t.length ? t : null;
+}
+function vxMoney(s){
+  var d = vxDigits(String(s || ''));
+  return d === null ? null : { n: Number(d), raw: String(s) };
+}
+function vxAllDigit(s){
+  if(!s.length) return false;
+  for(var i = 0; i < s.length; i++){ var c = s.charAt(i); if(c < '0' || c > '9') return false; }
+  return true;
+}
+function vxIsRoom(l){
+  var last = l.charAt(l.length - 1);
+  if(last !== '호' && last !== '모') return false;
+  var head = l.slice(0, l.length - 1).split(' ').join('');
+  return head.length >= 2 && head.length <= 4 && vxAllDigit(head);
+}
+function vxIsDir(l){ return ['북향','서향','남향','동향'].indexOf(l) >= 0; }
+function vxIsGubun(l){ return l === '본사' || l === '위탁'; }
+function vxIsMoney(l){
+  if(l.length < 5) return false;
+  var c0 = l.charAt(0);
+  if(c0 < '0' || c0 > '9') return false;
+  for(var i = 0; i < l.length; i++){
+    var c = l.charAt(i);
+    if(c >= '0' && c <= '9') continue;
+    if(',. '.indexOf(c) >= 0) continue;
+    if(VX_GARBAGE.indexOf(c) >= 0) continue;
+    return false;
+  }
+  return true;
+}
+/* 열 안에서 흔한 자릿수와 다르면 고치지 않고 표시만 한다 */
+function vxDigitGuard(arr){
+  var len = {}, best = 0, bestN = 0, i, L;
+  for(i = 0; i < arr.length; i++){ if(arr[i] && arr[i].n != null){ L = String(arr[i].n).length; len[L] = (len[L] || 0) + 1; } }
+  for(L in len){ if(len[L] > bestN){ bestN = len[L]; best = Number(L); } }
+  for(i = 0; i < arr.length; i++){
+    if(arr[i] && arr[i].n != null && String(arr[i].n).length !== best){
+      arr[i].bad = '자릿수 ' + String(arr[i].n).length + ' ≠ 이 열의 보통 ' + best;
+    }
+  }
+  return arr;
+}
+function vxLabelAt(lines, want, from){
+  for(var i = (from || 0); i < lines.length; i++){ if(lines[i].indexOf(want) >= 0) return i; }
+  return -1;
+}
+/* 🔴 OCR 원문 한 장 → 호실 후보 배열. 열마다 개수가 호실 수와 다르면 **비워 둔다**(추측 배정 금지) */
+function vxUnits(text){
+  var raw = String(text || '');
+  var lines = [], parts = raw.split(String.fromCharCode(10)), i;
+  for(i = 0; i < parts.length; i++){ var t = parts[i].split(' ').join(' ').trim(); if(t) lines.push(t); }
+  var rooms = [], dirs = [], gubun = [], vacs = [];
+  for(i = 0; i < lines.length; i++){
+    var l = lines[i];
+    if(vxIsRoom(l)){ var r = l.split(' ').join(''); rooms.push(r.charAt(r.length - 1) === '모' ? (r.slice(0, r.length - 1) + '호') : r); }
+    else if(vxIsDir(l)) dirs.push(l);
+    else if(vxIsGubun(l)) gubun.push(l);
+    else if(l === '빈집' || l === '비지' || l === '비XI' || l === '비기' || l === '비집') vacs.push('빈집');
+    else if(l.indexOf('/') > 0 && l.length <= 5 && vxAllDigit(l.split('/').join(''))) vacs.push(l);
+    else if(l.indexOf('여유') > 0) vacs.push(l);
+  }
+  var N = rooms.length;
+  if(!N) return { units: [], head: {}, cols: {} };
+  /* 금액은 라벨 사이를 잘라 가른다 — 값 크기로 가르면 OCR 깨짐 때문에 뒤집힌다 */
+  var iDep = vxLabelAt(lines, '보증금', 0);
+  var iRent = vxLabelAt(lines, '세(원)', iDep < 0 ? 0 : iDep + 1);
+  if(iRent < 0) iRent = vxLabelAt(lines, '월세', iDep < 0 ? 0 : iDep + 1);
+  var iEnd = vxLabelAt(lines, '특약', iRent < 0 ? 0 : iRent + 1);
+  if(iEnd < 0) iEnd = lines.length;
+  var between = function(a, b){
+    var out = [];
+    if(a < 0) return out;
+    for(var k = a + 1; k < (b < 0 ? lines.length : b); k++){ if(vxIsMoney(lines[k])) out.push(vxMoney(lines[k])); }
+    return out;
+  };
+  var dep = vxDigitGuard(between(iDep, iRent));
+  var rent = vxDigitGuard(between(iRent, iEnd));
+  /* 머리글 */
+  var head = { apt: '', addr: '', pw: '', feeAmt: '' };
+  /* 🔴 건물명 줄은 첫 줄이 아닐 수 있다 — 사진문자처리.py 가 맨 앞에
+     '[사진문자 판독] (파일명)' 을 붙인다(실측). 그래서 <<...>> 를 전체에서 찾는다. */
+  var first = '';
+  for(var fi = 0; fi < lines.length && fi < 6; fi++){
+    if(lines[fi].indexOf('<<') >= 0 && lines[fi].indexOf('>>') > 0){ first = lines[fi]; break; }
+  }
+  if(!first) first = lines[0] || '';
+  if(first.indexOf('<<') >= 0 && first.indexOf('>>') > 0){
+    var nm = first.slice(first.indexOf('<<') + 2, first.indexOf('>>')).trim();
+    if(nm.indexOf(' 임대') > 0) nm = nm.slice(0, nm.indexOf(' 임대'));
+    if(nm.indexOf(' 공실') > 0) nm = nm.slice(0, nm.indexOf(' 공실'));
+    head.apt = nm.trim();
+  }
+  var ia = raw.indexOf('주소 :');
+  if(ia >= 0){
+    var seg = raw.slice(ia + 4, ia + 60).split(String.fromCharCode(10))[0];
+    var cut = seg.indexOf('공동현관');
+    head.addr = (cut > 0 ? seg.slice(0, cut) : seg).trim();
+  }
+  var ip = raw.indexOf('비번 :');
+  if(ip >= 0) head.pw = raw.slice(ip + 4, ip + 34).split(String.fromCharCode(10))[0].trim();
+  var ifee = raw.indexOf('관리비');
+  if(ifee >= 0){
+    var fseg = raw.slice(ifee, ifee + 24);
+    var im = fseg.indexOf('만원');
+    if(im > 0){
+      var num = '';
+      for(var q = im - 1; q >= 0; q--){ var cc = fseg.charAt(q); if(cc >= '0' && cc <= '9') num = cc + num; else if(num) break; }
+      head.feeAmt = num;
+    }
+  }
+  var cols = { gubun: gubun.length === N, vac: vacs.length === N, dir: dirs.length === N,
+               dep: dep.length === N, rent: rent.length === N,
+               got: { gubun: gubun.length, vac: vacs.length, dir: dirs.length, dep: dep.length, rent: rent.length, room: N } };
+  var man = function(n){ return n == null ? '' : String(Math.round(n / 10000)); };
+  var units = [];
+  for(i = 0; i < N; i++){
+    var d = cols.dep ? dep[i] : null, r = cols.rent ? rent[i] : null;
+    var va = cols.vac ? vacs[i] : null;
+    var avail = '';
+    if(va === '빈집') avail = '즉시입주';
+    else if(va && va.indexOf('/') > 0){
+      var mm = va.split('/');
+      avail = '2026-' + ('0' + mm[0]).slice(-2) + '-' + ('0' + mm[1]).slice(-2);
+    }
+    units.push({
+      apt: head.apt, addr: head.addr, addr2: rooms[i],
+      type: (r && !r.bad) ? '월세' : '',
+      price: (d && !d.bad) ? man(d.n) : '',
+      rentAmt: (r && !r.bad) ? man(r.n) : '',
+      feeType: head.feeAmt ? '정액 관리비' : '', feeAmt: head.feeAmt,
+      availDate: avail, direction: cols.dir ? dirs[i] : '',
+      _gubun: cols.gubun ? gubun[i] : '',
+      _badRent: (r && r.bad) ? { why: r.bad, raw: r.raw } : null,
+      _badDep: (d && d.bad) ? { why: d.bad, raw: d.raw } : null,
+      _pw: head.pw
+    });
+  }
+  return { units: units, head: head, cols: cols };
+}
+/* 🔴 A2-6 분류 — 안전한 쪽이 이긴다:
+   REVIEW_REQUIRED > VACANCY_CLOSED > CHANGE > NEW > SAME */
+var VX_CMP = [['price','PRICE_CHANGE','보증금'],['rentAmt','PRICE_CHANGE','월세'],
+              ['direction','DIRECTION_CHANGE','방향'],['feeAmt','FEE_CHANGE','관리비'],
+              ['availDate','AVAILABLE_DATE_CHANGE','입주가능'],['type','TRADE_TYPE_CHANGE','거래유형']];
+function vxNk(s){ return String(s || '').split(' ').join('').trim(); }
+function vxClassify(u, cols){
+  var L = [], i;
+  try{ L = ddArr('listings') || []; }catch(e){ L = []; }
+  var bldg = [];
+  for(i = 0; i < L.length; i++) if(vxNk(L[i].apt) === vxNk(u.apt)) bldg.push(L[i]);
+  var hit = [];
+  for(i = 0; i < bldg.length; i++) if(vxNk(bldg[i].addr2) === vxNk(u.addr2)) hit.push(bldg[i]);
+  var o = { unit: u.addr2, building: u.apt, before: {}, candidate: {}, labels: {},
+            changeReason: [], issue: [], listingId: '', requiresApproval: true, preview: '' };
+  if(hit.length === 1){ o.match = 'EXACT_1'; o.listingId = String(hit[0].id || ''); o.row = hit[0]; }
+  else if(hit.length === 0) o.match = 'EXACT_0';
+  else { o.match = 'MULTI_MATCH'; o.listingId = hit.map(function(x){ return x.id; }).join(','); }
+  /* 먼저 위험 사유 */
+  if(u._badRent) o.issue.push({ code: 'OCR_DIGIT_CORRUPTION', field: '월세', raw: u._badRent.raw, why: u._badRent.why });
+  if(u._badDep) o.issue.push({ code: 'OCR_DIGIT_CORRUPTION', field: '보증금', raw: u._badDep.raw, why: u._badDep.why });
+  if(o.match === 'MULTI_MATCH') o.issue.push({ code: 'MULTI_MATCH', why: '같은 호실이 여러 건' });
+  /* 값 비교 — 🔴 후보값이 비면 비교하지 않는다(기존값 유지) */
+  if(o.match === 'EXACT_1'){
+    for(i = 0; i < VX_CMP.length; i++){
+      var f = VX_CMP[i][0], ov = String(o.row[f] == null ? '' : o.row[f]).trim(), cv = String(u[f] == null ? '' : u[f]).trim();
+      if(!cv) continue;
+      if(ov && ov !== cv){
+        o.before[f] = ov; o.candidate[f] = cv; o.labels[f] = VX_CMP[i][2];
+        if(o.changeReason.indexOf(VX_CMP[i][1]) < 0) o.changeReason.push(VX_CMP[i][1]);
+      }
+    }
+  }
+  if(o.issue.length) o.classification = 'REVIEW_REQUIRED';
+  else if(o.match === 'EXACT_1' && o.changeReason.length) o.classification = 'CHANGE_CANDIDATE';
+  else if(o.match === 'EXACT_0') o.classification = 'NEW_CANDIDATE';
+  else if(o.match === 'EXACT_1'){ o.classification = 'SAME'; o.requiresApproval = false; }
+  else o.classification = 'REVIEW_REQUIRED';
+  o.src = u;
+  return o;
+}
+
 /* ══ 🏢 공실 문자 → 매물 (2026-09-09 전수조사 TOP10 8번) ══
    server.py 가 '공실현황' 탭에 쌓는 공실 문자가 매물로 갈 길이 없었다.
    최근 것을 건물별로 보여 주고, 인입함→매물과 같은 길로 보낸다. 🔴 자동 등록 없음. */
@@ -19154,7 +19394,9 @@ let vxRows = null;
 function vxToggle(){
   const box = document.getElementById('lx-vac'); if(!box) return;
   box.classList.toggle('off');
-  if(!box.classList.contains('off') && vxRows === null) vxLoad();
+  /* 🔴 접으면 표를 반드시 되살린다 — 표가 사라진 채로 남으면 안 된다 */
+  if(box.classList.contains('off')){ try{ vxFold(false); }catch(e){} return; }
+  if(vxRows === null) vxLoad();
 }
 function vxLoad(){
   const box = document.getElementById('lx-vac'); if(!box) return;
@@ -19169,34 +19411,230 @@ function vxLoad(){
       vxRender(j.result && j.result.total);
     }).catch(e => { vxRows = []; box.innerHTML = '<div class="dd-c pz-red"><div class="s">불러오지 못했습니다: ' + gEsc(String(e && e.message || e)) + '</div></div>'; });
 }
+/* 🔴 A2-8 — 공실 후보 승인함.
+   이번 단계에서는 **아무것도 저장하지 않는다**. 누른 결과는 화면 안 미리보기 상태로만 남는다.
+   gsUpsertOne · save · genListingNo 를 부르지 않는다. */
+var VX_PICK = {};      /* 호실 -> 사람이 고른 것(미리보기) */
+var VX_SHOWSAME = false;
+var VX_CUR = null;     /* 지금 보고 있는 공실표 한 장 */
+function vxMoneyMan(v){ var s = String(v == null ? '' : v).trim(); return s ? (s + '만') : ''; }
+/* 표를 접었다 폈다 — 승인함을 열면 표가 화면 밖으로 밀리는 것을 막는다(실측 488px) */
+function vxFold(on){
+  var host = document.getElementById('p-listing');
+  if(!host) return;
+  var wrap = host.querySelector('.listing-table-wrap');
+  var cock = document.getElementById('fc-g1');
+  if(wrap) wrap.style.display = on ? 'none' : '';
+  if(cock) cock.style.display = on ? 'none' : '';
+  var b = document.getElementById('vx-back');
+  if(b) b.style.display = on ? '' : 'none';
+}
+function vxClose(){
+  var box = document.getElementById('lx-vac');
+  if(box) box.classList.add('off');
+  vxFold(false);
+}
+/* 공실표 한 장을 골라 후보로 펼친다 */
+function vxOpen(i){
+  var r = (vxRows || [])[i];
+  if(!r){ try{ showToast('그 줄을 찾지 못했습니다'); }catch(e){} return; }
+  var s = vxUnits(r.text);
+  if(!s.units.length){
+    try{ showToast('이 글에서는 호실을 찾지 못했습니다 — 표가 아닌 문자일 수 있습니다'); }catch(e){}
+    return;
+  }
+  VX_CUR = { row: r, struct: s, cands: [] };
+  for(var k = 0; k < s.units.length; k++) VX_CUR.cands.push(vxClassify(s.units[k], s.cols));
+  VX_PICK = {};
+  VX_SHOWSAME = false;
+  vxFold(true);
+  vxCards();
+}
+function vxCount(kind){
+  var n = 0, c = (VX_CUR && VX_CUR.cands) || [];
+  for(var i = 0; i < c.length; i++) if(c[i].classification === kind) n++;
+  return n;
+}
+/* 사람이 누른 것만 미리보기 상태로 기록한다 — 🔴 저장하지 않는다 */
+function vxPick(unit, act, val){
+  VX_PICK[unit] = { act: act, val: (val === undefined ? null : val) };
+  var msg = { approve: '승인 예정으로 표시했습니다', keep: '기존값 유지로 표시했습니다',
+              hold: '보류로 표시했습니다', fix: '값을 확인으로 표시했습니다' }[act] || '표시했습니다';
+  try{ showToast(msg + ' — 🔴 아직 저장되지 않았습니다'); }catch(e){}
+  vxCards();
+}
+function vxInput(unit){
+  var v = prompt('월세를 만원 단위 숫자로 넣어 주세요 (예: 47)');
+  if(v === null) return;
+  v = String(v).trim();
+  if(!v || !vxAllDigit(v)){ try{ showToast('숫자만 넣어 주세요'); }catch(e){} return; }
+  vxPick(unit, 'fix', v);
+}
+/* 원본보기 — 🔴 기존 자료만 쓴다. OCR 원문은 바로, 이미지는 다음 단계. */
+function vxRaw(){
+  if(!VX_CUR) return;
+  var t = String(VX_CUR.row.text || '');
+  var file = '';
+  var ib = t.indexOf('(');
+  if(t.indexOf('사진문자 판독') >= 0 && ib > 0) file = t.slice(ib + 1, t.indexOf(')', ib));
+  var box = document.getElementById('vx-raw');
+  if(!box) return;
+  var on = box.className.indexOf('off') >= 0;
+  box.className = on ? '' : 'off';
+  if(!on) return;
+  box.innerHTML = '<div class="dd-h">원본</div>'
+    + (file ? ('<div class="s">원본 이미지 파일: <b>' + gEsc(file) + '</b> · 드라이브 「문자사진」 폴더'
+        + '<br>🔴 이미지 바로보기는 다음 단계에서 붙입니다(서버 읽기 기능 필요).</div>') : '')
+    + '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11.5px;'
+    + 'max-height:40vh;overflow:auto;background:#F9FAFB;border:1px solid #E5E7EB;'
+    + 'border-radius:8px;padding:9px;margin:8px 0 0">' + gEsc(t) + '</pre>';
+}
+/* 카드 한 장 */
+function vxCard(c){
+  var u = c.src, pick = VX_PICK[c.unit];
+  var tag, cls;
+  if(c.classification === 'NEW_CANDIDATE'){ tag = '🔵 신규'; cls = 'vx-new'; }
+  else if(c.classification === 'CHANGE_CANDIDATE'){ tag = '🟠 가격변경'; cls = 'vx-chg'; }
+  else if(c.classification === 'REVIEW_REQUIRED'){ tag = '🔴 확인필요'; cls = 'vx-rev'; }
+  else { tag = '⚪ 동일'; cls = 'vx-same'; }
+  var h = '<div class="vx-card ' + cls + '">'
+    + '<div class="vx-hd"><span class="dd-st ' + cls + '-st">' + tag + '</span>'
+    + '<b>' + gEsc(c.unit) + '</b>'
+    + (pick ? ('<span class="ap-st s2">' + gEsc({ approve: '승인 예정', keep: '기존값 유지',
+        hold: '보류', fix: '확인 ' + (pick.val || '') + '만' }[pick.act] || '표시') + '</span>') : '')
+    + '</div>';
+  if(c.classification === 'NEW_CANDIDATE'){
+    h += '<div class="vx-b">' + gEsc([u.rentAmt ? ('월세 ' + u.rentAmt + '만') : '',
+          u.feeAmt ? ('관리비 ' + u.feeAmt + '만') : '', u.direction].filter(Boolean).join(' · ')) + '</div>';
+    var miss = [];
+    if(!String(u.price || '').trim()) miss.push('보증금');
+    if(!String(u.availDate || '').trim()) miss.push('입주일');
+    if(miss.length) h += '<div class="vx-w">' + gEsc(miss.join(' · ')) + ': 확인필요</div>';
+    h += '<div class="vx-act">'
+      + '<button class="vx-btn ok" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;approve&#39;)">승인</button>'
+      + '<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;hold&#39;)">보류</button></div>';
+  } else if(c.classification === 'CHANGE_CANDIDATE'){
+    for(var f in c.before){
+      h += '<div class="vx-chgrow"><span>' + gEsc(c.labels[f] || f) + '</span>'
+        + '<b>' + gEsc(c.before[f]) + '만</b> → <b class="vx-to">' + gEsc(c.candidate[f]) + '만</b></div>';
+    }
+    h += '<div class="vx-act">'
+      + '<button class="vx-btn ok" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;approve&#39;)">승인</button>'
+      + '<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;keep&#39;)">기존유지</button>'
+      + '<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;hold&#39;)">보류</button>'
+      + '<button class="vx-btn" onclick="vxDetail(&#39;' + gAttr(c.unit) + '&#39;)">상세보기</button></div>'
+      + '<div id="vxd-' + gAttr(c.unit) + '" class="off vx-d"></div>';
+  } else if(c.classification === 'REVIEW_REQUIRED'){
+    for(var q = 0; q < c.issue.length; q++){
+      var is = c.issue[q];
+      var cur = c.row ? String(c.row[is.field === '월세' ? 'rentAmt' : 'price'] || '') : '';
+      h += '<div class="vx-b">기존 ' + gEsc(is.field) + ' <b>' + gEsc(cur || '(빈칸)') + '만</b></div>'
+        + '<div class="vx-w">OCR 원문 <b>' + gEsc(is.raw || '') + '</b> · 판독불가 (' + gEsc(is.why || '') + ')</div>';
+      var guess = is.raw ? vxDigits(String(is.raw)) : null;
+      var gm = guess ? String(Math.round(Number(guess.length >= 6 ? guess : guess + '0') / 10000)) : '';
+      h += '<div class="vx-act">'
+        + '<button class="vx-btn" onclick="vxRaw()">원본보기</button>'
+        + (gm ? ('<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;fix&#39;,&#39;'
+            + gAttr(gm) + '&#39;)">' + gEsc(gm) + '만으로 확인</button>') : '')
+        + '<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;keep&#39;)">기존 '
+        + gEsc(cur || '') + '만 유지</button>'
+        + '<button class="vx-btn" onclick="vxInput(&#39;' + gAttr(c.unit) + '&#39;)">직접입력</button>'
+        + '<button class="vx-btn" onclick="vxPick(&#39;' + gAttr(c.unit) + '&#39;,&#39;hold&#39;)">보류</button></div>';
+    }
+  } else {
+    h += '<div class="vx-b">' + gEsc([u.rentAmt ? ('월세 ' + u.rentAmt + '만') : '', u.direction]
+         .filter(Boolean).join(' · ')) + ' — 바뀐 것 없음</div>';
+  }
+  return h + '</div>';
+}
+function vxDetail(unit){
+  var el = document.getElementById('vxd-' + unit);
+  if(!el || !VX_CUR) return;
+  var c = null, i;
+  for(i = 0; i < VX_CUR.cands.length; i++) if(VX_CUR.cands[i].unit === unit) c = VX_CUR.cands[i];
+  if(!c) return;
+  var on = el.className.indexOf('off') >= 0;
+  el.className = on ? 'vx-d' : 'off vx-d';
+  if(!on) return;
+  var rowsH = '';
+  for(i = 0; i < VX_CMP.length; i++){
+    var f = VX_CMP[i][0];
+    var ov = c.row ? String(c.row[f] == null ? '' : c.row[f]) : '';
+    var cv = String(c.src[f] == null ? '' : c.src[f]);
+    var j = !cv ? '후보값 없음 → 기존값 유지' : (!ov ? '기존값 없음' : (ov === cv ? '동일' : '변경'));
+    rowsH += '<div class="vx-drow"><span>' + gEsc(VX_CMP[i][2]) + '</span><b>' + gEsc(ov || '-')
+      + '</b><b>' + gEsc(cv || '-') + '</b><i>' + gEsc(j) + '</i></div>';
+  }
+  el.innerHTML = '<div class="vx-dh"><span>항목</span><b>기존</b><b>후보</b><i>판정</i></div>' + rowsH;
+}
+/* 후보 목록 화면 */
+function vxCards(){
+  var box = document.getElementById('lx-vac');
+  if(!box || !VX_CUR) return;
+  var r = VX_CUR.row, s = VX_CUR.struct, C = VX_CUR.cands, i;
+  var nNew = vxCount('NEW_CANDIDATE'), nChg = vxCount('CHANGE_CANDIDATE');
+  var nRev = vxCount('REVIEW_REQUIRED'), nSame = vxCount('SAME');
+  var full = String(r.text || '').indexOf('페이지') >= 0;
+  var h = '<div class="dd-c">'
+    + '<div class="vx-top"><div><b style="font-size:15px">' + gEsc(s.head.apt || r.apt || '건물 모름') + '</b>'
+    + '<span class="s"> · ' + gEsc(String(r.when || '').slice(0, 10)) + ' 공실표</span></div>'
+    + '<div><button class="vx-btn" onclick="vxRaw()">원본보기</button> '
+    + '<button class="vx-btn" onclick="vxClose()">닫기</button></div></div>'
+    + '<div class="vx-warn">⚠ 전체 공실표 여부 미확인 — 이 자료만으로 기존 공실 종료를 판단하지 않습니다.'
+    + (full ? ' (원문에 「페이지」 표시가 있어 뒷장이 더 있을 수 있습니다)' : '') + '</div>'
+    + '<div class="dd-kpi" style="margin:10px 0 4px">'
+    + '<div class="dd-k"><span>신규</span><b>' + nNew + '</b></div>'
+    + '<div class="dd-k"><span>변경</span><b>' + nChg + '</b></div>'
+    + '<div class="dd-k"><span>확인</span><b>' + nRev + '</b></div>'
+    + '<div class="dd-k"><span>동일</span><b>' + nSame + '</b></div></div>'
+    + '<div id="vx-raw" class="off"></div>';
+  /* 열 읽힘 안내 — 비운 칸이 왜 비었는지 */
+  var miss = [];
+  if(!s.cols.dep) miss.push('보증금(' + s.cols.got.dep + '/' + s.cols.got.room + ')');
+  if(!s.cols.vac) miss.push('퇴실일(' + s.cols.got.vac + '/' + s.cols.got.room + ')');
+  if(!s.cols.dir) miss.push('방향(' + s.cols.got.dir + '/' + s.cols.got.room + ')');
+  if(miss.length) h += '<div class="vx-w" style="margin:8px 0 0">읽힌 개수가 호실 수와 달라 비워 둔 칸: '
+    + gEsc(miss.join(' · ')) + ' — 🔴 추측해서 채우지 않았습니다</div>';
+  h += '</div>';
+  var body = '';
+  for(i = 0; i < C.length; i++) if(C[i].classification !== 'SAME') body += vxCard(C[i]);
+  if(!body) body = '<div class="dd-empty">조치가 필요한 것이 없습니다</div>';
+  h += '<div class="vx-list">' + body + '</div>';
+  if(nSame){
+    h += '<div style="margin:10px 0"><button class="vx-btn" onclick="VX_SHOWSAME=!VX_SHOWSAME;vxCards()">'
+      + (VX_SHOWSAME ? '동일 ' + nSame + '건 접기' : '동일 ' + nSame + '건 보기') + '</button></div>';
+    if(VX_SHOWSAME){
+      var sb = '';
+      for(i = 0; i < C.length; i++) if(C[i].classification === 'SAME') sb += vxCard(C[i]);
+      h += '<div class="vx-list">' + sb + '</div>';
+    }
+  }
+  h += '<div class="vx-foot">🔴 이번 단계에서는 <b>저장되지 않습니다</b>. 고른 것은 화면에만 표시됩니다.</div>';
+  box.innerHTML = h;
+}
+/* 공실표 고르기 — 기존 표를 목록으로 쓴다 */
 function vxRender(total){
   const box = document.getElementById('lx-vac'); if(!box) return;
   const rows = vxRows || [];
-  // 우리 매물장에 이미 있는 건물은 표시해 준다(있는 건물의 새 호수일 수 있으니 숨기진 않는다)
-  // 매물명에서 호수를 떼고(에코힐튼823호 → 에코힐튼) 포함 관계로 맞춘다
-  const haveKeys = [];
-  ddArr('listings').forEach(l => { const k = String(l.apt || '').replace(/ /g, '').replace(/[0-9]+호/g, '').replace(/[0-9]+동/g, '');
-    if(k.length >= 2 && haveKeys.indexOf(k) < 0) haveKeys.push(k); });
-  const haveIt = (name) => { const k = String(name || '').replace(/ /g, '');
-    return !!k && haveKeys.some(h => k.indexOf(h) >= 0 || h.indexOf(k) >= 0); };
   const isDone = t => /계약(완료|됐|되었)|나갔|마감/.test(String(t || ''));
-  box.innerHTML = '<div class="dd-c"><div class="dd-h">🏢 공실 문자에서 매물 만들기 · 최근 ' + rows.length + '건 (전체 ' + (total || rows.length) + '건)</div>'
-    + '<div class="s" style="margin:-6px 0 10px">누르면 그 문자에서 매물 칸을 뽑아 줍니다. 저장은 확인하고 직접 하세요. '
-    + '"계약완료" 문자는 남이 뺀 방이라 새 공실 신호입니다.</div>'
-    + (rows.length ? '<div style="overflow-x:auto"><table class="dd-t"><thead><tr><th>날짜</th><th>건물</th><th>내용</th><th>보낸 번호</th><th></th></tr></thead><tbody>'
+  box.innerHTML = '<div class="dd-c"><div class="dd-h">🏢 공실 문자에서 후보 만들기 · 최근 ' + rows.length + '건 (전체 ' + (total || rows.length) + '건)</div>'
+    + '<div class="s" style="margin:-6px 0 10px">한 줄을 고르면 호실별 후보로 펼칩니다. '
+    + '🔴 이번 단계에서는 저장되지 않습니다.</div>'
+    + (rows.length ? '<div style="overflow-x:auto"><table class="dd-t"><thead><tr><th>날짜</th><th>건물</th><th>내용</th><th></th></tr></thead><tbody>'
       + rows.map((r, i) => {
-          const mine = haveIt(r.apt);
           const done = isDone(r.text);
           return '<tr' + (done ? ' style="color:var(--t3)"' : '') + '>'
             + '<td style="white-space:nowrap">' + gEsc(String(r.when || '').slice(0, 10)) + '</td>'
-            + '<td>' + gEsc(r.apt || '(건물 모름)') + (mine ? ' <span class="dd-st" style="background:#DCFCE7;color:#0F6E56">우리 매물 있음</span>' : '') + '</td>'
-            + '<td style="font-size:11.5px">' + gEsc(String(r.text || '').slice(0, 60)) + (done ? ' <b style="color:#B45309">← 남이 뺀 방</b>' : '') + '</td>'
-            + '<td style="white-space:nowrap">' + gEsc(r.phone || '') + '</td>'
-            + '<td><button class="dd-go" style="margin:0" onclick="vxToListing(' + i + ')">🏠 매물</button></td></tr>';
+            + '<td>' + gEsc(r.apt || '(건물 모름)') + '</td>'
+            + '<td style="font-size:11.5px">' + gEsc(String(r.text || '').slice(0, 54)) + (done ? ' <b style="color:#B45309">← 남이 뺀 방</b>' : '') + '</td>'
+            + '<td><button class="vx-btn" onclick="vxOpen(' + i + ')">후보 보기</button></td></tr>';
         }).join('') + '</tbody></table></div>'
       : '<div class="dd-empty">공실 문자가 없습니다</div>')
     + '<div style="margin-top:10px"><button class="btn btn-sm" onclick="vxRows=null;vxLoad()">다시 불러오기</button></div></div>';
 }
+/* 🔴 기존 vxToListing 은 지우지 않는다(다른 곳에서 쓸 수 있다) — 다만 승인함에서는 부르지 않는다.
+   호출처 전수조사: vxRender 안 1곳뿐이었고, 그 자리를 vxOpen 으로 바꿨다.
+   pzOpenWith 는 인입함(8785행)도 쓰므로 그대로 둔다. */
 function vxToListing(i){
   const r = (vxRows || [])[i]; if(!r){ showToast('그 줄을 찾지 못했습니다'); return; }
   const nl = String.fromCharCode(10);
@@ -19749,6 +20187,14 @@ function pzMount(){
   else { host.insertBefore(more, host.firstChild); host.insertBefore(wrap, more); }
   const vac = document.createElement('div'); vac.id = 'lx-vac'; vac.className = 'off'; vac.style.cssText = 'margin:0 0 12px';
   host.insertBefore(vac, more.nextSibling);
+  /* 🔴 A2-8 — 승인함을 열면 표를 접는다(실측: 안 접으면 표가 488px 밀려 화면 밖으로 나간다).
+     이 단추로 언제든 표로 돌아온다. 선택 매물·스크롤·탭은 건드리지 않는다. */
+  const back = document.createElement('button');
+  back.id = 'vx-back'; back.type = 'button'; back.className = 'vx-btn';
+  back.textContent = '▼ 매물 표 다시 보기';
+  back.style.display = 'none';
+  back.onclick = function(){ vxClose(); };
+  host.insertBefore(back, vac.nextSibling);
   try{ lcMount(); }catch(e){}
 }
 function pzRender(){
