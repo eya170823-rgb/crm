@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '0.4';
-var ERP_BUILD = '2026-09-11 20:05';
+var ERP_VER = '0.5';
+var ERP_BUILD = '2026-09-11 20:55';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -240,10 +240,10 @@ var MENU = [
   ['crm','영업CRM',[['inbox','통합 인입함',1],['cust','고객 명부',0],['lead','상담·리드',0],['visit','임장',0]]],
   ['ops','운영부',[['photo','촬영 필요',1],['listing','매물장',0],['vac','공실 승인함',0],['landlord','임대인 명부',0]]],
   ['ad','광고·마케팅',[['admgr','광고관리',1],['copy','광고문 작성',0],['adstat','광고 성과',0]]],
-  ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',0],['doc','공부·서류',0]]],
+  ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
   ['group','그룹웨어',[['appr','결재함',0],['sched','일정',0],['board','공지',0]]],
   ['data','데이터센터',[['collect','수집매물',0],['bldg','건물·대장',0],['stat','통계',0]]],
-  ['admin','관리부',[['staff','직원·권한',0],['cfg','환경설정',0],['log','변경이력',0]]]
+  ['admin','관리부',[['staff','직원·권한',1],['cfg','환경설정',0],['log','변경이력',0]]]
 ];
 var CUR = { m1:'today', m2:'today' };
 
@@ -1589,6 +1589,7 @@ function viewContract(){
     kpi('중개보수 미수', fee.length, fee.length?'b':'', "CT_FILT='fee';route()") +
   '</div>';
 
+  if(CT_FORM) return h + ctFormView();
   if(!all.length){
     h += '<div class="card"><div class="soonbox"><b>아직 계약 자료가 없습니다</b>' +
       '<div style="margin:8px 0 0">계약 시트가 비어 있습니다. 🔴 보여 줄 것을 만들어 내지 않습니다.<br>' +
@@ -1599,7 +1600,8 @@ function viewContract(){
       ['고객','매물','계약준비','특약','필요서류','계약일','잔금일','만기','재계약/재임대']
         .map(function(x, i){ return '<span class="pill p-mute">' + (i+1) + '. ' + x + '</span>'; }).join('') +
       '</div></div>' +
-      '<div style="margin-top:14px"><button class="btn" onclick="go(&#39;ops&#39;,&#39;photo&#39;)">촬영필요 보기</button> ' +
+      '<div style="margin-top:14px"><button class="btn pri" onclick="ctOpenNew(&#39;&#39;)">+ 계약 등록</button> ' +
+      '<button class="btn" onclick="go(&#39;ops&#39;,&#39;photo&#39;)">촬영필요 보기</button> ' +
       '<button class="btn" onclick="go(&#39;ad&#39;,&#39;admgr&#39;)">광고관리 보기</button></div>' +
       '</div></div>';
     h += ctDocPreview();
@@ -1624,7 +1626,7 @@ function viewContract(){
       '<td><span class="pill ' + st.cls + '">' + esc(st.code) + '</span></td></tr>';
   });
   h += '</tbody></table></div><div class="actbar">' +
-    '<button class="btn" disabled title="다음 단계">+ 계약 등록</button>' +
+    '<button class="btn pri" onclick="ctOpenNew(&#39;&#39;)">+ 계약 등록</button>' +
     '<button class="btn" disabled title="🔴 검증 전 — 자동 작성하지 않습니다">계약서 작성 (검증 전)</button>' +
     '<button class="btn" disabled title="🔴 검증 전 — 공부 발급은 자동 실행하지 않습니다">공부 발급 (검증 전)</button>' +
     '<span style="flex:1"></span>' +
@@ -1678,21 +1680,28 @@ function ctPanel(){
     });
     h += '</ul><div class="note i" style="margin-top:8px">🔴 계약 시작일(start)을 잔금일로 쓰지 않습니다 — 뜻이 다릅니다.</div>';
   } else if(CT_TAB === '필요서류'){
+    var got = CT_DOCSTATE[c.id] || {};
     h += '<ul class="steps">';
     CT_DOCS.forEach(function(d){
-      h += '<li><i>☐</i><span><b>' + esc(d[0]) + '</b><br><span style="color:var(--t3);font-size:12px">' +
-        esc(d[1]) + '</span></span></li>';
+      var on = got[d[0]] === '받음';
+      h += '<li><i>' + (on ? '✅' : '☐') + '</i><span><b>' + esc(d[0]) + '</b>' +
+        '<br><span style="color:var(--t3);font-size:12px">' + esc(d[1]) + '</span>' +
+        '<br><button class="btn sm" style="margin-top:4px" onclick="ctDocSave(&#39;' + esc(c.id) +
+        '&#39;,&#39;' + esc(d[0]) + '&#39;,' + (on ? 'false' : 'true') + ')">' +
+        (on ? '받음 취소' : '받음으로 표시') + '</button></span></li>';
     });
-    h += '</ul><div class="note b" style="margin-top:8px">🔴 체크 상태는 아직 저장하지 않습니다. ' +
-      '발급도 자동으로 걸지 않습니다(검증 전).</div>';
+    h += '</ul><div class="note b" style="margin-top:8px">🔴 표시는 <b>계약서류 표</b>에 한 건씩 저장됩니다. ' +
+      '서류 <b>발급</b>은 자동으로 걸지 않습니다(기존 발급요청 경로에서 사람이 합니다).</div>';
   } else if(CT_TAB === '특약'){
     var note = String(c.note || '').trim();
     h += note ? ('<pre class="raw">' + esc(maskSecret(note)) + '</pre>')
               : '<div class="empty" style="padding:14px">특약으로 적힌 내용이 없습니다</div>';
     h += '<div style="margin-top:10px"><textarea id="ct-sp" rows="5" placeholder="특약을 여기에 적습니다 (🔴 아직 저장되지 않습니다)" ' +
       'style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--t1)"></textarea>' +
-      '<div style="margin-top:6px"><button class="btn" disabled title="다음 단계">특약 저장</button></div>' +
-      '<div class="note b" style="margin-top:8px">🔴 지금은 적어 두는 자리만 있습니다. 저장 연결은 다음 단계입니다.</div></div>';
+      '<div style="margin-top:6px"><button class="btn pri" onclick="ctSpecSave(&#39;' + esc(c.id) +
+      '&#39;)">특약 저장</button></div>' +
+      '<div class="note b" style="margin-top:8px">🔴 확인창을 거쳐 저장되고, <b>기존 내용은 지우지 않고 아래에 붙입니다</b>. ' +
+      '비밀번호로 보이는 내용은 막습니다.</div></div>';
   } else if(CT_TAB === '수납'){
     var pay = [['계약금', c.depositAmt, c.depositDue, c.depositPaidAt, c.depositConfirmedBy],
                ['중도금', c.interimAmt, c.interimDue, c.interimPaidAt, c.interimConfirmedBy],
@@ -1716,6 +1725,398 @@ function ctPanel(){
   return h;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   계약등록 · 서류/특약 · 잔금·만기 · 회계정산 · 직원관리
+   🔴 저장은 전부 단건 upsert(gsUpsertOne 과 같은 경로). saveAll 을 쓰지 않는다.
+   🔴 계약 등록은 사람이 확인창을 눌러야 나간다. 문자·알림은 보내지 않는다.
+   🔴 기존 contracts / contractDocuments 스키마만 쓴다(새 칸 0).
+   ═══════════════════════════════════════════════════════════════════ */
+var CT_SAVING = false, CT_LAST = null, CT_FORM = null, CT_DOCSTATE = {}, CT_SPEC = '';
+
+function ctNewId(list){
+  var d = new Date();
+  var ymd = String(d.getFullYear()).slice(2) + pad2(d.getMonth()+1) + pad2(d.getDate());
+  var seq = 1, id;
+  do { id = 'C' + ymd + '-' + pad2(seq); seq++; }
+  while((list||[]).some(function(c){ return String(c.id) === id; }));
+  return id;
+}
+/* 단건 저장 — 어떤 표에도 같은 길을 쓴다 */
+async function erpUpsert(type, obj){
+  var u = gsUrl(), t = gsTok();
+  if(!u || !t) throw new Error('구글시트 주소·토큰이 없습니다');
+  var res = await fetch(u, { method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'upsert', type:type, data:obj, token:t }) });
+  var j = await res.json();
+  if(!j || !j.ok) throw new Error((j && j.error) || '저장 실패');
+  return j;
+}
+
+/* ── 계약 등록 ─────────────────────────────────────────────────── */
+function ctOpenNew(listingId){
+  var o = (DB.listings||[]).filter(function(x){ return String(x.id) === String(listingId); })[0] || null;
+  CT_FORM = {
+    listingId: o ? o.id : '', apt: o ? (o.apt||'') : '', addr2: o ? (o.addr2||'') : '',
+    type: o ? (o.type||'월세') : '월세', price: o ? (o.price||'') : '', rentAmt: o ? (o.rentAmt||'') : '',
+    landlordName:'', landlordPhone:'', tenantName:'', tenantPhone:'',
+    start:'', end:'', depositAmt:'', depositDue:'', interimAmt:'', interimDue:'',
+    balanceAmt:'', balanceDue:'', feeAmt:'', agent:'', note:''
+  };
+  /* 임대인 명부에서 그 건물 임대인을 후보로 채워 준다(사람이 고친다) */
+  if(o){
+    var ld = (DB.landlords||[]).filter(function(L){
+      return sq(L.apt) && sq(L.apt) === sq(o.apt); })[0];
+    if(ld){ CT_FORM.landlordName = ld.name || ''; CT_FORM.landlordPhone = ld.phone || ''; }
+  }
+  CT_TAB = '등록';
+  route();
+}
+function ctField(k, v){ if(CT_FORM) CT_FORM[k] = v; }
+function ctFormMissing(){
+  var f = CT_FORM || {}, miss = [];
+  [['apt','건물'],['addr2','호실'],['type','거래유형'],['price','보증금/매매가'],
+   ['landlordName','임대인 이름'],['tenantName','임차인 이름'],
+   ['start','계약일'],['end','만기일']].forEach(function(x){
+    if(!String(f[x[0]]||'').trim()) miss.push(x[1]);
+  });
+  if(['월세','연세','단기'].indexOf(String(f.type||'')) >= 0 && !String(f.rentAmt||'').trim())
+    miss.push('월세');
+  return miss;
+}
+async function ctSave(){
+  if(CT_SAVING){ alert('저장 중입니다'); return; }
+  var nl = String.fromCharCode(10);
+  var miss = ctFormMissing();
+  if(miss.length){ alert('아직 못 채운 것이 있습니다:' + nl + miss.join(' · ')); return; }
+  /* 🔴 저장 직전에 계약 자료를 다시 읽어 중복을 본다 */
+  var fresh;
+  try{
+    var g = await jget({ action:'getAll', type:'contracts' });
+    fresh = g.data || g.result || [];
+  }catch(e){ alert('계약 자료를 다시 읽지 못해 저장하지 않습니다: ' + (e && e.message || e)); return; }
+  var f = CT_FORM;
+  var dup = fresh.filter(function(c){
+    return sq(c.apt) === sq(f.apt) && sq(c.addr2) === sq(f.addr2)
+        && String(c.expStatus||'') !== '종료'; });
+  if(dup.length){
+    if(!confirm('같은 건물·호실에 끝나지 않은 계약이 ' + dup.length + '건 있습니다(' +
+        dup.map(function(c){ return c.id; }).join(', ') + ').' + nl + '그래도 새로 만들까요?')) return;
+  }
+  var id = ctNewId(fresh);
+  var obj = {
+    id: id, listingId: f.listingId || '', apt: f.apt, addr2: f.addr2,
+    type: f.type, price: f.price, rentAmt: f.rentAmt || '',
+    landlordName: f.landlordName, landlordPhone: f.landlordPhone,
+    tenantName: f.tenantName, tenantPhone: f.tenantPhone,
+    start: f.start, end: f.end, note: f.note || '',
+    depositAmt: f.depositAmt || '', depositDue: f.depositDue || '',
+    interimAmt: f.interimAmt || '', interimDue: f.interimDue || '',
+    balanceAmt: f.balanceAmt || '', balanceDue: f.balanceDue || '',
+    feeAmt: f.feeAmt || '', agent: f.agent || '', expStatus: ''
+  };
+  var msg = ['계약을 새로 등록합니다', '',
+    '계약번호  ' + id,
+    '매물      ' + (obj.listingId || '(연결 안 함)'),
+    '건물/호실 ' + obj.apt + ' ' + obj.addr2,
+    '거래      ' + obj.type + ' ' + ctMoney(obj.price) + (obj.rentAmt ? (' / ' + ctMoney(obj.rentAmt)) : ''),
+    '임대인    ' + obj.landlordName,
+    '임차인    ' + obj.tenantName,
+    '계약일    ' + obj.start,
+    '만기일    ' + obj.end,
+    obj.balanceDue ? ('잔금일    ' + obj.balanceDue) : '',
+    '', '지금 계약 ' + fresh.length + '건 → ' + (fresh.length + 1) + '건',
+    '🔴 문자·알림은 보내지 않습니다.', '', '이대로 등록할까요?'].filter(function(x){ return x !== ''; }).join(nl);
+  if(!confirm(msg)) return;
+
+  CT_SAVING = true;
+  try{
+    await erpUpsert('contracts', obj);
+    var g2 = await jget({ action:'getAll', type:'contracts' });
+    var after = g2.data || g2.result || [];
+    DB.contracts = after;
+    var made = after.filter(function(c){ return String(c.id) === id; });
+    CT_LAST = { id:id, before:fresh.length, after:after.length, made:made.length,
+                when:new Date().toTimeString().slice(0,8) };
+    CT_FORM = null; CT_SEL = id; CT_TAB = '기본';
+    CT_SAVING = false;
+    route();
+    alert(['등록했습니다 ✓', '', '계약번호  ' + id,
+      '계약 건수 ' + fresh.length + ' → ' + after.length,
+      made.length === 1 ? '다시 읽어 1건 확인했습니다.'
+                        : '🔴 다시 읽었더니 ' + made.length + '건입니다 — 확인이 필요합니다.'].join(nl));
+  }catch(e){
+    CT_SAVING = false;
+    route();
+    alert('저장 실패 — 계약 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+
+/* ── 서류 체크 저장 (contractDocuments 스키마 그대로) ──────────── */
+async function ctDocSave(contractId, docType, on){
+  var nl = String.fromCharCode(10);
+  var c = (DB.contracts||[]).filter(function(x){ return String(x.id) === String(contractId); })[0];
+  if(!c){ alert('계약을 찾지 못했습니다'); return; }
+  if(!confirm(docType + ' 를 ' + (on ? '받음' : '안 받음') + ' 으로 표시합니다.' + nl + '이대로 저장할까요?')) return;
+  var obj = {
+    id: 'CD' + String(Date.now()).slice(-10),
+    contractId: String(contractId),
+    docType: String(docType),
+    version: '1',
+    body: '',
+    source: 'ERP 체크',
+    createdAt: todayStr(),
+    createdBy: ME.name || '대표',
+    status: on ? '받음' : '안 받음',
+    note: ''
+  };
+  try{
+    await erpUpsert('contractDocuments', obj);
+    CT_DOCSTATE[contractId] = CT_DOCSTATE[contractId] || {};
+    CT_DOCSTATE[contractId][docType] = on ? '받음' : '안 받음';
+    route();
+    alert(docType + ' — ' + obj.status + ' 으로 저장했습니다 ✓');
+  }catch(e){
+    alert('저장 실패 — 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+/* ── 특약 저장 (contracts.note — 기존 칸) ──────────────────────── */
+async function ctSpecSave(contractId){
+  var nl = String.fromCharCode(10);
+  var el = document.getElementById('ct-sp');
+  if(!el){ return; }
+  var text = String(el.value || '').trim();
+  if(!text){ alert('적을 내용이 없습니다'); return; }
+  /* 🔴 저장 직전에 다시 읽는다 */
+  var fresh;
+  try{
+    var g = await jget({ action:'getAll', type:'contracts' });
+    fresh = g.data || g.result || [];
+  }catch(e){ alert('계약 자료를 다시 읽지 못해 저장하지 않습니다'); return; }
+  var c = fresh.filter(function(x){ return String(x.id) === String(contractId); })[0];
+  if(!c){ alert('계약을 찾지 못했습니다'); return; }
+  if(hasSecret(text)){
+    alert('🔴 비밀번호로 보이는 내용이 있습니다. 특약에는 넣지 않습니다.'); return;
+  }
+  var was = String(c.note || '');
+  var next = was ? (was + nl + text) : text;
+  if(!confirm(['특약을 덧붙입니다', '', '계약 ' + c.id, '', text, '',
+    '🔴 기존 내용은 지우지 않고 아래에 붙입니다.', '이대로 저장할까요?'].join(nl))) return;
+  var obj = JSON.parse(JSON.stringify(c));
+  obj.note = next;
+  try{
+    await erpUpsert('contracts', obj);
+    var g2 = await jget({ action:'getAll', type:'contracts' });
+    DB.contracts = g2.data || g2.result || [];
+    route();
+    alert('특약을 저장했습니다 ✓');
+  }catch(e){ alert('저장 실패 — 계약 자료는 그대로입니다.' + nl + String(e && e.message || e)); }
+}
+
+/* ── 잔금·만기 ─────────────────────────────────────────────────── */
+function ctSchedule(){
+  var out = [];
+  (DB.contracts||[]).forEach(function(c){
+    [['계약금', c.depositAmt, c.depositDue, c.depositPaidAt],
+     ['중도금', c.interimAmt, c.interimDue, c.interimPaidAt],
+     ['잔금',  c.balanceAmt, c.balanceDue, c.balancePaidAt]].forEach(function(p){
+      if(!String(p[2]||'').trim()) return;
+      out.push({ c:c, kind:p[0], amt:p[1], due:p[2], paid:p[3], d:ctDaysTo(p[2]) });
+    });
+    if(String(c.end||'').trim())
+      out.push({ c:c, kind:'만기', amt:'', due:c.end, paid:'', d:ctDaysTo(c.end) });
+  });
+  out.sort(function(a,b){ return (a.d===null?9999:a.d) - (b.d===null?9999:b.d); });
+  return out;
+}
+function viewSettle(){
+  if(DB.contracts === null){ loadContracts();
+    return crumb() + '<div class="h1row"><h1>수납·정산</h1></div>' +
+      '<div class="card"><div class="empty">계약 자료를 불러오는 중…</div></div>'; }
+  var all = DB.contracts || [];
+  var sch = ctSchedule().filter(function(x){ return !String(x.paid||'').trim(); });
+  var soon = sch.filter(function(x){ return x.d !== null && x.d >= 0 && x.d <= 14; });
+  var over = sch.filter(function(x){ return x.d !== null && x.d < 0; });
+  var feeAll = all.filter(function(c){ return String(c.feeAmt||'').trim(); });
+  var feeIn = feeAll.filter(function(c){ return String(c.feePaidAt||'').trim(); });
+  var feeOut = feeAll.filter(function(c){ return !String(c.feePaidAt||'').trim(); });
+  var sum = function(arr){ var s = 0; arr.forEach(function(c){ var n = Number(String(c.feeAmt||'').replace(/[^0-9.-]/g,'')); if(!isNaN(n)) s += n; }); return s; };
+
+  var h = crumb() + '<div class="h1row"><h1>수납·정산</h1><span class="cnt">계약 <b>' + all.length +
+    '</b>건 · 받을 일정 <b>' + sch.length + '</b>건</span></div>' +
+    '<div class="kpis">' +
+      kpi('지난 일정', over.length, over.length?'b':'', '') +
+      kpi('2주 안', soon.length, soon.length?'w':'', '') +
+      kpi('중개보수 건수', feeAll.length, '', '') +
+      kpi('받은 보수(원)', sum(feeIn).toLocaleString(), 'g', '') +
+      kpi('못 받은 보수(원)', sum(feeOut).toLocaleString(), feeOut.length?'w':'', '') +
+    '</div>';
+  if(!all.length){
+    h += '<div class="card"><div class="soonbox"><b>아직 계약이 없어 정산할 것이 없습니다</b>' +
+      '<div style="margin-top:8px">계약이 등록되면 계약금·중도금·잔금·만기와 중개보수가 여기에 모입니다.</div>' +
+      '<div style="margin-top:12px"><button class="btn pri" onclick="go(&#39;deal&#39;,&#39;contract&#39;)">계약 화면으로</button></div>' +
+      '</div></div>';
+    return h;
+  }
+  h += '<div class="card"><div class="tblwrap"><table>' +
+    '<colgroup><col style="width:104px"><col><col style="width:78px"><col style="width:96px">' +
+    '<col style="width:104px"><col style="width:88px"><col style="width:96px"></colgroup>' +
+    '<thead><tr><th>계약번호</th><th>건물/호실</th><th>구분</th><th>금액</th><th>예정일</th>' +
+    '<th>남은 날</th><th>확인</th></tr></thead><tbody>';
+  ctSchedule().forEach(function(x){
+    var late = (x.d !== null && x.d < 0 && !String(x.paid||'').trim());
+    h += '<tr onclick="CT_SEL=&#39;' + esc(x.c.id) + '&#39;;CT_TAB=&#39;수납&#39;;go(&#39;deal&#39;,&#39;contract&#39;)">' +
+      '<td class="mono">' + esc(x.c.id) + '</td>' +
+      '<td><span class="ell">' + esc((x.c.apt||'') + ' ' + (x.c.addr2||'')) + '</span></td>' +
+      '<td>' + esc(x.kind) + '</td>' +
+      '<td class="mono">' + esc(ctMoney(x.amt) || '-') + '</td>' +
+      '<td class="mono">' + esc(x.due) + '</td>' +
+      '<td class="mono">' + (x.d === null ? '-' : (x.d < 0 ? ('<span style="color:var(--bad)">' + (-x.d) + '일 지남</span>')
+        : (x.d === 0 ? '오늘' : ('D-' + x.d)))) + '</td>' +
+      '<td>' + (String(x.paid||'').trim() ? ('<span class="pill p-ok">' + esc(x.paid) + '</span>')
+        : (late ? '<span class="pill p-bad">미확인</span>' : '<span class="pill p-mute">대기</span>')) + '</td></tr>';
+  });
+  h += '</tbody></table></div><div class="actbar">' +
+    '<button class="btn" disabled title="다음 단계">입금 확인 표시</button>' +
+    '<span style="flex:1"></span>' +
+    '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 은행과 이어져 있지 않습니다 — 사람이 확인해 적습니다</span>' +
+    '</div></div>';
+  return h;
+}
+
+/* ── 직원·권한 ─────────────────────────────────────────────────── */
+var STAFF = null, STAFF_ERR = '', STAFF_LOADING = false;
+async function loadStaff(){
+  if(STAFF !== null || STAFF_LOADING) return;
+  STAFF_LOADING = true;
+  try{
+    var j = await jget({ action:'staffList' });
+    STAFF = j.data || j.result || [];
+  }catch(e){ STAFF = []; STAFF_ERR = String((e && e.message) || e); }
+  STAFF_LOADING = false;
+  route();
+}
+function viewStaff(){
+  if(STAFF === null){ loadStaff();
+    return crumb() + '<div class="h1row"><h1>직원·권한</h1></div>' +
+      '<div class="card"><div class="empty">직원 자료를 불러오는 중…</div></div>'; }
+  var L = DB.listings || [];
+  var byAgent = {};
+  L.forEach(function(o){ var a = String(o.agent||'').trim() || '(담당 없음)';
+    byAgent[a] = (byAgent[a]||0) + 1; });
+  var h = crumb() + '<div class="h1row"><h1>직원·권한</h1><span class="cnt">직원 <b>' +
+    STAFF.length + '</b>명</span></div>';
+  if(STAFF_ERR) h += '<div class="note w">직원 목록을 읽지 못했습니다: ' + esc(STAFF_ERR) +
+    '<br>대표 계정에서만 볼 수 있습니다(서버가 막습니다).</div>';
+  h += '<div class="note b">🔴 직원 접속 토큰은 화면에 <b>그대로 보여 주지 않습니다</b>. ' +
+       '토큰 발급·회수는 기존 설정 화면에서 합니다.</div>' +
+    '<div class="card"><div class="tblwrap"><table>' +
+    '<colgroup><col style="width:140px"><col style="width:150px"><col style="width:130px"><col><col style="width:96px"></colgroup>' +
+    '<thead><tr><th>직원 id</th><th>이름</th><th>등록일</th><th>토큰</th><th>담당 매물</th></tr></thead><tbody>';
+  if(!STAFF.length) h += '<tr><td colspan="5" class="empty">등록된 직원이 없습니다</td></tr>';
+  STAFF.forEach(function(s){
+    var tk = String(s.token||'');
+    h += '<tr><td class="mono">' + esc(s.id) + '</td><td>' + esc(s.name||'-') + '</td>' +
+      '<td class="mono">' + esc(s.createdAt||'-') + '</td>' +
+      '<td class="mono" style="color:var(--t3)">' + (tk ? ('●●●●●●' + esc(tk.slice(-4))) : '-') + '</td>' +
+      '<td class="mono">' + (byAgent[s.id] || 0) + '건</td></tr>';
+  });
+  h += '</tbody></table></div><div class="actbar">' +
+    '<button class="btn" disabled title="기존 설정 화면에서 합니다">직원 추가</button>' +
+    '<button class="btn" disabled title="기존 설정 화면에서 합니다">토큰 회수</button>' +
+    '<span style="flex:1"></span>' +
+    '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 이 화면은 보기 전용입니다</span>' +
+    '</div></div>';
+  h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+    '<h4 style="margin:0 0 8px;font-size:13px;color:var(--t3)">담당별 매물</h4><ul class="steps">' +
+    Object.keys(byAgent).sort(function(a,b){ return byAgent[b]-byAgent[a]; }).map(function(a){
+      return '<li><i>·</i><span>' + esc(a) + '</span><b>' + byAgent[a] + '건</b></li>'; }).join('') +
+    '</ul><div class="note i" style="margin-top:8px">권한은 화면에서 숨기는 것이 아니라 <b>서버가 막습니다</b>. ' +
+    '직원은 본인 담당이 아닌 임대인·사진에 접근할 수 없습니다.</div></div></div>';
+  return h;
+}
+
+/* ── 계약 등록 폼 ─────────────────────────────────────────────────
+   🔴 사람이 채우고 확인창을 눌러야 저장된다. 문자·알림 없음.
+   🔴 확인 못 한 칸은 비워 둔다(기본값·오늘 날짜를 임의로 넣지 않는다). */
+function ctIn(k, label, type, ph, wide){
+  var v = String((CT_FORM && CT_FORM[k]) || '');
+  return '<div style="' + (wide ? 'grid-column:1/-1;' : '') + '">' +
+    '<label style="display:block;font-size:12px;color:var(--t3);margin:0 0 3px">' + esc(label) + '</label>' +
+    '<input id="ctf-' + k + '" type="' + (type || 'text') + '" value="' + esc(v) + '"' +
+    (ph ? (' placeholder="' + esc(ph) + '"') : '') +
+    ' oninput="ctField(&#39;' + k + '&#39;,this.value)"' +
+    ' style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;' +
+    'background:var(--panel2);color:var(--t1)"></div>';
+}
+function ctSel(k, label, opts){
+  var v = String((CT_FORM && CT_FORM[k]) || '');
+  return '<div><label style="display:block;font-size:12px;color:var(--t3);margin:0 0 3px">' + esc(label) + '</label>' +
+    '<select id="ctf-' + k + '" onchange="ctField(&#39;' + k + '&#39;,this.value)"' +
+    ' style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;' +
+    'background:var(--panel2);color:var(--t1)">' +
+    opts.map(function(o){ return '<option value="' + esc(o) + '"' + (o===v?' selected':'') + '>' + esc(o) + '</option>'; }).join('') +
+    '</select></div>';
+}
+function ctFormView(){
+  var miss = ctFormMissing();
+  var lst = (DB.listings||[]).filter(adLive);
+  var h = '<div class="card"><div class="sbody">' +
+    '<h3 style="margin:0 0 4px;font-size:16px">계약 등록</h3>' +
+    '<div style="font-size:12.5px;color:var(--t2);margin:0 0 12px">' +
+    '매물을 고르면 건물·호실·거래조건이 채워집니다. 🔴 확인 못 한 칸은 비워 두세요 — 임의로 채우지 않습니다.</div>';
+
+  h += '<div style="margin:0 0 12px"><label style="display:block;font-size:12px;color:var(--t3);margin:0 0 3px">매물 연결</label>' +
+    '<select onchange="ctPickListing(this.value)" style="width:100%;padding:7px 9px;border:1px solid var(--line);' +
+    'border-radius:8px;background:var(--panel2);color:var(--t1)">' +
+    '<option value="">(연결 안 함)</option>' +
+    lst.map(function(o){
+      return '<option value="' + esc(o.id) + '"' + (String(CT_FORM.listingId)===String(o.id)?' selected':'') + '>' +
+        esc(o.id + ' · ' + (o.apt||'') + ' ' + (o.addr2||'') + ' · ' + (o.type||'') + ' ' + (o.price||'') +
+        (o.rentAmt ? ('/' + o.rentAmt) : '')) + '</option>'; }).join('') +
+    '</select></div>';
+
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">' +
+    ctIn('apt','건물 *') + ctIn('addr2','호실 *') +
+    ctSel('type','거래유형 *', ['월세','전세','매매','연세','단기']) +
+    ctIn('price','보증금/매매가(만) *','text','예: 200') +
+    ctIn('rentAmt','월세(만)','text','월세일 때') +
+    ctIn('landlordName','임대인 이름 *') + ctIn('landlordPhone','임대인 연락처') +
+    ctIn('tenantName','임차인 이름 *') + ctIn('tenantPhone','임차인 연락처') +
+    ctIn('start','계약일 *','date') + ctIn('end','만기일 *','date') +
+    ctIn('depositAmt','계약금(만)') + ctIn('depositDue','계약금 예정일','date') +
+    ctIn('interimAmt','중도금(만)') + ctIn('interimDue','중도금 예정일','date') +
+    ctIn('balanceAmt','잔금(만)') + ctIn('balanceDue','잔금 예정일','date') +
+    ctIn('feeAmt','중개보수(원)','text','예: 300000') +
+    ctIn('agent','담당','text','비우면 안 넣습니다') +
+    ctIn('note','특약·메모','text','비밀번호는 넣지 마세요', true) +
+    '</div>';
+
+  h += miss.length
+    ? ('<div class="note w" style="margin-top:12px">아직 못 채운 것: ' + esc(miss.join(' · ')) + '</div>')
+    : '<div class="note g" style="margin-top:12px">필수 항목이 다 찼습니다. [계약 등록]을 누르면 확인창이 뜹니다.</div>';
+  h += '<div class="note b" style="margin-top:8px">🔴 등록해도 <b>문자·알림은 보내지 않습니다</b>. ' +
+       '계약서 자동작성·공부 발급도 하지 않습니다.</div>';
+  h += '<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">' +
+    '<button class="btn pri"' + (miss.length ? ' disabled' : '') + ' onclick="ctSave()">계약 등록</button>' +
+    '<button class="btn" onclick="CT_FORM=null;route()">취소</button></div>';
+  if(CT_LAST) h += '<div class="note g" style="margin-top:10px">✅ ' + esc(CT_LAST.when) + ' 등록 · <b>' +
+    esc(CT_LAST.id) + '</b> · 계약 ' + CT_LAST.before + ' → ' + CT_LAST.after + '건</div>';
+  h += '</div></div>';
+  return h;
+}
+function ctPickListing(id){
+  var o = (DB.listings||[]).filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!CT_FORM) return;
+  CT_FORM.listingId = id || '';
+  if(o){
+    CT_FORM.apt = o.apt || ''; CT_FORM.addr2 = o.addr2 || '';
+    CT_FORM.type = o.type || '월세'; CT_FORM.price = o.price || ''; CT_FORM.rentAmt = o.rentAmt || '';
+    var ld = (DB.landlords||[]).filter(function(L){ return sq(L.apt) && sq(L.apt) === sq(o.apt); })[0];
+    if(ld && !CT_FORM.landlordName){ CT_FORM.landlordName = ld.name || ''; CT_FORM.landlordPhone = ld.phone || ''; }
+  }
+  route();
+}
+
 /* ── 라우팅 ── */
 var SEARCH = '';
 function route(){
@@ -1726,6 +2127,8 @@ function route(){
   else if(CUR.m2 === 'inbox') m.innerHTML = viewInbox();
   else if(CUR.m2 === 'admgr') m.innerHTML = viewAd();
   else if(CUR.m2 === 'photo') m.innerHTML = viewPhoto();
+  else if(CUR.m2 === 'settle') m.innerHTML = viewSettle();
+  else if(CUR.m2 === 'staff') m.innerHTML = viewStaff();
   else if(CUR.m2 === 'contract'){
     if(DB.contracts === null){
       m.innerHTML = crumb() + '<div class="h1row"><h1>계약</h1></div>' +
