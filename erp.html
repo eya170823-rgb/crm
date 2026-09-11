@@ -209,8 +209,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.6';
-var ERP_BUILD = '2026-09-12 06:05';
+var ERP_VER = '1.7';
+var ERP_BUILD = '2026-09-12 07:05';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -648,9 +648,14 @@ function viewToday(){
   var adB = adBuckets();
   return crumb() +
   '<div class="h1row"><h1>오늘 할 일</h1><span class="cnt">' +
-    '인입 미처리 <b class="hot">' + un.length + '</b>건 · 매물 <b>' + homeNum(L.length) + '</b>건 · ' +
+    '인입 미처리 <b class="hot">' + ((DB.err || DB.inbox === null) ? '?' : un.length) + '</b>건 · ' +
+    '매물 <b>' + homeNum(L.length) + '</b>건 · ' +
     '촬영 필요 <b class="hot">' +
-      ((DB.err || DB.listings === null || phIdxErr()) ? '?' : shoot.length) + '</b>건</span></div>' +
+      ((DB.err || DB.listings === null || phIdxErr()) ? '?' : shoot.length) + '</b>건' +
+    (homeMissing().length
+      ? ('<br><span style="color:var(--bad);font-size:12px">🔴 ' +
+         esc(homeMissing().join('·')) + ' 자료를 아직 못 읽었습니다 — <b>0건이 아니라 모르는 것</b>입니다</span>')
+      : '') + '</span></div>' +
   homeLoadBox() +
   phIdxBox('촬영 필요') +
   top3Card() +
@@ -3382,6 +3387,138 @@ function reContact(){
   });
 }
 
+/* ═══ 재오픈 검토 ═══════════════════════════════════════════════
+   종료된 고객에게 **그 뒤로** 새 연락이 오면, 종료를 풀지 않고 '검토 후보'로만 올린다.
+   🔴 자동으로 종료를 해제하지 않는다 · 🔴 고객을 새로 만들지 않는다 · 🔴 문자를 보내지 않는다.
+   실제 상태 변경은 [다시 상담 시작] 을 눌렀을 때만 일어난다. */
+function phDigits(v){
+  var t = String(v == null ? '' : v), out = '';
+  for(var i = 0; i < t.length; i++){
+    var c = t.charCodeAt(i);
+    if(c >= 48 && c <= 57) out += t.charAt(i);
+  }
+  if(out.length >= 11 && out.slice(0, 2) === '82') out = '0' + out.slice(2);
+  return out;
+}
+function phMask(v){
+  var d = phDigits(v);
+  return d.length >= 4 ? ('***' + d.slice(-4)) : '***';
+}
+/* 고객이 무언가를 원한다는 신호 */
+var RO_WANT = ['방문', '보러', '보고싶', '방 보', '이사', '퇴실', '위약금', '해지', '계약',
+               '입주', '월세', '전세', '보증금', '구하', '알아보', '문의', '연장', '재계약',
+               '전화', '통화', '가능할까', '될까요', '있을까요'];
+/* 광고·안내 문자는 고객 의도가 아니다 */
+var RO_AD = ['[Web발신]', '광고', '무료체험', '수신거부', '이벤트', '할인행사', '가입',
+             '인증번호', '승인번호', '결제', '고객센터', '안내드립니다', '스팸'];
+function reopenIntent(kind, t){
+  var k = String(kind || '');
+  if(k === '통화녹음') return '전화가 왔습니다';
+  if(k === '부재중전화') return '부재중 전화가 있었습니다';
+  var v = String(t || '');
+  if(!v.trim()) return '';
+  for(var i = 0; i < RO_AD.length; i++)
+    if(v.indexOf(RO_AD[i]) >= 0) return '';                 /* 광고성 — 재오픈 아님 */
+  for(var j = 0; j < RO_WANT.length; j++)
+    if(v.indexOf(RO_WANT[j]) >= 0)
+      return '“' + RO_WANT[j] + '” 이야기가 나왔습니다';
+  return '';
+}
+function reopenReview(){
+  var cs = (DB.customers || []).filter(function(c){
+    return String(c.progressStatus || '').trim() === '종료'; });
+  if(!cs.length) return [];
+  var inb = DB.inbox || [];
+  return cs.map(function(c){
+    var ph = phDigits(c.phone);
+    if(!ph) return null;
+    /* 🔴 '종료 이후' 의 기준 — 시트에 종료한 날이 없어 접수일(recvDate)을 쓴다.
+       같은 날 것은 상담 중에 오간 것이므로 넣지 않는다. */
+    var base = String(c.recvDate || '').slice(0, 10);
+    var hits = [], seen = {};
+    inb.forEach(function(r){
+      if(phDigits(r.phone) !== ph) return;
+      var when = String(r.when || '');
+      if(base && when.slice(0, 10) <= base) return;
+      var t = String(r.text || '');
+      /* '문자수신' 과 '문자수신(백업)' 이 같은 것을 두 줄로 넣는다 — 하나로 본다 */
+      var key = when.slice(0, 16) + '|' + sq(t).slice(0, 40);
+      if(seen[key]) return;
+      seen[key] = 1;
+      var kind = srcOf(r.kind, t);
+      var why = reopenIntent(kind, t);
+      if(!why) return;
+      hits.push({ when:when, kind:kind, text:t, why:why, bld:String(r.bld || '') });
+    });
+    if(!hits.length) return null;
+    hits.sort(function(a, b){ return String(b.when).localeCompare(String(a.when)); });
+    var bld = '';
+    for(var i = 0; i < hits.length; i++){ if(hits[i].bld){ bld = hits[i].bld; break; } }
+    return { c:c, hits:hits, last:hits[0], bld:bld, blocked:cuBlocked(c),
+             days:(function(){ var d = ctDaysTo(String(hits[0].when).slice(0, 10));
+                               return d === null ? null : -d; })() };
+  }).filter(Boolean).sort(function(a, b){
+    return String(b.last.when).localeCompare(String(a.last.when)); });
+}
+/* [다시 상담 시작] — 🔴 여기서만 실제로 바뀐다. 고객 1건만 저장한다. */
+async function reopenStart(id){
+  var nl = String.fromCharCode(10);
+  var c = (DB.customers || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!c){ alert('고객을 찾지 못했습니다 — 저장하지 않습니다.'); return; }
+  if(cuBlocked(c)){
+    alert('🔴 이 고객은 연락금지로 표시되어 있습니다.' + nl +
+          '여기서 상태를 바꾸지 않습니다 — 먼저 연락금지 사유를 확인해 주세요.');
+    return;
+  }
+  var rv = reopenReview().filter(function(x){ return String(x.c.id) === String(id); })[0];
+  var last = rv ? rv.last : null;
+  var today = todayStr();
+  var msg = ['이 고객을 다시 상담 시작으로 바꿉니다', '',
+    '고객   ' + String(c.name || '') + '  ' + phMask(c.phone),
+    '지금   진행상태 ' + String(c.progressStatus || '') +
+      (String(c.nextAction || '').trim() ? (' · 다음 연락 ' + c.nextAction) : ''),
+    '바꿈   진행상태 진행중 · 다음 연락 ' + today,
+    last ? ('근거   ' + String(last.when).slice(0, 16) + ' ' + last.kind + ' — ' +
+            maskSecret(String(last.text || '')).slice(0, 60)) : '',
+    '', '🔴 고객 1건만 저장합니다. 문자는 나가지 않습니다.',
+    '🔴 다른 칸(조건·예산·메모)은 건드리지 않습니다.',
+    '', '이대로 바꿀까요?'].filter(function(x){ return x !== ''; }).join(nl);
+  if(!confirm(msg)) return;
+
+  /* 🔴 저장 직전에 다시 읽는다 — 그 사이 누가 바꿨을 수 있다 */
+  var fresh;
+  try{
+    var g = await jget({ action:'getAll', type:'customers' });
+    fresh = g.data || g.result || [];
+  }catch(e){ alert('고객 자료를 다시 읽지 못해 저장하지 않습니다: ' + (e && e.message || e)); return; }
+  var row = fresh.filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!row){ alert('고객을 찾지 못했습니다 — 저장하지 않습니다.'); return; }
+  if(String(row.progressStatus || '').trim() !== '종료'){
+    alert('그 사이 진행상태가 “' + (row.progressStatus || '') + '” 로 바뀌었습니다.' + nl +
+          '화면을 새로 읽고 다시 하세요.'); return; }
+
+  var obj = JSON.parse(JSON.stringify(row));   /* 🔴 전체 행을 보낸다(부분 저장은 나머지를 지운다) */
+  obj.progressStatus = '진행중';
+  obj.nextAction = today;
+  try{
+    await erpUpsert('customers', obj);
+    var g2 = await jget({ action:'getAll', type:'customers' });
+    DB.customers = g2.data || g2.result || [];
+    var now = (DB.customers || []).filter(function(x){ return String(x.id) === String(id); })[0];
+    var ok = now && String(now.progressStatus || '') === '진행중';
+    route();
+    alert([ ok ? '바꿨습니다 ✓' : '🔴 다시 읽었더니 그대로입니다 — 확인이 필요합니다', '',
+      String(c.name || '') + ' · 진행상태 ' + String((now || {}).progressStatus || '') +
+      ' · 다음 연락 ' + String((now || {}).nextAction || ''), '',
+      ok ? '이제 고객 명부와 재접촉 목록에 나옵니다.' +
+           (cuSpecs(now || {}) ? '' : nl + '🔴 희망 조건이 비어 있어 추천 매물은 아직 안 나옵니다 — 조건을 채워 주세요.')
+         : ''].filter(function(x){ return x !== ''; }).join(nl));
+  }catch(e){
+    route();
+    alert('저장 실패 — 고객 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+
 /* ── 오늘 반드시 할 일 3개 ───────────────────────────────────────
    1순위 시간이 정해진 일(잔금·계약·만기) → 2순위 계약될 고객 → 3순위 매물·광고.
    🔴 없는 일을 만들지 않는다. 자료가 없으면 그 자리는 비운다. */
@@ -3465,13 +3602,53 @@ function monEmpty(msg){
 function monBoard(){
   var cu = monCustTop(5), ls = monListTop(10), ad = monAdTop(10);
   var down = ad.filter(function(x){ return x.kind === '내림'; });
+  var ro = reopenReview();
 
-  /* ① 고객 재접촉 */
+  /* ① 재오픈 검토 + 고객 재접촉
+     🔴 재접촉이 0명이어도 '고객 쪽 할 일이 0' 이 아니다 — 재오픈 검토를 따로 센다. */
   var h1 = '';
-  if(DB.customers === null) h1 = monEmpty('고객 자료를 불러오는 중입니다…');
-  else if(!cu.length) h1 = monEmpty(esc(monCustWhyFew()));
+  if(ro.length){
+    h1 += '<div class="note w" style="font-size:12.5px;margin:0 0 10px">' +
+      '🔴 <b>재오픈 검토 ' + ro.length + '건</b> — 종료된 고객에게 <b>그 뒤로 새 연락</b>이 왔습니다. ' +
+      '종료 상태는 그대로 두었습니다.</div>';
+    h1 += '<ol style="margin:0 0 12px;padding-left:19px">';
+    ro.forEach(function(x){
+      var c = x.c, L = x.last;
+      h1 += monLine(
+        '<span class="pill p-bad">재오픈 검토</span> ' + esc(String(c.name || '이름 없음')) +
+          ' <span class="mono" style="font-size:11.5px;color:var(--t3)">' + esc(phMask(c.phone)) + '</span>' +
+          (x.blocked ? ' <span class="pill p-bad">연락금지</span>' : ''),
+        '마지막 기존 상태 <b>종료</b>' +
+          (c.recvDate ? (' · 접수 ' + esc(String(c.recvDate).slice(0, 10))) : '') +
+          '<br>새 인입 <b>' + esc(String(L.when).slice(0, 16)) + '</b>' +
+          (x.days !== null ? (' (' + x.days + '일 전)') : '') + ' · ' + esc(L.kind) +
+          (x.bld ? (' · 관련 ' + esc(x.bld)) : '') +
+          '<br>“' + esc(maskSecret(String(L.text || '')).slice(0, 70)) + '”' +
+          (x.hits.length > 1 ? (' <span style="color:var(--t3)">외 ' + (x.hits.length - 1) + '건</span>') : ''),
+        esc(L.why) + ' · ' + (x.blocked
+          ? '🔴 연락금지 고객입니다 — 사유를 먼저 확인하세요(여기서 상태를 바꾸지 않습니다)'
+          : '추천: 전화로 지금도 찾고 계신지 확인 → 맞으면 [다시 상담 시작]'),
+        x.blocked ? '' :
+          ('<button class="btn sm" onclick="reopenStart(&#39;' + esc(String(c.id || '')) +
+           '&#39;)">다시 상담 시작</button> ' +
+           '<button class="btn sm" onclick="CU_SEL=&#39;' + esc(String(c.id || '')) +
+           '&#39;;go(&#39;crm&#39;,&#39;cust&#39;)">고객 열기</button>'));
+    });
+    h1 += '</ol>';
+  }
+  if(!ro.length && (DB.customers || []).some(function(c){
+      return String(c.progressStatus || '').trim() === '종료'; }))
+    /* 🔴 "재오픈 0건" 이 "확인을 다 했다" 는 뜻이 아니다 — 어디까지 봤는지 밝힌다 */
+    h1 += '<div style="font-size:11.5px;color:var(--t3);margin:0 0 8px">' +
+      '재오픈 검토 0건 — 인입함 <b>최근 ' + (DB.inbox || []).length + '건</b> 안에서만 봤습니다. ' +
+      '과거 문자(MMS)는 여기에 들어오지 않습니다.</div>';
+  if(DB.customers === null) h1 += monEmpty('고객 자료를 불러오는 중입니다…');
+  else if(DB.cuErr) h1 += monEmpty('🔴 고객 자료를 불러오지 못했습니다 — <b>후보가 없는 것이 아닙니다</b>.');
+  else if(!cu.length) h1 += monEmpty((ro.length ? '그 밖에 정상 재접촉 후보는 없습니다 — ' : '') +
+    esc(monCustWhyFew()));
   else {
-    h1 = '<ol style="margin:0;padding-left:19px">';
+    h1 += (ro.length ? '<div style="font-size:12px;color:var(--t3);margin:0 0 6px">그 밖의 재접촉 후보</div>' : '') +
+      '<ol style="margin:0;padding-left:19px">';
     cu.forEach(function(x){
       var c = x.r.c;
       var top = x.r.top[0];
@@ -3552,8 +3729,11 @@ function monBoard(){
   }
 
   return '<div class="monwrap">' +
-    box('① 월요일 고객 재접촉 TOP ' + cu.length,
-        '종료·연락금지·조건 없는 분·맞는 매물이 0건인 분은 뺐습니다', h1, false) +
+    box('① 월요일 고객 ' + (ro.length ? ('<span class="pill p-bad">재오픈 ' + ro.length + '</span> ') : '') +
+        '재접촉 TOP ' + cu.length,
+        '재접촉에서는 종료·연락금지·조건 없는 분·지금 보여 줄 매물이 하나도 없는 분을 뺐습니다 · ' +
+        '종료 뒤 새 연락이 온 분은 위에 따로 올립니다',
+        h1, ro.length > 0) +
     box('② 월요일 확보·확인할 매물 TOP ' + ls.length,
         '촬영필요 · 광고 필수값 부족 · 신규 인입을 합쳤습니다(같은 호실은 한 줄)', h2, false) +
     box('③ 광고 조치 TOP ' + ad.length +
@@ -3749,6 +3929,16 @@ function adsRestore(o){
     var a = s.split('~'), k = a[0];
     if(AD_CH.some(function(c){ return c.key === k; }))
       o.ads[k] = { on:true, no:a[1]||'', at:a[2]||'', url:a[3]||'', chk:'' };
+    /* 🔴 내림 기록 — 시트에 새 칸을 만들지 않고 adsFlat 한 칸 안에 넣는다.
+       'blogreq~' 처럼 접두어를 달리 쓰는 방식이 이미 있어 그 규약을 따랐다.
+       형식: off:<채널>~게시번호~내린날~확인자 */
+    else if(k.indexOf('off:') === 0){
+      var ok2 = k.slice(4);
+      if(AD_CH.some(function(c){ return c.key === ok2; })){
+        o.adsOff = o.adsOff || {};
+        o.adsOff[ok2] = { no:a[1]||'', at:a[2]||'', by:a[3]||'' };
+      }
+    }
     else if(k === 'blogreq'){
       o.ads.blog = o.ads.blog || { on:false, no:'', at:'', url:'', chk:'' };
       o.ads.blog.req = a[1]||'';
@@ -3766,6 +3956,12 @@ function adsFlatten(o){
     var a = adOf(o, c.key);
     if(a && a.on) parts.push([c.key, a.no||'', a.at||'', a.url||''].join('~'));
   });
+  /* 🔴 내린 기록은 그 채널이 꺼져 있을 때만 남긴다(다시 올리면 지운다) */
+  AD_CH.forEach(function(c){
+    var f = (o.adsOff || {})[c.key];
+    if(f && !adOn(o, c.key))
+      parts.push(['off:' + c.key, f.no || '', f.at || '', f.by || ''].join('~'));
+  });
   var bq = adOf(o, 'blog');
   if(bq && bq.req && !adOn(o, 'blog')) parts.push(['blogreq', bq.req].join('~'));
   o.adsFlat = parts.join('|');
@@ -3774,8 +3970,12 @@ function adsFlatten(o){
   o.daangnNo = (adOf(o, 'daangn') || {}).no || '';
   var nv = adOf(o, 'naver');
   if(nv && nv.url) o.naverUrl = nv.url;
+  /* 🔴 네이버를 내렸는데 naverUrl 이 남아 있으면 adsRestore 가 도로 살려 낸다(실측).
+     내렸으면 그 칸도 비운다 — 그래야 새로 고쳐도 내려간 채로 있다. */
+  else if(!nv) o.naverUrl = '';
   return o;
 }
+function adsOffOf(o, k){ return (o && o.adsOff && o.adsOff[k]) || null; }
 
 /* ── ② 복사 — 타이핑을 없앤다 ──────────────────────────────────── */
 function copyText(s, msg){
@@ -3887,6 +4087,7 @@ async function adMark(id, ch, on){
     '상태   ' + (row.status||''),
     on ? ('올린 날 ' + at) : ('지금까지 올린 날 ' + ((was && was.at) || '-')),
     on && no ? ('번호   ' + no) : '',
+    on ? '' : ('내린 날 ' + at + ' · 확인자 ' + String(ME.name || ME.id || '대표')),
     '', '🔴 이 버튼은 실제로 광고를 올리거나 내리지 않습니다.',
     '🔴 대표님이 채널에서 직접 한 일을 여기에 적어 두는 것입니다.',
     '', '이대로 적을까요?'].filter(function(x){ return x !== ''; }).join(nl);
@@ -3894,10 +4095,19 @@ async function adMark(id, ch, on){
 
   var obj = JSON.parse(JSON.stringify(row));
   obj.ads = obj.ads || {};
-  if(on) obj.ads[ch] = { on:true, no:no, at:at, url:'', chk:adHash(adSnapshot(obj)) };
-  else delete obj.ads[ch];
+  obj.adsOff = obj.adsOff || {};
+  if(on){
+    obj.ads[ch] = { on:true, no:no, at:at, url:'', chk:adHash(adSnapshot(obj)) };
+    delete obj.adsOff[ch];              /* 다시 올렸으면 내림 기록은 지운다 */
+  } else {
+    /* 🔴 내리기 전에 올려 뒀던 번호·날짜를 남긴다 — 안 남기면 언제 뭘 올렸는지 사라진다 */
+    obj.adsOff[ch] = { no:(was && was.no) || '', at:at,
+                       by:String(ME.name || ME.id || '대표') };
+    delete obj.ads[ch];
+  }
   adsFlatten(obj);
   delete obj.ads;                       /* 시트에는 ads 칸이 없다 — adsFlat 으로만 보낸다 */
+  delete obj.adsOff;
 
   AD_SAVING = true;
   try{
@@ -4529,6 +4739,19 @@ function monAdTop(n){
   return out.slice(0, n || 10);
 }
 
+/* ── 내린 기록 — 언제 누가 내렸다고 적었는지 ────────────────────── */
+function adOffRows(){
+  var out = [];
+  (DB.listings || []).forEach(function(o){
+    AD_CH.forEach(function(c){
+      var f = adsOffOf(o, c.key);
+      if(f && !adOn(o, c.key))
+        out.push({ o:o, key:c.key, label:c.label, no:f.no || '', at:f.at || '', by:f.by || '' });
+    });
+  });
+  return out.sort(function(a, b){ return String(b.at).localeCompare(String(a.at)); });
+}
+
 /* ── 광고 상태를 다섯 갈래로 — 월요일에 다시 찾지 않게 ─────────── */
 function adBuckets(){
   var rows = adAll();
@@ -4591,12 +4814,27 @@ function retryAll(){
   loadAll(true).then(function(){ route(); });
 }
 function homeLoadBox(){
+  var h = '';
   if(DB.err)
-    return loadErrBox(DB.err, '매물·임대인 자료', 'retryAll()');
-  if(DB.listings === null)
-    return '<div class="note b">매물 자료를 불러오는 중입니다… ' +
-      '아래 <b>매물·광고·촬영 숫자는 아직 다 채워지지 않았습니다</b>.</div>';
-  return '';
+    h += loadErrBox(DB.err, '인입함·매물·임대인 자료', 'retryAll()');
+  else if(DB.listings === null || DB.inbox === null)
+    h += '<div class="note b">인입함·매물 자료를 불러오는 중입니다… ' +
+      '아래 <b>숫자는 아직 다 채워지지 않았습니다</b>.</div>';
+  /* 🔴 여섯 자료원(인입·매물·고객·계약·광고·사진)을 한 곳에서 본다 —
+     하나라도 못 읽었으면 0 으로 위장하지 않는다. */
+  if(DB.cuErr) h += loadErrBox(DB.cuErr, '고객 자료', 'retryCustomers()');
+  if(DB.ctErr) h += loadErrBox(DB.ctErr, '계약 자료', 'retryContracts()');
+  return h;
+}
+/* 못 읽은 자료원 이름들 — 화면 머리글에서 쓴다 */
+function homeMissing(){
+  var m = [];
+  if(DB.err || DB.inbox === null) m.push('인입함');
+  if(DB.err || DB.listings === null) m.push('매물');
+  if(DB.cuErr || DB.customers === null) m.push('고객');
+  if(DB.ctErr || DB.contracts === null) m.push('계약');
+  if(phIdxErr()) m.push('사진');
+  return m;
 }
 /* 매물을 못 읽었으면 숫자 대신 물음표 — 0 이라고 말하지 않는다 */
 function homeNum(n){ return (DB.err || DB.listings === null) ? '?' : n; }
