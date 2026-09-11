@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '0.6';
-var ERP_BUILD = '2026-09-11 21:45';
+var ERP_VER = '0.7';
+var ERP_BUILD = '2026-09-11 22:30';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -2235,12 +2235,30 @@ function autoList(){
     { key:'ad', name:'광고', run:'매물 → 채널 게시',
       last: adAt, today: 0, n: adOnN, next:'사람이 올림', state: adOnN ? 'ok' : 'none',
       note:'🔴 자동 게시는 검증 전 — 지금은 사람이 각 사이트에서' },
-    { key:'web', name:'웹수집(당근·오일장)', run:'수집매물 표에 쌓임',
-      last:'', today: null, n: null, next:'예약(트리거)', state:'unknown',
-      note:'🔴 이 화면에서는 확인 전 — 수집매물 표를 따로 읽어야 한다' },
-    { key:'mkt', name:'마케팅 발행', run:'블로그·인스타 등',
-      last:'', today: null, n: null, next:'', state:'unknown',
-      note:'🔴 확인 전 — 연결된 자동 발행이 없다' }
+    (function(){
+      var g = GATHER;
+      if(g === null){ loadGather();
+        return { key:'web', name:'웹수집(당근·오일장)', run:'수집매물 표에 쌓임',
+                 last:'', today:null, n:null, next:'예약(트리거)', state:'unknown',
+                 note:'불러오는 중…' }; }
+      if(GATHER_ERR || !g.phase)
+        return { key:'web', name:'웹수집(당근·오일장)', run:'수집매물 표에 쌓임',
+                 last:'', today:null, n:null, next:'예약(트리거)', state:'unknown',
+                 note:'🔴 확인 전 — ' + (GATHER_ERR || '상태를 읽지 못했습니다') };
+      var c = g.counts || {};
+      var sum = (c.dg||0) + (c.oj||0);
+      var fin = String(g.finishedAt || '');
+      return { key:'web', name:'웹수집(당근·오일장)', run:'구역을 돌며 당근·오일장에서 모은다',
+               last: fin || String(g.startedAt||''),
+               today: (String(g.startedAt||'').indexOf(todayStr()) === 0) ? sum : 0,
+               n: sum, next: g.phase === 'done' ? '다음 예약 때' : ('진행 중 ' + g.percent + '%'),
+               state: g.phase === 'done' ? 'ok' : (g.phase === 'idle' ? 'none' : 'ok'),
+               note: '구역 ' + (g.tile||0) + '/' + (g.tiles||0) + ' · 당근 ' + (c.dg||0) +
+                     ' · 오일장 ' + (c.oj||0) + ' · 새 건 ' + (c.sn||0) + ' · 중복 ' + (c.dup||0) };
+    })(),
+    { key:'mkt', name:'마케팅 발행', run:'블로그·인스타·릴스·문자 콘텐츠',
+      last:'', today: null, n: null, next:'사람이 올림', state:'unknown',
+      note:'🔴 확인 전 — 자동 발행이 연결돼 있지 않다. 지금은 ERP 가 글만 만들고 사람이 올린다' }
   ];
 }
 function viewAuto(){
@@ -2447,17 +2465,57 @@ function viewGroup(){
   h += '<div class="note b" style="margin-top:10px">🔴 결재 승인·반려는 기존 화면에서 합니다. ' +
     '여기서는 보기만 합니다.</div></div></div>';
 
+  /* 오늘 한 일 — 실제 자료에서 뽑는다(적는 일지가 아니다) */
+  var log = gwToday();
   h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
-    '<h4 style="margin:0 0 8px;font-size:14px">업무일지 · 공지 · 일정 · 자료</h4><ul class="steps">' +
-    '<li><i>📝</i><span><b>업무일지</b> — 직원별 처리 건수로 대신 봅니다(아래 담당별 집계)</span></li>' +
-    '<li><i>📢</i><span><b>공지</b> — 아직 공지 자료가 없습니다(만들어 내지 않습니다)</span></li>' +
-    '<li><i>📅</i><span><b>일정</b> — 계약 잔금·만기가 <b>수납·정산</b>에 모입니다</span></li>' +
-    '<li><i>📚</i><span><b>자료·매뉴얼</b> — <b>아카데미</b>에서 봅니다</span></li>' +
-    '</ul><div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">' +
-    '<button class="btn" onclick="go(&#39;deal&#39;,&#39;settle&#39;)">일정 보기</button>' +
-    '<button class="btn" onclick="go(&#39;admin&#39;,&#39;staff&#39;)">직원별 담당</button>' +
-    '<button class="btn" onclick="go(&#39;group&#39;,&#39;academy&#39;)">아카데미</button>' +
-    '</div></div></div>';
+    '<h4 style="margin:0 0 4px;font-size:14px">오늘 한 일</h4>' +
+    '<div style="font-size:12.5px;color:var(--t2);margin:0 0 8px">🔴 사람이 적는 일지가 아니라 ' +
+    '<b>실제 자료에서 뽑은 것</b>입니다(오늘 들어온 인입 · 접수한 매물 · 등록한 계약).</div>';
+  if(!log.length) h += '<div class="empty" style="padding:16px">오늘 기록이 아직 없습니다</div>';
+  else {
+    h += '<ul class="steps">' + log.map(function(x){
+      return '<li><i>·</i><span><b>' + esc(x.what) + '</b>' +
+        (x.detail ? ('<br><span style="color:var(--t3);font-size:12px">' + esc(x.detail) + '</span>') : '') +
+        '</span>' + (x.go ? ('<button class="btn sm" onclick="' + x.go + '">열기</button>') : '') + '</li>';
+    }).join('') + '</ul>';
+  }
+  if(ISTAT === null) loadIStat();
+  if(ISTAT && ISTAT.total){
+    h += '<div class="note i" style="margin-top:10px">인입함 전체 <b>' + ISTAT.total + '</b>건 · ' +
+      '미처리 <b>' + ISTAT.unprocessed + '</b>건 · 이미 등록된 번호 <b>' + ISTAT.alreadyRegistered + '</b>건' +
+      (ISTAT.byKind ? ('<br>종류: ' + Object.keys(ISTAT.byKind).map(function(k){
+        return esc(k) + ' ' + ISTAT.byKind[k]; }).join(' · ')) : '') + '</div>';
+  }
+  h += '</div></div>';
+
+  /* 할 일 — 실제 숫자에서 나온다 */
+  var todo = gwTodo();
+  h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+    '<h4 style="margin:0 0 4px;font-size:14px">할 일</h4>' +
+    '<div style="font-size:12.5px;color:var(--t2);margin:0 0 8px">🔴 따로 적어 두는 목록이 아니라 ' +
+    '<b>지금 자료에서 저절로 나오는 일</b>입니다. 처리하면 저절로 사라집니다.</div>';
+  if(!todo.length) h += '<div class="empty" style="padding:16px">지금 할 일이 없습니다 ✓</div>';
+  else h += '<ul class="steps">' + todo.map(function(x){
+      return '<li><i>☐</i><span><b>' + esc(x.what) + '</b></span>' +
+        '<span class="pill ' + x.cls + '">' + x.n + '건</span> ' +
+        '<button class="btn sm" onclick="' + x.go + '">열기</button></li>'; }).join('') + '</ul>';
+  h += '</div></div>';
+
+  /* 공지 · 자료 */
+  h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+    '<h4 style="margin:0 0 8px;font-size:14px">공지 · 일정 · 자료</h4><ul class="steps">' +
+    '<li><i>📢</i><span><b>공지</b><br><span style="color:var(--t3);font-size:12px">' +
+    '🔴 공지를 담을 자리가 아직 없습니다 — 시트에 공지 표가 없고, 서버(GAS)를 고쳐야 만들 수 있습니다. ' +
+    '그래서 <b>지금은 만들지 않았습니다</b>(빈 화면을 흉내 내지 않습니다).</span></span></li>' +
+    '<li><i>📅</i><span><b>일정</b><br><span style="color:var(--t3);font-size:12px">' +
+    '계약 잔금·만기는 수납·정산에 모입니다</span></span>' +
+    '<button class="btn sm" onclick="go(&#39;deal&#39;,&#39;settle&#39;)">열기</button></li>' +
+    '<li><i>📚</i><span><b>자료·매뉴얼</b><br><span style="color:var(--t3);font-size:12px">' +
+    '업무별 짧은 매뉴얼이 아카데미에 있습니다</span></span>' +
+    '<button class="btn sm" onclick="go(&#39;group&#39;,&#39;academy&#39;)">열기</button></li>' +
+    '<li><i>👥</i><span><b>직원별 담당</b></span>' +
+    '<button class="btn sm" onclick="go(&#39;admin&#39;,&#39;staff&#39;)">열기</button></li>' +
+    '</ul></div></div>';
   return h;
 }
 
@@ -2613,19 +2671,36 @@ var ACA = [
   ['광고등록', ['사진 없으면 못 올린다','채널별 필수값','광고문구 만들기'], 'admgr'],
   ['계약업무', ['계약 등록','필요서류 8종','특약 적기'], 'contract'],
   ['정산', ['계약금·중도금·잔금','중개보수 받기'], 'settle'],
-  ['시스템 사용법', ['통합검색','테마 바꾸기','자동화 상태 보기'], 'auto']
+  ['ERP 사용법', ['통합검색','테마 바꾸기','자동화 상태 보기'], 'auto']
 ];
 function viewAcademy(){
   var h = crumb() + '<div class="h1row"><h1>아카데미</h1><span class="cnt">과정 <b>' +
     ACA.length + '</b>개</span></div>' +
-    '<div class="note i">지금은 <b>차례만</b> 만들어 두었습니다. 각 줄을 누르면 그 일을 하는 화면으로 갑니다.<br>' +
-    '🔴 아직 글로 된 교재는 없습니다 — 없는 내용을 만들어 넣지 않았습니다. ' +
-    '기존 📘 이용 가이드(그림 설명)는 기존 CRM 화면에 있습니다.</div>' +
+    '<div class="note i">[읽기]를 누르면 그 업무의 <b>짧은 매뉴얼</b>이 펼쳐집니다. [해보기]는 그 일을 하는 화면으로 갑니다.<br>' +
+    '🔴 내용은 <b>지금 이 ERP 에서 실제로 되는 것</b>만 적었습니다 — 없는 규정을 지어내지 않았습니다. ' +
+    '그림으로 된 📘 이용 가이드는 기존 CRM 화면에 있습니다.</div>' +
     '<div class="card"><div class="sbody"><ul class="steps">';
   ACA.forEach(function(a, i){
-    h += '<li><i>' + (i+1) + '</i><span><b>' + esc(a[0]) + '</b><br>' +
+    var open = (ACA_OPEN === a[0]);
+    h += '<li style="display:block"><div style="display:flex;gap:8px;align-items:flex-start">' +
+      '<i style="flex-shrink:0">' + (i+1) + '</i>' +
+      '<span style="flex:1"><b>' + esc(a[0]) + '</b><br>' +
       '<span style="color:var(--t3);font-size:12px">' + esc(a[1].join(' · ')) + '</span></span>' +
-      '<button class="btn sm" onclick="acaGo(&#39;' + a[2] + '&#39;)">해보기</button></li>';
+      '<button class="btn sm" onclick="ACA_OPEN=(ACA_OPEN===&#39;' + esc(a[0]) + '&#39;?&#39;&#39;:&#39;' +
+      esc(a[0]) + '&#39;);route()">' + (open ? '접기' : '읽기') + '</button> ' +
+      '<button class="btn sm" onclick="acaGo(&#39;' + a[2] + '&#39;)">해보기</button></div>';
+    if(open){
+      var body = ACA_BODY[a[0]] || [];
+      h += '<div style="margin:10px 0 4px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px">';
+      body.forEach(function(sec){
+        h += '<div style="margin:0 0 10px"><div style="font-size:12.5px;font-weight:700;color:var(--t2);margin:0 0 5px">'
+          + esc(sec[0]) + '</div><ul style="margin:0;padding-left:17px;font-size:13px;line-height:1.7">' +
+          sec[1].map(function(li){ return '<li>' + li + '</li>'; }).join('') + '</ul></div>';
+      });
+      if(!body.length) h += '<div style="color:var(--t3);font-size:12.5px">아직 내용이 없습니다</div>';
+      h += '</div>';
+    }
+    h += '</li>';
   });
   h += '</ul><div style="margin-top:12px"><button class="btn" onclick="location.href=&#39;./saas.html&#39;">' +
     '기존 📘 이용 가이드 열기</button></div></div></div>';
@@ -2692,6 +2767,199 @@ function viewAdmin(){
   h += '</div>';
   return h;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   마무리 — 자동화 실연결(웹수집) · 그룹웨어 · 아카데미 본문
+   🔴 저장할 곳이 없는 것은 만들어 내지 않고 그렇게 적는다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 웹수집 실제 상태 (gatherStatus) ──────────────────────────── */
+var GATHER = null, GATHER_ERR = '', GATHER_LOADING = false;
+async function loadGather(){
+  if(GATHER !== null || GATHER_LOADING) return;
+  GATHER_LOADING = true;
+  try{
+    var j = await jget({ action:'gatherStatus' });
+    GATHER = j.result || j.data || {};
+  }catch(e){ GATHER = {}; GATHER_ERR = String((e && e.message) || e); }
+  GATHER_LOADING = false;
+  route();
+}
+/* ── 인입함 통계 (inboxStat) — 업무일지에 쓴다 ────────────────── */
+var ISTAT = null, ISTAT_ERR = '', ISTAT_LOADING = false;
+async function loadIStat(){
+  if(ISTAT !== null || ISTAT_LOADING) return;
+  ISTAT_LOADING = true;
+  try{
+    var j = await jget({ action:'inboxStat' });
+    ISTAT = j.result || j.data || {};
+  }catch(e){ ISTAT = {}; ISTAT_ERR = String((e && e.message) || e); }
+  ISTAT_LOADING = false;
+  route();
+}
+
+/* ── 그룹웨어: 오늘 한 일(실데이터) · 할 일 · 결재 ────────────── */
+function gwToday(){
+  var t = todayStr();
+  var inb = DB.inbox || [];
+  var L = DB.listings || [];
+  var rows = [];
+  var todayIn = inb.filter(function(r){ return String(r.when||'').indexOf(t) === 0; });
+  if(todayIn.length){
+    var by = {};
+    todayIn.forEach(function(r){ var s = srcOf(r.kind, r.text); by[s] = (by[s]||0) + 1; });
+    rows.push({ when: t, what: '인입 ' + todayIn.length + '건 들어옴',
+                detail: Object.keys(by).map(function(k){ return k + ' ' + by[k]; }).join(' · '),
+                go: "go('crm','inbox')" });
+  }
+  L.forEach(function(o){
+    if(String(o.recvDate||'').indexOf(t) === 0)
+      rows.push({ when: t, what: '매물 접수 ' + o.id,
+                  detail: (o.apt||'') + ' ' + (o.addr2||'') + ' · ' + (o.type||'') + ' ' + (adMoney(o)||''),
+                  go: "AD_SEL='" + o.id + "';go('ad','admgr')" });
+    if(String(o.updatedAt||'').indexOf(t) === 0 && String(o.recvDate||'').indexOf(t) !== 0)
+      rows.push({ when: String(o.updatedAt).slice(11,16), what: '매물 수정 ' + o.id,
+                  detail: (o.apt||'') + ' ' + (o.addr2||''), go: '' });
+  });
+  (DB.contracts||[]).forEach(function(c){
+    if(String(c.start||'').indexOf(t) === 0)
+      rows.push({ when: t, what: '계약 ' + c.id, detail: (c.apt||'') + ' ' + (c.addr2||''),
+                  go: "CT_SEL='" + c.id + "';go('deal','contract')" });
+  });
+  rows.sort(function(a,b){ return String(b.when).localeCompare(String(a.when)); });
+  return rows;
+}
+function gwTodo(){
+  var out = [];
+  var un = (DB.inbox||[]).filter(function(r){ return !r.reg; }).length;
+  if(un) out.push({ n:un, what:'인입 미처리 확인', go:"go('crm','inbox')", cls:'p-warn' });
+  var sh = photoTasks().length;
+  if(sh) out.push({ n:sh, what:'촬영 필요 매물', go:"go('ops','photo')", cls:'p-bad' });
+  var ar = adAll().filter(function(r){ return adLive(r.o); });
+  var blocked = ar.filter(function(r){ return r.worst === 'DATA_REQUIRED'; }).length;
+  if(blocked) out.push({ n:blocked, what:'광고 필수값 채우기', go:"AD_FILT='';go('ad','admgr')", cls:'p-warn' });
+  var ready = ar.filter(function(r){ return r.worst === 'AD_READY'; }).length;
+  if(ready) out.push({ n:ready, what:'광고 올릴 수 있는 매물', go:"AD_FILT='ready';go('ad','admgr')", cls:'p-ok' });
+  var wait = (APPR||[]).filter(function(a){ return String(a.status||'') === '대기'; }).length;
+  if(wait) out.push({ n:wait, what:'결재 대기', go:"go('group','gw')", cls:'p-warn' });
+  var ct = DB.contracts || [];
+  var bal = ct.filter(function(c){
+    var d = ctDaysTo(c.balanceDue);
+    return !String(c.balancePaidAt||'').trim() && d !== null && d <= 7; }).length;
+  if(bal) out.push({ n:bal, what:'잔금 임박', go:"go('deal','settle')", cls:'p-bad' });
+  var dq = 0;
+  try{ dq = dqCheck().items.reduce(function(s,x){ return s + x.n; }, 0); }catch(e){}
+  if(dq) out.push({ n:dq, what:'손볼 자료', go:"go('data','stat')", cls:'p-warn' });
+  return out;
+}
+
+/* ── 아카데미 본문 — 지금 ERP 에서 실제로 되는 것만 적는다 ────── */
+var ACA_BODY = {
+  '신입 온보딩': [
+    ['먼저 이것부터', [
+      '① 오른쪽 위 ◐ 로 화면 밝기(흰색·다크·시스템)를 고릅니다. 한 번 고르면 기억합니다.',
+      '② 첫 화면은 <b>오늘업무</b>입니다. 카드 6개와 그 위 한 줄만 보면 오늘 할 일을 압니다.',
+      '③ 위쪽 8개 큰 메뉴를 누르면 그 아래에 작은 메뉴가 가로로 나옵니다.',
+      '④ 맨 위 검색창 하나로 매물번호·건물명·주소·호실·고객·전화·임대인·계약을 한 번에 찾습니다.'
+    ]],
+    ['꼭 아셔야 할 규칙', [
+      '🔴 화면이 숨긴다고 안전한 게 아닙니다 — <b>권한은 서버가 막습니다</b>. 본인 담당이 아닌 임대인·사진은 아예 안 옵니다.',
+      '🔴 통화에 섞인 <b>출입 비밀번호</b>는 목록·요약·광고 어디에도 나오지 않게 자동으로 가려집니다.',
+      '🔴 확신할 수 없는 값은 <b>비워 둡니다</b>. 임의로 채우지 않는 것이 이 시스템의 규칙입니다.'
+    ]]
+  ],
+  '매물접수': [
+    ['전화 한 통이 매물이 되기까지', [
+      '① <b>영업CRM › 통합 인입함</b>에서 통화녹음·문자를 봅니다(출처별로 걸러 볼 수 있습니다).',
+      '② 한 줄을 누르면 오른쪽에 <b>AI가 뽑은 값</b>이 나옵니다 — 호실·보증금·월세·관리비·형태·청소비.',
+      '③ 그 아래 <b>건물 → 호실 → 매물</b> 순서로 대조한 결과가 보입니다.',
+      '④ 판정이 <b>🔵 신규</b>면 [매물 접수]를 누를 수 있습니다.'
+    ]],
+    ['접수할 때 주의', [
+      '확인창에 매물번호·건물·호실·금액과 "44건 → 45건"이 나옵니다. 맞는지 보고 누르세요.',
+      '🔴 같은 건물·호실 매물이 이미 있으면 <b>새로 만들지 않습니다</b>(누르는 순간 다시 확인합니다).',
+      '🔴 통화에서 확인 못 한 칸(면적·방·층 등)은 <b>비워서</b> 저장됩니다. 나중에 매물 화면에서 채웁니다.',
+      '접수하면 그 인입 줄은 ⚪ 동일로 내려가고, 매물 이력 탭이 붙습니다.'
+    ]]
+  ],
+  '고객응대': [
+    ['인입함에서 고객 찾기', [
+      '① 통합 인입함에서 출처를 <b>SMS·부재중전화</b>로 걸러 봅니다.',
+      '② 한 줄을 눌러 내용을 보고, 우리 매물 문의인지 광고·인증문자인지 가립니다.',
+      '③ 전화번호는 권한에 따라 가려집니다. 대표 계정은 전부 보입니다.'
+    ]],
+    ['다음 행동을 꼭 남기기', [
+      '🔴 <b>다음 연락 날짜가 없으면 방치됩니다</b> — 임대인 4천 명 관리에서 이미 확인된 사실입니다.',
+      '데이터센터 › 현황·품질에서 "고객 다음 행동 날짜 없음"이 몇 건인지 볼 수 있습니다.'
+    ]]
+  ],
+  '광고등록': [
+    ['광고가 나가기 전 순서', [
+      '① <b>광고·마케팅 › 광고관리</b>에서 매물 한 줄을 누릅니다.',
+      '② 오른쪽에 채널별(당근·직방·다방·네이버) 상태와 <b>빠진 항목</b>이 번호로 나옵니다.',
+      '③ 사진 상태가 <b>PHOTO_READY</b>가 아니면 어떤 채널에도 올리지 않습니다.',
+      '④ 필수값과 사진이 갖춰지면 <b>AD_READY</b>가 됩니다.'
+    ]],
+    ['사진 규칙 — 가장 많이 틀리는 곳', [
+      '🔴 <b>같은 건물 다른 호실 사진을 그 호실 사진으로 쓰지 않습니다.</b> 201호 사진은 201호 것입니다.',
+      '🔴 건물 외관·공용부(BUILDING_ONLY)는 참고용일 뿐, 호실 내부 사진으로 올리지 않습니다.',
+      '보정완료(워터마크) 폴더에 있는 사진만 광고에 씁니다.',
+      '사진이 없으면 <b>운영부 › 촬영 필요</b>에 자동으로 올라옵니다.'
+    ]],
+    ['진행률 읽는 법', [
+      '진행률은 매물 수가 아니라 <b>매물 × 목표채널 4</b>로 셉니다. 한 매물이 당근·직방만 올라갔으면 2/4입니다.',
+      '🔴 실제 게시는 아직 <b>사람이 각 사이트에서</b> 합니다(자동 게시는 검증 전이라 잠겨 있습니다).'
+    ]]
+  ],
+  '계약업무': [
+    ['계약 등록', [
+      '① <b>계약·정산 › 계약</b>에서 [+ 계약 등록].',
+      '② 매물을 고르면 건물·호실·보증금·월세가 자동으로 들어옵니다. 임대인도 명부에서 후보를 채웁니다.',
+      '③ 임차인·계약일·만기일을 채우면 버튼이 열립니다. 확인창을 보고 누르면 저장됩니다.',
+      '🔴 같은 건물·호실에 끝나지 않은 계약이 있으면 되묻습니다.',
+      '🔴 등록해도 <b>문자·알림은 나가지 않습니다</b>.'
+    ]],
+    ['서류와 특약', [
+      '필요서류 8종: 등기부등본 · 건축물대장 · 신분증 · 임대인 통장사본 · 위임장/인감 · 확인설명서 · 공제증서 · 계약서',
+      '🔴 등기부는 <b>계약 직전과 잔금 직전 두 번</b> 봅니다.',
+      '받은 서류는 [받음으로 표시]를 누르면 기록됩니다. 🔴 발급을 대신 걸지는 않습니다.',
+      '특약은 적고 [특약 저장]을 누르면 <b>기존 내용 아래에 붙습니다</b>(지우지 않습니다).',
+      '🔴 비밀번호로 보이는 내용은 특약에 저장되지 않습니다.'
+    ]]
+  ],
+  '정산': [
+    ['받을 돈 보기', [
+      '<b>계약·정산 › 수납·정산</b>에 계약금·중도금·잔금·만기가 한 줄로 모입니다.',
+      '남은 날이 D-7 안이면 주황, 날짜가 지났으면 빨강으로 보입니다.',
+      '중개보수는 받은 것과 못 받은 것이 금액으로 집계됩니다.'
+    ]],
+    ['꼭 아셔야 할 것', [
+      '🔴 <b>은행과 이어져 있지 않습니다.</b> 입금 확인은 사람이 보고 날짜를 적는 것입니다.',
+      '🔴 계약 시작일(start)과 잔금일은 <b>다른 날짜</b>입니다. 섞어 쓰지 않습니다.',
+      '빈 칸은 빈 칸으로 둡니다 — 0원이나 오늘 날짜를 기본값으로 넣지 않습니다.'
+    ]]
+  ],
+  'ERP 사용법': [
+    ['빨리 쓰는 법', [
+      '맨 위 검색창에 매물번호·건물명·주소·호실·이름·전화를 넣으면 종류별로 묶어 보여 줍니다.',
+      '목록에서 한 줄을 누르면 <b>페이지가 바뀌지 않고</b> 오른쪽에 상세가 열립니다.',
+      '각 화면의 [Help]를 누르면 그 화면 쓰는 법이 나옵니다.',
+      '오른쪽 위 ◐ 로 흰색·다크·시스템 화면을 바꿉니다.'
+    ]],
+    ['상태 보는 법', [
+      '<b>관리부 › 자동화관리</b>: 문자·통화·공실사진 수집이 언제 마지막으로 돌았는지 실제 숫자로 나옵니다.',
+      '<b>데이터센터 › 현황·품질</b>: 빠진 값·중복·사진 없음 같은 손볼 자료를 세어 줍니다.',
+      '🔴 확인할 수 없는 것은 "<b>확인 전</b>"이라고 적습니다 — 숫자를 지어내지 않습니다.'
+    ]],
+    ['이 화면이 하지 않는 일', [
+      '🔴 외부 사이트에 광고를 올리지 않습니다(검증 전).',
+      '🔴 문자를 보내지 않습니다.',
+      '🔴 계약서를 자동으로 만들거나 공부를 발급하지 않습니다.',
+      '🔴 중요한 자료를 이 기기(브라우저)에 쌓아 두지 않습니다 — 테마 설정만 기억합니다.'
+    ]]
+  ]
+};
+var ACA_OPEN = '';
 
 /* ── 라우팅 ── */
 var SEARCH = '';
