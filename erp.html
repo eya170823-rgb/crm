@@ -110,7 +110,8 @@ h1{margin:0;font-size:21px;letter-spacing:-.4px}
 .btn.sm{padding:4px 9px;font-size:12.5px}
 
 .monwrap{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 14px;align-items:start}
-@media(max-width:1000px){.monwrap{grid-template-columns:1fr}}
+.monwrap4{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:0 0 14px;align-items:start}
+@media(max-width:1000px){.monwrap,.monwrap4{grid-template-columns:1fr}}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 14px}
 .kpi{padding:12px 13px;border:1px solid var(--line);border-radius:11px;background:var(--panel);box-shadow:var(--shadow);cursor:pointer;text-align:left}
 .kpi:hover{border-color:var(--brand)}
@@ -209,8 +210,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.7';
-var ERP_BUILD = '2026-09-12 07:05';
+var ERP_VER = '1.8';
+var ERP_BUILD = '2026-09-12 09:10';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -291,7 +292,8 @@ function drawSide(){
 }
 
 /* ── 데이터 ────────────────────────────────────────────────────── */
-var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:null, err:'', errKind:'', loading:false };
+var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:null,
+           err:'', errKind:'', ldErr:'', inErr:'', loading:false };
 
 async function jget(params){
   var u = gsUrl(), t = gsTok();
@@ -305,33 +307,67 @@ async function jget(params){
 }
 async function loadAll(force){
   if(DB.loading) return;
-  if(DB.inbox && !force) return;
-  DB.loading = true; DB.err = '';
-  try{
-    var a = await jget({ action:'inboxList', limit:200 });
-    DB.inbox = ((a.result||{}).rows) || [];
-    DB.inboxTotal = (a.result||{}).total || DB.inbox.length;
-    var b = await jget({ action:'getAll', type:'listings' });
+  if(DB.listings && !force) return;
+  DB.loading = true; DB.err = ''; DB.ldErr = ''; DB.inErr = '';
+  /* 🔴 자료원마다 따로 읽는다.
+     예전에는 하나의 try 로 묶여 있어, 임대인(4,075건)에서 GAS 가 한 번 실패하면
+     **인입함까지 통째로 못 읽었다**(2026-09-12 실측). 월요일 아침에 그러면
+     화면에 "못 읽었습니다" 밖에 안 남는다. 이제 실패한 자료원만 실패로 적는다. */
+  await loadOne('listings', async function(){
+    var b = await jgetTry({ action:'getAll', type:'listings' });
     /* 🔴 시트에는 ads 칸이 없다 — adsFlat 한 칸에 눌러 담겨 있다.
        풀어 주지 않으면 이미 올라가 있는 광고가 전부 '미게시'로 보인다. */
     DB.listings = (b.data || b.result || []).map(adsRestore);
-    var c = await jget({ action:'getAll', type:'landlords' });
+  });
+  try{ route(); }catch(e0){}            /* 매물만으로도 화면이 쓸모 있다 */
+  await loadOne('landlords', async function(){
+    var c = await jgetTry({ action:'getAll', type:'landlords' });
     DB.landlords = c.data || c.result || [];
-  }catch(e){
-    /* 🔴 "토큰이 없다" 와 "서버가 지금 안 된다" 는 전혀 다른 일이다.
-       둘을 같은 말로 보여 주면 대표님이 멀쩡한 설정을 다시 건드리게 된다. */
-    var msg = String((e && e.message) || e || '');
-    DB.errKind = (msg === 'NOKEY') ? 'NOKEY'
-      : ((msg.indexOf('DOCTYPE') >= 0 || msg.indexOf('valid JSON') >= 0 ||
-          msg.indexOf('Unexpected token') >= 0 || msg.indexOf('Failed to fetch') >= 0 ||
-          msg.indexOf('NetworkError') >= 0 || msg.indexOf('timeout') >= 0) ? 'SERVER' : 'OTHER');
-    DB.err = (DB.errKind === 'NOKEY')
-      ? '이 기기에 구글시트 주소·토큰이 없습니다 — 기존 CRM 화면(설정)에서 한 번 넣으면 이 화면도 같이 씁니다.'
-      : (DB.errKind === 'SERVER')
-      ? ('구글시트 서버가 지금 응답하지 않습니다. 설정은 그대로입니다 — 잠시 뒤 [다시 불러오기] 를 눌러 주세요.')
-      : ('불러오지 못했습니다: ' + msg);
-  }
+  });
+  try{ route(); }catch(e1){}
+  /* 200건이면 2주치뿐이라 '계약완료 문자' 대조를 못 한다 — 500건까지 본다 */
+  await loadOne('inbox', async function(){
+    var a = await jgetTry({ action:'inboxList', limit:500 });
+    DB.inbox = ((a.result||{}).rows) || [];
+    DB.inboxTotal = (a.result||{}).total || DB.inbox.length;
+  });
   DB.loading = false;
+}
+/* 🔴 GAS 는 연달아 부르면 자주 한 번 실패한다(이 프로젝트의 오래된 문제).
+   한 번 더 시도해 보고, 그래도 안 되면 그때 실패로 적는다. */
+async function jgetTry(q, n){
+  var last;
+  for(var i = 0; i < (n || 2); i++){
+    try{ return await jget(q); }
+    catch(e){
+      last = e;
+      if(String(e && e.message || '') === 'NOKEY') throw e;   /* 토큰 없음은 다시 해도 같다 */
+      await new Promise(function(r){ setTimeout(r, 1200 + i * 2000); });
+    }
+  }
+  throw last;
+}
+function loadErrWord(e){
+  var msg = String((e && e.message) || e || '');
+  var kind = (msg === 'NOKEY') ? 'NOKEY'
+    : ((msg.indexOf('DOCTYPE') >= 0 || msg.indexOf('valid JSON') >= 0 ||
+        msg.indexOf('Unexpected token') >= 0 || msg.indexOf('Failed to fetch') >= 0 ||
+        msg.indexOf('NetworkError') >= 0 || msg.indexOf('timeout') >= 0) ? 'SERVER' : 'OTHER');
+  var say = (kind === 'NOKEY')
+    ? '이 기기에 구글시트 주소·토큰이 없습니다 — 기존 CRM 화면(설정)에서 한 번 넣으면 이 화면도 같이 씁니다.'
+    : (kind === 'SERVER')
+    ? '구글시트 서버가 지금 응답하지 않습니다. 설정은 그대로입니다 — 잠시 뒤 [다시 불러오기] 를 눌러 주세요.'
+    : ('불러오지 못했습니다: ' + msg);
+  return { kind: kind, say: say };
+}
+async function loadOne(what, fn){
+  try{ await fn(); }
+  catch(e){
+    var r = loadErrWord(e);
+    if(what === 'listings'){ DB.errKind = r.kind; DB.err = r.say; }
+    else if(what === 'landlords') DB.ldErr = r.say;
+    else DB.inErr = r.say;
+  }
 }
 
 /* ═══ 민감정보 가리개 — 비밀번호류는 목록·광고·로그에 내보내지 않는다 ═══ */
@@ -648,7 +684,7 @@ function viewToday(){
   var adB = adBuckets();
   return crumb() +
   '<div class="h1row"><h1>오늘 할 일</h1><span class="cnt">' +
-    '인입 미처리 <b class="hot">' + ((DB.err || DB.inbox === null) ? '?' : un.length) + '</b>건 · ' +
+    '인입 미처리 <b class="hot">' + ((DB.inErr || DB.inbox === null) ? '?' : un.length) + '</b>건 · ' +
     '매물 <b>' + homeNum(L.length) + '</b>건 · ' +
     '촬영 필요 <b class="hot">' +
       ((DB.err || DB.listings === null || phIdxErr()) ? '?' : shoot.length) + '</b>건' +
@@ -658,10 +694,12 @@ function viewToday(){
       : '') + '</span></div>' +
   homeLoadBox() +
   phIdxBox('촬영 필요') +
+  briefCard() +
   top3Card() +
   monBoard() +
   '<div class="kpis">' +
-    kpi('신규 인입', un.length, un.length ? 'w' : '', "go('crm','inbox')") +
+    kpi('신규 인입', ((DB.inErr || DB.inbox === null) ? '?' : un.length),
+        un.length ? 'w' : '', "go('crm','inbox')") +
     kpi('촬영 필요', ((DB.err || DB.listings === null || phIdxErr()) ? '?' : shoot.length),
         shoot.length ? 'b' : '', "go('ops','photo')") +
     kpi('🔴 광고 내림', homeNum(adB.down.length), adB.down.length ? 'b' : '', "AD_FILT='down';go('ad','admgr')") +
@@ -3387,6 +3425,292 @@ function reContact(){
   });
 }
 
+/* ═══ 월요일 실행 도구 ═══════════════════════════════════════════
+   🔴 여기 있는 어느 것도 전화를 걸거나 문자를 보내지 않는다.
+      목록을 만들고, 문자 글을 만들어 복사해 드릴 뿐이다. ═══════════ */
+
+/* ── ① 🔴 '계약완료 문자' 와 매물장이 어긋나는 것 ────────────────
+   서버가 임대완료 문자를 알아보고 인입함에 ⚠️ 로 넣어 둔다.
+   그 호실이 우리 매물장에 아직 '접수' 로 있으면 헛걸음하게 된다. */
+var DONE_MARK = '임대완료 문자';
+function doneUnits(t){
+  var out = [], s2 = String(t || ''), i = 0;
+  while(i < s2.length){
+    var j = s2.indexOf('호', i);
+    if(j < 0) break;
+    var k = j - 1, num = '';
+    while(k >= 0){
+      var c = s2.charCodeAt(k);
+      if(c >= 48 && c <= 57){ num = s2.charAt(k) + num; k--; }
+      else break;
+    }
+    if(num.length >= 3 && num.length <= 4 && out.indexOf(num + '호') < 0) out.push(num + '호');
+    i = j + 1;
+  }
+  return out;
+}
+function doneAlerts(){
+  var inb = DB.inbox || [], seen = {}, out = [];
+  inb.forEach(function(r){
+    var t = String(r.text || '');
+    if(t.indexOf(DONE_MARK) < 0) return;
+    var when = String(r.when || '');
+    var key = when.slice(0, 16) + '|' + sq(t).slice(0, 40);
+    if(seen[key]) return;
+    seen[key] = 1;
+    var ph = phDigits(r.phone);
+    var ld = (DB.landlords || []).filter(function(l){ return phDigits(l.phone) === ph; })[0] || null;
+    var units = doneUnits(t);
+    var hits = [];
+    (DB.listings || []).forEach(function(o){
+      if(String(o.status || '') !== '접수' && String(o.status || '') !== '상담중') return;
+      var u = sq(o.addr2);
+      if(!u || units.indexOf(u) < 0 && units.map(sq).indexOf(u) < 0) return;
+      var apt = sq(o.apt), lapt = sq((ld || {}).apt);
+      var same = !!lapt && (apt === lapt || apt.indexOf(lapt) >= 0 || lapt.indexOf(apt) >= 0);
+      var inbody = !!apt && sq(t).indexOf(apt) >= 0;
+      if(same || inbody)
+        hits.push({ o:o, why: same ? '임대인 건물이 같습니다' : '문자에 건물 이름이 있습니다' });
+    });
+    if(hits.length)
+      out.push({ when:when, mask:phMask(r.phone), land:(ld || {}).name || '',
+                 units:units, hits:hits, text:t, reg:String(r.reg || '') });
+  });
+  return out.sort(function(a, b){ return String(b.when).localeCompare(String(a.when)); });
+}
+/* 그 매물이 '계약완료 문자' 와 어긋나는가 */
+function doneConflict(o){
+  var id = String(o && o.id || '');
+  var all = doneAlerts();
+  for(var i = 0; i < all.length; i++)
+    for(var j = 0; j < all[i].hits.length; j++)
+      if(String(all[i].hits[j].o.id) === id) return all[i];
+  return null;
+}
+
+/* ── ② 촬영 TOP ─────────────────────────────────────────────── */
+function monArea2(o){
+  var a = String(o.addr || '') + String(o.apt || '');
+  return a.indexOf('연동') >= 0 ? '연동' : (a.indexOf('노형') >= 0 ? '노형' : '');
+}
+function shootTop(n){
+  var conf = {};
+  doneAlerts().forEach(function(d){
+    d.hits.forEach(function(h){ conf[String(h.o.id)] = d; }); });
+  var out = photoTasks().filter(function(x){ return inMyScope(x.o); }).map(function(x){
+    var o = x.o, miss = adMissingAll(o), sc = 0, det = [];
+    if(!miss.length){ sc += 40; det.push('🔴 사진만 있으면 바로 광고 가능'); }
+    else if(miss.length === 1){ sc += 25; det.push('빠진 칸이 ' + miss[0] + ' 하나뿐'); }
+    else if(miss.length === 2){ sc += 12; det.push('빠진 칸 2개'); }
+    if(String(o.price || '').trim() && String(o.addr2 || '').trim()){
+      sc += 15; det.push('가격·호실 명확'); }
+    var ld = ldOfListing(o);
+    if(ld && phDigits(ld.phone)){ sc += 15; det.push('임대인 연락처 있음'); }
+    var ar = monArea2(o);
+    if(ar){ sc += 15; det.push(ar); }
+    if(monRoom(o)){ sc += 10; det.push('원·투룸'); }
+    var ago = monDaysSince(o.recvDate);
+    if(ago !== null && ago <= 14){ sc += 10; det.push('접수 ' + ago + '일'); }
+    var cf = conf[String(o.id)];
+    if(cf){ sc -= 70; det.push('🔴 임대인이 “계약완료” 문자를 보냈습니다'); }
+    return { o:o, ph:x.ph, score:sc, det:det, miss:miss, conflict:cf || null,
+             ld:ld, ago:ago, readyAfter: miss.length === 0 };
+  }).filter(function(x){ return !x.conflict; });
+  out.sort(function(a, b){ return b.score - a.score; });
+  return out.slice(0, n || 5);
+}
+
+/* 매물의 임대인 — 건물 이름으로 찾고, 가장 최근에 연락한 사람을 쓴다 */
+function ldOfListing(o){
+  var a = sq(o && o.apt);
+  if(!a) return null;
+  var c = (DB.landlords || []).filter(function(l){ return sq(l.apt) === a; });
+  if(!c.length)
+    c = (DB.landlords || []).filter(function(l){
+      var la = sq(l.apt);
+      return la && (la.indexOf(a) >= 0 || a.indexOf(la) >= 0); });
+  if(!c.length) return null;
+  c.sort(function(x, y){ return String(y.lastContact || '').localeCompare(String(x.lastContact || '')); });
+  return c[0];
+}
+/* 광고 필수값 — 목표 채널을 통틀어 빠진 칸 */
+function adMissingAll(o){
+  var out = [];
+  AD_GOAL.forEach(function(k){
+    (adMissing(o, k) || []).forEach(function(m){ if(out.indexOf(m) < 0) out.push(m); });
+  });
+  return out;
+}
+
+/* ── ③ 임대인 연락 후보 — 🔴 전화도 문자도 보내지 않는다 ───────── */
+var MSG_TPL = [
+  { key:'A', name:'공실 확인',
+    body:'안녕하세요, {건물} {호실} 관련해 여쭙습니다.' + String.fromCharCode(10) +
+         '지금도 비어 있을까요?' + String.fromCharCode(10) +
+         '가능하시면 "가능" 또는 "나감" 으로만 답 주셔도 됩니다.' + String.fromCharCode(10) +
+         '- 브리즈부동산중개 010-2601-0110' },
+  { key:'B', name:'가격·조건 재확인',
+    body:'안녕하세요, 브리즈부동산중개입니다.' + String.fromCharCode(10) +
+         '{건물} {호실} 조건을 {조건} 으로 알고 있는데 지금도 맞을까요?' + String.fromCharCode(10) +
+         '바뀐 곳만 알려 주셔도 됩니다.' + String.fromCharCode(10) + '- 010-2601-0110' },
+  { key:'C', name:'사진 촬영 요청',
+    body:'안녕하세요, 브리즈부동산중개입니다.' + String.fromCharCode(10) +
+         '{건물} {호실} 광고에 쓸 사진이 없어서요.' + String.fromCharCode(10) +
+         '방문해서 찍어도 괜찮을 날짜가 언제일까요?' + String.fromCharCode(10) +
+         '편하신 시간 알려 주시면 맞추겠습니다.' + String.fromCharCode(10) + '- 010-2601-0110' },
+  { key:'D', name:'오래된 매물 재확인',
+    body:'안녕하세요, 브리즈부동산중개입니다.' + String.fromCharCode(10) +
+         '{건물} {호실} 을 {접수일} 에 받아 두었는데 그 뒤 소식을 못 들었습니다.' + String.fromCharCode(10) +
+         '아직 손님을 찾고 계실까요?' + String.fromCharCode(10) +
+         '정리됐으면 "완료" 라고만 주셔도 됩니다.' + String.fromCharCode(10) + '- 010-2601-0110' },
+  { key:'E', name:'임대 완료 여부 확인',
+    body:'안녕하세요, 브리즈부동산중개입니다.' + String.fromCharCode(10) +
+         '{건물} {호실} 이 임대 완료됐는지 확인 부탁드립니다.' + String.fromCharCode(10) +
+         '완료됐으면 광고를 내리겠습니다.' + String.fromCharCode(10) +
+         '"완료" 또는 "아직" 으로만 답 주셔도 됩니다.' + String.fromCharCode(10) + '- 010-2601-0110' }
+];
+function msgFill(key, x){
+  var t = (MSG_TPL.filter(function(m){ return m.key === key; })[0] || MSG_TPL[0]).body;
+  var apt = (x.apts || []).join('·') || '해당 건물';
+  var units = (x.units || []).filter(Boolean);
+  var u = units.length > 2 ? (units.slice(0, 2).join(', ') + ' 외 ' + (units.length - 2) + '곳')
+                           : (units.join(', ') || '');
+  var money = x.money || '';
+  var recv = x.recvDate || '';
+  t = t.split('{건물}').join(apt).split('{호실}').join(u)
+       .split('{조건}').join(money || '적어 둔 조건').split('{접수일}').join(recv || '접수 당시');
+  return maskSecret(t);
+}
+function ldCallTop(n){
+  var conf = {};
+  doneAlerts().forEach(function(d){
+    d.hits.forEach(function(h){ conf[String(h.o.id)] = d; }); });
+  var by = {}, skipped = [];
+  (DB.listings || []).forEach(function(o){
+    var st = String(o.status || '');
+    if(st !== '접수' && st !== '상담중' && st !== '') return;
+    if(!inMyScope(o)) return;
+    var l = ldOfListing(o);
+    if(!l){ skipped.push({ o:o, why:'임대인 명부에서 이 건물을 못 찾았습니다' }); return; }
+    var d = phDigits(l.phone);
+    var cs = String(l.contactStatus || '') + ' ' + String(l.note || '');
+    if(cs.indexOf('연락금지') >= 0 || cs.indexOf('수신거부') >= 0){
+      skipped.push({ o:o, why:'연락금지' + (l.banReason ? ('(' + l.banReason + ')') : '') }); return; }
+    if(cs.indexOf('번호틀림') >= 0){ skipped.push({ o:o, why:'번호틀림으로 표시돼 있습니다' }); return; }
+    if(d.length < 10 || d.charAt(0) !== '0'){
+      skipped.push({ o:o, why:'번호가 확실하지 않습니다' }); return; }
+    var last = monDaysSince(l.lastContact);
+    if(last !== null && last <= 3){
+      skipped.push({ o:o, why:'최근 ' + last + '일 안에 이미 연락했습니다' }); return; }
+    var p = by[d] || (by[d] = { ph:d, l:l, items:[], last:last });
+    p.items.push({ o:o, miss:adMissingAll(o), photo:adPhotoOf(o),
+                   ago:monDaysSince(o.recvDate), conflict:conf[String(o.id)] || null });
+  });
+
+  var out = Object.keys(by).map(function(d){
+    var p = by[d], l = p.l, items = p.items;
+    var why = [], sc = 0, det = [], tpl = 'A', kind = '문자';
+    var dm = items.filter(function(x){ return x.conflict; });
+    if(dm.length){
+      why.push('🔴 임대인이 “계약완료” 문자를 보냈는데 아직 접수로 남아 있는 호실이 있습니다 (' +
+        dm.map(function(x){ return String(x.o.addr2 || ''); }).join(', ') + ')');
+      sc += 60; det.push('계약완료 문자와 어긋남'); tpl = 'E'; kind = '전화';
+    }
+    var agos = items.map(function(x){ return x.ago; }).filter(function(v){ return v !== null; });
+    if(agos.length){
+      var a0 = Math.min.apply(null, agos);
+      if(a0 <= 7){ sc += 30; det.push('접수 ' + a0 + '일'); kind = '전화';
+        why.push('접수한 지 ' + a0 + '일 — 지금이 가장 빠릅니다'); }
+      else if(a0 <= 30){ sc += 18; det.push('접수 ' + a0 + '일'); }
+      else { sc += 6; det.push('접수 ' + a0 + '일');
+        why.push('가장 오래된 것이 접수 ' + a0 + '일 지났습니다');
+        if(tpl === 'A') tpl = 'D'; }
+    }
+    var miss = [];
+    items.forEach(function(x){ x.miss.forEach(function(m){ if(miss.indexOf(m) < 0) miss.push(m); }); });
+    var noPhoto = items.filter(function(x){ return x.photo.code !== 'PHOTO_READY'; });
+    var ready = items.filter(function(x){ return x.photo.code === 'PHOTO_READY' && !x.miss.length; });
+    if(miss.length){ why.push('광고 필수값이 비어 있습니다 — ' + miss.join('·'));
+      if(tpl === 'A') tpl = 'B'; }
+    if(noPhoto.length){ why.push('사진이 없어 광고를 못 올리는 호실이 ' + noPhoto.length + '건 있습니다');
+      if(tpl === 'A' || tpl === 'B') tpl = 'C'; }
+    if(ready.length){ sc += 25; det.push('바로 광고 가능'); kind = '전화';
+      why.push('사진·필수값이 갖춰져 조건만 맞으면 바로 광고할 수 있는 호실 ' + ready.length + '건'); }
+    else if(noPhoto.length && !miss.length){ sc += 18; det.push('사진만 있으면 광고 가능'); }
+    else if(miss.length <= 2){ sc += 15; det.push('조금만 채우면 광고 가능'); }
+    if(p.last === null){ sc += 12; det.push('연락 기록 없음'); }
+    else if(p.last >= 30){ sc += 15; det.push('마지막 연락 ' + p.last + '일 전'); }
+    var addr = items.map(function(x){ return monArea2(x.o); }).filter(Boolean)[0] || '';
+    if(addr){ sc += 15; det.push(addr); }
+    if(items.some(function(x){ return monRoom(x.o); })){ sc += 10; det.push('원·투룸'); }
+    if(items.length && items.every(function(x){ return String(x.o.price || '').trim(); })){
+      sc += 10; det.push('가격 명확'); }
+    if(items.length > 1) why.push('이 임대인 호실이 ' + items.length + '건 — 한 번에 물어보시면 됩니다');
+    if(!why.length) why.push('상태를 확인한 지 오래됐습니다');
+
+    var apts = [];
+    items.forEach(function(x){ var a = String(x.o.apt || ''); if(a && apts.indexOf(a) < 0) apts.push(a); });
+    var nm = String(l.name || '').trim();
+    if(!nm) nm = '(이름 미기재) ' + (apts[0] || String(l.apt || '') || '건물 미상');
+    return { ph:d, mask:phMask(l.phone), name:nm, score:sc, det:det, kind:kind, tpl:tpl,
+             why:why, apts:apts, units:items.map(function(x){ return String(x.o.addr2 || ''); }),
+             ids:items.map(function(x){ return String(x.o.id || ''); }),
+             money:(items[0] ? adMoney(items[0].o) : ''),
+             recvDate:String((items[0] || {}).o && items[0].o.recvDate || ''),
+             lastContact:String(l.lastContact || '') || '기록 없음',
+             evidence:(String(l.roleEvidence || '') || String(l.source || '') ||
+                       ('거래가능 매물 ' + items.length + '건의 건물 임대인')),
+             items:items.length, conflictN:dm.length };
+  });
+  out.sort(function(a, b){ return b.score - a.score; });
+  out = out.slice(0, n || 20);
+  return { all:out, call:out.filter(function(x){ return x.kind === '전화'; }),
+           text:out.filter(function(x){ return x.kind === '문자'; }),
+           skipped:skipped };
+}
+/* 문자 글을 복사해 드린다 — 🔴 보내지 않는다 */
+function msgCopyFor(ph){
+  var t = ldCallTop(20);
+  var x = t.all.filter(function(y){ return y.ph === ph; })[0];
+  if(!x){ alert('그 임대인을 찾지 못했습니다.'); return; }
+  var body = msgFill(x.tpl, x);
+  copyText(body, ['문자 글을 복사했습니다 ✓', '',
+    '🔴 문자는 나가지 않았습니다 — 문자 앱에 붙여 넣고 보내실지 정하세요.', '',
+    body].join(String.fromCharCode(10)));
+}
+
+/* ── ④ 오늘 할 일 3줄 ──────────────────────────────────────── */
+function todayBrief(){
+  var b = adBuckets(), dn = doneAlerts(), lc = ldCallTop(20), st = shootTop(5);
+  var lines = [];
+  if(b.down.length)
+    lines.push({ what:'당근에서 광고 ' + b.down.length + '건 내리고 [내림 확인] 누르기',
+                 who:b.down.slice(0, 4).map(function(d){
+                   return String((d.o.apt || '') + ' ' + (d.o.addr2 || '')).trim(); }).join(' · '),
+                 go:"AD_FILT='down';go('ad','admgr')" });
+  if(dn.length){
+    var ids = {};
+    dn.forEach(function(d){ d.hits.forEach(function(h){ ids[String(h.o.id)] = h.o; }); });
+    var ks = Object.keys(ids);
+    lines.push({ what:'🔴 “계약완료” 문자가 온 매물 ' + ks.length + '건 상태 확인',
+                 who:ks.slice(0, 4).map(function(k){
+                   return String((ids[k].apt || '') + ' ' + (ids[k].addr2 || '')).trim(); }).join(' · '),
+                 go:"go('ops','listing')" });
+  }
+  if(lc.all.length)
+    lines.push({ what:'임대인 ' + lc.call.length + '명 전화 · ' + lc.text.length + '명 문자',
+                 who:(lc.all[0] ? ('1순위 ' + lc.all[0].name) : ''),
+                 go:"go('home','today')" });
+  if(st.length && lines.length < 3)
+    lines.push({ what:'촬영 ' + st.length + '건 (' + (st[0] ? String((st[0].o.apt || '')) : '') + ' 위주)',
+                 who:st.slice(0, 3).map(function(x){
+                   return String((x.o.apt || '') + ' ' + (x.o.addr2 || '')).trim(); }).join(' · '),
+                 go:"go('ops','photo')" });
+  return { lines:lines.slice(0, 3),
+           call:lc.call.length, text:lc.text.length, shoot:photoTasks().length,
+           down:b.down.length, reopen:reopenReview().length, done:dn.length };
+}
+
 /* ═══ 재오픈 검토 ═══════════════════════════════════════════════
    종료된 고객에게 **그 뒤로** 새 연락이 오면, 종료를 풀지 않고 '검토 후보'로만 올린다.
    🔴 자동으로 종료를 해제하지 않는다 · 🔴 고객을 새로 만들지 않는다 · 🔴 문자를 보내지 않는다.
@@ -3599,6 +3923,33 @@ function monLine(main, sub, why, btn){
 function monEmpty(msg){
   return '<div class="empty" style="padding:16px;font-size:12.5px">' + msg + '</div>';
 }
+function ldGroup(title, list, note){
+  if(!list.length)
+    return '<div style="margin:0 0 10px"><b style="font-size:13px">' + title +
+      ' 0</b><div class="empty" style="padding:10px;font-size:12px">해당하는 분이 없습니다</div></div>';
+  var h = '<div style="margin:0 0 12px"><b style="font-size:13px">' + title + ' ' + list.length +
+    '</b><span style="font-size:11.5px;color:var(--t3)"> — ' + esc(note) + '</span>' +
+    '<ol style="margin:7px 0 0;padding-left:19px">';
+  list.forEach(function(x){
+    var tpl = (MSG_TPL.filter(function(m){ return m.key === x.tpl; })[0] || {});
+    var units = x.units.filter(Boolean);
+    h += monLine(
+      esc(x.name) + ' <span class="mono" style="font-size:11.5px;color:var(--t3)">' +
+        esc(x.mask) + '</span>' +
+        (x.conflictN ? ' <span class="pill p-bad">계약완료 문자</span>' : ''),
+      esc(x.apts.join('·') || '건물 미상') +
+        (units.length ? (' · ' + esc(units.slice(0, 4).join(', ')) +
+                         (units.length > 4 ? (' 외 ' + (units.length - 4) + '곳') : '')) : '') +
+        '<br>마지막 연락 ' + esc(x.lastContact),
+      esc(x.why.slice(0, 2).join(' · ')) + ' · 추천 문자 ' + esc(x.tpl + '. ' + (tpl.name || '')),
+      '<button class="btn sm" onclick="msgCopyFor(&#39;' + esc(x.ph) +
+        '&#39;)">문자 글 복사</button> ' +
+      '<button class="btn sm" onclick="AD_SEL=&#39;' + esc(x.ids[0] || '') +
+        '&#39;;go(&#39;ad&#39;,&#39;admgr&#39;)">매물 열기</button>');
+  });
+  return h + '</ol></div>';
+}
+
 function monBoard(){
   var cu = monCustTop(5), ls = monListTop(10), ad = monAdTop(10);
   var down = ad.filter(function(x){ return x.kind === '내림'; });
@@ -3687,8 +4038,9 @@ function monBoard(){
       h2 += monLine(
         esc(String((o.apt || '') + ' ' + (o.addr2 || '')).trim() || String(o.id || '')) + ' ' +
           x.tags.map(function(t){
-            return '<span class="pill ' + (t === '촬영필요' ? 'p-bad' : 'p-warn') + '">' +
-                   esc(t) + '</span>'; }).join(' '),
+            return '<span class="pill ' +
+              (t === '계약완료문자' ? 'p-bad' : (t === '촬영필요' ? 'p-bad' : 'p-warn')) + '">' +
+              esc(t === '계약완료문자' ? '🔴 계약완료 문자' : t) + '</span>'; }).join(' '),
         esc([o.type, adMoney(o), o.kind].filter(Boolean).join(' · ')) +
           (x.land ? (' · 임대인 ' + esc(String(x.land.name || ''))) : ''),
         esc(x.why.slice(0, 3).join(' · ')),
@@ -3728,17 +4080,96 @@ function monBoard(){
       body + '</div></div>';
   }
 
-  return '<div class="monwrap">' +
-    box('① 월요일 고객 ' + (ro.length ? ('<span class="pill p-bad">재오픈 ' + ro.length + '</span> ') : '') +
-        '재접촉 TOP ' + cu.length,
-        '재접촉에서는 종료·연락금지·조건 없는 분·지금 보여 줄 매물이 하나도 없는 분을 뺐습니다 · ' +
-        '종료 뒤 새 연락이 온 분은 위에 따로 올립니다',
-        h1, ro.length > 0) +
-    box('② 월요일 확보·확인할 매물 TOP ' + ls.length,
-        '촬영필요 · 광고 필수값 부족 · 신규 인입을 합쳤습니다(같은 호실은 한 줄)', h2, false) +
-    box('③ 광고 조치 TOP ' + ad.length +
-        (down.length ? (' <span class="pill p-bad">내림 ' + down.length + '</span>') : ''),
-        '🔴 내려야 할 광고가 언제나 맨 위입니다', h3, down.length > 0) +
+  /* ── ⓪ 임대인 연락 — 전화와 문자를 갈라 놓는다 ── */
+  var lc = ldCallTop(20);
+  var h0 = '';
+  if(DB.ldErr || DB.err || DB.landlords === null)
+    h0 = monEmpty((DB.ldErr || DB.err)
+      ? '🔴 임대인 자료를 불러오지 못했습니다 — <b>후보가 없는 것이 아닙니다</b>.'
+      : '임대인 자료를 불러오는 중입니다…');
+  else if(!lc.all.length)
+    h0 = monEmpty('연락할 임대인 후보가 없습니다 — 거래가능 매물이 없거나 모두 최근에 연락했습니다.');
+  else {
+    h0 = ldGroup('📞 전화 먼저', lc.call,
+          '오늘 계약이 될 만한 곳 · 지금 바로 확인해야 하는 곳') +
+         ldGroup('✉️ 문자로', lc.text,
+          '단순 확인 · 오래된 매물 · 첫 재접촉 — 글은 만들어 드립니다(보내지는 않습니다)');
+    if(lc.skipped.length)
+      h0 += '<div style="font-size:11.5px;color:var(--t3);margin-top:8px">뺀 것 ' +
+        lc.skipped.length + '건 — ' +
+        esc(lc.skipped.slice(0, 3).map(function(x){ return x.why; }).join(' · ')) +
+        (lc.skipped.length > 3 ? ' 외' : '') + '</div>';
+  }
+
+  /* ── ② 에 촬영 TOP5 를 덧붙인다 ── */
+  var st = shootTop(5);
+  if(st.length){
+    h2 += '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">' +
+      '<b style="font-size:13px">📸 오늘 찍을 것 ' + st.length + '건</b>' +
+      '<span style="font-size:11.5px;color:var(--t3)"> — 촬영 필요 ' + photoTasks().length +
+      '건 중에서 골랐습니다</span><ol style="margin:7px 0 0;padding-left:19px">';
+    st.forEach(function(x){
+      h2 += monLine(
+        esc(String((x.o.apt || '') + ' ' + (x.o.addr2 || '')).trim()) +
+          (x.readyAfter ? ' <span class="pill p-ok">찍으면 바로 광고</span>'
+                        : ' <span class="pill p-warn">' + esc(x.miss.join('·')) + ' 도 필요</span>'),
+        esc(x.ph.why || ''),
+        esc(x.det.slice(0, 3).join(' · ')),
+        '<button class="btn sm" onclick="go(&#39;ops&#39;,&#39;photo&#39;)">촬영 목록</button>');
+    });
+    h2 += '</ol></div>';
+  }
+
+  /* ── ④ 광고 — 네 갈래를 한자리에 ── */
+  var b4 = adBuckets();
+  var h4 = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 9px">' +
+    ['<b class="pill p-bad">내림 ' + b4.down.length + '</b>',
+     '<span class="pill p-warn">필수값 ' + b4.data.length + '</span>',
+     '<span class="pill p-bad">사진 ' + b4.photo.length + '</span>',
+     '<span class="pill p-ok">AD_READY ' + b4.ready.length + '</span>'].join('') + '</div>' + h3;
+
+  /* ── 🔴 계약완료 문자와 어긋나는 매물 ── */
+  var dn = doneAlerts();
+  var hDone = '';
+  if(dn.length){
+    var ids = {};
+    dn.forEach(function(d){ d.hits.forEach(function(h){ ids[String(h.o.id)] = { o:h.o, d:d }; }); });
+    var ks = Object.keys(ids);
+    hDone = '<div class="card" style="margin:0 0 14px;border-color:var(--bad)">' +
+      '<div class="sbody" style="padding:12px 15px">' +
+      '<h4 style="margin:0 0 3px;font-size:15px">🔴 “계약완료” 문자가 왔는데 아직 접수인 매물 ' +
+      ks.length + '건</h4>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin:0 0 9px">' +
+      '임대인이 <b>계약됐다고 문자를 보냈는데</b> 우리 매물장에는 아직 거래가능으로 있습니다. ' +
+      '이대로 두면 촬영하러 가거나 손님을 보내게 됩니다. ' +
+      '<b>🔴 여기서 상태를 바꾸지 않습니다</b> — 확인하고 매물장에서 직접 고쳐 주세요.</div>' +
+      '<ol style="margin:0;padding-left:19px">';
+    ks.forEach(function(k){
+      var o = ids[k].o, d = ids[k].d;
+      hDone += monLine(
+        esc(String((o.apt || '') + ' ' + (o.addr2 || '')).trim()) +
+          ' <span class="pill p-bad">' + esc(String(o.status || '')) + '</span>',
+        esc(String(d.when).slice(0, 16)) + ' · ' + esc(d.mask) +
+          (d.land ? (' · ' + esc(d.land)) : '') +
+          '<br>“' + esc(maskSecret(String(d.text || '')).replace('⚠️ 임대완료 문자 — 해당 호실 광고 게시 중이면 내릴 것', '').trim().slice(0, 80)) + '”',
+        esc(d.hits.filter(function(h){ return String(h.o.id) === k; })[0].why),
+        '<button class="btn sm" onclick="AD_SEL=&#39;' + esc(k) + '&#39;;go(&#39;ad&#39;,&#39;admgr&#39;)">매물 열기</button>');
+    });
+    hDone += '</ol></div></div>';
+  }
+
+  return hDone + '<div class="monwrap4">' +
+    box('① 고객 ' + (ro.length ? ('<span class="pill p-bad">재오픈 ' + ro.length + '</span> ') : '') +
+        '재접촉 ' + cu.length,
+        '종료·연락금지·조건 없는 분·보여 줄 매물이 없는 분은 뺐습니다', h1, ro.length > 0) +
+    box('② 확보·촬영할 매물 TOP ' + ls.length,
+        '촬영필요 · 필수값 부족 · 신규 인입(같은 호실은 한 줄) + 오늘 찍을 것', h2, false) +
+    box('③ 광고 ' + (down.length ? ('<span class="pill p-bad">내림 ' + down.length + '</span>') : ''),
+        '🔴 내려야 할 광고가 언제나 맨 위입니다', h4, down.length > 0) +
+    box('④ 연락할 임대인 ' + (lc.all.length ? ('<span class="pill p-brand">전화 ' + lc.call.length +
+        '</span> <span class="pill p-warn">문자 ' + lc.text.length + '</span>') : '0'),
+        '거래가능 매물의 임대인 · 연락금지·번호이상·최근 연락은 뺐습니다',
+        h0, lc.call.length > 0) +
     '</div>' +
     '<div class="note" style="margin:0 0 14px;font-size:12.5px">' +
     '📬 <b>과거 문자(MMS)에서 나온 매물 후보</b>는 이 화면에 넣지 않았습니다 — ' +
@@ -3747,6 +4178,34 @@ function monBoard(){
     '(월요일 확인할 TOP 10 이 맨 위에 있습니다).<br>' +
     '전화로 확인하신 뒤 <b>매물로 등록하시면 위 ② 목록에 저절로 올라옵니다</b> — ' +
     '이 화면이 고객·매물을 스스로 만들지는 않습니다.</div>';
+}
+
+/* 🔴 대표님이 화면을 열면 제일 먼저 보는 세 줄 */
+function briefCard(){
+  var b = todayBrief();
+  var h = '<div class="card" style="margin:0 0 14px;border-color:var(--ink)">' +
+    '<div class="sbody" style="padding:13px 16px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">' +
+    '<h4 style="margin:0;font-size:16px">오늘 할 일 ' + b.lines.length + '줄</h4>' +
+    '<span style="font-size:12px;color:var(--t3)">전화 <b>' + b.call + '</b> · 문자 <b>' + b.text +
+    '</b> · 촬영 <b>' + b.shoot + '</b> · 광고 내림 <b>' + b.down + '</b> · 고객 재오픈 <b>' +
+    b.reopen + '</b></span></div>';
+  if(!b.lines.length){
+    h += '<div class="empty" style="padding:14px">' +
+      ((DB.err || DB.listings === null)
+        ? '🔴 자료를 다 읽지 못해 아직 고를 수 없습니다'
+        : '오늘 꼭 할 일이 없습니다 ✓ <span style="font-size:12px">🔴 없는 일을 만들지 않습니다.</span>') +
+      '</div>';
+  } else {
+    h += '<ol style="margin:9px 0 0;padding-left:20px;line-height:1.6">';
+    b.lines.forEach(function(x){
+      h += '<li style="margin:0 0 8px"><b style="font-size:14px">' + esc(x.what) + '</b>' +
+        (x.who ? ('<br><span style="font-size:12.5px;color:var(--t2)">' + esc(x.who) + '</span>') : '') +
+        ' <button class="btn sm" onclick="' + x.go + '">바로가기</button></li>';
+    });
+    h += '</ol>';
+  }
+  return h + '</div></div>';
 }
 
 function top3Card(){
@@ -4686,8 +5145,21 @@ function monListTop(n){
   });
 
   var out = order.map(function(k){ return byKey[k]; });
+  /* 🔴 임대인이 "계약완료" 문자를 보낸 호실은 이 목록에서 아래로 내린다 —
+     그대로 두면 이미 나간 방을 찍으러 가거나 손님을 보내게 된다(실측으로 4건 나왔다). */
+  var dconf = {};
+  doneAlerts().forEach(function(d){
+    d.hits.forEach(function(h){ dconf[String(h.o.id)] = d; }); });
   out.forEach(function(x){
     var o = x.o;
+    var cf = dconf[String(o.id)];
+    if(cf){
+      x.done = cf;
+      x.score -= 70;
+      x.tags.push('계약완료문자');
+      x.why.unshift('🔴 임대인이 ' + String(cf.when).slice(0, 10) +
+                    ' 에 “계약완료” 문자를 보냈습니다 — 상태부터 확인하세요');
+    }
     var ago = monDaysSince(o.recvDate);
     if(ago !== null){
       if(ago <= 7){ x.score += 20; x.why.push('접수 ' + ago + '일 전'); }
@@ -4810,27 +5282,30 @@ function loadErrBox(err, what, retry){
    대표님이 "오늘 할 일이 없구나" 하고 그냥 지나간다. */
 function retryAll(){
   DB.inbox = null; DB.listings = null; DB.landlords = null;
-  DB.err = ''; DB.errKind = ''; DB.loading = false;
+  DB.inboxTotal = 0;
+  DB.err = ''; DB.errKind = ''; DB.ldErr = ''; DB.inErr = ''; DB.loading = false;
   loadAll(true).then(function(){ route(); });
 }
 function homeLoadBox(){
   var h = '';
-  if(DB.err)
-    h += loadErrBox(DB.err, '인입함·매물·임대인 자료', 'retryAll()');
-  else if(DB.listings === null || DB.inbox === null)
-    h += '<div class="note b">인입함·매물 자료를 불러오는 중입니다… ' +
-      '아래 <b>숫자는 아직 다 채워지지 않았습니다</b>.</div>';
-  /* 🔴 여섯 자료원(인입·매물·고객·계약·광고·사진)을 한 곳에서 본다 —
-     하나라도 못 읽었으면 0 으로 위장하지 않는다. */
+  /* 🔴 여섯 자료원(매물·임대인·인입함·고객·계약·사진)을 따로 본다 —
+     하나라도 못 읽었으면 0 으로 위장하지 않고, 그 자료원만 실패로 적는다. */
+  if(DB.err) h += loadErrBox(DB.err, '매물 자료', 'retryAll()');
+  if(DB.ldErr) h += loadErrBox(DB.ldErr, '임대인 자료', 'retryAll()');
+  if(DB.inErr) h += loadErrBox(DB.inErr, '인입함 자료', 'retryAll()');
   if(DB.cuErr) h += loadErrBox(DB.cuErr, '고객 자료', 'retryCustomers()');
   if(DB.ctErr) h += loadErrBox(DB.ctErr, '계약 자료', 'retryContracts()');
+  if(!h && (DB.listings === null || DB.inbox === null || DB.landlords === null))
+    h += '<div class="note b">자료를 불러오는 중입니다… ' +
+      '아래 <b>숫자는 아직 다 채워지지 않았습니다</b>.</div>';
   return h;
 }
 /* 못 읽은 자료원 이름들 — 화면 머리글에서 쓴다 */
 function homeMissing(){
   var m = [];
-  if(DB.err || DB.inbox === null) m.push('인입함');
   if(DB.err || DB.listings === null) m.push('매물');
+  if(DB.ldErr || DB.landlords === null) m.push('임대인');
+  if(DB.inErr || DB.inbox === null) m.push('인입함');
   if(DB.cuErr || DB.customers === null) m.push('고객');
   if(DB.ctErr || DB.contracts === null) m.push('계약');
   if(phIdxErr()) m.push('사진');
