@@ -810,6 +810,11 @@ function detailPanel(){
       return c.label + ' <b>' + esc(c.from) + '만</b> → <b>' + esc(c.to) + '만</b>'; }).join('<br>') + '</div>';
   h += '</div>';
 
+  /* ②-2 연결된 매물이 있으면 그 매물의 이력 탭 */
+  if(j.hit){
+    h += '<div class="sec"><h4>매물 ' + esc(j.hit.id) + ' — 이력</h4>' + histTabs(j.hit, null, null) + '</div>';
+  }
+
   /* ③ 사진 */
   h += '<div class="sec"><h4>③ 사진 (드라이브 실측)</h4>' +
     '<div>사진상태 <span class="pill ' + phb[0] + '">' + phb[1] + '</span></div>' +
@@ -837,19 +842,210 @@ function detailPanel(){
       '<button class="btn" disabled title="🔴 외부 게시는 아직 검증 전입니다">실제 게시 (검증 전)</button>' +
     '</div></div>';
 
+  /* ④-2 사진·광고 이력 탭(같은 매물) — 판정값을 넘겨 준다 */
+  if(j.hit && (HIST_TAB === '사진이력' || HIST_TAB === '광고이력')){
+    h += '<div class="sec"><h4>' + esc(HIST_TAB) + ' (매물 ' + esc(j.hit.id) + ')</h4>'
+       + histTabs(j.hit, ph, ad) + '</div>';
+  }
+
   /* ⑤ 다음 업무 */
   h += '<div class="sec"><h4>⑤ 여기서 할 일</h4><div style="display:flex;gap:6px;flex-wrap:wrap">' +
-    '<button class="btn pri" onclick="preview(' + r.row + ')">매물 접수(후보 만들기)</button>' +
+    '<button class="btn" onclick="preview(' + r.row + ')">후보 미리보기</button>' +
+    (j.code === 'NEW'
+      ? '<button class="btn pri" onclick="erpSaveListing(' + r.row + ')">🔴 매물 접수(실제 등록)</button>'
+      : '<button class="btn" disabled title="신규(NEW) 후보만 접수합니다">매물 접수</button>') +
     '<button class="btn" disabled title="다음 단계">촬영 업무 만들기</button>' +
     '<button class="btn" disabled title="다음 단계">확인필요로 보내기</button>' +
-    '<button class="btn" disabled title="다음 단계">제외</button>' +
-    '</div><div style="margin-top:8px;font-size:12.5px;color:var(--t3)">🔴 [매물 접수]는 후보만 화면에 만들어 보여 줍니다. 저장은 하지 않습니다.</div></div>';
+    '</div><div style="margin-top:8px;font-size:12.5px;color:var(--t3)">' +
+    (j.code === 'NEW'
+      ? '[매물 접수]를 누르면 <b>확인창</b>이 뜨고, 눌러야 매물장에 <b>이 한 건만</b> 새로 등록됩니다. 기존 매물은 손대지 않습니다.'
+      : '지금은 신규(NEW) 후보만 접수합니다.') + '</div>';
+  if(LASTSAVE) h += '<div class="note g">✅ ' + esc(LASTSAVE.when) + ' 등록 완료 · <b>' +
+    esc(LASTSAVE.id) + '</b> · 매물 ' + LASTSAVE.before + ' → ' + LASTSAVE.after + '건 · 같은 호실 ' +
+    LASTSAVE.dup + '건</div>';
 
   /* 원문 */
   h += '<div class="sec"><h4>원문' + (secret ? ' (비밀번호 가림)' : '') + '</h4>' +
     '<pre class="raw">' + esc(maskSecret(r.text)) + '</pre></div>';
 
   h += '</div></div>';
+  return h;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   매물 접수 — 🔴 실제로 저장한다(신규 1건). 기존 매물은 건드리지 않는다.
+   · 저장 직전에 시트를 다시 읽어 같은 건물·호실이 이미 있는지 확인한다
+   · 사람이 확인창에서 눌러야만 보낸다
+   · 단건 upsert 1회만 — 전체 저장(saveAll) 을 쓰지 않는다
+   · 🔴 비밀번호 같은 민감정보는 어떤 칸에도 넣지 않는다
+   ═══════════════════════════════════════════════════════════════════ */
+var KIND_CODE = { '오픈형 원룸':'R', '분리형 원룸':'R', '빌라(투룸 이상)':'B', '아파트':'A',
+                  '오피스텔':'R', '주택':'D', '상가':'S', '사무실':'F', '건물':'G',
+                  '공장/창고':'C', '토지':'T', '기타':'X' };
+var DEAD_ST = ['거래완료', '계약완료'];
+var SAVING = false;
+var LASTSAVE = null;
+
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+}
+function newListingId(kind, list){
+  var p = KIND_CODE[kind] || 'X';
+  var d = new Date();
+  var ymd = String(d.getFullYear()).slice(2) + pad2(d.getMonth()+1) + pad2(d.getDate());
+  var seq = 1, id;
+  do { id = p + ymd + '-' + pad2(seq); seq++; }
+  while(list.some(function(l){ return String(l.id) === id; }));
+  return id;
+}
+function dupCheck(list, apt, addr2){
+  var same = list.filter(function(o){
+    return sq(o.apt) === sq(apt) && sq(o.addr2) === sq(addr2); });
+  return { all: same, alive: same.filter(function(o){ return DEAD_ST.indexOf(String(o.status||'')) < 0; }) };
+}
+/* HEADERS 에 있는 칸만 채운다 — 새 DB 칸을 만들지 않는다 */
+function buildListing(r, ai, bm, id){
+  var nl = String.fromCharCode(10);
+  var lines = ['[ERP 접수 ' + todayStr() + '] 출처 통화녹음 · 인입함 행' + r.row +
+               ' (' + String(r.when||'').slice(0,16) + ')'];
+  if(ai.feeIncluded) lines.push('관리비: 월세에 포함(통화) — 금액 미확인');
+  if(ai.clean) lines.push('퇴실 청소비 ' + ai.clean + '만원(통화)');
+  lines.push('사진: 이 호실 사진 없음 → 촬영 필요. 같은 건물 다른 호실 사진은 쓰지 않음');
+  return {
+    id: id,
+    apt: bm.bldg || '',
+    addr: bm.addr || '',
+    addr2: ai.unit || '',
+    type: ai.trade || '월세',
+    kind: ai.kind || '',
+    price: ai.deposit || '',
+    rentAmt: ai.rent || '',
+    status: '접수',
+    recvDate: todayStr(),
+    note: lines.join(nl),
+    feeType: '', feeAmt: '', area: '', floor: '', totalFloor: '', rooms: '', baths: '',
+    direction: '', availDate: '', cname: '', cphone: '', agent: ''
+  };
+}
+async function erpSaveListing(rowId){
+  var nl = String.fromCharCode(10);
+  if(SAVING){ alert('저장 중입니다'); return; }
+  var r = (DB.inbox||[]).filter(function(x){ return x.row === rowId; })[0];
+  if(!r){ alert('그 인입 줄을 찾지 못했습니다'); return; }
+  var ai = aiExtract(r.text);
+  var bm = matchBuilding(r, ai);
+  var j = judge(ai, bm);
+  if(j.code !== 'NEW'){
+    alert('지금은 신규(NEW) 후보만 접수합니다.' + nl + '판정: ' + j.code + ' — ' + j.why);
+    return;
+  }
+  if(!ai.unit || !bm.bldg || !bm.addr){
+    alert('건물·주소·호실이 모두 확인돼야 접수합니다.');
+    return;
+  }
+  var fresh;
+  try{
+    var g = await jget({ action:'getAll', type:'listings' });
+    fresh = g.data || g.result || [];
+  }catch(e){ alert('매물장을 다시 읽지 못해 저장하지 않습니다: ' + (e && e.message || e)); return; }
+  var before = fresh.length;
+  var dup = dupCheck(fresh, bm.bldg, ai.unit);
+  if(dup.alive.length){
+    alert('이미 같은 건물·호실 매물이 있습니다 — 새로 만들지 않습니다.' + nl +
+          dup.alive.map(function(o){ return o.id + ' · ' + o.status; }).join(nl));
+    DB.listings = fresh; route(); return;
+  }
+  if(dup.all.length){
+    if(!confirm('같은 건물·호실이 과거 자료로 ' + dup.all.length + '건 있습니다(' +
+        dup.all.map(function(o){ return o.id + ' ' + o.status; }).join(', ') + ').' + nl +
+        '지금은 살아 있는 매물이 아니라 새 회차로 만듭니다. 계속할까요?')) return;
+  }
+  var id = newListingId(ai.kind, fresh);
+  var obj = buildListing(r, ai, bm, id);
+  var msg = ['매물장에 새로 등록합니다', '',
+    '매물번호  ' + id,
+    '건물      ' + obj.apt,
+    '주소      ' + obj.addr,
+    '호실      ' + obj.addr2,
+    '거래      ' + obj.type + ' / ' + (obj.kind || '(미확인)'),
+    '보증금    ' + obj.price + '만',
+    '월세      ' + obj.rentAmt + '만' + (ai.feeIncluded ? ' (관리비 포함)' : ''),
+    '상태      ' + obj.status,
+    '', '지금 매물 ' + before + '건 → ' + (before + 1) + '건',
+    '🔴 사진이 없어 광고는 나가지 않습니다.',
+    '🔴 비밀번호 등 민감정보는 저장하지 않습니다.', '', '이대로 등록할까요?'].join(nl);
+  if(!confirm(msg)) return;
+
+  SAVING = true;
+  try{
+    var u = gsUrl(), t = gsTok();
+    var res = await fetch(u, { method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ action:'upsert', type:'listings', data: obj, token: t }) });
+    var jj = await res.json();
+    if(!jj || !jj.ok) throw new Error((jj && jj.error) || '저장 실패');
+    var g2 = await jget({ action:'getAll', type:'listings' });
+    var after = g2.data || g2.result || [];
+    var made = after.filter(function(o){ return String(o.id) === id; });
+    var dup2 = dupCheck(after, bm.bldg, ai.unit);
+    DB.listings = after;
+    LASTSAVE = { id:id, before:before, after:after.length, made:made.length,
+                 dup:dup2.all.length, when:new Date().toTimeString().slice(0,8) };
+    SAVING = false;
+    route();
+    alert(['등록했습니다 ✓', '',
+      '매물번호  ' + id,
+      '매물 건수 ' + before + ' → ' + after.length,
+      '같은 호실 ' + dup2.all.length + '건(방금 만든 것 포함)',
+      made.length === 1 ? '다시 읽어 1건 확인했습니다.'
+                        : '🔴 다시 읽었더니 ' + made.length + '건입니다 — 확인이 필요합니다.'].join(nl));
+  }catch(e){
+    SAVING = false;
+    route();
+    alert('저장 실패 — 매물장은 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+
+/* ═══ 이력 탭 — 없는 이력을 만들어 내지 않는다 ═══ */
+var HIST_TAB = '현재정보';
+function histTabs(o, ph, ad){
+  var tabs = ['현재정보','공실이력','가격이력','사진이력','광고이력'];
+  var h = '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:0 0 10px">' +
+    tabs.map(function(t){
+      return '<button class="btn sm' + (t===HIST_TAB?' pri':'') + '" onclick="HIST_TAB=&#39;' + t + '&#39;;route()">' +
+        t + '</button>'; }).join('') + '</div>';
+  if(HIST_TAB === '현재정보'){
+    h += '<dl class="kv">' +
+      '<dt>매물번호</dt><dd>' + esc(o.id) + '</dd>' +
+      '<dt>건물</dt><dd>' + esc(o.apt || '-') + '</dd>' +
+      '<dt>주소</dt><dd>' + esc(o.addr || '-') + '</dd>' +
+      '<dt>호실</dt><dd>' + esc(o.addr2 || '-') + '</dd>' +
+      '<dt>거래</dt><dd>' + esc(o.type || '-') + ' / ' + esc(o.kind || '-') + '</dd>' +
+      '<dt>보증금</dt><dd>' + (o.price ? esc(o.price) + '만' : '-') + '</dd>' +
+      '<dt>월세</dt><dd>' + (o.rentAmt ? esc(o.rentAmt) + '만' : '-') + '</dd>' +
+      '<dt>상태</dt><dd>' + esc(o.status || '-') + '</dd>' +
+      '<dt>접수일</dt><dd>' + esc(o.recvDate || '-') + '</dd></dl>';
+    if(o.note) h += '<pre class="raw">' + esc(maskSecret(o.note)) + '</pre>';
+  } else if(HIST_TAB === '사진이력'){
+    h += ph ? ('<div>사진상태 <span class="pill ' +
+        (ph.code === 'PHOTO_READY' ? 'p-ok' : (ph.code === 'PHOTO_REQUIRED' ? 'p-bad' : 'p-warn')) +
+        '">' + esc(ph.code) + '</span></div>' +
+        '<div style="margin-top:6px;font-size:12.5px;color:var(--t2)">' + esc(ph.why) + '</div>' +
+        (ph.others && ph.others.length ? '<div class="note w" style="margin-top:8px">같은 건물 다른 호실: ' +
+           ph.others.map(function(x){ return esc(x.name) + ' ' + (x.raw + x.done) + '장'; }).join(' · ') +
+           '<br>🔴 이 호실 사진으로 쓰지 않습니다.</div>' : '')) : '';
+    h += '<div class="empty" style="padding:14px">촬영·보정 이력은 아직 쌓이지 않습니다</div>';
+  } else if(HIST_TAB === '광고이력'){
+    h += ad ? ('<div>광고상태 <span class="pill ' + (ad.blocked ? 'p-bad' : 'p-ok') + '">' + esc(ad.code) +
+        '</span></div><div style="margin-top:6px;font-size:12.5px;color:var(--t2)">' + esc(ad.why) + '</div>') : '';
+    h += '<div class="empty" style="padding:14px">게시·수정·내림 이력이 아직 없습니다</div>';
+  } else if(HIST_TAB === '가격이력'){
+    h += '<div class="empty" style="padding:14px">가격 변경 이력이 아직 없습니다' +
+         '<br><span style="font-size:12px">(값이 바뀌면 여기에 쌓입니다 — 지금 만들어 내지 않습니다)</span></div>';
+  } else {
+    h += '<div class="empty" style="padding:14px">공실·계약 이력이 아직 없습니다</div>';
+  }
   return h;
 }
 
