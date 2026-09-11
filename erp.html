@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.1';
-var ERP_BUILD = '2026-09-12 02:50';
+var ERP_VER = '1.4';
+var ERP_BUILD = '2026-09-12 03:40';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -1731,6 +1731,7 @@ function viewContract(){
   if(DB.err && DB.contracts === null)
     return crumb() + '<div class="h1row"><h1>계약</h1></div>' + keyBox();
   var all = DB.contracts || [];
+  var ctWarn = loadErrBox(DB.ctErr, '계약 자료', 'retryContracts()');
   var bal = all.filter(function(c){
     var d = ctDaysTo(c.balanceDue);
     return !String(c.balancePaidAt||'').trim() && d !== null && d <= 7; });
@@ -1770,6 +1771,7 @@ function viewContract(){
     return h;
   }
 
+  h += ctWarn;
   h += '<div class="split' + (CT_SEL ? ' open' : '') + '"><div class="card"><div class="tblwrap"><table>' +
     '<colgroup><col style="width:104px"><col><col style="width:70px"><col style="width:96px">' +
     '<col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:92px"></colgroup>' +
@@ -2173,6 +2175,7 @@ function viewSettle(){
       kpi('직원 몫(원)', stlWon(staffTotal), '', "go('admin','staff')") +
     '</div>';
 
+  h += loadErrBox(DB.ctErr, '계약 자료', 'retryContracts()');
   var occ = (DB.listings || []).filter(function(o){ return lstGroup(o) === '임대중'; });
   h += '<div class="note w">🔴 <b>임대중 매물 ' + occ.length + '건은 여기에 들어오지 않습니다.</b> ' +
     '“임대중”은 지금 누가 살고 있다는 뜻일 뿐, <b>브리즈가 계약했다는 뜻이 아닙니다</b> — ' +
@@ -3465,6 +3468,7 @@ function viewCust(){
       kpi('전체 보기', all.length, '', "CU_FILT='all';route()") +
     '</div>';
 
+  h += loadErrBox(DB.cuErr, '고객 자료', 'retryCustomers()');
   h += '<div class="note i">재접촉 대상에서 <b>종료 고객</b>과 <b>연락금지</b>는 뺍니다. ' +
     '매물 추천은 고객이 <b>적어 둔 조건만</b> 가지고 셈합니다 — ' +
     '조건이 비어 있으면 점수를 주지 않고 <b>추천도 하지 않습니다</b>. ' +
@@ -3483,7 +3487,9 @@ function viewCust(){
     h += '<tr><td colspan="6" class="empty">' +
       (all.length ? ('여기에 해당하는 고객이 없습니다' + (done === all.length ?
         ' — 등록된 고객 ' + all.length + '명이 모두 <b>종료</b> 상태입니다' : ''))
-       : '등록된 고객이 없습니다') + '</td></tr>';
+       : (String(DB.cuErr || '').trim()
+          ? '🔴 고객 자료를 불러오지 못했습니다 — 위의 [다시 불러오기]를 눌러 주세요'
+          : '등록된 고객이 없습니다')) + '</td></tr>';
   rows.forEach(function(r){
     var c = r.c;
     var cond = [c.type, c.propType, c.region, cuNum(c.budget) ? ('예산 ' + c.budget) : '']
@@ -4004,19 +4010,30 @@ function stlNum(v){ var n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/
       그래서 임대차는 **환산보증금 = 보증금 + 월세×100** 으로 고쳤다.
    🔴 법정 구간별 상한요율표는 적용하지 않았다 — 지어내지 않는다.
       요율은 사무소 기본값(매매 0.4% · 임대 0.3%)이고, 실제 보수는 사람이 넣는다. */
+/* 금액 글자 → 만원 숫자. 기존 CRM manFromText 와 **같은 규칙**으로 읽는다.
+   🔴 숫자만 뽑으면 "1억" 이 1만원이 된다 — 억/천/만 을 읽어야 한다. */
+function stlMan(s){
+  var t = String(s == null ? '' : s).split('/')[0].replace(/,/g, '').trim();
+  if(!t) return 0;
+  var total = 0, m;
+  if((m = t.match(/(\d+(?:\.\d+)?)\s*억/))) total += parseFloat(m[1]) * 10000;
+  if((m = t.match(/(\d+(?:\.\d+)?)\s*천(?!만)/))) total += parseFloat(m[1]) * 1000;
+  if((m = t.match(/(\d+(?:\.\d+)?)\s*만/))) total += parseFloat(m[1]);
+  if(!total){ var n = parseFloat(t.replace(/[^\d.]/g, '')); total = isNaN(n) ? 0 : n; }
+  return Math.round(total);
+}
 function stlBase(c){
   var t = String(c.type || '');
   var raw = String(c.price == null ? '' : c.price);
   var dep, rent;
-  /* 🔴 보증금 칸에 "500/45" 처럼 한 칸에 둘이 적힌 경우가 있다.
-     숫자만 뽑으면 50045 가 돼 터무니없는 값이 나온다 — 앞뒤를 갈라 읽는다. */
+  /* 🔴 보증금 칸에 "500/45" 처럼 한 칸에 둘이 적힌 경우가 있다 — 앞뒤를 갈라 읽는다. */
   var sl = raw.indexOf('/');
   if(sl >= 0 && !String(c.rentAmt || '').trim()){
-    dep = stlNum(raw.slice(0, sl));
-    rent = stlNum(raw.slice(sl + 1));
+    dep = stlMan(raw.slice(0, sl));
+    rent = stlMan(raw.slice(sl + 1));
   } else {
-    dep = stlNum(raw.split('/')[0]);
-    rent = stlNum(c.rentAmt);
+    dep = stlMan(raw);                         /* stlMan 이 이미 '/' 앞만 본다 */
+    rent = stlMan(c.rentAmt);
   }
   if(t === '매매' || t === '전세') return dep;
   /* 🔴 연세는 1년치다. 월세로 보고 ×100 하면 12배가 부풀려진다(600만 연세 → 6억). */
@@ -4187,6 +4204,23 @@ function stateAudit(){
   };
 }
 
+/* ── 불러오기 실패를 숨기지 않는다 ──────────────────────────────
+   🔴 실패한 것을 "없습니다" 로 보여 주면 자료가 사라진 줄 안다.
+      실패는 실패라고 말하고, 다시 시도할 길을 준다. */
+function loadErrBox(err, what, retry){
+  if(!String(err || '').trim()) return '';
+  return '<div class="note w">🔴 <b>' + esc(what) + '을(를) 불러오지 못했습니다</b> — ' +
+    '아래 숫자는 <b>실제와 다를 수 있습니다</b>. 자료가 없어진 것이 아닙니다.<br>' +
+    '<span style="font-size:12px;color:var(--t3)">' + esc(String(err).slice(0, 140)) + '</span><br>' +
+    '<button class="btn sm" style="margin-top:6px" onclick="' + retry + '">다시 불러오기</button></div>';
+}
+function retryCustomers(){
+  DB.customers = null; DB.cuErr = ''; CU_LOADING = false; loadCustomers(); route();
+}
+function retryContracts(){
+  DB.contracts = null; DB.ctErr = ''; CT_LOADING = false; loadContracts(); route();
+}
+
 /* ── 라우팅 ── */
 var SEARCH = '';
 function route(){
@@ -4244,6 +4278,7 @@ async function loadCustomers(){
   try{
     var d = await jget({ action:'getAll', type:'customers' });
     DB.customers = d.data || d.result || [];
+    DB.cuErr = '';                       /* 이번엔 잘 읽혔으니 지난 실패 표시를 지운다 */
   }catch(e){ DB.customers = []; DB.cuErr = String((e && e.message) || e); }
   CU_LOADING = false;
   route();
@@ -4257,6 +4292,7 @@ async function loadContracts(){
   try{
     var d = await jget({ action:'getAll', type:'contracts' });
     DB.contracts = d.data || d.result || [];
+    DB.ctErr = '';
   }catch(e){
     DB.contracts = [];
     DB.ctErr = String((e && e.message) || e);
