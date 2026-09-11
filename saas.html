@@ -1048,7 +1048,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-11 14:23</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-12 02:40</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -11175,8 +11175,28 @@ function visitList(){
 function payoutSplit(){ const c = parseFloat(cfgGet('PAYOUT_SPLIT')); if(!isNaN(c)) return c; const v = parseFloat(localStorage.getItem('crm_split_pct')); return isNaN(v) ? 50 : v; }   // 09-08 사무소 공통(cfg) 우선
 function payoutTax(){ const c = parseFloat(cfgGet('PAYOUT_TAX')); if(!isNaN(c)) return c; const v = parseFloat(localStorage.getItem('crm_tax_pct')); return isNaN(v) ? 3.3 : v; }
 function payoutFeeSuggest(c){
-  const man = manFromText(c.price); if(!man) return 0;
-  const rate = c.type === '매매' ? 0.004 : 0.003;                      // 법정 상한 안쪽 기본값(만원 기준) — 화면에서 고칠 수 있음
+  /* 🔴 2026-09-12 수정 (대표 승인 예외 — CLAUDE.md 의 index 기능코드 무수정 원칙을 이 함수 하나만 비껴감).
+     종전에는 **보증금만** 보고 월세를 빼먹어, 보증 500만/월 45만 계약이 15,000원으로 나왔다(실제의 1/10).
+     임대차는 환산보증금(보증금 + 월세×100)으로 셈한다. 🔴 연세는 1년치라 12로 나눈 뒤 환산한다
+     (안 나누면 600만 연세가 6억이 된다). 요율은 종전 그대로 — 법정 구간요율표를 새로 만들지 않았다.
+     새 ERP(erp.html stlBase)와 같은 셈이다. 바꾸려면 양쪽을 같이 바꿔야 한다. */
+  const t = String(c.type || '');
+  const raw = String(c.price == null ? '' : c.price);
+  const sl = raw.indexOf('/');
+  let dep, rent;
+  if(sl >= 0 && !String(c.rentAmt || '').trim()){
+    dep = manFromText(raw.slice(0, sl));          // 보증금 칸에 "500/45" 로 적힌 경우
+    rent = manFromText(raw.slice(sl + 1));
+  } else {
+    dep = manFromText(raw);                       // manFromText 는 이미 '/' 앞만 본다
+    rent = manFromText(c.rentAmt);
+  }
+  let man;
+  if(t === '매매' || t === '전세') man = dep;
+  else if(t === '연세') man = dep + (rent / 12) * 100;
+  else man = dep + rent * 100;                    // 월세 · 단기
+  if(!man) return 0;
+  const rate = t === '매매' ? 0.004 : 0.003;      // 법정 상한 안쪽 기본값(만원 기준) — 화면에서 고칠 수 있음
   return Math.round(man * 10000 * rate);
 }
 function payoutHold(c){ return c.riskGrade === 'RED' || c.trackState === 'CANCELLED'; }
