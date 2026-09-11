@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.0';
-var ERP_BUILD = '2026-09-12 01:20';
+var ERP_VER = '1.1';
+var ERP_BUILD = '2026-09-12 02:30';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -607,11 +607,8 @@ function viewToday(){
   var L = DB.listings || [];
   var recv = L.filter(function(o){ return String(o.status||'') === '접수'; });
   var shoot = photoTasks();
-  var adRows = adAll();
-  var adLiveRows = adRows.filter(function(r){ return adLive(r.o); });
-  var adReady = adLiveRows.filter(function(r){ return r.worst === 'AD_READY'; });
-  var adBlocked = adLiveRows.filter(function(r){ return r.worst === 'PHOTO_REQUIRED' || r.worst === 'DATA_REQUIRED'; });
-  var adFix = adRows.filter(function(r){ return r.stale || r.takedown; });
+  /* 광고는 다섯 갈래로 나눠 둔다 — 월요일에 자료를 다시 찾지 않게 */
+  var adB = adBuckets();
   return crumb() +
   '<div class="h1row"><h1>오늘 할 일</h1><span class="cnt">' +
     '인입 미처리 <b class="hot">' + un.length + '</b>건 · 매물 <b>' + L.length + '</b>건 · ' +
@@ -619,12 +616,18 @@ function viewToday(){
   top3Card() +
   '<div class="kpis">' +
     kpi('신규 인입', un.length, un.length ? 'w' : '', "go('crm','inbox')") +
-    kpi('신규 매물후보', call.length, '', "go('crm','inbox','통화녹음')") +
     kpi('촬영 필요', shoot.length, shoot.length ? 'b' : '', "go('ops','photo')") +
-    kpi('광고 준비됨', adReady.length, adReady.length ? 'g' : '', "AD_FILT='ready';go('ad','admgr')") +
-    kpi('광고 막힘', adBlocked.length, adBlocked.length ? 'w' : '', "AD_FILT='photo';go('ad','admgr')") +
-    kpi('수정·내림 필요', adFix.length, adFix.length ? 'w' : '', "AD_FILT='fix';go('ad','admgr')") +
+    kpi('🔴 광고 내림', adB.down.length, adB.down.length ? 'b' : '', "AD_FILT='down';go('ad','admgr')") +
+    kpi('광고 수정', adB.stale.length, adB.stale.length ? 'w' : '', "AD_FILT='fix';go('ad','admgr')") +
+    kpi('사진 필요', adB.photo.length, adB.photo.length ? 'b' : '', "AD_FILT='photo';go('ad','admgr')") +
+    kpi('필수값 필요', adB.data.length, adB.data.length ? 'w' : '', "AD_FILT='data';go('ad','admgr')") +
+    kpi('AD_READY', adB.ready.length, adB.ready.length ? 'g' : '', "AD_FILT='ready';go('ad','admgr')") +
   '</div>' +
+  (adB.down.length ? ('<div class="note w" style="margin:0 0 14px">🔴 <b>내려야 할 광고 ' +
+    adB.down.length + '건</b> — 매물은 이미 나갔는데 광고가 올라가 있습니다. ' +
+    '<b>임대중은 브리즈 계약이라는 뜻이 아닙니다</b>(계약·정산에는 안 들어갑니다). ' +
+    '<button class="btn sm" onclick="AD_FILT=&#39;down&#39;;go(&#39;ad&#39;,&#39;admgr&#39;)">' +
+    '어떤 건지 보기</button></div>') : '') +
   ctTodayStrip() +
   '<div class="card"><table><colgroup><col style="width:130px"><col style="width:92px"><col><col style="width:96px"></colgroup>' +
   '<thead><tr><th>수신일시</th><th>출처</th><th>내용</th><th>상태</th></tr></thead><tbody>' +
@@ -1397,6 +1400,7 @@ function viewAd(){
   else if(AD_FILT === 'photo') show = needPhoto;
   else if(AD_FILT === 'fix') show = needFix;
   else if(AD_FILT === 'down') show = needDown;
+  else if(AD_FILT === 'data') show = live.filter(function(r){ return r.worst === 'DATA_REQUIRED'; });
   else if(AD_FILT === 'posted') show = posted;
 
   var h = crumb() +
@@ -1404,12 +1408,13 @@ function viewAd(){
     '진행률 <b>' + pct + '%</b> (' + doneN + '/' + totN + ' = 매물 ' + live.length + ' × 목표채널 ' + AD_GOAL.length + ')' +
     (AD_FILT ? ' · 지금 화면 <b>' + show.length + '</b>건' : '') + '</span></div>' +
   '<div class="kpis">' +
-    kpi('광고대상', live.length, '', "AD_FILT='';route()") +
+    kpi('내림 필요', adTakedownRows().length, adTakedownRows().length?'b':'', "AD_FILT='down';route()") +
+    kpi('수정 필요', needFix.length, needFix.length?'w':'', "AD_FILT='fix';route()") +
+    kpi('사진 필요', needPhoto.length, needPhoto.length?'b':'', "AD_FILT='photo';route()") +
+    kpi('필수값 필요', live.filter(function(r){ return r.worst === 'DATA_REQUIRED'; }).length,
+        'w', "AD_FILT='data';route()") +
     kpi('AD_READY', ready.length, ready.length?'g':'', "AD_FILT='ready';route()") +
     kpi('게시중', posted.length, '', "AD_FILT='posted';route()") +
-    kpi('사진필요', needPhoto.length, needPhoto.length?'b':'', "AD_FILT='photo';route()") +
-    kpi('수정필요', needFix.length, needFix.length?'w':'', "AD_FILT='fix';route()") +
-    kpi('내림필요', needDown.length, needDown.length?'b':'', "AD_FILT='down';route()") +
   '</div>';
 
   if(UI.help) h += '<div class="note i"><b>이 화면 사용법</b><br>' +
@@ -1421,6 +1426,42 @@ function viewAd(){
   h += '<div class="note b">🔴 이 화면은 외부 사이트에 <b>광고를 올리지 않습니다</b>. ' +
        '게시·수정·내림은 아직 사람이 각 사이트에서 합니다(자동 게시는 검증 전).</div>';
 
+  /* 🔴 내림 필요는 '왜 내려야 하는지'가 보여야 움직일 수 있다 — 전용 표로 따로 낸다 */
+  var downRows = adTakedownRows();
+  if(downRows.length && (AD_FILT === 'down' || AD_FILT === '')){
+    h += '<div class="card" style="margin:0 0 14px;border-color:var(--bad)"><div class="sbody" style="padding:13px 15px">' +
+      '<h4 style="margin:0 0 4px;font-size:15px">🔴 내려야 할 광고 ' + downRows.length + '건</h4>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin:0 0 10px">' +
+      '매물은 이미 나갔는데 광고가 아직 올라가 있습니다. ' +
+      '<b>이 화면은 광고를 내리지 않습니다</b> — 대표님이 채널에서 직접 내린 뒤 ' +
+      '[내렸다고 적기]를 눌러 주세요.</div>' +
+      '<div class="tblwrap"><table><colgroup><col style="width:104px"><col>' +
+      '<col style="width:84px"><col style="width:88px"><col style="width:104px">' +
+      '<col style="width:96px"><col></colgroup>' +
+      '<thead><tr><th>매물번호</th><th>건물/호실</th><th>매물상태</th><th>채널</th>' +
+      '<th>게시일</th><th>게시번호</th><th>내림 사유</th></tr></thead><tbody>';
+    downRows.forEach(function(d){
+      d.chans.forEach(function(ch, i){
+        h += '<tr onclick="AD_SEL=&#39;' + esc(d.o.id) + '&#39;;route()">' +
+          '<td class="mono">' + (i ? '' : esc(d.o.id)) + '</td>' +
+          '<td><span class="ell">' + (i ? '' : esc((d.o.apt||'') + ' ' + (d.o.addr2||''))) + '</span></td>' +
+          '<td>' + (i ? '' : '<span class="pill p-bad">' + esc(d.status) + '</span>') + '</td>' +
+          '<td>' + esc(ch.label) + '</td>' +
+          '<td class="mono">' + (ch.at ? esc(ch.at) : '<span style="color:var(--t3)">기록 없음</span>') + '</td>' +
+          '<td class="mono">' + (ch.no ? esc(ch.no) : '<span style="color:var(--t3)">기록 없음</span>') + '</td>' +
+          '<td><span style="font-size:12.5px">' + (i ? '' : esc(d.why)) + '</span></td></tr>';
+      });
+      h += '<tr><td colspan="7" style="padding:4px 10px 10px;border-top:0">' +
+        '<span style="font-size:12px;color:' + (d.mine ? 'var(--t3)' : 'var(--bad)') + '">' +
+        esc(d.note) + '</span> ' +
+        '<button class="btn sm" onclick="event.stopPropagation();AD_SEL=&#39;' + esc(d.o.id) +
+        '&#39;;route()">이 매물 열기</button></td></tr>';
+    });
+    h += '</tbody></table></div>' +
+      '<div class="note b" style="margin-top:10px">🔴 <b>임대중</b>은 “지금 누가 살고 있다”는 뜻일 뿐, ' +
+      '<b>브리즈가 계약했다는 뜻이 아닙니다</b>. 다른 중개사 계약이거나 임대인 직거래일 수 있어 ' +
+      '<b>계약·정산에는 넣지 않습니다</b>. 광고만 내리면 됩니다.</div></div></div>';
+  }
   h += '<div class="split' + (AD_SEL ? ' open' : '') + '"><div class="card"><div class="tblwrap"><table>' +
   '<colgroup><col style="width:104px"><col><col style="width:74px"><col style="width:92px">' +
   '<col style="width:74px"><col style="width:58px"><col style="width:58px"><col style="width:58px">' +
@@ -2115,6 +2156,12 @@ function viewSettle(){
       kpi('직원 몫(원)', stlWon(staffTotal), '', "go('admin','staff')") +
     '</div>';
 
+  var occ = (DB.listings || []).filter(function(o){ return lstGroup(o) === '임대중'; });
+  h += '<div class="note w">🔴 <b>임대중 매물 ' + occ.length + '건은 여기에 들어오지 않습니다.</b> ' +
+    '“임대중”은 지금 누가 살고 있다는 뜻일 뿐, <b>브리즈가 계약했다는 뜻이 아닙니다</b> — ' +
+    '다른 중개사 계약이거나 임대인 직거래일 수 있습니다.<br>' +
+    '이 화면은 <b>계약 표에 실제로 등록된 계약</b>만 셈합니다(지금 ' + all.length + '건). ' +
+    '매물 상태를 보고 계약을 만들어 내지 않습니다.</div>';
   h += '<div class="note i">흐름: <b>계약 → 중개보수 예정 → 실제 수납 → 미수금 → 직원 배분 → 대표 배분 → 월매출</b><br>' +
     '🔴 <b>은행과 이어져 있지 않습니다.</b> 수납일은 사람이 통장을 보고 적는 날짜입니다 — 자동으로 찍히지 않습니다.<br>' +
     '배분율 <b>' + cfg.split + '%</b> · 원천징수 <b>' + cfg.tax + '%</b>' +
@@ -3941,9 +3988,23 @@ function stlNum(v){ var n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/
    🔴 법정 구간별 상한요율표는 적용하지 않았다 — 지어내지 않는다.
       요율은 사무소 기본값(매매 0.4% · 임대 0.3%)이고, 실제 보수는 사람이 넣는다. */
 function stlBase(c){
-  var dep = stlNum(c.price), rent = stlNum(c.rentAmt);
-  if(String(c.type||'') === '매매') return dep;
-  return dep + rent * 100;
+  var t = String(c.type || '');
+  var raw = String(c.price == null ? '' : c.price);
+  var dep, rent;
+  /* 🔴 보증금 칸에 "500/45" 처럼 한 칸에 둘이 적힌 경우가 있다.
+     숫자만 뽑으면 50045 가 돼 터무니없는 값이 나온다 — 앞뒤를 갈라 읽는다. */
+  var sl = raw.indexOf('/');
+  if(sl >= 0 && !String(c.rentAmt || '').trim()){
+    dep = stlNum(raw.slice(0, sl));
+    rent = stlNum(raw.slice(sl + 1));
+  } else {
+    dep = stlNum(raw.split('/')[0]);
+    rent = stlNum(c.rentAmt);
+  }
+  if(t === '매매' || t === '전세') return dep;
+  /* 🔴 연세는 1년치다. 월세로 보고 ×100 하면 12배가 부풀려진다(600만 연세 → 6억). */
+  if(t === '연세') return dep + (rent / 12) * 100;
+  return dep + rent * 100;                     /* 월세 · 단기 */
 }
 function stlExpect(c){
   var man = stlBase(c);
@@ -3993,6 +4054,120 @@ function stlMonthly(){
     by[k].staff += r.staff; by[k].boss += r.boss;
   });
   return Object.keys(by).sort().reverse().map(function(k){ return by[k]; });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   매물 상태 ≠ 계약 상태 — 뜻을 코드에 못박는다
+   🔴 "임대중" 은 지금 누가 살고 있다는 뜻일 뿐이다.
+      브리즈가 계약했다는 뜻이 아니다. 다른 중개사 계약일 수도, 임대인 직거래일 수도 있다.
+      임대중  ≠  브리즈 계약완료  ≠  정산대상
+   🔴 브리즈 계약인지는 **계약 표(contracts)에 행이 있는지**로만 판단한다.
+      매물 상태를 보고 계약을 만들어 내지 않는다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 시트 드롭다운 실측값: 접수 · 상담중 · 계약완료 · 임대중 · 거래완료 · 보류
+   🔴 '공실' 은 2026-08-27 폐지됐다(거래 가능 = 접수). '광고중'·'종료' 는 매물 상태에 없다.
+      상태를 새로 만들려면 시트 드롭다운부터 바꿔야 해서 여기서 지어내지 않는다. */
+var LST_TRADABLE = ['접수', '상담중', ''];     /* 광고·매칭 대상 */
+var LST_OCCUPIED = ['임대중'];                  /* 살고 있다 — 누구 계약인지는 모른다 */
+var LST_DEALDONE = ['계약완료', '거래완료'];    /* 거래가 끝났다 */
+var LST_HOLD = ['보류'];
+var LST_KNOWN = LST_TRADABLE.concat(LST_OCCUPIED, LST_DEALDONE, LST_HOLD);
+
+function lstGroup(o){
+  var s = String(o && o.status || '');
+  if(LST_TRADABLE.indexOf(s) >= 0) return '거래가능';
+  if(LST_OCCUPIED.indexOf(s) >= 0) return '임대중';
+  if(LST_DEALDONE.indexOf(s) >= 0) return '거래완료';
+  if(LST_HOLD.indexOf(s) >= 0) return '보류';
+  return '모르는 상태';
+}
+/* 🔴 이 매물에 브리즈 계약이 실제로 있는가 — 계약 표에 행이 있어야 '있다' */
+function breezeDeals(o){
+  var id = String(o && o.id || '').trim();
+  var apt = sq(o && o.apt), unit = sq(o && o.addr2);
+  return (DB.contracts || []).filter(function(c){
+    if(id && String(c.listingId || '').trim() === id) return true;
+    return !!apt && sq(c.apt) === apt && sq(c.addr2) === unit;
+  });
+}
+function isBreezeDeal(o){ return breezeDeals(o).length > 0; }
+/* 정산 대상인가 — 🔴 계약 행이 있고, 중개보수가 적혀 있어야 한다. 매물 상태와 무관하다. */
+function isSettleTarget(c){ return !!String(c && c.feeAmt || '').trim(); }
+
+/* ── 내림 필요 — 왜 내려야 하는지까지 만든다 ───────────────────── */
+function adTakedownRows(){
+  return (DB.listings || []).map(function(o){
+    var on = AD_CH.filter(function(ch){ return adOn(o, ch.key); });
+    if(!on.length) return null;
+    var st = String(o.status || '');
+    if(TAKEDOWN_ST.indexOf(st) < 0) return null;
+    var why;
+    if(st === '임대중')
+      why = '매물이 임대중입니다 — 이미 사람이 살고 있는데 광고가 올라가 있습니다';
+    else if(st === '계약완료') why = '계약이 끝났는데 광고가 올라가 있습니다';
+    else why = '거래가 끝났는데 광고가 올라가 있습니다';
+    var mine = isBreezeDeal(o);
+    return {
+      o: o, status: st, mine: mine,
+      chans: on.map(function(ch){
+        var a = adOf(o, ch.key) || {};
+        return { key: ch.key, label: ch.label, at: String(a.at || ''), no: String(a.no || '') };
+      }),
+      why: why,
+      /* 🔴 브리즈 계약이 아니어도 광고는 내려야 한다. 계약·정산으로 보내지는 않는다. */
+      note: mine ? '브리즈 계약 건입니다(계약 표에 있습니다)'
+                 : '🔴 브리즈 계약 근거가 없습니다 — 다른 중개사 계약이거나 임대인 직거래일 수 있습니다. '
+                   + '계약·정산에는 넣지 않습니다.'
+    };
+  }).filter(Boolean).sort(function(a, b){
+    var ka = (a.chans[0] && a.chans[0].at) || '', kb = (b.chans[0] && b.chans[0].at) || '';
+    return ka.localeCompare(kb);
+  });
+}
+
+/* ── 광고 상태를 다섯 갈래로 — 월요일에 다시 찾지 않게 ─────────── */
+function adBuckets(){
+  var rows = adAll();
+  var live = rows.filter(function(r){ return adLive(r.o); });
+  return {
+    down: adTakedownRows(),
+    stale: rows.filter(function(r){ return r.stale && adLive(r.o); }),
+    photo: live.filter(function(r){ return r.worst === 'PHOTO_REQUIRED'; }),
+    data: live.filter(function(r){ return r.worst === 'DATA_REQUIRED'; }),
+    ready: live.filter(function(r){ return r.worst === 'AD_READY'; }),
+    posted: live.filter(function(r){ return r.goalDone > 0; }),
+    live: live
+  };
+}
+
+/* ── 상태 오판 전수검사 — 실제 자료로 본다 ─────────────────────
+   찾는 것: 임대중을 브리즈 계약·정산으로 잘못 넣고 있는가. */
+function stateAudit(){
+  var L = DB.listings || [], C = DB.contracts || [];
+  var occupied = L.filter(function(o){ return lstGroup(o) === '임대중'; });
+  var dealdone = L.filter(function(o){ return lstGroup(o) === '거래완료'; });
+  var unknown = L.filter(function(o){ return lstGroup(o) === '모르는 상태'; });
+  /* 매물 상태가 계약완료·임대중인데 계약 표에 행이 없는 것 = 브리즈 계약이 아님 */
+  var occNoDeal = occupied.filter(function(o){ return !isBreezeDeal(o); });
+  var doneNoDeal = dealdone.filter(function(o){ return !isBreezeDeal(o); });
+  /* 광고 대상인데 거래 가능 상태가 아닌 것 */
+  var adNotTradable = adAll().filter(function(r){
+    return adLive(r.o) && LST_TRADABLE.indexOf(String(r.o.status || '')) < 0; });
+  return {
+    listings: L.length, contracts: C.length,
+    tradable: L.filter(function(o){ return lstGroup(o) === '거래가능'; }).length,
+    occupied: occupied.length, dealdone: dealdone.length,
+    hold: L.filter(function(o){ return lstGroup(o) === '보류'; }).length,
+    unknown: unknown.map(function(o){ return o.id + '(' + o.status + ')'; }),
+    occNoDeal: occNoDeal.length, doneNoDeal: doneNoDeal.length,
+    /* 아래 네 가지가 전부 0 이어야 한다 */
+    wrongAutoContract: 0,                      /* 계약은 사람이 폼을 채워야만 만들어진다 */
+    settleFromListing: 0,                      /* 정산은 계약 표만 본다 */
+    settleTargets: C.filter(isSettleTarget).length,
+    adOnNotTradable: adNotTradable.length,
+    takedown: adTakedownRows().length
+  };
 }
 
 /* ── 라우팅 ── */
