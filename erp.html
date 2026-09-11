@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '0.3';
-var ERP_BUILD = '2026-09-11 19:30';
+var ERP_VER = '0.4';
+var ERP_BUILD = '2026-09-11 20:05';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -240,7 +240,7 @@ var MENU = [
   ['crm','영업CRM',[['inbox','통합 인입함',1],['cust','고객 명부',0],['lead','상담·리드',0],['visit','임장',0]]],
   ['ops','운영부',[['photo','촬영 필요',1],['listing','매물장',0],['vac','공실 승인함',0],['landlord','임대인 명부',0]]],
   ['ad','광고·마케팅',[['admgr','광고관리',1],['copy','광고문 작성',0],['adstat','광고 성과',0]]],
-  ['deal','계약·정산',[['contract','계약',0],['settle','수납·정산',0],['doc','공부·서류',0]]],
+  ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',0],['doc','공부·서류',0]]],
   ['group','그룹웨어',[['appr','결재함',0],['sched','일정',0],['board','공지',0]]],
   ['data','데이터센터',[['collect','수집매물',0],['bldg','건물·대장',0],['stat','통계',0]]],
   ['admin','관리부',[['staff','직원·권한',0],['cfg','환경설정',0],['log','변경이력',0]]]
@@ -289,7 +289,7 @@ function drawSide(){
 }
 
 /* ── 데이터 ────────────────────────────────────────────────────── */
-var DB = { inbox:null, listings:null, landlords:null, err:'', loading:false };
+var DB = { inbox:null, listings:null, landlords:null, contracts:null, err:'', loading:false };
 
 async function jget(params){
   var u = gsUrl(), t = gsTok();
@@ -1506,6 +1506,216 @@ function viewPhoto(){
   return h;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   계약·정산 1차 골격 — 🔴 보기 전용. 저장·계약서 작성·공부 발급 없음.
+   기존 contracts 스키마를 그대로 쓴다(새 칸을 만들지 않는다):
+     id·apt·addr2·type·price·rentAmt·listingId
+     landlordName/Phone · tenantName/Phone · start · end · note
+     depositAmt/Due/PaidAt · interimAmt/Due/PaidAt · balanceAmt/Due/PaidAt
+     feeAmt · coName · coRate · escrow · feePaidAt · agent · expStatus
+   🔴 PaidAt 은 사람이 확인해 적는 날짜다(은행 연동 아님). 빈 칸은 빈 칸으로 둔다.
+   ═══════════════════════════════════════════════════════════════════ */
+var CT_SEL = null, CT_TAB = '기본', CT_FILT = '';
+
+/* 필수서류 — 기존 '발급요청(docReqs)'·'계약서류(contractDocuments)' 와 같은 뜻의 목록.
+   🔴 여기서 발급을 걸지 않는다. 무엇이 필요한지 보여 주기만 한다. */
+var CT_DOCS = [
+  ['등기부등본', '계약 직전·잔금 직전 두 번 확인'],
+  ['건축물대장', '위반건축물·용도 확인'],
+  ['신분증 사본', '임대인·임차인'],
+  ['임대인 통장사본', '입금 계좌 확인'],
+  ['위임장·인감', '대리계약일 때만'],
+  ['확인설명서', '중개대상물 확인·설명서'],
+  ['공제증서', '중개사고 배상'],
+  ['계약서', '본계약서']
+];
+function ctDaysTo(d){
+  var s = String(d || '').trim();
+  if(!s) return null;
+  var t = Date.parse(s.replace(/\./g, '-'));
+  if(isNaN(t)) return null;
+  return Math.round((t - Date.now()) / 86400000);
+}
+function ctMoney(v){
+  var s = String(v == null ? '' : v).trim();
+  return s ? (s + '만') : '';
+}
+/* 계약 상태 — 날짜와 수납으로만 판단한다. 없는 값을 추측하지 않는다. */
+function ctState(c){
+  var st = String(c.expStatus || '').trim();
+  var dEnd = ctDaysTo(c.end), dBal = ctDaysTo(c.balanceDue);
+  var paidBal = String(c.balancePaidAt || '').trim();
+  if(st === '종료') return { code:'종료', cls:'p-mute' };
+  if(!paidBal && dBal !== null && dBal < 0) return { code:'잔금 지남', cls:'p-bad' };
+  if(!paidBal && dBal !== null && dBal <= 7) return { code:'잔금 임박', cls:'p-warn' };
+  if(!paidBal && String(c.balanceAmt || '').trim()) return { code:'잔금 대기', cls:'p-warn' };
+  if(dEnd !== null && dEnd < 0) return { code:'만기 지남', cls:'p-bad' };
+  if(dEnd !== null && dEnd <= 60) return { code:'만기 임박', cls:'p-warn' };
+  if(st === '연장') return { code:'연장 확정', cls:'p-ok' };
+  return { code:'진행중', cls:'p-ok' };
+}
+function ctRows(){
+  var list = (DB.contracts || []).slice();
+  if(CT_FILT === 'bal') list = list.filter(function(c){
+    var d = ctDaysTo(c.balanceDue);
+    return !String(c.balancePaidAt||'').trim() && d !== null && d <= 7; });
+  else if(CT_FILT === 'exp') list = list.filter(function(c){
+    var d = ctDaysTo(c.end); return d !== null && d <= 60; });
+  else if(CT_FILT === 'fee') list = list.filter(function(c){
+    return String(c.feeAmt||'').trim() && !String(c.feePaidAt||'').trim(); });
+  return list;
+}
+function viewContract(){
+  if(DB.err && DB.contracts === null)
+    return crumb() + '<div class="h1row"><h1>계약</h1></div>' + keyBox();
+  var all = DB.contracts || [];
+  var bal = all.filter(function(c){
+    var d = ctDaysTo(c.balanceDue);
+    return !String(c.balancePaidAt||'').trim() && d !== null && d <= 7; });
+  var exp = all.filter(function(c){ var d = ctDaysTo(c.end); return d !== null && d <= 60; });
+  var fee = all.filter(function(c){ return String(c.feeAmt||'').trim() && !String(c.feePaidAt||'').trim(); });
+  var live = all.filter(function(c){ return ctState(c).code !== '종료'; });
+  var rows = ctRows();
+
+  var h = crumb() +
+  '<div class="h1row"><h1>계약</h1><span class="cnt">총 <b>' + all.length + '</b>건' +
+    (all.length ? (' · 진행중 <b>' + live.length + '</b>건') : '') +
+    (CT_FILT ? ' · 지금 화면 <b>' + rows.length + '</b>건' : '') + '</span></div>' +
+  '<div class="kpis">' +
+    kpi('전체 계약', all.length, '', "CT_FILT='';route()") +
+    kpi('진행중', live.length, '', "CT_FILT='';route()") +
+    kpi('잔금 임박(7일)', bal.length, bal.length?'w':'', "CT_FILT='bal';route()") +
+    kpi('만기 임박(60일)', exp.length, exp.length?'w':'', "CT_FILT='exp';route()") +
+    kpi('중개보수 미수', fee.length, fee.length?'b':'', "CT_FILT='fee';route()") +
+  '</div>';
+
+  if(!all.length){
+    h += '<div class="card"><div class="soonbox"><b>아직 계약 자료가 없습니다</b>' +
+      '<div style="margin:8px 0 0">계약 시트가 비어 있습니다. 🔴 보여 줄 것을 만들어 내지 않습니다.<br>' +
+      '계약이 들어오면 이 화면에 <b>계약일·잔금일·만기일·필수서류·특약·수납</b>이 함께 뜹니다.</div>' +
+      '<div style="margin-top:14px;text-align:left;max-width:620px;margin-left:auto;margin-right:auto">' +
+      '<div style="font-size:12.5px;color:var(--t3);margin-bottom:6px">준비된 계약 흐름</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">' +
+      ['고객','매물','계약준비','특약','필요서류','계약일','잔금일','만기','재계약/재임대']
+        .map(function(x, i){ return '<span class="pill p-mute">' + (i+1) + '. ' + x + '</span>'; }).join('') +
+      '</div></div>' +
+      '<div style="margin-top:14px"><button class="btn" onclick="go(&#39;ops&#39;,&#39;photo&#39;)">촬영필요 보기</button> ' +
+      '<button class="btn" onclick="go(&#39;ad&#39;,&#39;admgr&#39;)">광고관리 보기</button></div>' +
+      '</div></div>';
+    h += ctDocPreview();
+    return h;
+  }
+
+  h += '<div class="split' + (CT_SEL ? ' open' : '') + '"><div class="card"><div class="tblwrap"><table>' +
+    '<colgroup><col style="width:104px"><col><col style="width:70px"><col style="width:96px">' +
+    '<col style="width:100px"><col style="width:100px"><col style="width:100px"><col style="width:92px"></colgroup>' +
+    '<thead><tr><th>계약번호</th><th>건물/호실</th><th>거래</th><th>임차인</th>' +
+    '<th>계약일</th><th>잔금일</th><th>만기일</th><th>상태</th></tr></thead><tbody>';
+  rows.forEach(function(c){
+    var st = ctState(c);
+    h += '<tr' + (CT_SEL === c.id ? ' class="sel"' : '') + ' onclick="CT_SEL=&#39;' + esc(c.id) + '&#39;;route()">' +
+      '<td class="mono">' + esc(c.id) + '</td>' +
+      '<td><span class="ell">' + esc((c.apt||'') + ' ' + (c.addr2||'')) + '</span></td>' +
+      '<td>' + esc(c.type||'-') + '</td>' +
+      '<td><span class="ell">' + esc(c.tenantName||'-') + '</span></td>' +
+      '<td class="mono">' + esc(c.start||'-') + '</td>' +
+      '<td class="mono">' + esc(c.balanceDue||'-') + '</td>' +
+      '<td class="mono">' + esc(c.end||'-') + '</td>' +
+      '<td><span class="pill ' + st.cls + '">' + esc(st.code) + '</span></td></tr>';
+  });
+  h += '</tbody></table></div><div class="actbar">' +
+    '<button class="btn" disabled title="다음 단계">+ 계약 등록</button>' +
+    '<button class="btn" disabled title="🔴 검증 전 — 자동 작성하지 않습니다">계약서 작성 (검증 전)</button>' +
+    '<button class="btn" disabled title="🔴 검증 전 — 공부 발급은 자동 실행하지 않습니다">공부 발급 (검증 전)</button>' +
+    '<span style="flex:1"></span>' +
+    '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 이 화면은 저장하지 않습니다</span>' +
+    '</div></div>';
+  if(CT_SEL) h += ctPanel();
+  h += '</div>';
+  return h;
+}
+function ctDocPreview(){
+  var h = '<div class="card" style="margin-top:14px"><div class="sbody">' +
+    '<h4 style="margin:0 0 8px;font-size:13px;color:var(--t3)">필수서류 체크리스트 (준비된 항목)</h4>' +
+    '<ul class="steps">';
+  CT_DOCS.forEach(function(d){
+    h += '<li><i>☐</i><span><b>' + esc(d[0]) + '</b> — ' + esc(d[1]) + '</span></li>';
+  });
+  h += '</ul><div class="note b" style="margin-top:10px">🔴 이 화면은 서류를 <b>발급하지 않습니다</b>. ' +
+    '무엇이 필요한지 보여 주기만 합니다. 발급은 기존 [발급요청] 경로에서 사람이 합니다.</div>' +
+    '</div></div>';
+  return h;
+}
+function ctPanel(){
+  var c = (DB.contracts||[]).filter(function(x){ return String(x.id) === String(CT_SEL); })[0];
+  if(!c) return '';
+  var st = ctState(c);
+  var tabs = ['기본','일정','필요서류','특약','수납','정산'];
+  var h = '<div class="side"><h3><span>' + esc(c.id) + ' · ' + esc((c.apt||'') + ' ' + (c.addr2||'')) + '</span>' +
+    '<button class="btn sm" onclick="CT_SEL=null;route()">닫기</button></h3><div class="sbody">' +
+    '<div style="margin:0 0 10px"><span class="pill ' + st.cls + '">' + esc(st.code) + '</span></div>' +
+    '<div style="display:flex;gap:4px;flex-wrap:wrap;margin:0 0 12px">' +
+    tabs.map(function(t){
+      return '<button class="btn sm' + (t===CT_TAB?' pri':'') + '" onclick="CT_TAB=&#39;' + t + '&#39;;route()">' +
+        t + '</button>'; }).join('') + '</div>';
+
+  if(CT_TAB === '기본'){
+    h += '<dl class="kv">' +
+      '<dt>매물</dt><dd>' + esc(c.listingId||'-') + '</dd>' +
+      '<dt>건물/호실</dt><dd>' + esc((c.apt||'') + ' ' + (c.addr2||'')) + '</dd>' +
+      '<dt>거래</dt><dd>' + esc(c.type||'-') + ' · ' + esc(ctMoney(c.price)) + (c.rentAmt ? (' / ' + esc(ctMoney(c.rentAmt))) : '') + '</dd>' +
+      '<dt>임대인</dt><dd>' + esc(c.landlordName||'-') + ' <span class="mono">' + esc(phoneShow(c.landlordPhone)) + '</span></dd>' +
+      '<dt>임차인</dt><dd>' + esc(c.tenantName||'-') + ' <span class="mono">' + esc(phoneShow(c.tenantPhone)) + '</span></dd>' +
+      '<dt>담당</dt><dd>' + esc(c.agent||'-') + '</dd></dl>';
+  } else if(CT_TAB === '일정'){
+    var rows2 = [['계약일', c.start], ['중도금일', c.interimDue], ['잔금일', c.balanceDue], ['만기일', c.end]];
+    h += '<ul class="steps">';
+    rows2.forEach(function(r){
+      var d = ctDaysTo(r[1]);
+      h += '<li><i>' + (r[1] ? '📅' : '—') + '</i><span>' + esc(r[0]) + '</span><b>' + esc(r[1]||'(빈칸)') +
+        (d === null ? '' : (' <span style="color:var(--t3);font-weight:400">' +
+          (d < 0 ? (-d + '일 지남') : (d === 0 ? '오늘' : ('D-' + d))) + '</span>')) + '</b></li>';
+    });
+    h += '</ul><div class="note i" style="margin-top:8px">🔴 계약 시작일(start)을 잔금일로 쓰지 않습니다 — 뜻이 다릅니다.</div>';
+  } else if(CT_TAB === '필요서류'){
+    h += '<ul class="steps">';
+    CT_DOCS.forEach(function(d){
+      h += '<li><i>☐</i><span><b>' + esc(d[0]) + '</b><br><span style="color:var(--t3);font-size:12px">' +
+        esc(d[1]) + '</span></span></li>';
+    });
+    h += '</ul><div class="note b" style="margin-top:8px">🔴 체크 상태는 아직 저장하지 않습니다. ' +
+      '발급도 자동으로 걸지 않습니다(검증 전).</div>';
+  } else if(CT_TAB === '특약'){
+    var note = String(c.note || '').trim();
+    h += note ? ('<pre class="raw">' + esc(maskSecret(note)) + '</pre>')
+              : '<div class="empty" style="padding:14px">특약으로 적힌 내용이 없습니다</div>';
+    h += '<div style="margin-top:10px"><textarea id="ct-sp" rows="5" placeholder="특약을 여기에 적습니다 (🔴 아직 저장되지 않습니다)" ' +
+      'style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--t1)"></textarea>' +
+      '<div style="margin-top:6px"><button class="btn" disabled title="다음 단계">특약 저장</button></div>' +
+      '<div class="note b" style="margin-top:8px">🔴 지금은 적어 두는 자리만 있습니다. 저장 연결은 다음 단계입니다.</div></div>';
+  } else if(CT_TAB === '수납'){
+    var pay = [['계약금', c.depositAmt, c.depositDue, c.depositPaidAt, c.depositConfirmedBy],
+               ['중도금', c.interimAmt, c.interimDue, c.interimPaidAt, c.interimConfirmedBy],
+               ['잔금',  c.balanceAmt, c.balanceDue, c.balancePaidAt, c.balanceConfirmedBy]];
+    h += '<ul class="steps">';
+    pay.forEach(function(p){
+      h += '<li><i>' + (p[3] ? '✅' : '☐') + '</i><span><b>' + esc(p[0]) + '</b> ' + esc(ctMoney(p[1]) || '(금액 없음)') +
+        '<br><span style="color:var(--t3);font-size:12px">예정 ' + esc(p[2]||'-') +
+        ' · 확인 ' + esc(p[3]||'-') + (p[4] ? (' (' + esc(p[4]) + ')') : '') + '</span></span></li>';
+    });
+    h += '</ul><div class="note b" style="margin-top:8px">🔴 입금 확인은 <b>사람이 보고 적는 날짜</b>입니다. ' +
+      '은행과 이어져 있지 않습니다. 빈 칸은 빈 칸으로 둡니다.</div>';
+  } else {
+    h += '<dl class="kv">' +
+      '<dt>중개보수</dt><dd>' + (c.feeAmt ? esc(Number(c.feeAmt).toLocaleString()) + '원' : '-') + '</dd>' +
+      '<dt>수령일</dt><dd>' + esc(c.feePaidAt||'-') + '</dd>' +
+      '<dt>공동중개</dt><dd>' + esc(c.coName||'-') + (c.coRate ? (' · 우리 몫 ' + esc(c.coRate) + '%') : '') + '</dd>' +
+      '<dt>에스크로</dt><dd>' + esc(c.escrow||'-') + '</dd></dl>';
+  }
+  h += '</div></div>';
+  return h;
+}
+
 /* ── 라우팅 ── */
 var SEARCH = '';
 function route(){
@@ -1516,6 +1726,13 @@ function route(){
   else if(CUR.m2 === 'inbox') m.innerHTML = viewInbox();
   else if(CUR.m2 === 'admgr') m.innerHTML = viewAd();
   else if(CUR.m2 === 'photo') m.innerHTML = viewPhoto();
+  else if(CUR.m2 === 'contract'){
+    if(DB.contracts === null){
+      m.innerHTML = crumb() + '<div class="h1row"><h1>계약</h1></div>' +
+        '<div class="card"><div class="empty">계약 자료를 불러오는 중…</div></div>';
+      loadContracts();
+    } else m.innerHTML = viewContract();
+  }
   else {
     var g = MENU.filter(function(x){ return x[0]===CUR.m1; })[0];
     var s = g[2].filter(function(x){ return x[0]===CUR.m2; })[0];
@@ -1539,6 +1756,22 @@ function bindBar(){
   if(ft) ft.onchange = function(){ UI.st = ft.value; route(); };
 }
 async function reload(){ await loadAll(true); route(); }
+/* 계약 자료는 계약 화면에 들어갈 때만 부른다 — 첫 화면을 무겁게 하지 않는다.
+   🔴 여기서 실패해도 DB.err 를 세우지 않는다(다른 화면이 멀쩡해야 한다). */
+var CT_LOADING = false;
+async function loadContracts(){
+  if(DB.contracts !== null || CT_LOADING) return;
+  CT_LOADING = true;
+  try{
+    var d = await jget({ action:'getAll', type:'contracts' });
+    DB.contracts = d.data || d.result || [];
+  }catch(e){
+    DB.contracts = [];
+    DB.ctErr = String((e && e.message) || e);
+  }
+  CT_LOADING = false;
+  route();
+}
 
 /* 통합검색 */
 document.getElementById('q').addEventListener('keydown', function(e){
