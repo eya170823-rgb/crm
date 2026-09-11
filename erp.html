@@ -207,8 +207,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '0.7';
-var ERP_BUILD = '2026-09-11 22:30';
+var ERP_VER = '1.0';
+var ERP_BUILD = '2026-09-12 01:20';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -237,7 +237,7 @@ document.getElementById('btnTheme').onclick = function(){
 /* ── 메뉴 (상단 8 대분류 → 2차) ─────────────────────────────────── */
 var MENU = [
   ['today','오늘업무',[['today','오늘 할 일',1]]],
-  ['crm','영업CRM',[['inbox','통합 인입함',1],['cust','고객 명부',0],['lead','상담·리드',0],['visit','임장',0]]],
+  ['crm','영업CRM',[['inbox','통합 인입함',1],['cust','고객 명부',1],['lead','상담·리드',0],['visit','임장',0]]],
   ['ops','운영부',[['photo','촬영 필요',1],['listing','매물장',0],['vac','공실 승인함',0],['landlord','임대인 명부',0]]],
   ['ad','광고·마케팅',[['admgr','광고관리',1],['mkt','마케팅',1],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
@@ -310,7 +310,9 @@ async function loadAll(force){
     DB.inbox = ((a.result||{}).rows) || [];
     DB.inboxTotal = (a.result||{}).total || DB.inbox.length;
     var b = await jget({ action:'getAll', type:'listings' });
-    DB.listings = b.data || b.result || [];
+    /* 🔴 시트에는 ads 칸이 없다 — adsFlat 한 칸에 눌러 담겨 있다.
+       풀어 주지 않으면 이미 올라가 있는 광고가 전부 '미게시'로 보인다. */
+    DB.listings = (b.data || b.result || []).map(adsRestore);
     var c = await jget({ action:'getAll', type:'landlords' });
     DB.landlords = c.data || c.result || [];
   }catch(e){
@@ -359,7 +361,9 @@ function maskSecret(t){
   return s;
 }
 /* 전화번호 — 권한에 따라 가린다(대표는 전체) */
-var ME = { role:'admin', name:'대표' };
+/* 🔴 담당은 이름이 아니라 staffId(listings.agent / customers.agent) 로 다룬다.
+   지금 계정은 대표라 id 가 비어 있고, 그때는 전부 다 본다. */
+var ME = { role:'admin', name:'대표', id:'' };
 function phoneShow(p){
   var d = nDigit(p);
   if(!d) return '';
@@ -593,6 +597,9 @@ function keyBox(){
 
 /* ── 오늘업무 ── */
 function viewToday(){
+  /* 3개를 고르려면 계약·고객까지 있어야 한다 — 없으면 그 화면에서만 따로 읽는다 */
+  if(DB.contracts === null) loadContracts();
+  if(DB.customers === null) loadCustomers();
   var inb = DB.inbox || [];
   var un = inb.filter(function(r){ return !r.reg; });
   var call = un.filter(function(r){ return srcOf(r.kind, r.text) === '통화녹음'; });
@@ -609,6 +616,7 @@ function viewToday(){
   '<div class="h1row"><h1>오늘 할 일</h1><span class="cnt">' +
     '인입 미처리 <b class="hot">' + un.length + '</b>건 · 매물 <b>' + L.length + '</b>건 · ' +
     '촬영 필요 <b class="hot">' + shoot.length + '</b>건</span></div>' +
+  top3Card() +
   '<div class="kpis">' +
     kpi('신규 인입', un.length, un.length ? 'w' : '', "go('crm','inbox')") +
     kpi('신규 매물후보', call.length, '', "go('crm','inbox','통화녹음')") +
@@ -1353,7 +1361,7 @@ function photoTasks(){
 }
 
 /* ── 광고관리 화면 ─────────────────────────────────────────────── */
-var AD_SEL = null, AD_FILT = '';
+var AD_SEL = null, AD_FILT = '', AD_SHOW = [];
 function adPill(st){
   var m = { AD_READY:['p-ok','AD_READY'], POSTED:['p-brand','게시중'],
             PHOTO_REQUIRED:['p-bad','사진필요'], DATA_REQUIRED:['p-warn','정보부족'],
@@ -1437,12 +1445,16 @@ function viewAd(){
   });
   h += '</tbody></table></div>' +
     '<div class="actbar">' +
-      '<button class="btn" disabled title="다음 단계">당근 엑셀 만들기</button>' +
-      '<button class="btn" disabled title="🔴 외부 게시는 검증 전입니다">실제 게시 (검증 전)</button>' +
-      '<button class="btn" disabled title="다음 단계">일괄 내림</button>' +
+      '<button class="btn pri" onclick="adCopyList(AD_SHOW)">지금 목록 표로 복사 (' + show.length + '건)</button>' +
+      '<button class="btn" onclick="location.href=&#39;./index.html&#39;">당근 일괄업로드 파일 만들기</button>' +
+      '<button class="btn" disabled title="🔴 이 시스템은 외부 채널에 직접 올리지 않습니다">자동 게시 (붙이지 않음)</button>' +
       '<span style="flex:1"></span>' +
-      '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 실제 게시 0건</span>' +
-    '</div></div>';
+      '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 이 화면에서 나가는 광고 0건</span>' +
+    '</div>' +
+    '<div class="note i" style="margin:10px 13px 13px">표 복사는 <b>채널 입력폼에 손으로 옮겨 적을 때</b> 쓰는 참고표입니다. ' +
+    '당근 <b>일괄업로드 파일</b>은 규격 변환(만원·㎡·허용값)이 붙은 기존 CRM 화면에서 만듭니다 — ' +
+    '여기서 비슷한 걸 새로 만들면 규격이 어긋나 반려·제재 위험이 있습니다.</div></div>';
+  AD_SHOW = show;                      /* 버튼에서 쓰려고 지금 화면 목록을 물려 둔다 */
   if(AD_SEL) h += adPanel();
   h += '</div>';
   return h;
@@ -1458,7 +1470,9 @@ function adPanel(){
     '<dt>가격</dt><dd>' + esc(adMoney(o)||'-') + '</dd>' +
     '<dt>주소</dt><dd>' + esc(o.addr||'-') + '</dd>' +
     '<dt>상태</dt><dd>' + esc(o.status||'-') + '</dd>' +
-    '<dt>사진</dt><dd>' + esc(r.ph.code) + '</dd></dl>';
+    '<dt>사진</dt><dd>' + esc(r.ph.code) + '</dd>' +
+    '<dt>담당</dt><dd>' + esc(staffNameOf(o.agent)) +
+      ' <button class="btn sm" onclick="asgSet(&#39;' + esc(o.id) + '&#39;)">바꾸기</button></dd></dl>';
   if(r.ph.code !== 'PHOTO_READY'){
     h += '<div class="note b">🔴 ' + esc(r.ph.why) + '<br>사진이 없으면 어떤 채널에도 올리지 않습니다.</div>';
     if(r.ph.others && r.ph.others.length)
@@ -1480,7 +1494,16 @@ function adPanel(){
         '계정·자동게시: 확인 전 · 방식 ' + (c.bulk ? '엑셀 일괄' : '수동') +
         (c.validDays ? (' · 유효 ' + c.validDays + '일') : '') +
         (a && a.at ? (' · 게시일 ' + esc(a.at)) : '') +
-        (a && a.no ? (' · 번호 ' + esc(a.no)) : '') + '</div></div>';
+        (a && a.no ? (' · 번호 ' + esc(a.no)) : '') + '</div>' +
+      '<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">' +
+        (st.code === 'POSTED'
+          ? ('<button class="btn sm" onclick="adMark(&#39;' + esc(o.id) + '&#39;,&#39;' + c.key +
+             '&#39;,false)">내렸다고 적기</button>')
+          : ('<button class="btn sm" onclick="adMark(&#39;' + esc(o.id) + '&#39;,&#39;' + c.key +
+             '&#39;,true)">올렸다고 적기</button>')) +
+        '<button class="btn sm" onclick="adCopyForm(&#39;' + esc(o.id) + '&#39;,&#39;' + c.key +
+          '&#39;)">입력표 복사</button>' +
+      '</div></div>';
   });
   h += '<div style="font-size:12px;color:var(--t3);margin-top:8px">🔴 제주오일장은 이 시스템에 ' +
        '<b>광고 채널로 등록돼 있지 않습니다</b>(수집 쪽에만 있습니다) — 없는 채널을 만들지 않았습니다.</div></div>';
@@ -1495,6 +1518,13 @@ function adPanel(){
       '<pre class="raw">' + esc(cp.title) + '</pre>' +
       '<div style="font-size:12.5px;color:var(--t3);margin:6px 0 3px">' + esc(c.label) + ' 본문</div>' +
       '<pre class="raw">' + esc(cp.body) + '</pre>' +
+      '<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">' +
+        '<button class="btn sm" onclick="adCopyOne(&#39;' + esc(o.id) + '&#39;,&#39;' + k +
+          '&#39;)">제목+본문 복사</button>' +
+        '<button class="btn sm" onclick="adCopyOne(&#39;' + esc(o.id) + '&#39;,&#39;' + k +
+          '&#39;,&#39;title&#39;)">제목만</button>' +
+        '<button class="btn sm" onclick="adCopyOne(&#39;' + esc(o.id) + '&#39;,&#39;' + k +
+          '&#39;,&#39;body&#39;)">본문만</button></div>' +
       (cp.missing.length ? '<div class="note w" style="margin-top:6px">이 채널 누락: ' +
         esc(cp.missing.join(' · ')) + ' — 채워야 올릴 수 있습니다</div>' : '') +
       '</div>';
@@ -1510,17 +1540,24 @@ function adPanel(){
   });
   h += hist.length ? ('<ul class="steps">' + hist.map(function(x){
         return '<li><i>·</i><span>' + x + '</span></li>'; }).join('') + '</ul>')
-    : '<div class="empty" style="padding:14px">아직 광고 이력이 없습니다<br>' +
-      '<span style="font-size:12px">(오늘부터 실제 상태 변경이 생기면 여기에 쌓입니다 — 과거 이력을 만들어 내지 않습니다)</span></div>';
+    : '<div class="empty" style="padding:14px">이 매물은 아직 어느 채널에도 올린 기록이 없습니다<br>' +
+      '<span style="font-size:12px">(올린 뒤 [올렸다고 적기]를 누르면 여기에 쌓입니다 — 없는 이력을 만들어 내지 않습니다)</span></div>';
+  if(String(o.adsFlat||'').trim())
+    h += '<div style="font-size:11.5px;color:var(--t3);margin-top:6px">시트에 적힌 원문: ' +
+      esc(String(o.adsFlat)) + '</div>';
   h += '</div>';
 
   h += '<div class="sec"><h4>할 일</h4><div style="display:flex;gap:6px;flex-wrap:wrap">' +
     (r.ph.code !== 'PHOTO_READY'
       ? '<button class="btn pri" onclick="go(&#39;ops&#39;,&#39;photo&#39;)">촬영필요 목록으로</button>' : '') +
-    '<button class="btn" disabled title="🔴 외부 게시는 검증 전입니다">실제 게시 (검증 전)</button>' +
-    '<button class="btn" disabled title="다음 단계">광고 수정</button>' +
-    '<button class="btn" disabled title="다음 단계">광고 내림</button>' +
-    '</div></div>';
+    '<button class="btn" onclick="adCopyForm(&#39;' + esc(o.id) + '&#39;,&#39;daangn&#39;)">' +
+      '채널 입력표 복사</button>' +
+    '<button class="btn" disabled title="🔴 이 시스템은 외부 채널에 직접 올리지 않습니다">' +
+      '자동 게시 (붙이지 않음)</button>' +
+    '</div>' +
+    '<div class="note b" style="margin-top:8px">🔴 이 화면은 <b>외부 채널에 직접 올리지 않습니다</b>. ' +
+    '대표님이 채널에서 직접 올린 뒤 [올렸다고 적기]를 누르면 그때부터 이력이 쌓입니다 — ' +
+    '그래야 "이미 올린 걸 또 올리는" 일과 "계약됐는데 안 내린" 일을 잡을 수 있습니다.</div></div>';
   h += '</div></div>';
   return h;
 }
@@ -1631,6 +1668,8 @@ function ctRows(){
   return list;
 }
 function viewContract(){
+  /* 점검 기록은 이 화면에서만 쓴다 — 패널을 열어야만 읽으면 탭이 '불러오는 중'에서 멈춘다 */
+  if(DOCS === null) loadDocs();
   if(DB.err && DB.contracts === null)
     return crumb() + '<div class="h1row"><h1>계약</h1></div>' + keyBox();
   var all = DB.contracts || [];
@@ -1717,7 +1756,9 @@ function ctPanel(){
   var c = (DB.contracts||[]).filter(function(x){ return String(x.id) === String(CT_SEL); })[0];
   if(!c) return '';
   var st = ctState(c);
-  var tabs = ['기본','일정','필요서류','특약','수납','정산'];
+  /* 🔴 예전 [필요서류] 8가지는 [점검] 15가지 안으로 들어왔다(같은 것을 두 곳에 두지 않는다). */
+  var tabs = ['기본','흐름','점검','일정','특약','수납','정산'];
+  if(DOCS === null) loadDocs();
   var h = '<div class="side"><h3><span>' + esc(c.id) + ' · ' + esc((c.apt||'') + ' ' + (c.addr2||'')) + '</span>' +
     '<button class="btn sm" onclick="CT_SEL=null;route()">닫기</button></h3><div class="sbody">' +
     '<div style="margin:0 0 10px"><span class="pill ' + st.cls + '">' + esc(st.code) + '</span></div>' +
@@ -1744,29 +1785,71 @@ function ctPanel(){
           (d < 0 ? (-d + '일 지남') : (d === 0 ? '오늘' : ('D-' + d))) + '</span>')) + '</b></li>';
     });
     h += '</ul><div class="note i" style="margin-top:8px">🔴 계약 시작일(start)을 잔금일로 쓰지 않습니다 — 뜻이 다릅니다.</div>';
-  } else if(CT_TAB === '필요서류'){
-    var got = CT_DOCSTATE[c.id] || {};
-    h += '<ul class="steps">';
-    CT_DOCS.forEach(function(d){
-      var on = got[d[0]] === '받음';
-      h += '<li><i>' + (on ? '✅' : '☐') + '</i><span><b>' + esc(d[0]) + '</b>' +
-        '<br><span style="color:var(--t3);font-size:12px">' + esc(d[1]) + '</span>' +
-        '<br><button class="btn sm" style="margin-top:4px" onclick="ctDocSave(&#39;' + esc(c.id) +
-        '&#39;,&#39;' + esc(d[0]) + '&#39;,' + (on ? 'false' : 'true') + ')">' +
-        (on ? '받음 취소' : '받음으로 표시') + '</button></span></li>';
+  } else if(CT_TAB === '흐름'){
+    h += '<div style="font-size:12.5px;color:var(--t2);margin:0 0 10px">' +
+      '계약 한 건이 어디까지 왔는지 <b>자료에서 그대로</b> 읽은 것입니다. ' +
+      '사람이 적는 진도표가 아닙니다.</div><ul class="steps">';
+    ctFlow(c).forEach(function(f, i){
+      var ok = f[1].st === '완료';
+      h += '<li><i>' + (ok ? '✅' : (i + 1)) + '</i><span><b>' + esc(f[0]) + '</b>' +
+        '<br><span style="color:var(--t3);font-size:12px">' + esc(f[1].d) + '</span></span>' +
+        '<span class="pill ' + (ok ? 'p-ok' : 'p-mute') + '">' + f[1].st + '</span></li>';
     });
-    h += '</ul><div class="note b" style="margin-top:8px">🔴 표시는 <b>계약서류 표</b>에 한 건씩 저장됩니다. ' +
-      '서류 <b>발급</b>은 자동으로 걸지 않습니다(기존 발급요청 경로에서 사람이 합니다).</div>';
+    h += '</ul>';
+  } else if(CT_TAB === '점검'){
+    if(DOCS === null){ h += '<div class="empty" style="padding:16px">점검 기록을 불러오는 중…</div>'; }
+    else {
+      var mm = docMap(c.id), sm = ctCheckSum(c);
+      h += '<div class="note ' + (sm.left ? 'w' : 'i') + '">계약 전 <b>15가지</b> 점검 — ' +
+        '완료 <b>' + sm['완료'] + '</b> · 미완료 <b>' + sm['미완료'] + '</b> · ' +
+        '해당없음 <b>' + sm['해당없음'] + '</b> · 미확인 <b>' + sm['미확인'] + '</b>' +
+        (sm.left ? ('<br>🔴 아직 <b>' + sm.left + '가지</b>가 남았습니다.')
+                 : '<br>다 끝났습니다 ✓') + '</div>';
+      if(DOCS_ERR) h += '<div class="note w">점검 기록을 읽지 못했습니다: ' + esc(DOCS_ERR) + '</div>';
+      h += '<ul class="steps">';
+      CT_CHECK.forEach(function(it, i){
+        var r = ctCheckState(c, it, mm);
+        var cls = { '완료':'p-ok', '미완료':'p-bad', '해당없음':'p-mute', '미확인':'p-warn' }[r.st];
+        h += '<li style="display:block"><div style="display:flex;gap:8px;align-items:flex-start">' +
+          '<i style="flex-shrink:0">' + (i + 1) + '</i><span style="flex:1"><b>' + esc(it[0]) + '</b>' +
+          '<br><span style="color:var(--t3);font-size:12px">' + esc(it[1]) + '</span>' +
+          (it[3] ? ('<br><span style="color:var(--bad);font-size:12px">' + esc(it[3]) + '</span>') : '') +
+          '</span><span class="pill ' + cls + '">' + r.st +
+          (r.by ? ('<span style="opacity:.7"> · ' + r.by + '</span>') : '') + '</span></div>' +
+          '<div style="margin:6px 0 0 26px;display:flex;gap:5px;flex-wrap:wrap">' +
+          CT_ST.map(function(t){
+            return '<button class="btn sm' + (r.st === t ? ' pri' : '') +
+              '" onclick="ctCheckSet(&#39;' + esc(c.id) + '&#39;,' + i + ',&#39;' + t + '&#39;)">' +
+              t + '</button>'; }).join('') + '</div></li>';
+      });
+      h += '</ul><div class="note b" style="margin-top:8px">🔴 여기서 <b>서류를 발급하거나 계약서를 확정하지 않습니다</b>. ' +
+        '확인했다는 표시만 남깁니다. 표시는 계약서류 표에 항목마다 <b>한 줄로</b> 저장됩니다(누를 때마다 쌓이지 않습니다).<br>' +
+        '🔴 예전 [필요서류] 8가지는 이 15가지 안에 들어왔습니다.</div>';
+    }
   } else if(CT_TAB === '특약'){
     var note = String(c.note || '').trim();
     h += note ? ('<pre class="raw">' + esc(maskSecret(note)) + '</pre>')
               : '<div class="empty" style="padding:14px">특약으로 적힌 내용이 없습니다</div>';
-    h += '<div style="margin-top:10px"><textarea id="ct-sp" rows="5" placeholder="특약을 여기에 적습니다 (🔴 아직 저장되지 않습니다)" ' +
-      'style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--t1)"></textarea>' +
-      '<div style="margin-top:6px"><button class="btn pri" onclick="ctSpecSave(&#39;' + esc(c.id) +
-      '&#39;)">특약 저장</button></div>' +
-      '<div class="note b" style="margin-top:8px">🔴 확인창을 거쳐 저장되고, <b>기존 내용은 지우지 않고 아래에 붙입니다</b>. ' +
-      '비밀번호로 보이는 내용은 막습니다.</div></div>';
+    h += '<div class="sec" style="margin-top:12px"><h4>1단계 · 제안 (초안)</h4>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin:0 0 8px">자주 쓰는 문장을 <b>초안</b>으로 넣어 줍니다. ' +
+      '<b>○○ 는 반드시 사람이 채워야 합니다</b> — 채우지 않으면 저장을 막습니다.</div>' +
+      '<div style="display:flex;gap:5px;flex-wrap:wrap">' +
+      CT_SPEC_TPL.map(function(t, i){
+        return '<button class="btn sm" onclick="ctSpecPropose(' + i + ')">+ ' + esc(t[0]) + '</button>';
+      }).join('') +
+      ' <button class="btn sm" onclick="ctSpecClear()">비우기</button></div>' +
+      '<div class="note b" style="margin-top:8px">🔴 이 문장들은 <b>법률 자문이 아닙니다</b>. ' +
+      '초안일 뿐이고, 무엇을 넣을지는 대표님이 정합니다.</div></div>';
+    h += '<div class="sec"><h4>2단계 · 편집</h4>' +
+      '<textarea id="ct-sp" rows="6" placeholder="여기서 고쳐 쓰세요 (🔴 아직 저장되지 않았습니다)" ' +
+      'style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--t1)">' +
+      esc(CT_SPEC_DRAFT) + '</textarea></div>';
+    h += '<div class="sec"><h4>3단계 · 최종확정</h4>' +
+      '<button class="btn pri" onclick="ctSpecSave(&#39;' + esc(c.id) + '&#39;)">최종확정으로 저장</button>' +
+      '<div class="note b" style="margin-top:8px">🔴 확인창을 한 번 거쳐 저장되고, ' +
+      '<b>기존 내용은 지우지 않고 아래에 붙입니다</b>.<br>' +
+      '🔴 비밀번호로 보이는 내용과 <b>안 채운 ○○</b> 는 저장을 막습니다.<br>' +
+      '🔴 계약서를 자동으로 확정하거나 공부를 자동 발급하지 않습니다.</div></div>';
   } else if(CT_TAB === '수납'){
     var pay = [['계약금', c.depositAmt, c.depositDue, c.depositPaidAt, c.depositConfirmedBy],
                ['중도금', c.interimAmt, c.interimDue, c.interimPaidAt, c.interimConfirmedBy],
@@ -1951,6 +2034,15 @@ async function ctSpecSave(contractId){
   if(!el){ return; }
   var text = String(el.value || '').trim();
   if(!text){ alert('적을 내용이 없습니다'); return; }
+  /* 🔴 확실히 틀린 입력은 시트를 읽기 '전에' 막는다 — 굳이 왕복할 필요가 없다 */
+  if(hasSecret(text)){
+    alert('🔴 비밀번호로 보이는 내용이 있습니다. 특약에는 넣지 않습니다.'); return;
+  }
+  /* 🔴 제안 초안의 ○○ 를 안 채우면 저장하지 않는다 — 그대로 계약서에 들어가면 사고다 */
+  if(text.indexOf('○○') >= 0){
+    alert(['🔴 아직 채우지 않은 칸(○○)이 있습니다.', '',
+      '제안은 초안입니다. ○○ 를 실제 내용으로 바꾼 뒤 저장해 주세요.'].join(nl)); return;
+  }
   /* 🔴 저장 직전에 다시 읽는다 */
   var fresh;
   try{
@@ -1959,9 +2051,6 @@ async function ctSpecSave(contractId){
   }catch(e){ alert('계약 자료를 다시 읽지 못해 저장하지 않습니다'); return; }
   var c = fresh.filter(function(x){ return String(x.id) === String(contractId); })[0];
   if(!c){ alert('계약을 찾지 못했습니다'); return; }
-  if(hasSecret(text)){
-    alert('🔴 비밀번호로 보이는 내용이 있습니다. 특약에는 넣지 않습니다.'); return;
-  }
   var was = String(c.note || '');
   var next = was ? (was + nl + text) : text;
   if(!confirm(['특약을 덧붙입니다', '', '계약 ' + c.id, '', text, '',
@@ -1972,8 +2061,9 @@ async function ctSpecSave(contractId){
     await erpUpsert('contracts', obj);
     var g2 = await jget({ action:'getAll', type:'contracts' });
     DB.contracts = g2.data || g2.result || [];
+    CT_SPEC_DRAFT = '';
     route();
-    alert('특약을 저장했습니다 ✓');
+    alert('특약을 최종확정으로 저장했습니다 ✓');
   }catch(e){ alert('저장 실패 — 계약 자료는 그대로입니다.' + nl + String(e && e.message || e)); }
 }
 
@@ -1997,53 +2087,136 @@ function viewSettle(){
   if(DB.contracts === null){ loadContracts();
     return crumb() + '<div class="h1row"><h1>수납·정산</h1></div>' +
       '<div class="card"><div class="empty">계약 자료를 불러오는 중…</div></div>'; }
+  if(PAYCFG === null) loadPayCfg();
+  if(STAFF === null) loadStaff();
   var all = DB.contracts || [];
+  var rows = all.map(function(c){ return { c:c, r:stlCalc(c) }; });
+  var sum = function(f){ var n = 0; rows.forEach(function(x){ n += f(x.r); }); return n; };
+  var feeTotal = sum(function(r){ return r.fee; });
+  var gotTotal = sum(function(r){ return r.got; });
+  var unpaidTotal = sum(function(r){ return r.unpaid; });
+  var expectTotal = sum(function(r){ return r.expect; });
+  var staffTotal = sum(function(r){ return r.staff; });
+  var bossTotal = sum(function(r){ return r.boss; });
   var sch = ctSchedule().filter(function(x){ return !String(x.paid||'').trim(); });
-  var soon = sch.filter(function(x){ return x.d !== null && x.d >= 0 && x.d <= 14; });
   var over = sch.filter(function(x){ return x.d !== null && x.d < 0; });
-  var feeAll = all.filter(function(c){ return String(c.feeAmt||'').trim(); });
-  var feeIn = feeAll.filter(function(c){ return String(c.feePaidAt||'').trim(); });
-  var feeOut = feeAll.filter(function(c){ return !String(c.feePaidAt||'').trim(); });
-  var sum = function(arr){ var s = 0; arr.forEach(function(c){ var n = Number(String(c.feeAmt||'').replace(/[^0-9.-]/g,'')); if(!isNaN(n)) s += n; }); return s; };
+  var soon = sch.filter(function(x){ return x.d !== null && x.d >= 0 && x.d <= 14; });
+  var cfg = PAYCFG || { split:50, tax:3.3, rates:{} };
+  var staffN = (STAFF || []).length;
 
   var h = crumb() + '<div class="h1row"><h1>수납·정산</h1><span class="cnt">계약 <b>' + all.length +
     '</b>건 · 받을 일정 <b>' + sch.length + '</b>건</span></div>' +
     '<div class="kpis">' +
-      kpi('지난 일정', over.length, over.length?'b':'', '') +
-      kpi('2주 안', soon.length, soon.length?'w':'', '') +
-      kpi('중개보수 건수', feeAll.length, '', '') +
-      kpi('받은 보수(원)', sum(feeIn).toLocaleString(), 'g', '') +
-      kpi('못 받은 보수(원)', sum(feeOut).toLocaleString(), feeOut.length?'w':'', '') +
+      kpi('지난 일정', over.length, over.length ? 'b' : '', '') +
+      kpi('2주 안', soon.length, soon.length ? 'w' : '', '') +
+      kpi('받은 보수(원)', stlWon(gotTotal), gotTotal ? 'g' : '', '') +
+      kpi('미수금(원)', stlWon(unpaidTotal), unpaidTotal ? 'w' : '', '') +
+      kpi('대표 몫(원)', stlWon(bossTotal), '', '') +
+      kpi('직원 몫(원)', stlWon(staffTotal), '', "go('admin','staff')") +
     '</div>';
+
+  h += '<div class="note i">흐름: <b>계약 → 중개보수 예정 → 실제 수납 → 미수금 → 직원 배분 → 대표 배분 → 월매출</b><br>' +
+    '🔴 <b>은행과 이어져 있지 않습니다.</b> 수납일은 사람이 통장을 보고 적는 날짜입니다 — 자동으로 찍히지 않습니다.<br>' +
+    '배분율 <b>' + cfg.split + '%</b> · 원천징수 <b>' + cfg.tax + '%</b>' +
+    (cfg.fromSheet ? ' (사무소 설정값)' : ' <span style="color:var(--t3)">(사무소 설정이 없어 기본값을 씁니다)</span>') +
+    (staffN ? ('<br>직원 <b>' + staffN + '</b>명') :
+      '<br><b>대표 1인 운영</b>입니다 — 등록된 직원이 0명이라 보수는 전액 대표 몫으로 잡힙니다(정상입니다).') +
+    '</div>';
+
   if(!all.length){
     h += '<div class="card"><div class="soonbox"><b>아직 계약이 없어 정산할 것이 없습니다</b>' +
-      '<div style="margin-top:8px">계약이 등록되면 계약금·중도금·잔금·만기와 중개보수가 여기에 모입니다.</div>' +
+      '<div style="margin-top:8px">계약이 등록되면 중개보수 예정액·수납·미수금·배분·월매출이 ' +
+      '여기에 저절로 모입니다. <b>지금 바로 쓸 수 있는 상태</b>입니다.</div>' +
       '<div style="margin-top:12px"><button class="btn pri" onclick="go(&#39;deal&#39;,&#39;contract&#39;)">계약 화면으로</button></div>' +
       '</div></div>';
-    return h;
+  } else {
+    h += '<div class="card"><div class="tblwrap"><table>' +
+      '<colgroup><col style="width:96px"><col><col style="width:96px"><col style="width:96px">' +
+      '<col style="width:92px"><col style="width:92px"><col style="width:88px"><col style="width:92px">' +
+      '<col style="width:92px"></colgroup>' +
+      '<thead><tr><th>계약번호</th><th>건물/호실</th><th>예정액</th><th>중개보수</th>' +
+      '<th>받은 금액</th><th>미수금</th><th>수납일</th><th>담당</th><th>대표 몫</th></tr></thead><tbody>';
+    rows.forEach(function(x){
+      var c = x.c, r = x.r;
+      h += '<tr onclick="CT_SEL=&#39;' + esc(c.id) + '&#39;;CT_TAB=&#39;정산&#39;;go(&#39;deal&#39;,&#39;contract&#39;)">' +
+        '<td class="mono">' + esc(c.id) + '</td>' +
+        '<td><span class="ell">' + esc((c.apt||'') + ' ' + (c.addr2||'')) + '</span></td>' +
+        '<td class="mono" style="color:var(--t3)">' + (r.expect ? stlWon(r.expect) : '-') + '</td>' +
+        '<td class="mono">' + (r.fee ? stlWon(r.fee) : '<span style="color:var(--bad)">미입력</span>') + '</td>' +
+        '<td class="mono">' + (r.got ? stlWon(r.got) : '-') + '</td>' +
+        '<td class="mono">' + (r.unpaid > 0 ? ('<span style="color:var(--bad)">' + stlWon(r.unpaid) + '</span>') : '-') + '</td>' +
+        '<td class="mono">' + (r.paidAt ? esc(r.paidAt) : '<span class="pill p-warn">미수납</span>') + '</td>' +
+        '<td>' + esc(staffNameOf(c.agent)) + (r.isStaff ? '' : ' <span style="color:var(--t3);font-size:11px">(대표)</span>') + '</td>' +
+        '<td class="mono">' + stlWon(r.boss) + '</td></tr>';
+    });
+    h += '</tbody></table></div>' +
+      '<div class="note b" style="margin:10px 13px 13px">예정액은 <b>회색 제안값</b>입니다. ' +
+      '임대차는 <b>환산보증금(보증금 + 월세×100)</b>에 0.3%, 매매는 매매가에 0.4% 를 곱한 값입니다.<br>' +
+      '🔴 <b>법정 구간별 상한요율표는 적용하지 않았습니다</b> — 실제 보수는 대표님이 직접 넣으세요. ' +
+      '예정액은 저장하지 않습니다.</div></div>';
+
+    /* 배분 */
+    h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+      '<h4 style="margin:0 0 8px;font-size:14px">배분</h4><dl class="kv">' +
+      '<dt>중개보수 합계</dt><dd class="mono">' + stlWon(feeTotal) + '원</dd>' +
+      '<dt>받은 금액</dt><dd class="mono">' + stlWon(gotTotal) + '원</dd>' +
+      '<dt>미수금</dt><dd class="mono">' + stlWon(unpaidTotal) + '원</dd>' +
+      '<dt>직원 몫</dt><dd class="mono">' + stlWon(staffTotal) + '원' +
+        (staffTotal ? (' <span style="color:var(--t3)">(원천징수 ' + cfg.tax + '% 전)</span>') : '') + '</dd>' +
+      '<dt>대표 몫</dt><dd class="mono">' + stlWon(bossTotal) + '원</dd></dl></div></div>';
+
+    /* 월매출 */
+    var mon = stlMonthly();
+    h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+      '<h4 style="margin:0 0 4px;font-size:14px">월매출</h4>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin:0 0 8px">🔴 <b>수납일 기준</b>입니다 — ' +
+      '계약한 달이 아니라 <b>실제로 돈이 들어온 달</b>로 셉니다. 수납일이 비면 어느 달에도 안 들어갑니다.</div>';
+    if(!mon.length) h += '<div class="empty" style="padding:16px">아직 수납된 보수가 없습니다</div>';
+    else {
+      h += '<div class="tblwrap"><table><colgroup><col style="width:110px"><col style="width:80px">' +
+        '<col><col><col></colgroup><thead><tr><th>달</th><th>건수</th><th>받은 금액</th>' +
+        '<th>직원 몫</th><th>대표 몫</th></tr></thead><tbody>';
+      mon.forEach(function(m){
+        h += '<tr><td class="mono">' + esc(m.m) + '</td><td class="mono">' + m.n + '</td>' +
+          '<td class="mono">' + stlWon(m.got) + '</td><td class="mono">' + stlWon(m.staff) + '</td>' +
+          '<td class="mono">' + stlWon(m.boss) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '</div></div>';
   }
-  h += '<div class="card"><div class="tblwrap"><table>' +
-    '<colgroup><col style="width:104px"><col><col style="width:78px"><col style="width:96px">' +
-    '<col style="width:104px"><col style="width:88px"><col style="width:96px"></colgroup>' +
-    '<thead><tr><th>계약번호</th><th>건물/호실</th><th>구분</th><th>금액</th><th>예정일</th>' +
-    '<th>남은 날</th><th>확인</th></tr></thead><tbody>';
-  ctSchedule().forEach(function(x){
-    var late = (x.d !== null && x.d < 0 && !String(x.paid||'').trim());
-    h += '<tr onclick="CT_SEL=&#39;' + esc(x.c.id) + '&#39;;CT_TAB=&#39;수납&#39;;go(&#39;deal&#39;,&#39;contract&#39;)">' +
-      '<td class="mono">' + esc(x.c.id) + '</td>' +
-      '<td><span class="ell">' + esc((x.c.apt||'') + ' ' + (x.c.addr2||'')) + '</span></td>' +
-      '<td>' + esc(x.kind) + '</td>' +
-      '<td class="mono">' + esc(ctMoney(x.amt) || '-') + '</td>' +
-      '<td class="mono">' + esc(x.due) + '</td>' +
-      '<td class="mono">' + (x.d === null ? '-' : (x.d < 0 ? ('<span style="color:var(--bad)">' + (-x.d) + '일 지남</span>')
-        : (x.d === 0 ? '오늘' : ('D-' + x.d)))) + '</td>' +
-      '<td>' + (String(x.paid||'').trim() ? ('<span class="pill p-ok">' + esc(x.paid) + '</span>')
-        : (late ? '<span class="pill p-bad">미확인</span>' : '<span class="pill p-mute">대기</span>')) + '</td></tr>';
-  });
-  h += '</tbody></table></div><div class="actbar">' +
-    '<button class="btn" disabled title="다음 단계">입금 확인 표시</button>' +
-    '<span style="flex:1"></span>' +
-    '<span style="font-size:12.5px;color:var(--t3);align-self:center">🔴 은행과 이어져 있지 않습니다 — 사람이 확인해 적습니다</span>' +
+
+  /* 받을 일정 */
+  if(all.length){
+    h += '<div class="card" style="margin-top:14px"><div class="tblwrap"><table>' +
+      '<colgroup><col style="width:104px"><col><col style="width:78px"><col style="width:96px">' +
+      '<col style="width:104px"><col style="width:88px"><col style="width:96px"></colgroup>' +
+      '<thead><tr><th>계약번호</th><th>건물/호실</th><th>구분</th><th>금액</th><th>예정일</th>' +
+      '<th>남은 날</th><th>확인</th></tr></thead><tbody>';
+    ctSchedule().forEach(function(x){
+      var late = (x.d !== null && x.d < 0 && !String(x.paid||'').trim());
+      h += '<tr onclick="CT_SEL=&#39;' + esc(x.c.id) + '&#39;;CT_TAB=&#39;수납&#39;;go(&#39;deal&#39;,&#39;contract&#39;)">' +
+        '<td class="mono">' + esc(x.c.id) + '</td>' +
+        '<td><span class="ell">' + esc((x.c.apt||'') + ' ' + (x.c.addr2||'')) + '</span></td>' +
+        '<td>' + esc(x.kind) + '</td>' +
+        '<td class="mono">' + esc(ctMoney(x.amt) || '-') + '</td>' +
+        '<td class="mono">' + esc(x.due) + '</td>' +
+        '<td class="mono">' + (x.d === null ? '-' : (x.d < 0 ? ('<span style="color:var(--bad)">' + (-x.d) + '일 지남</span>')
+          : (x.d === 0 ? '오늘' : ('D-' + x.d)))) + '</td>' +
+        '<td>' + (String(x.paid||'').trim() ? ('<span class="pill p-ok">' + esc(x.paid) + '</span>')
+          : (late ? '<span class="pill p-bad">미확인</span>' : '<span class="pill p-mute">대기</span>')) + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+  }
+
+  /* 증빙 — 🔴 없는 것을 있는 척하지 않는다 */
+  h += '<div class="card" style="margin-top:14px"><div class="sbody">' +
+    '<h4 style="margin:0 0 8px;font-size:14px">증빙 · 지급</h4>' +
+    '<div class="note w">🔴 <b>현금영수증 · 세금계산서 · 지급완료 여부 · 비고</b> 는 지금 ' +
+    '<b>기록할 칸이 없습니다</b>(계약 표에 그 칸이 없습니다).<br>' +
+    '기록하려면 서버(GAS) 표에 칸을 더해야 해서 <b>임의로 만들지 않았습니다</b> — ' +
+    '필요하시면 말씀해 주시면 칸부터 만들고 붙이겠습니다.<br>' +
+    '지금 쓸 수 있는 칸: 중개보수 금액 · 수납일 · 공동중개 사무소·몫 · 에스크로 상태 · 담당.</div>' +
     '</div></div>';
   return h;
 }
@@ -2961,6 +3134,867 @@ var ACA_BODY = {
 };
 var ACA_OPEN = '';
 
+/* ═══════════════════════════════════════════════════════════════════
+   월요일 영업용 ① — 오늘 반드시 할 일 3개 · 고객 명부 · 재접촉 제안
+   🔴 기존 index.html 의 custMatchListings 는 건드리지 않는다(ERP 전용으로 새로 만든다).
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 담당자는 이름이 아니라 staffId(agent 칸) 로 다룬다 ─────────── */
+function staffNameOf(id){
+  var k = String(id||'').trim();
+  if(!k) return '(담당 없음)';
+  var s = (STAFF || []).filter(function(x){ return String(x.id) === k; })[0];
+  return s ? (String(s.name||'').trim() || k) : k;
+}
+/* 대표는 전체를 본다. 직원 화면을 붙이기 전까지 ME.id 는 비어 있다. */
+function inMyScope(o){
+  if(ME.role === 'admin' || !String(ME.id||'').trim()) return true;
+  return String(o.agent||'').trim() === String(ME.id).trim();
+}
+
+/* ── 고객 조건 매칭 — 🔴 기존 매칭의 네 가지 문제를 고쳤다 ───────
+   ① 조건을 안 적었으면 만점을 주지 않는다 → 그 항목을 분모에서 뺀다
+   ② 예산을 실제로 본다 (기존에는 가격 비교가 아예 없었다)
+   ③ 주거를 찾는 고객에게 상가·사무실·토지를 섞지 않는다
+   ④ 지역을 적었는데 주소가 안 맞으면 후보로 올리지 않는다
+   그리고 조건이 하나도 없는 고객에게는 아무것도 추천하지 않는다
+   (예전에는 조건이 비어 있을수록 점수가 높아져 엉뚱한 매물이 1등이었다). */
+var CU_BIZ_KIND = ['상가','사무실','건물','공장','창고','토지'];
+function cuIsBiz(kind){
+  var s = String(kind||'');
+  return CU_BIZ_KIND.some(function(k){ return s.indexOf(k) >= 0; });
+}
+function cuNum(v){
+  var s = String(v==null?'':v).replace(/[^0-9.]/g, '');
+  return s ? Number(s) : 0;
+}
+function cuRentish(t){
+  var s = String(t||'');
+  return s.indexOf('월세') >= 0 || s.indexOf('연세') >= 0 || s.indexOf('단기') >= 0;
+}
+/* 임대는 보증금 + 월세×12 로 견준다. 같은 잣대를 매물·예산 양쪽에 똑같이 쓴다. */
+function cuCost(o){
+  var p = cuNum(o.price), r = cuNum(o.rentAmt);
+  return String(o.type||'') === '매매' ? p : (p + r * 12);
+}
+function cuRegions(c){
+  return String(c.region||'').split(/[,\/\s]+/).map(function(s){ return s.trim(); })
+    .filter(function(s){ return s.length >= 2; });
+}
+/* 고객이 실제로 적어 둔 조건이 몇 개인지 — 0이면 추천하지 않는다 */
+function cuSpecs(c){
+  var n = 0;
+  if(String(c.type||'').trim()) n++;
+  if(String(c.propType||'').trim()) n++;
+  if(cuRegions(c).length) n++;
+  if(cuNum(c.budget)) n++;
+  return n;
+}
+function cuMatch(c){
+  var wantType = String(c.type||'').trim();
+  var wantKind = String(c.propType||'').trim();
+  var regions  = cuRegions(c);
+  var budget   = cuNum(c.budget);
+  if(!cuSpecs(c)) return [];            /* 🔴 조건이 없으면 빈 손으로 돌려준다 */
+
+  return (DB.listings || []).map(function(l){
+    /* ── 하드 필터: 여기서 걸리면 후보가 아니다 ── */
+    if(!adLive(l)) return null;                                 /* 계약완료·임대중·보류 */
+    if(String(l.status||'') !== '접수') return null;            /* 거래 가능한 것만 */
+    if(wantType){
+      var same = (String(l.type||'') === wantType);
+      var both = cuRentish(wantType) && cuRentish(l.type);
+      if(!same && !both) return null;                           /* 매매↔임대 교차 금지 */
+    }
+    /* ③ 주거를 찾는 고객에게 상가·토지를 섞지 않는다 */
+    if(!cuIsBiz(wantKind) && cuIsBiz(l.kind)) return null;
+    /* 종류를 적었으면 그 종류만 — '원룸'은 '오픈형 원룸'에 들어가므로 통과한다 */
+    if(wantKind && String(l.kind||'').indexOf(wantKind) < 0) return null;
+    /* ④ 지역을 적었으면 그 지역만 */
+    if(regions.length){
+      var addr = String(l.addr||'') + ' ' + String(l.apt||'') + ' ' + String(l.addr2||'');
+      var hit = regions.some(function(r){ return addr.indexOf(r) >= 0; });
+      if(!hit) return null;
+    }
+
+    /* ── 점수: 🔴 고객이 적은 조건만 분모에 넣는다 ── */
+    var got = 0, max = 0, why = [];
+    if(wantType){ max += 30; got += 30; why.push('거래유형 ' + wantType); }
+    if(wantKind){ max += 20; got += 20; why.push('종류 ' + wantKind); }
+    if(regions.length){ max += 25; got += 25; why.push('지역 맞음'); }
+    if(budget){
+      max += 25;
+      var cost = cuCost(l);
+      if(!cost){ got += 6; why.push('🔴 가격이 비어 있어 예산을 못 봅니다'); }
+      else if(cost <= budget){ got += 25; why.push('예산 안'); }
+      else if(cost <= budget * 1.2){ got += 12; why.push('예산보다 조금 비쌈'); }
+      else return null;                    /* ② 20% 넘게 비싸면 제안하지 않는다 */
+    }
+    return { l:l, pct: Math.round(got * 100 / max), why: why };
+  }).filter(Boolean).sort(function(a, b){
+    if(b.pct !== a.pct) return b.pct - a.pct;
+    return cuCost(a.l) - cuCost(b.l);       /* 같은 점수면 싼 것 먼저 */
+  });
+}
+/* 왜 추천이 없는지 사람 말로 */
+function cuWhyNone(c){
+  if(!cuSpecs(c)) return '희망 조건(거래유형·종류·지역·예산)이 한 칸도 없습니다 — ' +
+    '조건이 없으면 추천하지 않습니다. 아무 매물이나 1등으로 올라오던 옛 방식을 막았습니다.';
+  var live = (DB.listings||[]).filter(function(l){
+    return adLive(l) && String(l.status||'') === '접수'; }).length;
+  if(!live) return '지금 거래 가능한(접수) 매물이 없습니다.';
+  return '조건에 맞는 매물이 없습니다 — 조건을 넓히거나 매물을 더 확보해야 합니다.';
+}
+
+/* ── 재접촉 대상 ─────────────────────────────────────────────────
+   종료 고객 제외 · 연락금지 제외 · 담당 밖 제외. */
+function cuBlocked(c){
+  var t = String(c.note||'') + ' ' + String(c.progressStatus||'');
+  return t.indexOf('연락금지') >= 0 || t.indexOf('수신거부') >= 0;
+}
+function reContact(){
+  return (DB.customers || []).filter(function(c){
+    if(String(c.progressStatus||'').trim() === '종료') return false;
+    if(cuBlocked(c)) return false;
+    if(!inMyScope(c)) return false;
+    return true;
+  }).map(function(c){
+    var d = ctDaysTo(c.nextAction);
+    var ms = cuMatch(c);
+    return { c:c, d:d,
+             due: (d !== null && d <= 0),
+             noPlan: !String(c.nextAction||'').trim(),
+             top: ms.slice(0, 3), n: ms.length };
+  }).sort(function(a, b){
+    var ka = (a.d === null ? 9000 : a.d), kb = (b.d === null ? 9000 : b.d);
+    if(ka !== kb) return ka - kb;
+    return b.n - a.n;
+  });
+}
+
+/* ── 오늘 반드시 할 일 3개 ───────────────────────────────────────
+   1순위 시간이 정해진 일(잔금·계약·만기) → 2순위 계약될 고객 → 3순위 매물·광고.
+   🔴 없는 일을 만들지 않는다. 자료가 없으면 그 자리는 비운다. */
+function top3(){
+  var out = [];
+  var ct = DB.contracts || [];
+
+  ct.forEach(function(c){
+    var who = String((c.apt||'') + ' ' + (c.addr2||'')).trim() || String(c.id||'');
+    var dBal = ctDaysTo(c.balanceDue), dSt = ctDaysTo(c.start), dEnd = ctDaysTo(c.end);
+    if(!String(c.balancePaidAt||'').trim() && dBal !== null && dBal <= 3)
+      out.push({ rank:1, w:dBal,
+        what:'잔금 ' + (dBal < 0 ? (-dBal + '일 지났습니다') : (dBal === 0 ? '오늘입니다' : ('D-' + dBal))),
+        who: who + (c.tenantName ? (' · ' + c.tenantName) : ''),
+        why:'돈이 오가는 날입니다. 입금을 확인하고 표시해 두세요.',
+        go:"CT_SEL='" + c.id + "';CT_TAB='수납';go('deal','contract')" });
+    if(dSt !== null && dSt >= 0 && dSt <= 3)
+      out.push({ rank:1, w:dSt + 0.1,
+        what:'계약 ' + (dSt === 0 ? '오늘입니다' : ('D-' + dSt)), who: who,
+        why:'서류가 다 모였는지 먼저 보세요.',
+        go:"CT_SEL='" + c.id + "';CT_TAB='필요서류';go('deal','contract')" });
+    if(dEnd !== null && dEnd >= 0 && dEnd <= 30)
+      out.push({ rank:1, w:50 + dEnd,
+        what:'만기 D-' + dEnd, who: who,
+        why:'재계약인지 새로 놓을지 오늘 정해야 광고가 늦지 않습니다.',
+        go:"CT_SEL='" + c.id + "';go('deal','contract')" });
+  });
+
+  reContact().forEach(function(r){
+    if(r.d === null || r.d > 0) return;
+    out.push({ rank:2, w:r.d,
+      what:'재접촉 ' + (r.d < 0 ? (-r.d + '일 지났습니다') : '오늘입니다'),
+      who: String(r.c.name||'') + (r.c.region ? (' · ' + r.c.region) : '') +
+           (r.c.type ? (' ' + r.c.type) : ''),
+      why: r.n ? ('지금 보여 줄 수 있는 매물이 ' + r.n + '건 있습니다.')
+               : '약속한 날이 지났습니다. 조건을 다시 물어보세요.',
+      go:"CU_SEL='" + String(r.c.id||'') + "';go('crm','cust')" });
+  });
+
+  var ready = adAll().filter(function(r){
+    return adLive(r.o) && r.worst === 'AD_READY' && inMyScope(r.o); });
+  if(ready.length)
+    out.push({ rank:3, w:-100,
+      what:'광고 올릴 매물 ' + ready.length + '건',
+      who: ready.slice(0,2).map(function(r){
+             return String((r.o.apt||'') + ' ' + (r.o.addr2||'')).trim(); }).join(' · '),
+      why:'사진과 필수값이 다 갖춰졌습니다. 올리면 바로 문의가 옵니다.',
+      go:"AD_FILT='ready';go('ad','admgr')" });
+
+  var shoot = photoTasks().filter(function(x){
+    return String(x.o.status||'') === '접수' && inMyScope(x.o); });
+  if(shoot.length)
+    out.push({ rank:3, w:-90,
+      what:'촬영할 매물 ' + shoot.length + '건',
+      who: shoot.slice(0,2).map(function(x){
+             return String((x.o.apt||'') + ' ' + (x.o.addr2||'')).trim(); }).join(' · '),
+      why:'사진이 없으면 어느 채널에도 못 올립니다.',
+      go:"go('ops','photo')" });
+
+  var un = (DB.inbox || []).filter(function(r){ return !r.reg; }).length;
+  if(un)
+    out.push({ rank:3, w:-80,
+      what:'새로 들어온 것 ' + un + '건 보기', who:'통화·문자에 매물과 고객이 섞여 있습니다',
+      why:'오늘 안 보면 그대로 묻힙니다.', go:"go('crm','inbox')" });
+
+  out.sort(function(a, b){ return (a.rank - b.rank) || (a.w - b.w); });
+  return out.slice(0, 3);
+}
+function top3Card(){
+  var t3 = top3();
+  var waiting = (DB.contracts === null) || (DB.customers === null);
+  var h = '<div class="card" style="margin:0 0 14px;border-color:var(--brand)">' +
+    '<div class="sbody" style="padding:13px 15px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">' +
+    '<h4 style="margin:0;font-size:15px">오늘 반드시 할 일 ' +
+      (t3.length ? ('<b style="color:var(--brand)">' + t3.length + '</b>개') : '') + '</h4>' +
+    '<span style="font-size:12px;color:var(--t3)">시간이 정해진 일 → 계약될 고객 → 매물·광고 순</span></div>';
+  if(!t3.length){
+    h += '<div class="empty" style="padding:18px">' +
+      (waiting ? '자료를 불러오는 중입니다…'
+               : '오늘 꼭 해야 할 일이 없습니다 ✓<br><span style="font-size:12px">' +
+                 '🔴 없는 일을 만들어 채우지 않습니다.</span>') + '</div>';
+  } else {
+    h += '<ol style="margin:10px 0 0;padding-left:20px;line-height:1.65">';
+    t3.forEach(function(x){
+      h += '<li style="margin:0 0 9px"><b style="font-size:14px">' + esc(x.what) + '</b>' +
+        (x.who ? ('<br><span style="font-size:13px">' + esc(x.who) + '</span>') : '') +
+        '<br><span style="font-size:12.5px;color:var(--t3)">' + esc(x.why) + '</span> ' +
+        '<button class="btn sm" onclick="' + x.go + '">바로가기</button></li>';
+    });
+    h += '</ol>';
+  }
+  if(waiting && t3.length)
+    h += '<div style="font-size:12px;color:var(--t3);margin-top:6px">계약·고객 자료를 더 읽는 중입니다 — 곧 다시 고릅니다.</div>';
+  return h + '</div></div>';
+}
+
+/* ── 고객 명부 ─────────────────────────────────────────────────── */
+var CU_SEL = null, CU_FILT = '';
+function viewCust(){
+  if(DB.customers === null){ loadCustomers();
+    return crumb() + '<div class="h1row"><h1>고객 명부</h1></div>' +
+      '<div class="card"><div class="empty">고객 자료를 불러오는 중…</div></div>'; }
+  var all = DB.customers || [];
+  var live = all.filter(function(c){ return String(c.progressStatus||'').trim() !== '종료'; });
+  var done = all.length - live.length;
+  var rc = reContact();
+  var dueNow = rc.filter(function(r){ return r.due; });
+  var noPlan = rc.filter(function(r){ return r.noPlan; });
+  var hasM = rc.filter(function(r){ return r.n > 0; });
+  var blocked = all.filter(cuBlocked).length;
+
+  var rows = rc;
+  if(CU_FILT === 'due') rows = dueNow;
+  else if(CU_FILT === 'noplan') rows = noPlan;
+  else if(CU_FILT === 'match') rows = hasM;
+  else if(CU_FILT === 'all') rows = all.map(function(c){
+    return { c:c, d:ctDaysTo(c.nextAction), due:false, noPlan:false, top:[], n:cuMatch(c).length }; });
+
+  var h = crumb() + '<div class="h1row"><h1>고객 명부</h1><span class="cnt">' +
+    '전체 <b>' + all.length + '</b>명 · 진행 중 <b>' + live.length + '</b>명 · 종료 <b>' + done + '</b>명</span></div>' +
+    '<div class="kpis">' +
+      kpi('오늘·지난 재접촉', dueNow.length, dueNow.length ? 'w' : '', "CU_FILT='due';route()") +
+      kpi('다음 약속 없음', noPlan.length, noPlan.length ? 'b' : '', "CU_FILT='noplan';route()") +
+      kpi('보여 줄 매물 있음', hasM.length, hasM.length ? 'g' : '', "CU_FILT='match';route()") +
+      kpi('연락금지', blocked, '', '') +
+      kpi('전체 보기', all.length, '', "CU_FILT='all';route()") +
+    '</div>';
+
+  h += '<div class="note i">재접촉 대상에서 <b>종료 고객</b>과 <b>연락금지</b>는 뺍니다. ' +
+    '매물 추천은 고객이 <b>적어 둔 조건만</b> 가지고 셈합니다 — ' +
+    '조건이 비어 있으면 점수를 주지 않고 <b>추천도 하지 않습니다</b>. ' +
+    '예산보다 20% 넘게 비싼 매물, 주거 고객에게 상가·토지, 지역이 다른 매물은 아예 올라오지 않습니다.</div>';
+
+  if(CU_FILT) h += '<div class="bar"><span style="font-size:12.5px;color:var(--t3);align-self:center">' +
+    '거르는 중: ' + esc({ due:'오늘·지난 재접촉', noplan:'다음 약속 없음',
+                          match:'보여 줄 매물 있음', all:'전체' }[CU_FILT] || CU_FILT) +
+    '</span><button class="btn sm" onclick="CU_FILT=&#39;&#39;;route()">해제</button></div>';
+
+  h += '<div class="split' + (CU_SEL ? ' open' : '') + '"><div class="card"><div class="tblwrap"><table>' +
+    '<colgroup><col style="width:150px"><col style="width:74px"><col><col style="width:88px">' +
+    '<col style="width:104px"><col style="width:84px"></colgroup>' +
+    '<thead><tr><th>이름</th><th>역할</th><th>희망 조건</th><th>진행</th><th>다음 약속</th><th>보여 줄 매물</th></tr></thead><tbody>';
+  if(!rows.length)
+    h += '<tr><td colspan="6" class="empty">' +
+      (all.length ? ('여기에 해당하는 고객이 없습니다' + (done === all.length ?
+        ' — 등록된 고객 ' + all.length + '명이 모두 <b>종료</b> 상태입니다' : ''))
+       : '등록된 고객이 없습니다') + '</td></tr>';
+  rows.forEach(function(r){
+    var c = r.c;
+    var cond = [c.type, c.propType, c.region, cuNum(c.budget) ? ('예산 ' + c.budget) : '']
+      .filter(function(x){ return String(x==null?'':x).trim(); }).join(' · ');
+    h += '<tr' + (CU_SEL === c.id ? ' class="sel"' : '') +
+      ' onclick="CU_SEL=&#39;' + esc(c.id) + '&#39;;route()">' +
+      '<td><span class="ell">' + esc(c.name || '(이름 없음)') + '</span></td>' +
+      '<td>' + esc(c.role || '-') + '</td>' +
+      '<td><span class="ell">' + (cond ? esc(cond) :
+        '<span style="color:var(--bad)">조건 없음</span>') + '</span></td>' +
+      '<td>' + (String(c.progressStatus||'').trim() === '종료'
+        ? '<span class="pill p-mute">종료</span>'
+        : '<span class="pill p-ok">' + esc(c.progressStatus || '진행') + '</span>') + '</td>' +
+      '<td class="mono">' + (String(c.nextAction||'').trim()
+        ? (esc(c.nextAction) + (r.d !== null && r.d <= 0
+            ? ' <span style="color:var(--bad)">!</span>' : ''))
+        : '<span style="color:var(--t3)">-</span>') + '</td>' +
+      '<td class="mono">' + (r.n ? ('<b>' + r.n + '</b>건') : '-') + '</td></tr>';
+  });
+  h += '</tbody></table></div></div>';
+  if(CU_SEL) h += cuPanel();
+  h += '</div>';
+  return h;
+}
+function cuPanel(){
+  var c = (DB.customers||[]).filter(function(x){ return String(x.id) === String(CU_SEL); })[0];
+  if(!c) return '';
+  var ms = cuMatch(c);
+  var blocked = cuBlocked(c), ended = String(c.progressStatus||'').trim() === '종료';
+  var h = '<div class="side"><h3><span>' + esc(c.name || '(이름 없음)') + '</span>' +
+    '<button class="btn sm" onclick="CU_SEL=null;route()">닫기</button></h3><div class="sbody">';
+  h += '<dl class="kv">' +
+    '<dt>역할</dt><dd>' + esc(c.role || '-') + '</dd>' +
+    '<dt>연락처</dt><dd class="mono">' + esc(phoneShow(c.phone)) + '</dd>' +
+    '<dt>거래유형</dt><dd>' + (String(c.type||'').trim() ? esc(c.type)
+      : '<span style="color:var(--bad)">비어 있음</span>') + '</dd>' +
+    '<dt>물건종류</dt><dd>' + esc(c.propType || '-') + '</dd>' +
+    '<dt>희망지역</dt><dd>' + esc(c.region || '-') + '</dd>' +
+    '<dt>예산</dt><dd>' + esc(c.budget || '-') + '</dd>' +
+    '<dt>진행</dt><dd>' + esc(c.progressStatus || '-') + ' (단계 ' + esc(c.step || '-') + ')</dd>' +
+    '<dt>다음 약속</dt><dd class="mono">' + esc(c.nextAction || '-') + '</dd>' +
+    '<dt>담당</dt><dd>' + esc(staffNameOf(c.agent)) + '</dd></dl>';
+  if(ended) h += '<div class="note w">🔴 <b>종료</b> 고객입니다 — 재접촉 제안에서 뺍니다.</div>';
+  if(blocked) h += '<div class="note b">🔴 <b>연락금지</b>로 적혀 있습니다 — 연락하지 않습니다.</div>';
+
+  h += '<div class="sec"><h4>보여 줄 수 있는 매물 ' + (ms.length ? ('(' + ms.length + '건)') : '') + '</h4>';
+  if(!ms.length){
+    h += '<div class="note w">' + esc(cuWhyNone(c)) + '</div>';
+  } else {
+    h += ms.slice(0, 8).map(function(m){
+      var o = m.l;
+      return '<div style="padding:8px 0;border-bottom:1px dashed var(--line2)">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px">' +
+        '<b>' + esc((o.apt||'') + ' ' + (o.addr2||'')) + '</b>' +
+        '<span class="pill ' + (m.pct >= 90 ? 'p-ok' : (m.pct >= 70 ? 'p-brand' : 'p-mute')) + '">' +
+        m.pct + '점</span></div>' +
+        '<div style="font-size:12.5px;color:var(--t2);margin-top:2px">' +
+        esc([o.type, adMoney(o), o.kind, o.area].filter(Boolean).join(' · ')) + '</div>' +
+        '<div style="font-size:12px;color:var(--t3);margin-top:2px">맞은 이유: ' +
+        esc(m.why.join(' · ')) + '</div>' +
+        '<div style="margin-top:5px"><button class="btn sm" onclick="AD_SEL=&#39;' + esc(o.id) +
+        '&#39;;go(&#39;ad&#39;,&#39;admgr&#39;)">광고·사진 보기</button></div></div>';
+    }).join('');
+    if(ms.length > 8) h += '<div style="font-size:12px;color:var(--t3);margin-top:6px">' +
+      '아래로 ' + (ms.length - 8) + '건 더 있습니다.</div>';
+  }
+  h += '<div class="note i" style="margin-top:8px">점수는 고객이 <b>적어 둔 조건</b>만으로 셉니다. ' +
+    '안 적은 항목은 분모에서 빠지므로, 조건이 비었다고 100점이 되지 않습니다.</div></div>';
+
+  if(String(c.note||'').trim())
+    h += '<div class="sec"><h4>메모</h4><pre class="raw">' +
+      esc(maskSecret(String(c.note))) + '</pre></div>';
+
+  h += '<div class="sec"><h4>할 일</h4><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    '<button class="btn" disabled title="🔴 문자 발송은 붙이지 않았습니다">문자 보내기 (막아 둠)</button>' +
+    '<button class="btn" onclick="location.href=&#39;./index.html&#39;">기존 CRM 고객 화면</button>' +
+    '</div><div style="font-size:12px;color:var(--t3);margin-top:6px">' +
+    '🔴 이 화면에서는 고객에게 아무것도 보내지 않습니다. 전화는 대표님이 직접 겁니다.</div></div>';
+  return h + '</div></div>';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   월요일 영업용 ② — 광고 2차: 실제 이력 읽기 · 복사/내보내기 · 게시 기록 · 담당 지정
+   🔴 외부 채널에 자동으로 올리지 않는다. 사람이 올리고, 여기에 '올렸다'고 적는다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── ① 시트에 이미 쌓여 있는 광고 이력을 읽는다 ─────────────────
+   시트에는 ads 라는 칸이 없다. 기존 화면이 adsFlat 한 칸에
+     "daangn~번호~날짜~주소|blog~~날짜~"
+   처럼 눌러 담아 왔다. 그 규격 그대로 풀고, 되돌려 쓸 때도 그대로 담는다. */
+function adsRestore(o){
+  if(!o || (o.ads && Object.keys(o.ads).length)) return o;
+  o.ads = {};
+  String(o.adsFlat||'').split('|').filter(Boolean).forEach(function(s){
+    var a = s.split('~'), k = a[0];
+    if(AD_CH.some(function(c){ return c.key === k; }))
+      o.ads[k] = { on:true, no:a[1]||'', at:a[2]||'', url:a[3]||'', chk:'' };
+    else if(k === 'blogreq'){
+      o.ads.blog = o.ads.blog || { on:false, no:'', at:'', url:'', chk:'' };
+      o.ads.blog.req = a[1]||'';
+    }
+  });
+  if(!o.ads.naver && String(o.naverUrl||'').trim())
+    o.ads.naver = { on:true, no:'', at:'', url:String(o.naverUrl), chk:'' };
+  if(!o.ads.daangn && String(o.daangnNo||'').trim())
+    o.ads.daangn = { on:true, no:String(o.daangnNo), at:'', url:'', chk:'' };
+  return o;
+}
+function adsFlatten(o){
+  var parts = [];
+  AD_CH.forEach(function(c){
+    var a = adOf(o, c.key);
+    if(a && a.on) parts.push([c.key, a.no||'', a.at||'', a.url||''].join('~'));
+  });
+  var bq = adOf(o, 'blog');
+  if(bq && bq.req && !adOn(o, 'blog')) parts.push(['blogreq', bq.req].join('~'));
+  o.adsFlat = parts.join('|');
+  o.adList = AD_CH.filter(function(c){ return adOn(o, c.key); })
+                  .map(function(c){ return c.label; }).join(',');
+  o.daangnNo = (adOf(o, 'daangn') || {}).no || '';
+  var nv = adOf(o, 'naver');
+  if(nv && nv.url) o.naverUrl = nv.url;
+  return o;
+}
+
+/* ── ② 복사 — 타이핑을 없앤다 ──────────────────────────────────── */
+function copyText(s, msg){
+  var ta = document.createElement('textarea');
+  ta.value = String(s == null ? '' : s);
+  ta.setAttribute('readonly', 'readonly');
+  ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{ ta.setSelectionRange(0, ta.value.length); }catch(e){}
+  var ok = false;
+  try{ ok = document.execCommand('copy'); }catch(e){ ok = false; }
+  document.body.removeChild(ta);
+  alert(ok ? (msg || '복사했습니다 ✓')
+           : '복사하지 못했습니다 — 화면의 글을 직접 끌어서 복사해 주세요.');
+  return ok;
+}
+function adFind(id){
+  return (DB.listings||[]).filter(function(x){ return String(x.id) === String(id); })[0] || null;
+}
+function adCopyOne(id, ch, part){
+  var o = adFind(id); if(!o) return;
+  var cp = adCopy(o, ch), nl = String.fromCharCode(10);
+  var lab = (AD_CH.filter(function(c){ return c.key === ch; })[0] || {}).label || ch;
+  if(part === 'title') return copyText(cp.title, lab + ' 제목을 복사했습니다 ✓');
+  if(part === 'body')  return copyText(cp.body,  lab + ' 본문을 복사했습니다 ✓');
+  copyText(cp.title + nl + nl + cp.body, lab + ' 제목·본문을 복사했습니다 ✓');
+}
+/* 채널 입력폼에 옮겨 적을 값 — 🔴 CRM 내부 메모(note)는 절대 싣지 않는다 */
+var AD_FORM_COMMON = [
+  ['매물유형','kind'], ['거래유형','type'], ['보증금/매매가(만원)','price'], ['월세(만원)','rentAmt'],
+  ['주소','addr'], ['상세주소','addr2'], ['면적(㎡)','area'], ['방 수','rooms'], ['욕실 수','baths'],
+  ['층','floor'], ['총 층','totalFloor'], ['향','direction'], ['입주가능일','availDate'],
+  ['관리비 유형','feeType'], ['총 관리비(만원)','feeAmt'], ['관리비 포함항목','feeItems'],
+  ['주차','parking'], ['반려동물','pets'], ['대출','loan'], ['옵션','options'], ['건축년도','aprDate']
+];
+function adFormRows(o){
+  return AD_FORM_COMMON.map(function(f){
+    var v = o[f[1]];
+    if(Array.isArray(v)) v = v.join(', ');
+    return [f[0], String(v == null ? '' : v).trim()];
+  });
+}
+function adCopyForm(id, ch){
+  var o = adFind(id); if(!o) return;
+  var nl = String.fromCharCode(10);
+  var lab = (AD_CH.filter(function(c){ return c.key === ch; })[0] || {}).label || ch;
+  var rows = adFormRows(o);
+  var miss = rows.filter(function(r){ return !r[1]; }).map(function(r){ return r[0]; });
+  var cp = adCopy(o, ch);
+  var body = [lab + ' 입력용 — ' + String((o.apt||'') + ' ' + (o.addr2||'')).trim(), ''].concat(
+    rows.map(function(r){ return r[0] + ': ' + (r[1] || '(비어 있음)'); }),
+    ['', '[제목] ' + cp.title, '', '[설명]', maskSecret(String(o.desc||'')) || '(비어 있음)']
+  ).join(nl);
+  copyText(body, lab + ' 입력표를 복사했습니다 ✓' + nl +
+    (miss.length ? ('🔴 비어 있는 칸 ' + miss.length + '개: ' + miss.slice(0,6).join(' · ')) : '빈 칸 없습니다'));
+}
+/* 지금 화면 목록을 표로 — 🔴 당근 일괄업로드 파일이 아니다(그건 기존 화면이 만든다) */
+function adCopyList(rows){
+  var t = String.fromCharCode(9), nl = String.fromCharCode(10);
+  var head = ['매물번호','건물','호실'].concat(AD_FORM_COMMON.map(function(f){ return f[0]; }));
+  var body = rows.map(function(r){
+    return [r.o.id, r.o.apt||'', r.o.addr2||''].concat(
+      adFormRows(r.o).map(function(x){ return x[1]; })
+    ).map(function(v){
+      return String(v==null?'':v).split(nl).join(' ').split(t).join(' ');
+    }).join(t);
+  });
+  if(!body.length){ alert('지금 목록에 매물이 없습니다.'); return; }
+  copyText([head.join(t)].concat(body).join(nl),
+    rows.length + '건을 표로 복사했습니다 ✓' + nl +
+    '엑셀에 붙여 넣으면 칸이 나뉩니다.' + nl +
+    '🔴 이것은 손입력용 참고표입니다 — 당근 일괄업로드 파일은 기존 CRM 화면에서 만듭니다.');
+}
+
+/* ── ③ 게시 기록 — 이력이 실제로 쌓이게 ────────────────────────
+   🔴 여기서 외부에 올리지 않는다. 사람이 올린 뒤 '올렸다'고 적는 곳이다.
+   🔴 규칙 9: 시트 행은 전체 객체로 보낸다(부분 객체는 나머지 칸을 지운다). */
+var AD_SAVING = false;
+async function adMark(id, ch, on){
+  var nl = String.fromCharCode(10);
+  if(AD_SAVING){ alert('저장 중입니다'); return; }
+  var lab = (AD_CH.filter(function(c){ return c.key === ch; })[0] || {}).label || ch;
+  /* 🔴 저장 직전에 매물 자료를 다시 읽는다 — 그 사이 누가 바꿨을 수 있다 */
+  var fresh;
+  try{
+    var g = await jget({ action:'getAll', type:'listings' });
+    fresh = (g.data || g.result || []).map(adsRestore);
+  }catch(e){ alert('매물 자료를 다시 읽지 못해 저장하지 않습니다: ' + (e && e.message || e)); return; }
+  var row = fresh.filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!row){ alert('매물을 찾지 못했습니다 — 저장하지 않습니다.'); return; }
+  var mine = adFind(id);
+  if(mine && String(row.status||'') !== String(mine.status||'')){
+    alert('그 사이 매물 상태가 ' + (mine.status||'') + ' → ' + (row.status||'') +
+      ' 로 바뀌었습니다.' + nl + '화면을 새로 읽고 다시 하세요.'); return; }
+
+  var was = adOf(row, ch);
+  if(on && was && was.on){ alert(lab + ' 은 이미 게시 중으로 적혀 있습니다.'); return; }
+  if(!on && !(was && was.on)){ alert(lab + ' 은 게시 중이 아닙니다.'); return; }
+
+  var no = '', at = todayStr();
+  if(on){
+    no = String(prompt(lab + ' 에 올린 글 번호·링크가 있으면 적어 주세요 (없으면 비워 두세요)', '') || '').trim();
+    if(no.length > 200){ alert('너무 깁니다 — 200자 안으로 적어 주세요.'); return; }
+    if(hasSecret(no)){ alert('🔴 비밀번호로 보이는 내용이 있습니다 — 적지 않습니다.'); return; }
+  }
+  var msg = [ (on ? (lab + ' 에 올렸다고 적습니다') : (lab + ' 에서 내렸다고 적습니다')), '',
+    '매물   ' + row.id + '  ' + (row.apt||'') + ' ' + (row.addr2||''),
+    '상태   ' + (row.status||''),
+    on ? ('올린 날 ' + at) : ('지금까지 올린 날 ' + ((was && was.at) || '-')),
+    on && no ? ('번호   ' + no) : '',
+    '', '🔴 이 버튼은 실제로 광고를 올리거나 내리지 않습니다.',
+    '🔴 대표님이 채널에서 직접 한 일을 여기에 적어 두는 것입니다.',
+    '', '이대로 적을까요?'].filter(function(x){ return x !== ''; }).join(nl);
+  if(!confirm(msg)) return;
+
+  var obj = JSON.parse(JSON.stringify(row));
+  obj.ads = obj.ads || {};
+  if(on) obj.ads[ch] = { on:true, no:no, at:at, url:'', chk:adHash(adSnapshot(obj)) };
+  else delete obj.ads[ch];
+  adsFlatten(obj);
+  delete obj.ads;                       /* 시트에는 ads 칸이 없다 — adsFlat 으로만 보낸다 */
+
+  AD_SAVING = true;
+  try{
+    await erpUpsert('listings', obj);
+    var g2 = await jget({ action:'getAll', type:'listings' });
+    var after = (g2.data || g2.result || []).map(adsRestore);
+    DB.listings = after;
+    var now = after.filter(function(x){ return String(x.id) === String(id); })[0];
+    var okNow = on ? adOn(now, ch) : !adOn(now, ch);
+    AD_SAVING = false;
+    route();
+    alert([ okNow ? '적었습니다 ✓' : '🔴 다시 읽었더니 그대로입니다 — 확인이 필요합니다', '',
+      row.id + ' · ' + lab,
+      '지금 광고 표기: ' + (String(now && now.adList || '') || '(없음)') ].join(nl));
+  }catch(e){
+    AD_SAVING = false;
+    route();
+    alert('저장 실패 — 매물 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+
+/* ── ④ 담당 지정 — 🔴 이름이 아니라 staffId 를 적는다 ─────────── */
+async function asgSet(id){
+  var nl = String.fromCharCode(10);
+  if(AD_SAVING){ alert('저장 중입니다'); return; }
+  if(STAFF === null){ loadStaff(); alert('직원 목록을 읽는 중입니다 — 잠시 뒤 다시 눌러 주세요.'); return; }
+  if(!STAFF.length){ alert('등록된 직원이 없습니다.' + nl + '직원 등록은 기존 설정 화면에서 합니다.'); return; }
+  var o = adFind(id); if(!o) return;
+  var list = STAFF.map(function(s, i){
+    return (i+1) + ') ' + s.id + '  ' + (s.name||''); }).join(nl);
+  var pick = String(prompt([ (o.apt||'') + ' ' + (o.addr2||'') + ' 담당을 정합니다',
+    '지금 담당: ' + staffNameOf(o.agent), '',
+    list, '', '번호를 적으세요 (0 = 담당 없음)'].join(nl), '') || '').trim();
+  if(!pick) return;
+  var n = Number(pick);
+  if(isNaN(n) || n < 0 || n > STAFF.length){ alert('번호가 잘못됐습니다.'); return; }
+  var sid = n === 0 ? '' : String(STAFF[n-1].id);
+  if(String(o.agent||'') === sid){ alert('이미 그 담당입니다.'); return; }
+
+  var fresh;
+  try{
+    var g = await jget({ action:'getAll', type:'listings' });
+    fresh = (g.data || g.result || []).map(adsRestore);
+  }catch(e){ alert('매물 자료를 다시 읽지 못해 저장하지 않습니다.'); return; }
+  var row = fresh.filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!row){ alert('매물을 찾지 못했습니다.'); return; }
+  if(String(row.agent||'') !== String(o.agent||'')){
+    alert('그 사이 담당이 ' + staffNameOf(row.agent) + ' 로 바뀌었습니다.' + nl +
+      '화면을 새로 읽고 다시 하세요.'); return; }
+  if(!confirm([ '담당을 바꿉니다', '',
+    '매물  ' + row.id + '  ' + (row.apt||'') + ' ' + (row.addr2||''),
+    '담당  ' + staffNameOf(row.agent) + '  →  ' + (sid ? staffNameOf(sid) : '(담당 없음)'),
+    '', '🔴 이 한 건만 바꿉니다. 문자·알림은 없습니다.', '이대로 저장할까요?'].join(nl))) return;
+
+  var obj = JSON.parse(JSON.stringify(row));
+  obj.agent = sid;
+  adsFlatten(obj); delete obj.ads;
+  AD_SAVING = true;
+  try{
+    await erpUpsert('listings', obj);
+    var g2 = await jget({ action:'getAll', type:'listings' });
+    DB.listings = (g2.data || g2.result || []).map(adsRestore);
+    var now = DB.listings.filter(function(x){ return String(x.id) === String(id); })[0];
+    AD_SAVING = false; route();
+    alert((String(now && now.agent || '') === sid ? '바꿨습니다 ✓' : '🔴 다시 읽었더니 그대로입니다') +
+      String.fromCharCode(10) + '담당: ' + staffNameOf(now && now.agent));
+  }catch(e){
+    AD_SAVING = false; route();
+    alert('저장 실패 — 매물 자료는 그대로입니다.' + String.fromCharCode(10) + String(e && e.message || e));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   계약 2차(흐름·필수점검 15·특약 3단계) + 정산 2차(배분·미수금·월매출)
+   🔴 GAS 스키마를 바꾸지 않는다. contracts / contractDocuments 기존 칸만 쓴다.
+   🔴 계약서 자동확정·공부 자동발급 없음. 문자·알림 없음.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 계약서류(점검 기록) 불러오기 — 그 화면에서만 읽는다 ───────── */
+var DOCS = null, DOCS_ERR = '', DOCS_LOADING = false;
+async function loadDocs(){
+  if(DOCS !== null || DOCS_LOADING) return;
+  DOCS_LOADING = true;
+  try{
+    var j = await jget({ action:'getAll', type:'contractDocuments' });
+    DOCS = j.data || j.result || [];
+  }catch(e){ DOCS = []; DOCS_ERR = String((e && e.message) || e); }
+  DOCS_LOADING = false;
+  route();
+}
+/* 그 계약의 점검 기록을 항목이름 → 상태 로 바꿔 놓는다 */
+function docMap(contractId){
+  var m = {};
+  (DOCS || []).forEach(function(d){
+    if(String(d.contractId) === String(contractId)) m[String(d.docType)] = String(d.status || '');
+  });
+  return m;
+}
+
+/* ── 계약 전 필수점검 15가지 ─────────────────────────────────────
+   auto 는 계약 자료만 보고 알 수 있는 것. 모르면 빈 문자열을 돌려주고
+   🔴 아는 척하지 않는다 — 사람이 표시할 때까지 '미확인' 으로 둔다. */
+function has(v){ return String(v == null ? '' : v).trim() !== ''; }
+var CT_CHECK = [
+  ['당사자 확인', '임대인·임차인 이름과 연락처가 계약서와 같은지',
+    function(c){ return (has(c.landlordName) && has(c.landlordPhone) &&
+                         has(c.tenantName) && has(c.tenantPhone)) ? '완료' : '미완료'; }],
+  ['등기부등본', '계약 직전·잔금 직전 두 번 봅니다', null],
+  ['건축물대장', '위반건축물·용도를 봅니다', null],
+  ['권리관계', '근저당·가압류·전세권이 있는지', null],
+  ['임대인 계좌', '입금할 계좌가 임대인 본인 것인지',
+    null, '🔴 계좌번호는 ERP 에 적지 않습니다. 확인했다는 표시만 남깁니다.'],
+  ['위임 여부', '대리인이 나오면 위임장·인감. 본인이면 해당없음', null],
+  ['계약금', '금액과 받을 날이 정해졌는지',
+    function(c){ return has(c.depositAmt) ? '완료' : '미완료'; }],
+  ['중도금', '없으면 해당없음으로 두세요',
+    function(c){ return has(c.interimAmt) ? '완료' : ''; }],
+  ['잔금', '금액과 잔금일이 정해졌는지',
+    function(c){ return (has(c.balanceAmt) && has(c.balanceDue)) ? '완료' : '미완료'; }],
+  ['입주일', '잔금일과 같은 날인지 다른 날인지',
+    null, '🔴 계약 자료에 입주일 칸이 없습니다 — 사람이 확인해 표시합니다.'],
+  ['만기일', '계약이 끝나는 날',
+    function(c){ return has(c.end) ? '완료' : '미완료'; }],
+  ['확인설명서', '중개대상물 확인·설명서', null],
+  ['공제증서', '중개사고 배상', null],
+  ['계약서', '본계약서', null],
+  ['특약 최종확정', '특약을 대표가 마지막으로 확정했는지',
+    function(c){ return has(c.note) ? '완료' : '미완료'; }]
+];
+var CT_ST = ['완료', '미완료', '해당없음'];
+function ctCheckState(c, item, m){
+  var saved = m[item[0]];
+  if(saved && CT_ST.indexOf(saved) >= 0) return { st:saved, by:'사람' };
+  var a = item[2] ? item[2](c) : '';
+  if(a) return { st:a, by:'자료' };
+  return { st:'미확인', by:'' };
+}
+function ctCheckSum(c){
+  var m = docMap(c.id), n = { '완료':0, '미완료':0, '해당없음':0, '미확인':0 };
+  CT_CHECK.forEach(function(it){ n[ctCheckState(c, it, m).st]++; });
+  n.left = n['미완료'] + n['미확인'];
+  return n;
+}
+/* 🔴 같은 항목을 다시 누르면 새 행을 쌓지 않고 같은 행을 고친다(id 를 고정한다) */
+function ctCheckId(contractId, i){
+  return 'CK-' + String(contractId) + '-' + (i < 10 ? '0' : '') + i;
+}
+async function ctCheckSet(contractId, i, st){
+  var nl = String.fromCharCode(10);
+  var c = (DB.contracts||[]).filter(function(x){ return String(x.id) === String(contractId); })[0];
+  if(!c){ alert('계약을 찾지 못했습니다'); return; }
+  var item = CT_CHECK[i];
+  if(!item){ return; }
+  if(CT_ST.indexOf(st) < 0){ return; }
+  if(!confirm([ '계약 전 점검 표시', '',
+    '계약   ' + c.id + '  ' + (c.apt||'') + ' ' + (c.addr2||''),
+    '항목   ' + item[0],
+    '표시   ' + st, '',
+    '🔴 서류를 발급하거나 계약서를 확정하지 않습니다 — 표시만 남깁니다.',
+    '이대로 저장할까요?'].join(nl))) return;
+  var obj = {
+    id: ctCheckId(contractId, i), contractId: String(contractId),
+    docType: item[0], version: '1', body: '', source: '계약 전 점검',
+    createdAt: todayStr(), createdBy: ME.name || '대표', status: st, note: ''
+  };
+  try{
+    await erpUpsert('contractDocuments', obj);
+    var g = await jget({ action:'getAll', type:'contractDocuments' });
+    DOCS = g.data || g.result || [];
+    route();
+    var now = docMap(contractId)[item[0]];
+    alert(now === st ? (item[0] + ' — ' + st + ' 으로 저장했습니다 ✓')
+                     : ('🔴 다시 읽었더니 "' + (now||'없음') + '" 입니다 — 확인이 필요합니다'));
+  }catch(e){ alert('저장 실패 — 그대로입니다.' + nl + String(e && e.message || e)); }
+}
+
+/* ── 계약 한 건의 진행 흐름 10단계 ───────────────────────────────
+   매물 → 고객 → 계약준비 → 필수서류 → 특약 → 계약일 → 잔금일
+        → 입주일 → 만기 → 재계약/재임대 */
+function ctFlow(c){
+  var m = docMap(c.id), sum = ctCheckSum(c);
+  var dSt = ctDaysTo(c.start), dBal = ctDaysTo(c.balanceDue), dEnd = ctDaysTo(c.end);
+  var paid = has(c.balancePaidAt);
+  function done(b, t){ return { st: b ? '완료' : '대기', d:t }; }
+  return [
+    ['매물', c.listingId ? { st:'완료', d:'매물 ' + c.listingId + ' 에 연결됨' }
+                         : { st:'대기', d:'연결된 매물이 없습니다(직접 입력한 계약일 수 있습니다)' }],
+    ['고객', done(has(c.tenantName), has(c.tenantName)
+        ? ('임차인 ' + c.tenantName + (has(c.tenantPhone) ? ' · 연락처 있음' : ' · 🔴 연락처 없음'))
+        : '임차인 이름이 없습니다')],
+    ['계약준비', done(has(c.price) && has(c.start),
+        (has(c.price) ? ('보증금 ' + ctMoney(c.price)) : '🔴 금액 없음') +
+        (has(c.rentAmt) ? (' / 월세 ' + ctMoney(c.rentAmt)) : ''))],
+    ['필수서류', sum['미확인'] + sum['미완료'] === 0
+        ? { st:'완료', d:'15가지 점검이 다 끝났습니다' }
+        : { st:'대기', d:'남은 점검 ' + sum.left + '가지 (완료 ' + sum['완료'] +
+            ' · 해당없음 ' + sum['해당없음'] + ')' }],
+    ['특약', done(has(c.note), has(c.note) ? '특약이 적혀 있습니다' : '특약이 비어 있습니다')],
+    ['계약일', has(c.start) ? { st: (dSt !== null && dSt <= 0) ? '완료' : '대기',
+        d: c.start + (dSt === null ? '' : (dSt > 0 ? (' · D-' + dSt) : ' · 지났습니다')) }
+        : { st:'대기', d:'계약일이 비어 있습니다' }],
+    ['잔금일', has(c.balanceDue) ? { st: paid ? '완료' : '대기',
+        d: c.balanceDue + (paid ? (' · ' + c.balancePaidAt + ' 확인') :
+            (dBal === null ? '' : (dBal < 0 ? (' · 🔴 ' + (-dBal) + '일 지났는데 확인 안 됨')
+                                            : (' · D-' + dBal)))) }
+        : { st:'대기', d:'잔금일이 비어 있습니다' }],
+    ['입주일', { st: m['입주일'] === '완료' ? '완료' : '대기',
+        d:'🔴 계약 자료에 입주일 칸이 없습니다 — 점검표에서 사람이 표시합니다' }],
+    ['만기', has(c.end) ? { st: (dEnd !== null && dEnd < 0) ? '완료' : '대기',
+        d: c.end + (dEnd === null ? '' : (dEnd < 0 ? ' · 지났습니다' : (' · D-' + dEnd))) }
+        : { st:'대기', d:'만기일이 비어 있습니다' }],
+    ['재계약 / 재임대', has(c.expStatus)
+        ? { st:'완료', d:'확정: ' + c.expStatus }
+        : { st:'대기', d: (dEnd !== null && dEnd <= 60)
+            ? '🔴 만기가 가까운데 연장·종료가 정해지지 않았습니다' : '만기 60일 전에 정합니다' }]
+  ];
+}
+
+/* ── 특약 — 제안 → 편집 → 최종확정, 세 단계를 갈라 놓는다 ───────
+   🔴 제안은 '초안' 이다. ○○ 를 채우지 않으면 저장하지 않는다. */
+var CT_SPEC_DRAFT = '';
+var CT_SPEC_TPL = [
+  ['현 시설 상태', '본 계약은 계약 당시 확인한 현 시설 상태를 기준으로 한다.'],
+  ['권리관계 정리', '임대인은 잔금일까지 ○○(근저당권 등)을 말소하기로 한다.'],
+  ['관리비 범위', '관리비에 포함되는 항목은 ○○이며, 그 밖의 사용료는 실비로 정산한다.'],
+  ['반려동물', '반려동물 사육은 임대인의 사전 동의를 받은 경우에 한한다.'],
+  ['수리·청소 범위', '입주 전 ○○의 수리·청소는 ○○(임대인/임차인)가 부담한다.'],
+  ['갱신 통지', '계약 만료 ○○개월 전까지 갱신 여부를 서로 알리기로 한다.'],
+  ['원상복구', '임차인은 퇴거 시 ○○ 상태로 원상복구한다(자연 마모는 제외).']
+];
+function ctSpecPropose(i){
+  var t = CT_SPEC_TPL[i];
+  if(!t) return;
+  var el = document.getElementById('ct-sp');
+  if(!el) return;
+  var nl = String.fromCharCode(10);
+  var cur = String(el.value || '').trim();
+  el.value = (cur ? (cur + nl) : '') + '· ' + t[1];
+  CT_SPEC_DRAFT = el.value;
+  el.focus();
+}
+function ctSpecClear(){
+  var el = document.getElementById('ct-sp');
+  if(el){ el.value = ''; CT_SPEC_DRAFT = ''; }
+}
+
+/* ── 정산 2차 ────────────────────────────────────────────────────
+   계약 → 중개보수 예정 → 실제 수납 → 미수금 → 직원 배분 → 대표 배분 → 월매출
+   🔴 은행과 이어져 있지 않다. 수납일은 사람이 확인해 적는 날짜다.
+   🔴 배분율·세율은 기존 화면과 같은 값을 쓴다(사무소 설정이 없으면 50% / 3.3%). */
+var PAYCFG = null, PAYCFG_LOADING = false;
+async function loadPayCfg(){
+  if(PAYCFG !== null || PAYCFG_LOADING) return;
+  PAYCFG_LOADING = true;
+  var got = {};
+  try{
+    var j = await jget({ action:'cfgAll' });
+    got = j.result || j.data || {};
+  }catch(e){ got = {}; }
+  function num(v, dflt){ var n = parseFloat(v); return isNaN(n) ? dflt : n; }
+  var rates = {};
+  try{ rates = JSON.parse(got.PAYOUT_RATES || '{}') || {}; }catch(e){ rates = {}; }
+  PAYCFG = { split: num(got.PAYOUT_SPLIT, 50), tax: num(got.PAYOUT_TAX, 3.3), rates: rates,
+             fromSheet: !!(got.PAYOUT_SPLIT || got.PAYOUT_TAX) };
+  PAYCFG_LOADING = false;
+  route();
+}
+function stlNum(v){ var n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g, '')); return isNaN(n) ? 0 : n; }
+/* 중개보수 예정액 (회색 제안값)
+   🔴 기존 화면 공식은 **보증금만** 보고 월세를 빼먹어, 월세 계약에서 10배 가까이 낮게 나왔다.
+      (보증금 500만 / 월세 45만 → 15,000원. 실제 감각과 한참 다르다.)
+      그래서 임대차는 **환산보증금 = 보증금 + 월세×100** 으로 고쳤다.
+   🔴 법정 구간별 상한요율표는 적용하지 않았다 — 지어내지 않는다.
+      요율은 사무소 기본값(매매 0.4% · 임대 0.3%)이고, 실제 보수는 사람이 넣는다. */
+function stlBase(c){
+  var dep = stlNum(c.price), rent = stlNum(c.rentAmt);
+  if(String(c.type||'') === '매매') return dep;
+  return dep + rent * 100;
+}
+function stlExpect(c){
+  var man = stlBase(c);
+  if(!man) return 0;
+  return Math.round(man * 10000 * (String(c.type||'') === '매매' ? 0.004 : 0.003));
+}
+/* 그 계약의 담당이 '직원' 인가 — 직원 명부에 있어야 직원이다. 아니면 대표 몫. */
+function stlIsStaff(agent){
+  var a = String(agent || '').trim();
+  if(!a) return false;
+  return (STAFF || []).some(function(s){ return String(s.id) === a; });
+}
+function stlCalc(c){
+  var fee = Math.round(stlNum(c.feeAmt));
+  var expect = stlExpect(c);
+  var paidAt = String(c.feePaidAt || '').trim();
+  var got = paidAt ? fee : 0;
+  var unpaid = fee - got;
+  var cr = String(c.coRate == null ? '' : c.coRate).trim();
+  var coRate = (cr === '' || isNaN(parseFloat(cr))) ? 100 : Math.max(0, Math.min(100, parseFloat(cr)));
+  var office = Math.round(fee * coRate / 100);
+  var cfg = PAYCFG || { split:50, tax:3.3, rates:{} };
+  var isStaff = stlIsStaff(c.agent);
+  var split = isStaff ? (parseFloat(cfg.rates[String(c.agent).trim()]) || cfg.split) : 0;
+  var staff = Math.round(office * split / 100);
+  var tax = Math.round(staff * cfg.tax / 100);
+  return { fee:fee, expect:expect, paidAt:paidAt, got:got, unpaid:unpaid,
+           coRate:coRate, coName:String(c.coName||''), office:office,
+           isStaff:isStaff, split:split, staff:staff, tax:tax, staffNet:staff - tax,
+           boss:office - staff };
+}
+function stlMonth(s){
+  var t = String(s || '').trim().replace(/\./g, '-');
+  var m = t.match(/^(\d{4})-(\d{1,2})/);
+  return m ? (m[1] + '-' + (m[2].length < 2 ? '0' : '') + m[2]) : '';
+}
+function stlWon(n){ return (Math.round(n) || 0).toLocaleString(); }
+/* 월매출 — 수납일(사람이 확인해 적은 날) 기준으로만 센다 */
+function stlMonthly(){
+  var by = {};
+  (DB.contracts || []).forEach(function(c){
+    var k = stlMonth(c.feePaidAt);
+    if(!k) return;
+    var r = stlCalc(c);
+    by[k] = by[k] || { m:k, n:0, got:0, office:0, staff:0, boss:0 };
+    by[k].n++; by[k].got += r.got; by[k].office += r.office;
+    by[k].staff += r.staff; by[k].boss += r.boss;
+  });
+  return Object.keys(by).sort().reverse().map(function(k){ return by[k]; });
+}
+
 /* ── 라우팅 ── */
 var SEARCH = '';
 function route(){
@@ -2979,6 +4013,7 @@ function route(){
   else if(CUR.m2 === 'academy') m.innerHTML = viewAcademy();
   else if(CUR.m2 === 'mkt') m.innerHTML = viewMkt();
   else if(CUR.m2 === 'staff') m.innerHTML = viewStaff();
+  else if(CUR.m2 === 'cust') m.innerHTML = viewCust();
   else if(CUR.m2 === 'contract'){
     if(DB.contracts === null){
       m.innerHTML = crumb() + '<div class="h1row"><h1>계약</h1></div>' +
