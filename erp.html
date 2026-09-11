@@ -208,7 +208,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
 var ERP_VER = '1.1';
-var ERP_BUILD = '2026-09-12 02:30';
+var ERP_BUILD = '2026-09-12 02:50';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -289,7 +289,7 @@ function drawSide(){
 }
 
 /* ── 데이터 ────────────────────────────────────────────────────── */
-var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:null, err:'', loading:false };
+var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:null, err:'', errKind:'', loading:false };
 
 async function jget(params){
   var u = gsUrl(), t = gsTok();
@@ -316,9 +316,18 @@ async function loadAll(force){
     var c = await jget({ action:'getAll', type:'landlords' });
     DB.landlords = c.data || c.result || [];
   }catch(e){
-    DB.err = (e && e.message === 'NOKEY')
+    /* 🔴 "토큰이 없다" 와 "서버가 지금 안 된다" 는 전혀 다른 일이다.
+       둘을 같은 말로 보여 주면 대표님이 멀쩡한 설정을 다시 건드리게 된다. */
+    var msg = String((e && e.message) || e || '');
+    DB.errKind = (msg === 'NOKEY') ? 'NOKEY'
+      : ((msg.indexOf('DOCTYPE') >= 0 || msg.indexOf('valid JSON') >= 0 ||
+          msg.indexOf('Unexpected token') >= 0 || msg.indexOf('Failed to fetch') >= 0 ||
+          msg.indexOf('NetworkError') >= 0 || msg.indexOf('timeout') >= 0) ? 'SERVER' : 'OTHER');
+    DB.err = (DB.errKind === 'NOKEY')
       ? '이 기기에 구글시트 주소·토큰이 없습니다 — 기존 CRM 화면(설정)에서 한 번 넣으면 이 화면도 같이 씁니다.'
-      : ('불러오지 못했습니다: ' + (e && e.message ? e.message : e));
+      : (DB.errKind === 'SERVER')
+      ? ('구글시트 서버가 지금 응답하지 않습니다. 설정은 그대로입니다 — 잠시 뒤 [다시 불러오기] 를 눌러 주세요.')
+      : ('불러오지 못했습니다: ' + msg);
   }
   DB.loading = false;
 }
@@ -589,9 +598,17 @@ function crumb(){
   return '<div class="crumb">브리즈부동산중개 › <b>' + esc(g[1]) + '</b> › <b>' + esc(s[1]) + '</b></div>';
 }
 function keyBox(){
-  return '<div class="card"><div class="soonbox"><b>구글시트 연결이 필요합니다</b>' +
+  /* 🔴 원인에 따라 다른 말을 한다 — 서버가 잠깐 안 되는 것을 '설정하세요' 로 보여 주지 않는다. */
+  var server = (DB.errKind === 'SERVER');
+  return '<div class="card"><div class="soonbox"><b>' +
+    (server ? '구글시트 서버가 지금 응답하지 않습니다' : '구글시트 연결이 필요합니다') + '</b>' +
     '<div style="margin:8px 0 14px">' + esc(DB.err) + '</div>' +
-    '<button class="btn pri" onclick="location.href=\'./index.html\'">기존 CRM 화면에서 설정하기</button>' +
+    (server
+      ? ('<button class="btn pri" onclick="location.reload()">다시 불러오기</button>' +
+         '<div style="margin-top:10px;font-size:12.5px;color:var(--t3)">' +
+         '🔴 설정을 다시 넣을 필요가 없습니다. 구글 쪽이 잠깐 느릴 때 이렇게 보입니다.</div>')
+      : ('<button class="btn pri" onclick="location.href=\'./index.html\'">' +
+         '기존 CRM 화면에서 설정하기</button>')) +
     '</div></div>';
 }
 
