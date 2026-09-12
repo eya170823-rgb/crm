@@ -210,8 +210,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.9.1';
-var ERP_BUILD = '2026-09-12 17:00';
+var ERP_VER = '1.9.2';
+var ERP_BUILD = '2026-09-12 17:50';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -932,24 +932,58 @@ function bldgKeyOk(v){
   if(/^[0-9-]+$/.test(t)) return false;       /* 숫자·하이픈만 */
   return !bldgIsKind(t);
 }
-function intakeSameUnitRows(ev){
-  var out = [{ when:ev.receivedAt, text:ev.rawText }];
-  if(!ev.unit) return out;
-  var bk = bldgKeyOk(ev.building) ? sq(ev.building) : '';
-  var myPh = (ev._row && ev._row.phone) ? phDigits(ev._row.phone) : '';
-  var ldPh = [];
-  ((ev._bm && ev._bm.landlords) || []).forEach(function(l){
-    phAll(l.phone).forEach(function(d){ if(ldPh.indexOf(phKey(d)) < 0) ldPh.push(phKey(d)); });
-  });
-  (DB.inbox || []).forEach(function(x){
+/* ── 인입함 인덱스 — 처음 한 번만 훑는다 (2026-09-12 성능 수정) ────────
+   🔴 종전에는 매물·후보마다 502줄을 다시 훑어서, 매물 45건 × 후보 154건이면
+      수만 번 훑었다(덤프가 300초를 넘겨 회신을 못 했다 — 실측).
+   → 호실번호·보낸번호로 미리 갈라 두고, 그 뒤에는 찾아보기만 한다.
+      고르는 조건(호실 + 건물이름/보낸번호)은 그대로이므로 결과가 달라지지 않는다. */
+var IN_IDX = null;
+function inboxIdx(){
+  var rows = DB.inbox || [];
+  if(IN_IDX && IN_IDX.n === rows.length && IN_IDX.head === (rows[0] && rows[0].row))
+    return IN_IDX;
+  var byUnit = {}, byPhone = {};
+  rows.forEach(function(x){
     var t = String(x.text || '');
-    if(sq(t).indexOf(sq(ev.unit)) < 0) return;
-    /* 🔴 건물이 같다고 확인된 줄만 — 다른 건물 같은 호실을 섞으면 판정이 틀어진다 */
-    var same = !!bk && sq(t).indexOf(bk) >= 0;
-    if(!same && myPh && phKey(x.phone) === phKey(myPh)) same = true;
-    if(!same && ldPh.length && ldPh.indexOf(phKey(x.phone)) >= 0) same = true;
-    if(same) out.push({ when:String(x.when || ''), text:t });
+    var rec = { when:String(x.when || ''), text:t, ph:phKey(x.phone), sq:sq(t) };
+    /* 그 줄이 말한 호실을 한 번만 뽑는다 */
+    var seen = {};
+    unitSpans(t).forEach(function(u){
+      var k = sq(u.u);
+      if(seen[k]) return;
+      seen[k] = 1;
+      (byUnit[k] = byUnit[k] || []).push(rec);
+    });
+    if(rec.ph) (byPhone[rec.ph] = byPhone[rec.ph] || []).push(rec);
   });
+  IN_IDX = { n:rows.length, head:(rows[0] && rows[0].row), byUnit:byUnit, byPhone:byPhone };
+  return IN_IDX;
+}
+function intakeSameUnitRows(ev){
+  if(ev._rows) return ev._rows;
+  var out = [{ when:ev.receivedAt, text:ev.rawText }];
+  if(!ev.unit){ ev._rows = out; return out; }
+  var ix = inboxIdx();
+  var bk = bldgKeyOk(ev.building) ? sq(ev.building) : '';
+  var myPh = (ev._row && ev._row.phone) ? phKey(ev._row.phone) : '';
+  var ldPh = {};
+  ((ev._bm && ev._bm.landlords) || []).forEach(function(l){
+    phAll(l.phone).forEach(function(d){ ldPh[phKey(d)] = 1; });
+  });
+  var cand = ix.byUnit[sq(ev.unit)] || [];
+  var added = {};
+  cand.forEach(function(r){
+    /* 🔴 건물이 같다고 확인된 줄만 — 다른 건물 같은 호실을 섞으면 판정이 틀어진다 */
+    var same = !!bk && r.sq.indexOf(bk) >= 0;
+    if(!same && myPh && r.ph === myPh) same = true;
+    if(!same && r.ph && ldPh[r.ph]) same = true;
+    if(!same) return;
+    var k = r.when + '|' + r.sq.slice(0, 40);
+    if(added[k]) return;
+    added[k] = 1;
+    out.push({ when:r.when, text:r.text });
+  });
+  ev._rows = out;
   return out;
 }
 
@@ -1114,31 +1148,32 @@ function intakePhoto(ev){
    DATA_REQUIRED / PHOTO_REQUIRED / REVIEW_REQUIRED / AD_READY_PREVIEW
    🔴 대표 승인 전에는 AD_READY 가 되지 않는다 — PREVIEW 까지만. */
 function intakeAd(ev){
+  if(ev._adr) return ev._adr;            /* 🔴 한 번만 셈한다 */
   /* 🔴 대표님께 묻기 전에 가진 자료로 먼저 채운 결과를 쓴다(2-2단계) */
   var nd = intakeNeeds2(ev), dup = intakeDup(ev), ph = intakePhoto(ev);
   var r = { code:'REVIEW_REQUIRED', why:'', needs:nd, dup:dup, photo:ph, blockers:[] };
   if(ev.statusHint === 'CONTRACT_DONE'){
     r.code = 'REVIEW_REQUIRED';
     r.blockers.push('계약완료 문자가 있습니다 — 광고 대상이 아닙니다');
-    r.why = r.blockers[0]; return r;
+    r.why = r.blockers[0]; ev._adr = r; return r;
   }
   if(dup.code === 'REVIEW_REQUIRED' || dup.code === 'NEW_BUILDING'){
-    r.code = 'REVIEW_REQUIRED'; r.blockers.push(dup.why); r.why = dup.why; return r;
+    r.code = 'REVIEW_REQUIRED'; r.blockers.push(dup.why); r.why = dup.why; ev._adr = r; return r;
   }
   if(ev.matchConfidence < 80 && dup.code !== 'NEW'){
     r.code = 'REVIEW_REQUIRED';
     r.blockers.push('매물 연결이 확실하지 않습니다(' + ev.matchConfidence + ')');
-    r.why = r.blockers[0]; return r;
+    r.why = r.blockers[0]; ev._adr = r; return r;
   }
   if(nd.missingRequired.length){
     r.code = 'DATA_REQUIRED';
     r.why = '광고 필수값이 비어 있습니다 — ' +
             nd.missingRequired.map(function(x){ return x.label; }).join('·');
-    r.blockers.push(r.why); return r;
+    r.blockers.push(r.why); ev._adr = r; return r;
   }
   if(ph.code === 'REVIEW_REQUIRED'){
     /* 사진 자료를 못 읽었거나, 그 호실 원본은 있는데 보정완료가 0장인 경우 */
-    r.code = 'REVIEW_REQUIRED'; r.why = ph.why; r.blockers.push(ph.why); return r;
+    r.code = 'REVIEW_REQUIRED'; r.why = ph.why; r.blockers.push(ph.why); ev._adr = r; return r;
   }
   if(!ph.EXACT_UNIT){
     r.code = 'PHOTO_REQUIRED';
@@ -1146,12 +1181,12 @@ function intakeAd(ev){
              ? '건물 공용부 사진만 있습니다 — 이 호실 내부사진이 없습니다'
              : '이 호실 사진이 없습니다') +
             (ph.OTHER_UNIT_REFERENCE ? (' ' + ph.blocked) : '');
-    r.blockers.push(r.why); return r;
+    r.blockers.push(r.why); ev._adr = r; return r;
   }
   r.code = (ev.approvalStatus === 'APPROVED') ? 'AD_READY' : 'AD_READY_PREVIEW';
   r.why = (r.code === 'AD_READY') ? '광고 가능합니다'
         : '필수값·사진이 갖춰졌습니다 — 🔴 대표 승인을 누르면 광고 가능';
-  return r;
+  ev._adr = r; return r;
 }
 
 /* ── 채널별 광고문구 준비 — 🔴 사실만 쓴다. 게시하지 않는다 ────────
@@ -1267,6 +1302,7 @@ function floorFromUnit(u, totalFloor){
 }
 
 function intakeAutoFill(ev){
+  if(ev._af) return ev._af;              /* 🔴 한 번만 셈한다 */
   var mp = ev._match || {};
   var hit = (mp.hits || []).length === 1 ? mp.hits[0] : null;
   var L = DB.listings || [];
@@ -1352,11 +1388,13 @@ function intakeAutoFill(ev){
     var fl = floorFromUnit(ev.unit, got.totalFloor);
     if(fl) put('floor', fl, '호실 번호(' + ev.unit + ')', '', 'MEDIUM');
   }
-  return { values:got, provenance:prov };
+  ev._af = { values:got, provenance:prov };
+  return ev._af;
 }
 
 /* 자동보완을 넣은 '부족한 것' — 대표님께 물을 것만 남긴다 */
 function intakeNeeds2(ev){
+  if(ev._nd2) return ev._nd2;            /* 🔴 한 번만 셈한다 */
   var af = intakeAutoFill(ev);
   var known = [], needReq = [], needOpt = [];
   INTAKE_REQ.concat(INTAKE_OPT).forEach(function(f){
@@ -1371,9 +1409,10 @@ function intakeNeeds2(ev){
     else if(req) needReq.push({ k:f[0], label:f[1] });
     else needOpt.push({ k:f[0], label:f[1] });
   });
-  return { known:known, missingRequired:needReq, missingOptional:needOpt,
-           hit:(ev._match && (ev._match.hits || []).length === 1) ? ev._match.hits[0] : null,
-           prov:af.provenance };
+  ev._nd2 = { known:known, missingRequired:needReq, missingOptional:needOpt,
+              hit:(ev._match && (ev._match.hits || []).length === 1) ? ev._match.hits[0] : null,
+              prov:af.provenance };
+  return ev._nd2;
 }
 
 /* ── 대표님이 정말 해야 할 일만 남긴다 ────────────────────────────── */
@@ -1581,14 +1620,20 @@ function listingEvent(o){
     _match:{ code:'MATCH', listingId:String(o.id), confidence:100,
              how:'매물장 직접', why:'', hits:[o] }
   };
+  /* 🔴 임대인을 **먼저** 붙인다. 문자에 건물 전체 이름이 없고 줄임말만 있으면
+     ("제니" = 에코제니) 그 줄은 임대인 번호로만 이어진다.
+     종전에는 문자를 먼저 모아 캐시해서 그런 줄 11건을 잃었다(전/후 대조로 잡음). */
+  var ld = (DB.landlords || []).filter(function(l){
+    return sq(l.apt) && sq(l.apt) === sq(o.apt); })[0];
+  if(!ld) ld = (DB.landlords || []).filter(function(l){
+    var la = sq(l.apt), ap = sq(o.apt);
+    return la && ap && la.length >= 3 && (la.indexOf(ap) >= 0 || ap.indexOf(la) >= 0); })[0];
+  if(ld){ ev._bm.landlords = [ld]; ev.landlordId = String(ld.id || ''); }
   /* 그 호실을 말한 문자가 있으면 최신상태를 읽는다 */
   var rows = intakeSameUnitRows(ev);
   if(ev.unit) ev.statusHint = statusHintOf(rows, ev.unit).code;
   if(ev.statusHint === 'UNKNOWN' && LST_TRADABLE.indexOf(String(o.status || '')) >= 0)
     ev.statusHint = 'AVAILABLE';
-  var ld = (DB.landlords || []).filter(function(l){
-    return sq(l.apt) && sq(l.apt) === sq(o.apt); })[0];
-  if(ld){ ev._bm.landlords = [ld]; ev.landlordId = String(ld.id || ''); }
   return ev;
 }
 /* 매물장 전체의 광고준비 — 🔴 게시하지 않는다. 왜 안 되는지까지 말한다. */
@@ -1618,6 +1663,47 @@ function intakeAll(limit){
   });
   out.sort(function(a, b){ return String(b.receivedAt).localeCompare(String(a.receivedAt)); });
   return limit ? out.slice(0, limit) : out;
+}
+
+/* ── 대표 메모 접수 (2026-09-12 지시 3) ──────────────────────────────
+   🔴 인입함에 한 줄만 넣는다. 매물장·고객·임대인은 건드리지 않는다.
+   🔴 넣기 전에 무엇이 읽혔는지 보여 주고 확인을 받는다(호실·금액을 잘못 읽었으면 그때 고친다). */
+var MEMO_SAVING = false;
+async function memoAdd(){
+  var el = document.getElementById('memoIn');
+  var t = String((el && el.value) || '').trim();
+  if(!t){ alert('메모 내용을 적어 주세요.'); return; }
+  if(MEMO_SAVING){ alert('넣는 중입니다.'); return; }
+  if(hasSecret(t)){
+    alert('🔴 비밀번호로 보이는 내용이 있습니다 — 메모에 적지 않습니다.'); return; }
+  /* 미리 읽어 보여 준다 — 같은 길(aiExtract → matchProperty)로 본 결과다 */
+  var prev = intakeMemo(t, null, (ME.name || ME.id || '대표'));
+  var nl = String.fromCharCode(10);
+  var msg = ['메모를 인입함에 한 줄 넣습니다.', '',
+    '읽어낸 것',
+    '  건물   ' + (prev.building || '(못 찾음)'),
+    '  호실   ' + (prev.unit || (prev.unitCands ? ('여러 개: ' + prev.unitCands.join(',')) : '(못 읽음)')),
+    '  보증금 ' + (prev.deposit || '-') + '  월세 ' + (prev.rent || '-'),
+    '  입주   ' + (prev.moveInDate || '-'),
+    '  매물   ' + (prev.listingId ? (prev.listingId + ' (' + prev.matchHow + ')') : '(못 붙임)'),
+    '', '🔴 매물장은 바뀌지 않습니다. 접수후보만 만들어집니다.',
+    '', '이대로 넣을까요?'].join(nl);
+  if(!confirm(msg)) return;
+  MEMO_SAVING = true;
+  try{
+    var r = await jgetTry({ action:'memoIn', text:t, bld:(prev.building || ''),
+                            who:(ME.name || ME.id || '대표') });
+    var res = r.result || r.data || {};
+    if(res.error){ alert('넣지 못했습니다: ' + res.error); MEMO_SAVING = false; return; }
+    if(el) el.value = '';
+    MEMO_SAVING = false;
+    alert('인입함에 넣었습니다 (' + (res.at || '') + ').' + nl +
+          '접수후보에서 확인하세요. 매물장은 바뀌지 않았습니다.');
+    await reload();
+  }catch(e){
+    MEMO_SAVING = false;
+    alert('넣지 못했습니다: ' + (e && e.message || e));
+  }
 }
 
 /* ── 인입함 중복 줄 묶기 (2026-09-12 실측으로 들어온 수정) ──────────────
@@ -1734,6 +1820,11 @@ function viewInbox(){
       '<option value="un"' + (UI.st==='un'?' selected':'') + '>미처리</option>' +
       '<option value="done"' + (UI.st==='done'?' selected':'') + '>처리됨</option></select>' +
     '<button class="btn" onclick="reload()">다시 불러오기</button>' +
+    /* 🔴 대표 메모 — 새 화면을 만들지 않고 여기 한 줄만 더한다(2026-09-12 지시 3).
+       적으면 인입함에 한 줄이 들어가고 바로 접수후보로 흐른다. 매물장은 바뀌지 않는다. */
+    '<input type="text" id="memoIn" placeholder="메모 접수 — 예: 노형동 OO빌 502호 300/55 다음주 입주" ' +
+      'style="flex:1;min-width:240px" onkeydown="if(event.key===&#39;Enter&#39;)memoAdd()">' +
+    '<button class="btn pri" onclick="memoAdd()">메모 접수</button>' +
     '<button class="btn" onclick="UI.help=!UI.help;route()">Help</button>' +
     '<span style="flex:1"></span>' +
     '<button class="btn" disabled title="다음 단계">인쇄</button>' +
