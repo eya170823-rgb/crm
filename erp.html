@@ -210,8 +210,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.9.0';
-var ERP_BUILD = '2026-09-12 15:29';
+var ERP_VER = '1.9.1';
+var ERP_BUILD = '2026-09-12 17:00';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -923,16 +923,31 @@ function intakeMemo(text, when, who){
                        text:String(text || ''), reg:'' });
 }
 /* 그 호실을 말한 인입함 줄을 모은다(최신상태 판정용) */
+/* 🔴 건물 이름으로 써도 되는 값인가 — '202' 처럼 짧거나 숫자만이면 못 쓴다.
+   실측: 건물명이 '202' 인 매물이 있어 '202호' 가 적힌 아무 문자나 같은 건물로 보였고,
+   다른 건물 202호 계약완료 문자까지 끌어와 상태를 잘못 읽었다(2026-09-12). */
+function bldgKeyOk(v){
+  var t = sq(v);
+  if(t.length < 3) return false;
+  if(/^[0-9-]+$/.test(t)) return false;       /* 숫자·하이픈만 */
+  return !bldgIsKind(t);
+}
 function intakeSameUnitRows(ev){
   var out = [{ when:ev.receivedAt, text:ev.rawText }];
   if(!ev.unit) return out;
-  var bk = sq(ev.building);
+  var bk = bldgKeyOk(ev.building) ? sq(ev.building) : '';
+  var myPh = (ev._row && ev._row.phone) ? phDigits(ev._row.phone) : '';
+  var ldPh = [];
+  ((ev._bm && ev._bm.landlords) || []).forEach(function(l){
+    phAll(l.phone).forEach(function(d){ if(ldPh.indexOf(phKey(d)) < 0) ldPh.push(phKey(d)); });
+  });
   (DB.inbox || []).forEach(function(x){
     var t = String(x.text || '');
     if(sq(t).indexOf(sq(ev.unit)) < 0) return;
     /* 🔴 건물이 같다고 확인된 줄만 — 다른 건물 같은 호실을 섞으면 판정이 틀어진다 */
-    var same = bk && sq(t).indexOf(bk) >= 0;
-    if(!same && ev.landlordId && phMask(x.phone) === ev.sender) same = true;
+    var same = !!bk && sq(t).indexOf(bk) >= 0;
+    if(!same && myPh && phKey(x.phone) === phKey(myPh)) same = true;
+    if(!same && ldPh.length && ldPh.indexOf(phKey(x.phone)) >= 0) same = true;
     if(same) out.push({ when:String(x.when || ''), text:t });
   });
   return out;
@@ -1099,7 +1114,8 @@ function intakePhoto(ev){
    DATA_REQUIRED / PHOTO_REQUIRED / REVIEW_REQUIRED / AD_READY_PREVIEW
    🔴 대표 승인 전에는 AD_READY 가 되지 않는다 — PREVIEW 까지만. */
 function intakeAd(ev){
-  var nd = intakeNeeds(ev), dup = intakeDup(ev), ph = intakePhoto(ev);
+  /* 🔴 대표님께 묻기 전에 가진 자료로 먼저 채운 결과를 쓴다(2-2단계) */
+  var nd = intakeNeeds2(ev), dup = intakeDup(ev), ph = intakePhoto(ev);
   var r = { code:'REVIEW_REQUIRED', why:'', needs:nd, dup:dup, photo:ph, blockers:[] };
   if(ev.statusHint === 'CONTRACT_DONE'){
     r.code = 'REVIEW_REQUIRED';
@@ -1201,6 +1217,391 @@ function adCopyPrep(ev){
   });
   return { ok:true, why:'', drafts:DR, banned:bad, facts:facts,
            note:'🔴 복사해서 쓰는 초안입니다. 이 함수는 게시하지 않습니다.' };
+}
+
+/* ═══ 자동보완 — 대표님께 묻기 전에 가진 자료로 먼저 채운다 ═══════════
+   🔴 고정 건물정보만 같은 건물에서 물려받는다. 면적·방·욕실은 다른 호실에서 복사하지 않는다.
+   🔴 값마다 어디서 왔는지(source)·언제 것인지(sourceDate)·얼마나 믿을 만한지(confidence)를 적는다. */
+var BLDG_INHERIT = [['totalFloor', 'totalFloor', '총 층'], ['bldgUse', 'bldgUse', '건물용도'],
+                    ['parkTotal', 'parkTotal', '총 주차'], ['strct', 'strct', '구조'],
+                    ['ugFloor', 'ugFloor', '지하층'], ['aprDate', 'aprDate', '사용승인일']];
+/* 🔴 호실별 — 같은 호실 기록이나 글에 적힌 것만. 다른 호실에서 가져오지 않는다. */
+var UNIT_ONLY = [['area', 'area', '면적'], ['roomCount', 'rooms', '방 수'],
+                 ['bathCount', 'baths', '욕실 수'], ['floor', 'floor', '층'],
+                 ['maintenance', 'feeAmt', '관리비'], ['moveInDate', 'availDate', '입주 가능일'],
+                 ['dealType', 'type', '거래유형'], ['deposit', 'price', '보증금'],
+                 ['rent', 'rentAmt', '월세'], ['kind', 'kind', '매물유형']];
+
+/* 글에서 호실별 값을 읽는다 — 없으면 비운다(지어내지 않는다) */
+function textFacts(t){
+  var s2 = String(t || ''), o = {};
+  var m;
+  m = s2.match(/(?:전용|전용면적|면적)\s*([0-9]{1,3}(?:\.[0-9]{1,2})?)\s*(?:㎡|m2|제곱)/);
+  if(!m) m = s2.match(/([0-9]{1,3}(?:\.[0-9]{1,2})?)\s*(?:㎡|m2)/);
+  if(m) o.area = m[1];
+  m = s2.match(/방\s*([0-9])\s*(?:개|칸)/);
+  if(m) o.roomCount = m[1];
+  else if(/투룸|2룸/.test(s2)) o.roomCount = '2';
+  else if(/원룸|1룸|오픈형|분리형/.test(s2)) o.roomCount = '1';
+  m = s2.match(/(?:욕실|화장실)\s*([0-9])\s*(?:개|칸)/);
+  if(m) o.bathCount = m[1];
+  m = s2.match(/([0-9]{1,2})\s*층/);
+  if(m) o.floor = m[1];
+  m = s2.match(/관리비\s*(?:포함)?\s*([0-9]{1,3})\s*만?/);
+  if(m) o.maintenance = m[1];
+  else if(/관리비\s*포함/.test(s2)) o.maintenance = '포함';
+  return o;
+}
+/* 🔴 호실 번호에서 층을 읽는다 — 202호=2층 · 1607호=16층.
+   이건 그 호실 자신의 근거다(다른 호실 값을 베끼는 것이 아니다).
+   🔴 다만 규칙이 다른 건물도 있으므로 확신은 MEDIUM 으로 둔다. */
+function floorFromUnit(u, totalFloor){
+  var d = String(u || '').replace(/[^0-9]/g, '');
+  if(d.length < 3 || d.length > 4) return '';
+  var f = (d.length === 3) ? d.slice(0, 1) : d.slice(0, 2);
+  var n = parseInt(f, 10);
+  if(!n) return '';
+  var tf = parseInt(String(totalFloor || '').replace(/[^0-9]/g, ''), 10);
+  if(tf && n > tf) return '';          /* 총층보다 크면 규칙이 다른 건물 — 쓰지 않는다 */
+  return String(n);
+}
+
+function intakeAutoFill(ev){
+  var mp = ev._match || {};
+  var hit = (mp.hits || []).length === 1 ? mp.hits[0] : null;
+  var L = DB.listings || [];
+  var got = {}, prov = {};
+  function put(k, v, src, date, conf){
+    v = String(v == null ? '' : v).trim();
+    if(!v || got[k]) return;
+    got[k] = v;
+    prov[k] = { value:v, source:src, sourceDate:String(date || ''), confidence:conf };
+  }
+  /* A — 이번 접수에서 읽은 값 */
+  UNIT_ONLY.forEach(function(f){
+    put(f[0], ev[f[0]], '이번 접수(' + ev.source + ')', String(ev.receivedAt).slice(0, 10), 'HIGH');
+  });
+  /* A' — 붙은 매물 자신 */
+  if(hit){
+    UNIT_ONLY.forEach(function(f){
+      put(f[0], hit[f[1]], '매물 ' + hit.id, hit.updatedAt || hit.recvDate, 'HIGH');
+    });
+    BLDG_INHERIT.forEach(function(f){
+      put(f[0], hit[f[1]], '매물 ' + hit.id, hit.updatedAt || hit.recvDate, 'HIGH');
+    });
+  }
+  /* B — 같은 건물 + **같은 호실** 의 다른 기록 (과거 매물 행) */
+  var bk = sq(ev.building), uk = sq(ev.unit);
+  if(bk && uk){
+    L.forEach(function(o){
+      if(hit && String(o.id) === String(hit.id)) return;
+      if(sq(o.apt) !== bk || sq(o.addr2) !== uk) return;
+      UNIT_ONLY.forEach(function(f){
+        put(f[0], o[f[1]], '같은 호실 과거기록 ' + o.id, o.updatedAt || o.recvDate, 'HIGH');
+      });
+    });
+  }
+  /* C — 같은 건물의 **고정 정보만** 물려받는다 (면적·방·욕실은 절대 안 가져온다) */
+  if(bk){
+    var sib = L.filter(function(o){ return sq(o.apt) === bk; });
+    BLDG_INHERIT.forEach(function(f){
+      var vals = {};
+      sib.forEach(function(o){
+        var v = String(o[f[1]] == null ? '' : o[f[1]]).trim();
+        if(v) vals[v] = (vals[v] || 0) + 1;
+      });
+      var ks = Object.keys(vals);
+      if(ks.length === 1)
+        put(f[0], ks[0], '같은 건물 ' + sib.length + '건이 모두 같음', '', 'HIGH');
+      else if(ks.length > 1){
+        /* 값이 갈리면 가장 많은 것을 쓰되 확신을 낮춘다 */
+        ks.sort(function(a, b){ return vals[b] - vals[a]; });
+        if(vals[ks[0]] > vals[ks[1]])
+          put(f[0], ks[0], '같은 건물 ' + vals[ks[0]] + '/' + sib.length + '건', '', 'MEDIUM');
+      }
+    });
+  }
+  /* D — 임대인 명부의 건물 정보 */
+  var ld = (ev._bm && (ev._bm.landlords || [])[0]) || null;
+  if(ld){
+    BLDG_INHERIT.forEach(function(f){
+      put(f[0], ld[f[1]], '임대인 명부', ld.updatedAt || '', 'MEDIUM');
+    });
+  }
+  /* E·F — 이 호실을 말한 통화·문자 본문에서 (같은 호실 글만 본다) */
+  intakeSameUnitRows(ev).forEach(function(r){
+    var f2 = textFacts(r.text);
+    Object.keys(f2).forEach(function(k){
+      put(k, f2[k], '문자·통화 본문', String(r.when || '').slice(0, 10), 'MEDIUM');
+    });
+  });
+  /* 매물유형에서 방·욕실 — 🔴 유형이 정하는 것만. 투룸 이상·아파트는 채우지 않는다. */
+  var kd = String(got.kind || (hit && hit.kind) || '').trim();
+  if(kd){
+    var one = ['오픈형 원룸', '분리형 원룸', '원룸', '1.5룸'];
+    if(one.indexOf(kd) >= 0){
+      put('roomCount', '1', '매물유형(' + kd + ')', '', 'MEDIUM');
+      put('bathCount', '1', '매물유형(' + kd + ')', '', 'MEDIUM');
+    } else if(kd === '오피스텔'){
+      put('bathCount', '1', '매물유형(' + kd + ')', '', 'MEDIUM');
+    }
+    /* 🔴 '빌라(투룸 이상)'·'아파트'·'주택' 은 방 수가 정해지지 않는다 — 비워 둔다 */
+  }
+  /* 호실 번호에서 층 */
+  if(!got.floor){
+    var fl = floorFromUnit(ev.unit, got.totalFloor);
+    if(fl) put('floor', fl, '호실 번호(' + ev.unit + ')', '', 'MEDIUM');
+  }
+  return { values:got, provenance:prov };
+}
+
+/* 자동보완을 넣은 '부족한 것' — 대표님께 물을 것만 남긴다 */
+function intakeNeeds2(ev){
+  var af = intakeAutoFill(ev);
+  var known = [], needReq = [], needOpt = [];
+  INTAKE_REQ.concat(INTAKE_OPT).forEach(function(f){
+    var req = INTAKE_REQ.some(function(x){ return x[0] === f[0]; });
+    var v = af.values[f[0]];
+    if(f[0] === 'building') v = v || ev.building;
+    if(f[0] === 'unit') v = v || ev.unit;
+    if(v) known.push({ k:f[0], label:f[1], v:v,
+                       from:(af.provenance[f[0]] || {}).source || '이번 접수',
+                       date:(af.provenance[f[0]] || {}).sourceDate || '',
+                       conf:(af.provenance[f[0]] || {}).confidence || 'HIGH' });
+    else if(req) needReq.push({ k:f[0], label:f[1] });
+    else needOpt.push({ k:f[0], label:f[1] });
+  });
+  return { known:known, missingRequired:needReq, missingOptional:needOpt,
+           hit:(ev._match && (ev._match.hits || []).length === 1) ? ev._match.hits[0] : null,
+           prov:af.provenance };
+}
+
+/* ── 대표님이 정말 해야 할 일만 남긴다 ────────────────────────────── */
+function intakeTodo(ev){
+  var ad = ev.ad || intakeAd(ev);
+  if(ad.dup.code === 'STATUS_CHANGE' || ev.statusHint === 'CONTRACT_DONE')
+    return { code:'NEED_REVIEW', why:ad.dup.why || '계약완료 문자가 있습니다' };
+  if(ad.code === 'REVIEW_REQUIRED') return { code:'NEED_REVIEW', why:ad.why };
+  if(ad.code === 'PHOTO_REQUIRED'){
+    var ph = ad.photo;
+    if(ph.EXACT_UNIT_RAW > 0)
+      return { code:'NEED_REVIEW',
+               why:'그 호실 원본 사진 ' + ph.EXACT_UNIT_RAW + '장이 있는데 보정완료가 0장입니다 — 촬영이 아니라 보정이 필요합니다' };
+    return { code:'NEED_PHOTO', why:ph.why || '이 호실 사진이 없습니다' };
+  }
+  if(ad.code === 'DATA_REQUIRED'){
+    var ms = ad.needs.missingRequired.map(function(x){ return x.label; });
+    var askLd = ms.filter(function(x){
+      return ['면적', '방 수', '욕실 수', '관리비', '입주 가능일'].indexOf(x) >= 0; });
+    if(askLd.length)
+      return { code:'NEED_CALL', why:'임대인에게 물어야 하는 값 — ' + askLd.join('·'),
+               fields:ms };
+    return { code:'NEED_FIELD', why:'채워야 하는 값 — ' + ms.join('·'), fields:ms };
+  }
+  return { code:'READY', why:ad.why };
+}
+
+/* ═══ 광고 안전검사 — 🔴 게시하지 않는다. 올려도 되는지만 말한다 ═════════
+   🔴 계정 제한·캡차·IP·브라우저 지문 우회 기능은 만들지 않는다.
+   🔴 이 함수는 네트워크를 부르지 않는다(쓰기·게시 0). */
+var AD_TRY_MAX = 2;          /* 무한 재시도 금지 — 한 채널에 두 번까지만 */
+var AD_STOP_WORDS = ['제한', '차단', '일시중지', '정지', '신고', '캡차', 'captcha',
+                     '로그인 필요', '권한', '429', '503', 'rate limit', 'too many'];
+
+/* 사진 지문 — 같은 사진을 여러 번 올리는 것과 다른 호실 사진을 막는다.
+   🔴 파일 내용을 읽지 않는다(이름·장수·호실 폴더로 본다) — 네트워크를 부르지 않기 위해서다.
+      진짜 픽셀 비교는 보정 프로그램이 하는 일이고, 여기서는 "같은 폴더의 같은 사진을
+      여러 매물에 돌려 쓰는지" 를 막는 것이 목적이다. */
+function adPhotoFinger(o){
+  var ph = adPhotoOf(o);
+  var f = { folder:ph.bldFolder || '', unit:(ph.unit && ph.unit.name) || '',
+            done:(ph.unit && ph.unit.done) || 0, raw:(ph.unit && ph.unit.raw) || 0,
+            others:(ph.others || []).length, common:ph.common || 0 };
+  f.key = sq(f.folder) + '|' + sq(f.unit);
+  return f;
+}
+/* 같은 사진 묶음을 여러 매물이 나눠 쓰고 있나 */
+function adPhotoShared(){
+  var by = {};
+  (DB.listings || []).forEach(function(o){
+    if(!adLive(o)) return;
+    var f = adPhotoFinger(o);
+    if(!f.unit || !f.done) return;
+    (by[f.key] = by[f.key] || []).push(String(o.id));
+  });
+  var out = [];
+  Object.keys(by).forEach(function(k){
+    if(by[k].length > 1) out.push({ key:k, ids:by[k] });
+  });
+  return out;
+}
+
+function adSafety(ev){
+  var r = { code:'OK', blockers:[], warns:[], actions:[], checked:[] };
+  var mp = ev._match || {};
+  var o = (mp.hits || []).length === 1 ? mp.hits[0] : null;
+  var ad = ev.ad || intakeAd(ev);
+
+  /* D — 계약완료·거래완료·임대중은 올리지 않는다 */
+  r.checked.push('계약완료·거래완료 차단');
+  if(ev.statusHint === 'CONTRACT_DONE'){
+    r.blockers.push('계약완료 문자가 있습니다 — 올리지 않습니다');
+  }
+  if(o && STATUS_OFF.indexOf(String(o.status || '')) >= 0){
+    r.blockers.push('매물 상태가 ' + o.status + ' 입니다 — 올리지 않습니다');
+    if(TAKEDOWN_ST.indexOf(String(o.status || '')) >= 0){
+      var on = AD_CH.filter(function(c){ return adOn(o, c.key); });
+      if(on.length) r.actions.push({ code:'TAKEDOWN_REQUIRED',
+        why:'게시 중인데 ' + o.status + ' 입니다 — 먼저 내려야 합니다',
+        channels:on.map(function(c){ return c.label; }) });
+    }
+  }
+
+  /* A — 같은 매물 중복광고 */
+  r.checked.push('같은 매물 중복광고');
+  if(o){
+    var same = (DB.listings || []).filter(function(x){
+      if(String(x.id) === String(o.id)) return false;
+      return sq(x.apt) === sq(o.apt) && sq(x.addr2) === sq(o.addr2);
+    });
+    var sameLive = same.filter(adLive);
+    if(sameLive.length){
+      r.blockers.push('같은 건물·같은 호실 매물이 ' + sameLive.length +
+        '건 더 살아 있습니다(' + sameLive.map(function(x){ return x.id; }).join(', ') +
+        ') — 새로 올리면 중복광고가 됩니다');
+      r.actions.push({ code:'REVIEW_REQUIRED', why:'같은 호실 매물을 하나로 합쳐야 합니다' });
+    }
+    /* E — 이미 게시돼 있으면 새로 만들지 않고 고친다 */
+    var posted = AD_CH.filter(function(c){ return adOn(o, c.key); });
+    if(posted.length){
+      var stale = posted.filter(function(c){ return adStale(o, c.key); });
+      var expired = posted.filter(function(c){ return adExpired(o, c.key); });
+      if(stale.length || expired.length){
+        r.actions.push({ code:'UPDATE_REQUIRED',
+          why:'이미 올려 둔 글이 있고 그 뒤 내용이 바뀌었습니다 — 새 글이 아니라 고쳐야 합니다',
+          channels:stale.concat(expired).map(function(c){ return c.label; }) });
+      } else {
+        r.actions.push({ code:'ALREADY_POSTED',
+          why:'이미 올라가 있고 내용도 같습니다 — 다시 올리지 않습니다',
+          channels:posted.map(function(c){ return c.label; }) });
+      }
+      r.blockers.push('이미 게시 중인 채널이 ' + posted.length +
+        '곳 있습니다 — 새 글 대신 고치기/내리기로 갑니다');
+    }
+  }
+
+  /* B·C — 사진 */
+  r.checked.push('사진 중복·유사도 · 다른 호실 차단');
+  var ph = ad.photo || {};
+  if(ph.OTHER_UNIT_REFERENCE > 0 && !ph.EXACT_UNIT){
+    r.blockers.push('🔴 이 호실 사진이 없고 다른 호실 사진만 ' +
+      ph.OTHER_UNIT_REFERENCE + '장 있습니다 — 다른 호실 사진은 쓰지 않습니다');
+  }
+  if(ph.EXACT_UNIT && o){
+    var shared = adPhotoShared().filter(function(x){
+      return x.ids.indexOf(String(o.id)) >= 0; });
+    if(shared.length){
+      r.warns.push('같은 사진 묶음을 매물 ' + shared[0].ids.length +
+        '건이 나눠 쓰고 있습니다(' + shared[0].ids.join(', ') + ') — 같은 사진 반복입니다');
+    }
+  }
+  if(ph.EXACT_UNIT_RAW > 0 && !ph.EXACT_UNIT){
+    r.warns.push('그 호실 원본 ' + ph.EXACT_UNIT_RAW +
+      '장이 있는데 보정완료가 0장입니다 — 촬영이 아니라 보정이 필요합니다');
+  }
+
+  /* F — 무한 재시도 금지 */
+  r.checked.push('무한 재시도 금지');
+  r.retryLimit = AD_TRY_MAX;
+
+  /* G — 제한·오류 감지 (게시 이력 메모에 그런 말이 있으면 멈춘다) */
+  r.checked.push('플랫폼 제한·오류 감지');
+  if(o){
+    var hay = String(o.note || '') + ' ' + String(o.adList || '') + ' ' + String(o.desc || '');
+    var hitStop = AD_STOP_WORDS.filter(function(k){
+      return hay.toLowerCase().indexOf(String(k).toLowerCase()) >= 0; });
+    if(hitStop.length){
+      r.blockers.push('🔴 제한·오류로 보이는 기록이 있습니다(' + hitStop.join(',') +
+        ') — 멈추고 사람이 봅니다');
+      r.actions.push({ code:'STOP', why:'플랫폼 제한·오류 기록' });
+    }
+  }
+
+  /* 결론 */
+  if(r.blockers.length) r.code = 'BLOCKED';
+  else if(r.actions.filter(function(a){ return a.code === 'UPDATE_REQUIRED'; }).length)
+    r.code = 'UPDATE_REQUIRED';
+  else if(r.warns.length) r.code = 'REVIEW_REQUIRED';
+  r.why = r.blockers[0] || (r.actions[0] && r.actions[0].why) || r.warns[0] || '올려도 됩니다';
+  return r;
+}
+
+/* 승인 뒤 줄 세우기 — 🔴 게시하지 않는다. 무엇을 올릴지 적어 두기만 한다. */
+function adPostQueue(evs){
+  var out = [];
+  (evs || []).forEach(function(ev){
+    var ad = ev.ad || intakeAd(ev);
+    if(ad.code !== 'AD_READY_PREVIEW' && ad.code !== 'AD_READY') return;
+    var sf = adSafety(ev);
+    if(sf.code === 'BLOCKED') return;
+    var cp = adCopyPrep(ev);
+    if(!cp.ok) return;
+    out.push({ eventId:ev.eventId, listingId:ev.listingId,
+               building:ev.building, unit:ev.unit,
+               state:(ev.approvalStatus === 'APPROVED') ? 'QUEUED' : 'WAIT_APPROVAL',
+               safety:sf.code, action:(sf.actions[0] || {}).code || 'NEW',
+               channels:cp.drafts.map(function(d){ return d.ch; }),
+               note:'🔴 실제 게시는 하지 않습니다 — 대표님이 채널에서 직접 올린 뒤 [게시 확인] 을 누릅니다' });
+  });
+  return out;
+}
+
+/* ── 매물 한 건을 접수후보와 같은 꼴로 — 광고준비를 매물장 전체에 물어본다 ──
+   🔴 인입 문자가 없어도 광고준비를 계산한다. 문자가 있으면 최신상태도 함께 본다. */
+function listingEvent(o){
+  var jb = (String(o.addr || '').match(/(\d{1,5}-\d{1,4})/) || [])[1] || '';
+  var row = { row:'L:' + o.id, when:String(o.updatedAt || o.recvDate || todayStr()),
+              kind:'매물장', name:String(o.apt || ''), phone:'',
+              bld:String(o.apt || ''), text:String(o.addr || ''), reg:'' };
+  var ev = {
+    eventId:'LISTING:' + o.id, source:'LISTING',
+    receivedAt:String(o.updatedAt || o.recvDate || ''), sender:'',
+    rawText:'(매물장) ' + String(o.apt || '') + ' ' + String(o.addr2 || ''),
+    building:String(o.apt || ''), address:String(o.addr || ''), jibun:jb,
+    unit:String(o.addr2 || ''), unitCands:null,
+    dealType:'', deposit:'', rent:'', yearlyRent:'', maintenance:'',
+    area:'', roomCount:'', bathCount:'', floor:'', totalFloor:'',
+    moveInDate:'', kind:'', statusHint:'UNKNOWN', photoRefs:[],
+    landlordId:'', listingId:String(o.id),
+    parseConfidence:0, matchConfidence:100, matchHow:'매물장 직접',
+    reviewReason:'', approvalStatus:'PENDING',
+    _ai:{ unit:String(o.addr2 || '') },
+    _bm:{ bldg:o.apt, addr:o.addr, jibun:jb, listings:[o], landlords:[], how:['매물장'] },
+    _row:row,
+    _match:{ code:'MATCH', listingId:String(o.id), confidence:100,
+             how:'매물장 직접', why:'', hits:[o] }
+  };
+  /* 그 호실을 말한 문자가 있으면 최신상태를 읽는다 */
+  var rows = intakeSameUnitRows(ev);
+  if(ev.unit) ev.statusHint = statusHintOf(rows, ev.unit).code;
+  if(ev.statusHint === 'UNKNOWN' && LST_TRADABLE.indexOf(String(o.status || '')) >= 0)
+    ev.statusHint = 'AVAILABLE';
+  var ld = (DB.landlords || []).filter(function(l){
+    return sq(l.apt) && sq(l.apt) === sq(o.apt); })[0];
+  if(ld){ ev._bm.landlords = [ld]; ev.landlordId = String(ld.id || ''); }
+  return ev;
+}
+/* 매물장 전체의 광고준비 — 🔴 게시하지 않는다. 왜 안 되는지까지 말한다. */
+function listingAdAll(){
+  var out = [];
+  (DB.listings || []).forEach(function(o){
+    var ev = listingEvent(o);
+    ev.ad = intakeAd(ev);
+    ev.safety = adSafety(ev);
+    ev.todo = intakeTodo(ev);
+    out.push({ ev:ev, o:o });
+  });
+  return out;
 }
 
 /* ── 인입함 전체를 접수후보로 — 화면이 아니라 값만 돌려준다 ───────── */
