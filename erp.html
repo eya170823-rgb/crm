@@ -210,7 +210,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.9.4';
+var ERP_VER = '1.10.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -356,6 +356,22 @@ async function loadAll(force){
 }
 /* 🔴 GAS 는 연달아 부르면 자주 한 번 실패한다(이 프로젝트의 오래된 문제).
    한 번 더 시도해 보고, 그래도 안 되면 그때 실패로 적는다. */
+/* 🔴 GAS 응답 실측 — 몇 번째 시도에 성공했는지·얼마나 걸렸는지만 창에 남긴다.
+   대표 화면을 막는 구조인지 판단하려면 추측이 아니라 이 수치가 필요하다(3단계 ⑬). */
+var GAS_STAT = { calls:[], n:0, fail:0, try4:0, try5:0, msSum:0, msMax:0 };
+function gasStat(q, tries, ms, ok, err){
+  try{
+    var what = String((q && (q.type || q.action)) || '');
+    GAS_STAT.n++;
+    if(!ok) GAS_STAT.fail++;
+    if(tries >= 4) GAS_STAT.try4++;
+    if(tries >= 5) GAS_STAT.try5++;
+    GAS_STAT.msSum += ms;
+    if(ms > GAS_STAT.msMax) GAS_STAT.msMax = ms;
+    if(GAS_STAT.calls.length < 60)
+      GAS_STAT.calls.push({ what:what, tries:tries, ms:ms, ok:!!ok, err:err || '' });
+  }catch(e){}
+}
 async function jgetTry(q, n){
   var last;
   /* 🔴 **다섯 번**까지 물어본다 (2026-09-12 실측으로 세 번 → 다섯 번).
@@ -366,15 +382,21 @@ async function jgetTry(q, n){
      대표님 화면에서도 같은 값이 쓰인다(쉬었다 처음 여는 때가 가장 잘 죽는다). */
   var WAIT = [1500, 4000, 8000, 15000, 25000];
   var tries = n || 5;
+  var t0 = Date.now();
   for(var i = 0; i < tries; i++){
-    try{ return await jget(q); }
+    try{
+      var res = await jget(q);
+      gasStat(q, i + 1, Date.now() - t0, true, '');
+      return res;
+    }
     catch(e){
       last = e;
-      if(String(e && e.message || '') === 'NOKEY') throw e;   /* 토큰 없음은 다시 해도 같다 */
+      if(String(e && e.message || '') === 'NOKEY'){ gasStat(q, i + 1, Date.now() - t0, false, 'NOKEY'); throw e; }
       if(i + 1 >= tries) break;
       await new Promise(function(r){ setTimeout(r, WAIT[i] || 25000); });
     }
   }
+  gasStat(q, tries, Date.now() - t0, false, String(last && last.message || last).slice(0, 60));
   throw last;
 }
 function loadErrWord(e){
@@ -4606,6 +4628,637 @@ function cuWhyNone(c){
   return '조건에 맞는 매물이 없습니다 — 조건을 넓히거나 매물을 더 확보해야 합니다.';
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   3단계 — 문의 → 즉시매칭 → 미팅 → 클로징 (2026-09-12)
+   🔴 읽기만 한다: 고객을 만들지 않고 · 문자를 보내지 않고 · 계약을 만들지 않는다.
+   🔴 새 화면·새 메뉴를 만들지 않는다 — 홈 ① 고객 칸과 고객 화면에 붙는다.
+   재사용: srcOf · phAll/phKey/phHas/phMask · maskSecret · sq · todayStr/ctDaysTo ·
+           cuNum/cuCost/cuRegions/cuIsBiz/cuBlocked · adLive · unitSpans
+   유입 경로(실측 2026-09-12): 문자 849+32+17 · 통화녹음 120 · 부재중 26 · 전화수신 10 ·
+     MMS 3 · 메모 1. 당근·직방·다방·네이버에서 **직접 들어오는 경로는 없다** —
+     플랫폼 문의도 전화·문자로 온다(그래서 이 한 곳만 보면 된다).
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 광고·시스템 문자 — 손님 문의가 아니다 */
+/* ARS·기관 안내 멘트 — 사람이 한 문의가 아니다(실측: 병원 안내가 문의로 세어졌다) */
+var INQ_ARS = ['번을 눌러', '번을 눌러주', '눌러 주세요', '눌러주세요', '상담원', '진료비',
+               '진료 예약', '건강검진', '안내입니다', '자동응답', 'ARS', '연결해 드리겠습니다'];
+var INQ_AD = ['[Web발신]', '[국외발신]', '광고', '수신거부', '인증번호', '승인번호', '결제',
+              '고객센터', '이벤트', '무료체험', '할인행사', '스팸', '카드', '은행', '보험',
+              '대출', '당첨', '구독', '요금', '납부', '과세'];
+/* 업체 영업전화 — 손님이 아니다(실측: 직방·다방 영업전화가 들어와 있다) */
+var INQ_BIZ = ['직방', '다방', '제휴', '광고주', '매니저인데', '부동산 서브', '영업팀',
+               '무료체험', '가입해', '상담원'];
+/* 손님이 무언가를 원한다는 말 */
+var INQ_WANT = ['방', '룸', '매물', '월세', '연세', '전세', '보증금', '공실', '문의', '입주',
+                '보러', '보고싶', '보고 싶', '구하', '알아보', '얼마', '가능', '방문', '계약',
+                '이사', '들어가', '살고', '구경'];
+
+/* ── 번호가 누구인지 — 한 번만 만든다(성능 수정과 같은 이유) ────── */
+var INQ_PS = null;
+function inqPhoneSets(){
+  var nL = (DB.landlords || []).length, nS = (DB.listings || []).length,
+      nC = (DB.customers || []).length;
+  if(INQ_PS && INQ_PS.nL === nL && INQ_PS.nS === nS && INQ_PS.nC === nC) return INQ_PS;
+  var ld = {}, ls = {}, cu = {};
+  (DB.landlords || []).forEach(function(l){
+    phAll(l.phone).forEach(function(d){ var k = phKey(d); if(k) ld[k] = l; }); });
+  (DB.listings || []).forEach(function(o){
+    phAll(o.cphone).forEach(function(d){ var k = phKey(d); if(k) ls[k] = o; }); });
+  (DB.customers || []).forEach(function(c){
+    phAll(c.phone).forEach(function(d){ var k = phKey(d); if(k) cu[k] = c; }); });
+  INQ_PS = { nL:nL, nS:nS, nC:nC, ld:ld, ls:ls, cu:cu };
+  return INQ_PS;
+}
+function inqWho(phone){
+  var ps = inqPhoneSets(), k = phKey(phone);
+  if(!k) return { code:'NOPHONE', hit:null };
+  if(ps.cu[k]) return { code:'CUSTOMER', hit:ps.cu[k] };
+  if(ps.ld[k]) return { code:'LANDLORD', hit:ps.ld[k] };
+  if(ps.ls[k]) return { code:'LISTING', hit:ps.ls[k] };
+  return { code:'UNKNOWN', hit:null };
+}
+function inqHas(t, arr){
+  var s = String(t || '');
+  for(var i = 0; i < arr.length; i++) if(s.indexOf(arr[i]) >= 0) return arr[i];
+  return '';
+}
+/* 손님 문의인가 — 아니면 왜 아닌지 말한다 */
+function inqIsInquiry(r){
+  var t = String(r.text || '');
+  if(isTestRow(t)) return { ok:false, why:'시험으로 넣은 줄' };
+  if(!t.trim()) return { ok:false, why:'글이 비어 있음' };
+  var ad = inqHas(t, INQ_AD);
+  if(ad) return { ok:false, why:'광고·시스템 문자(“' + ad + '”)' };
+  var ars = inqHas(t, INQ_ARS);
+  if(ars) return { ok:false, why:'기관·ARS 안내 멘트(“' + ars + '”)' };
+  var biz = inqHas(t, INQ_BIZ);
+  var who = inqWho(r.phone);
+  var want = inqHas(t, INQ_WANT);
+  var src = srcOf(r.kind, t);
+  /* 부재중·전화수신은 글이 없어도 문의일 수 있다 */
+  if(!want && src !== '부재중전화') return { ok:false, why:'문의로 볼 말이 없음' };
+  if(who.code === 'LANDLORD') return { ok:false, why:'임대인 번호', who:who };
+  if(who.code === 'LISTING') return { ok:false, why:'매물 연락처', who:who };
+  if(biz) return { ok:true, why:'업체 영업전화로 보입니다(“' + biz + '”) — 검토 필요',
+                   review:true, who:who };
+  return { ok:true, why:'', who:who };
+}
+
+/* ── §3 문의 공통 이벤트 — 🔴 글에 적힌 것만 읽는다(지어내지 않는다) ── */
+function inqNumOf(s){ var d = String(s || '').replace(/[^0-9.]/g, ''); return d ? Number(d) : 0; }
+/* 🔴 지역 이름은 **우리 자료에 실제로 있는 동·리 이름**만 인정한다.
+   종전에는 '동|리|읍|면' 으로 끝나는 말을 다 지역으로 봐서 통화 글의 어미까지
+   지역으로 잡았다(실측: '그러면'·'했으면' 이 지역으로 떴다). */
+var INQ_REG = null;
+function inqRegionSet(){
+  var nS = (DB.listings || []).length, nL = (DB.landlords || []).length;
+  if(INQ_REG && INQ_REG.nS === nS && INQ_REG.nL === nL) return INQ_REG.list;
+  var m = {};
+  function eat(v){
+    var d = String(v || '').match(/[가-힣]{2,6}(?:동|리|읍|면)/g);
+    if(d) d.forEach(function(x){ m[x] = 1; });
+  }
+  (DB.listings || []).forEach(function(l){ eat(l.addr); });
+  (DB.landlords || []).forEach(function(l){ eat(l.addr); });
+  var list = Object.keys(m).sort(function(a, b){ return b.length - a.length; });
+  INQ_REG = { nS:nS, nL:nL, list:list };
+  return list;
+}
+function inqParse(t){
+  var s = String(t || '');
+  var o = { desiredRegion:'', propertyType:'', dealType:'', depositBudget:'', rentBudget:'',
+            moveInDate:'', roomCount:'', parking:'', pet:'', options:[], mustHave:[], avoid:[],
+            mentionedBuilding:'', mentionedUnit:'', visitWish:'', callWish:'', read:[] };
+  /* 지역 — 🔴 우리 자료에 있는 동 이름만 (어미 오탐 방지) */
+  var regs = inqRegionSet(), keep = [];
+  for(var ri = 0; ri < regs.length; ri++){
+    if(s.indexOf(regs[ri]) >= 0 && keep.indexOf(regs[ri]) < 0) keep.push(regs[ri]);
+    if(keep.length >= 3) break;
+  }
+  if(keep.length){ o.desiredRegion = keep.join(' '); o.read.push('지역'); }
+  /* 거래유형 */
+  if(/매매|매수|사고\s*싶/.test(s)){ o.dealType = '매매'; o.read.push('거래유형'); }
+  else if(/전세/.test(s)){ o.dealType = '전세'; o.read.push('거래유형'); }
+  else if(/연세/.test(s)){ o.dealType = '연세'; o.read.push('거래유형'); }
+  else if(/월세/.test(s)){ o.dealType = '월세'; o.read.push('거래유형'); }
+  /* 종류·구조 */
+  if(/오픈형\s*원룸/.test(s)) o.propertyType = '오픈형 원룸';
+  else if(/분리형\s*원룸/.test(s)) o.propertyType = '분리형 원룸';
+  else if(/1\.5\s*룸/.test(s)) o.propertyType = '1.5룸';
+  else if(/투룸|two\s*room|2\s*룸/i.test(s)) o.propertyType = '투룸';
+  else if(/쓰리룸|3\s*룸|세\s*방/.test(s)) o.propertyType = '쓰리룸';
+  else if(/원룸/.test(s)) o.propertyType = '원룸';
+  else if(/아파트/.test(s)) o.propertyType = '아파트';
+  else if(/오피스텔/.test(s)) o.propertyType = '오피스텔';
+  else if(/상가|사무실|점포/.test(s)) o.propertyType = '상가';
+  if(o.propertyType) o.read.push('종류');
+  /* 방 수 — "방 2개" · "투룸" 에서만 */
+  var rm = s.match(/방\s*(\d)\s*(?:개|칸)?/);
+  if(rm){ o.roomCount = rm[1]; o.read.push('방 수'); }
+  else if(o.propertyType === '투룸'){ o.roomCount = '2'; o.read.push('방 수(투룸)'); }
+  else if(o.propertyType === '쓰리룸'){ o.roomCount = '3'; o.read.push('방 수(쓰리룸)'); }
+  else if(o.propertyType === '원룸' || o.propertyType === '오픈형 원룸'){
+    o.roomCount = '1'; o.read.push('방 수(원룸)'); }
+  /* 예산 — "300/50" · "보증금 300" · "월세 50" · "50에 300" */
+  var sl = s.match(/(?:^|[^0-9])(\d{2,5})\s*\/\s*(\d{2,5})(?:[^0-9]|$)/);
+  if(sl){ o.depositBudget = sl[1]; o.rentBudget = sl[2]; o.read.push('예산(보증금/월세)'); }
+  if(!o.depositBudget){
+    var d1 = s.match(/보증금\s*(\d{2,5})/);
+    if(d1){ o.depositBudget = d1[1]; o.read.push('예산 보증금'); }
+  }
+  if(!o.rentBudget){
+    var r1 = s.match(/(?:월세|월|임대료)\s*(\d{2,5})/);
+    if(r1){ o.rentBudget = r1[1]; o.read.push('예산 월세'); }
+  }
+  if(!o.depositBudget && !o.rentBudget){
+    var man = s.match(/(\d{2,5})\s*만\s*(?:원)?\s*(?:정도|이하|까지|안|내)/);
+    if(man){ o.rentBudget = man[1]; o.read.push('예산(대략)'); }
+  }
+  /* 입주일 */
+  var mv = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if(/즉시|바로|당장|이번\s*주/.test(s)){ o.moveInDate = '즉시'; o.read.push('입주일'); }
+  else if(mv){ o.moveInDate = mv[1] + '월 ' + mv[2] + '일'; o.read.push('입주일'); }
+  else if(/다음\s*달|내달/.test(s)){ o.moveInDate = '다음 달'; o.read.push('입주일'); }
+  /* 꼭 있어야 하는 것 / 피하고 싶은 것 */
+  if(/주차/.test(s)){
+    if(/주차\s*(?:안|불|없)/.test(s)) o.avoid.push('주차 없는 곳');
+    else { o.parking = '필요'; o.mustHave.push('주차'); }
+    o.read.push('주차');
+  }
+  if(/반려|강아지|고양이|애견|펫/.test(s)){
+    if(/반려\s*(?:안|불|금지)/.test(s)) o.avoid.push('반려 불가');
+    else { o.pet = '있음'; o.mustHave.push('반려동물 가능'); }
+    o.read.push('반려동물');
+  }
+  if(/엘리베이터|엘베/.test(s)){ o.mustHave.push('엘리베이터'); o.read.push('엘리베이터'); }
+  if(/풀옵션|옵션/.test(s)){ o.options.push('풀옵션'); o.read.push('옵션'); }
+  if(/1층|일층/.test(s)) o.mustHave.push('1층');
+  if(/고층/.test(s)) o.mustHave.push('고층');
+  if(/반지하|지하/.test(s)) o.avoid.push('반지하');
+  /* 특정 매물 이야기 — 건물 이름·호실이 매물장에 있으면 집는다 */
+  var uu = unitSpans(s);
+  if(uu.length === 1) o.mentionedUnit = uu[0].u;
+  (DB.listings || []).forEach(function(l){
+    if(o.mentionedBuilding) return;
+    var nm = String(l.apt || '').trim();
+    if(nm.length >= 3 && s.indexOf(nm) >= 0) o.mentionedBuilding = nm;
+  });
+  /* 방문·전화 의사 */
+  if(/오늘|지금|당장/.test(s) && /방문|보러|볼\s*수|보고/.test(s)) o.visitWish = '오늘';
+  else if(/내일/.test(s) && /방문|보러|볼\s*수|보고/.test(s)) o.visitWish = '내일';
+  else if(/방문|보러|볼\s*수|보고\s*싶|구경/.test(s)) o.visitWish = '희망';
+  if(/전화\s*(?:주|부탁|해\s*주)|통화\s*(?:가능|부탁)|연락\s*(?:주|부탁)/.test(s)) o.callWish = '전화 요청';
+  return o;
+}
+/* 인입 한 줄 → 문의 이벤트 */
+function inquiryEvent(r){
+  var t = String(r.text || '');
+  var src = srcOf(r.kind, t);
+  var chk = inqIsInquiry(r);
+  var p = inqParse(t);
+  var who = chk.who || inqWho(r.phone);
+  var mid = '';
+  if(p.mentionedBuilding || p.mentionedUnit){
+    (DB.listings || []).forEach(function(l){
+      if(mid) return;
+      var okB = !p.mentionedBuilding || sq(l.apt) === sq(p.mentionedBuilding);
+      var okU = !p.mentionedUnit || sq(l.addr2) === sq(p.mentionedUnit);
+      /* 🔴 호실만 같아서는 붙이지 않는다 — 건물 이름이 함께 있어야 한다 */
+      if(p.mentionedBuilding && okB && okU) mid = String(l.id);
+    });
+  }
+  return {
+    eventId:'INQ:' + String(r.row || '') + ':' + String(r.when || ''),
+    source:src, receivedAt:String(r.when || ''),
+    customer:String(r.name || ''), phone:String(r.phone || ''),
+    desiredRegion:p.desiredRegion, propertyType:p.propertyType, dealType:p.dealType,
+    depositBudget:p.depositBudget, rentBudget:p.rentBudget, moveInDate:p.moveInDate,
+    roomCount:p.roomCount, parking:p.parking, pet:p.pet, options:p.options,
+    mustHave:p.mustHave, avoid:p.avoid, mentionedListingId:mid,
+    mentionedListing:(function(){
+      if(!mid) return null;
+      var l = (DB.listings || []).filter(function(x){ return String(x.id) === mid; })[0];
+      if(!l) return null;
+      return { id:String(l.id), apt:String(l.apt || ''), unit:String(l.addr2 || ''),
+               status:String(l.status || ''), live:(adLive(l) && String(l.status || '') === '접수') };
+    })(),
+    rawText:t,
+    _p:p, _row:r, _who:who, _chk:chk,
+    isInquiry:!!chk.ok, review:!!chk.review, why:chk.why
+  };
+}
+/* 인입함에서 문의만 — 🔴 인입함을 한 번만 훑는다 */
+var INQ_ALL = null;
+function inqAll(limit){
+  var rows = DB.inbox || [];
+  if(!INQ_ALL || INQ_ALL.n !== rows.length){
+    var out = [], seen = {};
+    rows.forEach(function(r){
+      var ev = inquiryEvent(r);
+      if(!ev.isInquiry) return;
+      /* '문자수신' 과 '문자수신(백업)' 이 같은 것을 두 줄로 넣는다 — 하나로 본다 */
+      var k = String(ev.receivedAt).slice(0, 16) + '|' + sq(ev.rawText).slice(0, 40);
+      if(seen[k]) return;
+      seen[k] = 1;
+      out.push(ev);
+    });
+    out.sort(function(a, b){ return String(b.receivedAt).localeCompare(String(a.receivedAt)); });
+    INQ_ALL = { n:rows.length, out:out };
+  }
+  return limit ? INQ_ALL.out.slice(0, limit) : INQ_ALL.out;
+}
+
+/* ── §4 기존 고객 우선 연결 — 🔴 고객을 새로 만들지 않는다 ────────── */
+function inqLink(ev){
+  var who = ev._who || inqWho(ev.phone);
+  if(who.code === 'CUSTOMER'){
+    var c = who.hit;
+    var st = String(c.progressStatus || '').trim();
+    if(cuBlocked(c))
+      return { code:'BLOCKED', c:c, why:'이 고객은 연락금지로 적혀 있습니다 — 먼저 사유 확인' };
+    if(st === '종료'){
+      var intent = reopenIntent(ev.source, ev.rawText);
+      return { code:'REOPEN_REVIEW', c:c,
+               why:'종료된 고객인데 새 연락이 왔습니다' + (intent ? (' — ' + intent) : '') +
+                   ' · 🔴 자동으로 다시 열지 않습니다([다시 상담 시작] 을 눌러야 바뀝니다)' };
+    }
+    return { code:'EXISTING_ACTIVE', c:c,
+             why:'이미 상담 중인 고객입니다(진행상태 ' + (st || '빈칸') + ') — 새로 만들지 않습니다' };
+  }
+  if(who.code === 'NOPHONE')
+    return { code:'REVIEW', c:null, why:'번호가 없어 고객을 찾을 수 없습니다' };
+  return { code:'NEW_CANDIDATE', c:null,
+           why:'처음 보는 번호입니다 — 🔴 대표님이 [고객 등록] 을 누르기 전에는 만들지 않습니다' };
+}
+
+/* ── §5 즉시 매칭 — 🔴 조건 미지정은 가산점이 아니라 중립(분모에서 뺀다) ──
+   기존 cuMatch 의 원칙을 그대로 쓰고, 3단계가 요구한 축(구조·입주일·필수조건)을 더했다. */
+function inqNeed(ev, c){
+  /* 이번 문의에 적힌 것이 먼저, 빈 칸은 연결된 고객의 저장 조건으로 메운다 */
+  var n = { region:ev.desiredRegion, kind:ev.propertyType, type:ev.dealType,
+            dep:inqNumOf(ev.depositBudget), rent:inqNumOf(ev.rentBudget),
+            move:ev.moveInDate, rooms:ev.roomCount,
+            must:(ev.mustHave || []).slice(), avoid:(ev.avoid || []).slice(),
+            from:[] };
+  if(ev.desiredRegion) n.from.push('이번 문의: 지역');
+  if(ev.propertyType) n.from.push('이번 문의: 종류');
+  if(ev.dealType) n.from.push('이번 문의: 거래유형');
+  if(n.dep || n.rent) n.from.push('이번 문의: 예산');
+  if(ev.moveInDate) n.from.push('이번 문의: 입주일');
+  if(c){
+    if(!n.region && String(c.region || '').trim()){ n.region = c.region; n.from.push('고객 저장값: 지역'); }
+    if(!n.kind && String(c.propType || '').trim()){ n.kind = c.propType; n.from.push('고객 저장값: 종류'); }
+    if(!n.type && String(c.type || '').trim()){ n.type = c.type; n.from.push('고객 저장값: 거래유형'); }
+    if(!n.dep && !n.rent && cuNum(c.budget)){ n.dep = cuNum(c.budget); n.from.push('고객 저장값: 예산'); }
+  }
+  n.specs = 0;
+  if(n.region) n.specs++;
+  if(n.kind) n.specs++;
+  if(n.type) n.specs++;
+  if(n.dep || n.rent) n.specs++;
+  if(n.move) n.specs++;
+  if(n.rooms) n.specs++;
+  if(n.must.length) n.specs++;
+  return n;
+}
+function inqYes(v){ var s = String(v || ''); return /가능|있|예|ㅇ|완비|무료/.test(s) && !/불가|없|안\s*됨/.test(s); }
+function inqNo(v){ var s = String(v || ''); return /불가|없|안\s*됨|금지/.test(s); }
+/* 입주일 비교 — 매물 availDate 와 손님 희망을 견준다(모르면 중립에 가깝게) */
+function inqMoveFit(l, want){
+  var w = String(want || '');
+  if(!w) return { pts:1, why:'' };                       /* 안 적었으면 분모에서 빠진다 */
+  var av = String(l.availDate || l.moveDate || '').trim();
+  if(!av) return { pts:0.5, why:'입주 가능일이 매물에 비어 있습니다 — 임대인 확인 필요' };
+  if(/즉시/.test(av)) return { pts:1, why:'즉시 입주 가능' };
+  if(/즉시/.test(w)) return { pts:0.6, why:'손님은 즉시 · 매물은 ' + av };
+  return { pts:0.8, why:'입주 ' + av + ' (손님 희망 ' + w + ')' };
+}
+function inqMatch(need){
+  if(!need || !need.specs) return [];
+  var W = { region:25, kind:20, type:15, money:25, rooms:10, move:10, must:15 };
+  return (DB.listings || []).map(function(l){
+    /* ── 하드 필터 ── */
+    if(!adLive(l)) return null;
+    if(String(l.status || '') !== '접수') return null;
+    if(need.type){
+      var same = (String(l.type || '') === need.type);
+      var both = cuRentish(need.type) && cuRentish(l.type);
+      if(!same && !both) return null;                       /* 매매↔임대 교차 금지 */
+    }
+    if(!cuIsBiz(need.kind) && cuIsBiz(l.kind)) return null;  /* 주거 손님에게 상가 금지 */
+    if(need.kind){
+      var lk = String(l.kind || '');
+      var kOk = lk.indexOf(need.kind) >= 0;
+      if(!kOk && need.kind === '원룸') kOk = /원룸|오피스텔/.test(lk);
+      if(!kOk && need.kind === '투룸') kOk = /투룸|빌라|주택|1\.5/.test(lk);
+      if(!kOk) return null;
+    }
+    if(need.region){
+      var regs = String(need.region).split(/[,\/\s]+/).filter(function(x){ return x.length >= 2; });
+      var addr = String(l.addr || '') + ' ' + String(l.apt || '') + ' ' + String(l.addr2 || '');
+      if(regs.length && !regs.some(function(r){ return addr.indexOf(r) >= 0; })) return null;
+    }
+    /* 🔴 예산 초과는 상위로 올리지 않는다 — 20% 넘으면 제외 */
+    var dep = cuNum(l.price), rent = cuNum(l.rentAmt);
+    if(need.dep && dep && dep > need.dep * 1.2) return null;
+    if(need.rent && rent && rent > need.rent * 1.2) return null;
+    /* 필수조건이 매물에 "불가" 로 적혀 있으면 제외 */
+    var must = need.must || [];
+    for(var i = 0; i < must.length; i++){
+      if(must[i] === '주차' && inqNo(l.parking)) return null;
+      if(must[i] === '반려동물 가능' && inqNo(l.pets)) return null;
+      if(must[i] === '엘리베이터' && inqNo(l.elevator)) return null;
+    }
+    /* ── 점수: 손님이 말한 조건만 분모에 넣는다 ── */
+    var got = 0, max = 0, why = [], ask = [];
+    if(need.region){ max += W.region; got += W.region; why.push('지역 ' + need.region + ' 맞음'); }
+    if(need.kind){ max += W.kind; got += W.kind; why.push('종류 ' + need.kind); }
+    if(need.type){
+      max += W.type;
+      got += (String(l.type || '') === need.type) ? W.type : Math.round(W.type * 0.6);
+      why.push('거래 ' + (l.type || '?'));
+    }
+    if(need.dep || need.rent){
+      max += W.money;
+      var okD = !need.dep || !dep || dep <= need.dep;
+      var okR = !need.rent || !rent || rent <= need.rent;
+      if(!dep && !rent){ got += W.money * 0.25; ask.push('가격이 매물에 비어 있습니다'); }
+      else if(okD && okR){ got += W.money; why.push('예산 안 (' + dep + '/' + rent + ')'); }
+      else { got += W.money * 0.5; why.push('예산보다 조금 비쌈 (' + dep + '/' + rent + ')'); }
+    }
+    if(need.rooms){
+      max += W.rooms;
+      var lr = cuNum(l.rooms);
+      if(!lr){ got += W.rooms * 0.3; ask.push('방 수가 매물에 비어 있습니다'); }
+      else if(lr >= cuNum(need.rooms)){ got += W.rooms; why.push('방 ' + lr + '개'); }
+      else { got += W.rooms * 0.3; why.push('방 ' + lr + '개(희망 ' + need.rooms + ')'); }
+    }
+    if(need.move){
+      max += W.move;
+      var mf = inqMoveFit(l, need.move);
+      got += W.move * mf.pts;
+      if(mf.why) (mf.pts >= 0.8 ? why : ask).push(mf.why);
+    }
+    if(must.length){
+      max += W.must;
+      var hit = 0;
+      must.forEach(function(m){
+        if(m === '주차' && inqYes(l.parking)){ hit++; why.push('주차 ' + l.parking); return; }
+        if(m === '반려동물 가능' && inqYes(l.pets)){ hit++; why.push('반려 ' + l.pets); return; }
+        if(m === '엘리베이터' && inqYes(l.elevator)){ hit++; why.push('엘리베이터 있음'); return; }
+        ask.push(m + ' 여부가 매물에 비어 있습니다');
+      });
+      got += W.must * (must.length ? (hit / must.length) : 0);
+    }
+    return { l:l, pct:Math.round(got * 100 / max), why:why, ask:ask,
+             cost:cuCost(l) };
+  }).filter(Boolean).sort(function(a, b){
+    if(b.pct !== a.pct) return b.pct - a.pct;
+    return a.cost - b.cost;                                  /* 같은 점수면 싼 것 먼저 */
+  });
+}
+function inqTop3(ev, c){
+  var need = inqNeed(ev, c || null);
+  var all = inqMatch(need);
+  /* 🔴 손님이 짚은 그 매물은 맨 앞에 둔다(거래가능일 때만). 점수와 무관하게 그것을 물었다. */
+  var ml = ev.mentionedListing;
+  if(ml && ml.live){
+    all = all.filter(function(x){ return String(x.l.id) !== ml.id; });
+    var lo = (DB.listings || []).filter(function(x){ return String(x.id) === ml.id; })[0];
+    if(lo) all.unshift({ l:lo, pct:100, why:['손님이 이 방을 직접 물었습니다'], ask:[],
+                         cost:cuCost(lo) });
+  }
+  return { need:need, top:all.slice(0, 3), n:all.length,
+           why:all.length ? '' : (need.specs
+             ? '조건에 맞는 거래가능 매물이 없습니다'
+             : '조건이 한 칸도 없어 추천하지 않습니다 — 무엇을 원하시는지 먼저 물어야 합니다') };
+}
+
+/* ── §7 문의 우선순위 — 🔴 실제로 적힌 것만 근거로 쓴다 ────────── */
+function inqHeat(ev, lk, mt){
+  var why = [], code = 'LOW';
+  var p = ev._p || {};
+  if(ev.review){ return { code:'REVIEW', why:['업체 영업전화로 보입니다 — ' + ev.why] }; }
+  if(lk && lk.code === 'BLOCKED') return { code:'REVIEW', why:['연락금지 고객'] };
+  if(p.visitWish === '오늘' || p.visitWish === '내일'){ code = 'HOT'; why.push(p.visitWish + ' 방문을 원합니다'); }
+  if(p.callWish){ if(code !== 'HOT') code = 'HOT'; why.push('전화를 달라고 했습니다'); }
+  if(ev.mentionedListingId){ if(code !== 'HOT') code = 'HOT'; why.push('특정 매물을 짚어 물었습니다'); }
+  if(String(p.moveInDate || '') === '즉시'){ if(code !== 'HOT') code = 'HOT'; why.push('즉시 입주를 원합니다'); }
+  if(code !== 'HOT'){
+    var sp = (mt && mt.need) ? mt.need.specs : 0;
+    if(sp >= 2 && mt && mt.top && mt.top.length){ code = 'WARM';
+      why.push('조건이 ' + sp + '가지 있고 보여 줄 매물이 ' + mt.top.length + '건 있습니다'); }
+    else if(lk && lk.code === 'REOPEN_REVIEW'){ code = 'FOLLOW_UP'; why.push('종료 고객의 새 연락'); }
+    else if(sp >= 1){ code = 'FOLLOW_UP'; why.push('조건이 ' + sp + '가지뿐입니다'); }
+    else { code = 'LOW'; why.push('조건이 없습니다 — 무엇을 원하는지 물어야 합니다'); }
+  }
+  if(lk && lk.code === 'REOPEN_REVIEW' && code === 'HOT') why.push('종료 고객이라 재오픈 검토가 함께 필요합니다');
+  return { code:code, why:why };
+}
+
+/* ── §6 응답 준비 — 🔴 초안만 만든다. 보내지 않는다 ───────────── */
+function inqAskList(ev, mt){
+  var q = [], p = ev._p || {}, n = (mt && mt.need) || {};
+  if(!n.region) q.push('어느 동네를 보고 계신가요?');
+  if(!n.kind) q.push('원룸·투룸 중 어느 쪽을 찾으시나요?');
+  if(!n.dep && !n.rent) q.push('보증금·월세는 어느 정도로 보고 계신가요?');
+  if(!n.move) q.push('언제 입주를 원하시나요?');
+  if(!p.parking && !(n.must || []).length) q.push('주차·반려동물 같이 꼭 필요한 것이 있나요?');
+  (mt && mt.top || []).forEach(function(x){
+    (x.ask || []).forEach(function(a){
+      var s = x.l.apt + ' ' + x.l.addr2 + ' — ' + a;
+      if(q.indexOf(s) < 0) q.push(s);
+    });
+  });
+  return q;
+}
+function inqDraft(ev, lk, mt, heat){
+  var LF = String.fromCharCode(10);
+  var name = String(ev.customer || '').trim();
+  var head = (name ? (name + '님, ') : '') + '안녕하세요, 브리즈부동산중개입니다.';
+  var body = [head];
+  /* 🔴 짚어 물은 방이 이미 나갔으면 그것부터 사실대로 말한다 */
+  var ml2 = ev.mentionedListing;
+  if(ml2 && !ml2.live)
+    body.push(ml2.apt + ' ' + ml2.unit + ' 는 현재 ' + (ml2.status || '거래 마감') +
+              ' 상태입니다. 비슷한 조건으로 대신 보실 방을 정리했습니다.');
+  if(mt && mt.top && mt.top.length){
+    body.push('문의 주신 조건으로 지금 보실 수 있는 방을 정리했습니다.');
+    mt.top.forEach(function(x, i){
+      var l = x.l;
+      var line = (i + 1) + ') ' + String(l.apt || '') + ' ' + String(l.addr2 || '') + ' · ' +
+        String(l.type || '') + ' ' + cuNum(l.price) + (cuNum(l.rentAmt) ? ('/' + cuNum(l.rentAmt)) : '') +
+        (cuNum(l.area) ? (' · ' + cuNum(l.area) + '㎡') : '') +
+        (String(l.floor || '') ? (' · ' + l.floor) : '');
+      body.push(line);
+    });
+  } else {
+    body.push('조건을 조금만 더 알려 주시면 맞는 방을 골라 보여 드리겠습니다.');
+  }
+  var ask = inqAskList(ev, mt);
+  if(ask.length) body.push('확인 부탁드립니다: ' + ask.slice(0, 2).join(' / '));
+  body.push('편하신 시간 알려 주시면 방 보시게 준비해 두겠습니다.');
+  return body.join(LF);
+}
+function inqPrep(ev){
+  var lk = inqLink(ev);
+  var mt = inqTop3(ev, lk.c);
+  var heat = inqHeat(ev, lk, mt);
+  var p = ev._p || {};
+  var wants = [];
+  if(p.desiredRegion) wants.push('지역 ' + p.desiredRegion);
+  if(p.propertyType) wants.push('종류 ' + p.propertyType);
+  if(p.dealType) wants.push('거래 ' + p.dealType);
+  if(p.depositBudget || p.rentBudget)
+    wants.push('예산 ' + (p.depositBudget || '?') + '/' + (p.rentBudget || '?'));
+  if(p.moveInDate) wants.push('입주 ' + p.moveInDate);
+  if(p.roomCount) wants.push('방 ' + p.roomCount);
+  if((p.mustHave || []).length) wants.push('꼭 필요 ' + p.mustHave.join('·'));
+  if((p.avoid || []).length) wants.push('피하고 싶은 것 ' + p.avoid.join('·'));
+  if(ev.mentionedListing) wants.push('짚은 매물 ' + ev.mentionedListing.apt + ' ' +
+    ev.mentionedListing.unit + '(' + (ev.mentionedListing.status || '?') + ')');
+  if(p.visitWish) wants.push('방문 ' + p.visitWish);
+  if(p.callWish) wants.push(p.callWish);
+  /* 전화냐 문자냐 — 손님이 준 신호로 정한다 */
+  var howCode = 'SMS', howWhy = '문자로 먼저 보내고 답을 기다립니다';
+  if(p.callWish){ howCode = 'CALL'; howWhy = '손님이 전화를 달라고 했습니다'; }
+  else if(ev.source === '부재중전화'){ howCode = 'CALL'; howWhy = '부재중 전화라 회신이 필요합니다'; }
+  else if(ev.source === '통화녹음'){ howCode = 'CALL'; howWhy = '전화로 이야기하던 건이라 전화가 자연스럽습니다'; }
+  else if(heat.code === 'HOT'){ howCode = 'CALL'; howWhy = '급한 문의라 전화가 빠릅니다'; }
+  return { ev:ev, link:lk, match:mt, heat:heat,
+           wants:wants, ask:inqAskList(ev, mt), draft:inqDraft(ev, lk, mt, heat),
+           how:{ code:howCode, why:howWhy },
+           visit:(p.visitWish ? inqVisitPlan(ev, mt) : null),
+           note:'🔴 초안입니다 — 이 화면은 문자를 보내지 않습니다. 대표님이 복사해 보내십니다.' };
+}
+
+/* ── §8 방문예약 준비 — 한 묶음으로 ───────────────────────────── */
+function inqVisitPlan(ev, mt){
+  var p = ev._p || {};
+  mt = mt || inqTop3(ev, (inqLink(ev) || {}).c);
+  var stops = (mt.top || []).map(function(x){
+    var l = x.l;
+    /* 🔴 이미 가진 출입정보가 있으면 다시 묻지 않는다 */
+    var door = '';
+    var hay = String(l.note || '') + ' ' + String(l.desc || '');
+    var dm = hay.match(/(?:비번|비밀번호|출입|현관)[^0-9]{0,6}(\d{3,6})/);
+    if(dm) door = '이미 있음(화면에 적지 않습니다)';
+    return { id:String(l.id), apt:String(l.apt || ''), unit:String(l.addr2 || ''),
+             addr:String(l.addr || ''), floor:String(l.floor || ''),
+             price:cuNum(l.price), rent:cuNum(l.rentAmt), fee:cuNum(l.feeAmt),
+             avail:String(l.availDate || ''),
+             door:door || '🔴 출입방법 확인 필요(임대인)',
+             photo:(function(){
+               try{ var ph = adPhotoOf(l);
+                    return (ph && ph.unit && ph.unit.done > 0)
+                      ? ('그 호실 사진 ' + ph.unit.done + '장 있음')
+                      : '그 호실 사진 없음(보여 줄 때 참고)'; }catch(e){ return ''; }
+             })(),
+             ld:(function(){
+               var lds = (DB.landlords || []).filter(function(x2){
+                 return sq(x2.apt) && sq(x2.apt) === sq(l.apt); });
+               return lds.length ? ('임대인 ' + lds.length + '명 명부에 있음') : '임대인 미확인';
+             })() };
+  });
+  /* 이동 순서 — 같은 건물끼리 묶고, 주소가 같은 동네끼리 이어 본다 */
+  stops.sort(function(a, b){
+    var ka = a.apt + ' ' + a.addr, kb = b.apt + ' ' + b.addr;
+    return ka.localeCompare(kb);
+  });
+  return { when:(p.visitWish || ''), meet:(stops.length ? (stops[0].apt + ' 앞') : ''),
+           stops:stops, order:stops.map(function(s){ return s.apt + ' ' + s.unit; }),
+           note:'🔴 예약을 잡지 않습니다 — 대표님이 시간을 정하면 이 묶음을 그대로 씁니다' };
+}
+
+/* ── §9 클로징 지원 — 미팅 뒤 최소 입력으로 ────────────────────── */
+function inqClose(form){
+  var f = form || {};
+  var out = { input:f, negotiate:[], askLandlord:[], alts:[], nextAt:'', prep:[],
+              note:'🔴 계약을 만들지 않습니다 — 제안만 합니다' };
+  var l = (DB.listings || []).filter(function(x){ return String(x.id) === String(f.listingId || ''); })[0];
+  var price = l ? cuNum(l.price) : 0, rent = l ? cuNum(l.rentAmt) : 0;
+  if(String(f.priceResist || '').trim()){
+    if(rent) out.negotiate.push('월세 ' + rent + '만 → ' + Math.max(0, rent - 3) + '~' + Math.max(0, rent - 5) + '만 조정 여지 확인');
+    if(price) out.negotiate.push('보증금 ' + price + '만 올리고 월세 낮추는 안 (임대인 선호 확인)');
+    out.askLandlord.push('가격 조정이 가능한지');
+  }
+  if(String(f.blocker || '').trim()){
+    out.askLandlord.push('“' + String(f.blocker).slice(0, 30) + '” 을 고쳐 줄 수 있는지');
+    out.negotiate.push('수리·정비 조건을 계약서에 적는 안');
+  }
+  if(String(f.moveIn || '').trim()){
+    out.askLandlord.push('입주일 ' + f.moveIn + ' 가능 여부');
+  }
+  if(String(f.decider || '').trim())
+    out.prep.push('결정하는 분(' + String(f.decider).slice(0, 20) + ')이 함께 보실 시간 잡기');
+  /* 대안 매물 — 같은 조건에서 다음 후보 */
+  if(f.eventRow != null){
+    var evs = inqAll(0).filter(function(e){ return String((e._row || {}).row) === String(f.eventRow); });
+    if(evs.length){
+      var mt = inqTop3(evs[0], (inqLink(evs[0]) || {}).c);
+      out.alts = (mt.top || []).filter(function(x){ return String(x.l.id) !== String(f.listingId || ''); })
+        .slice(0, 2).map(function(x){ return x.l.apt + ' ' + x.l.addr2 + ' (' + x.pct + '%)'; });
+    }
+  }
+  /* 재접촉 시점 — 걸림돌이 있으면 짧게, 없으면 이틀 뒤 */
+  var d = new Date();
+  d.setDate(d.getDate() + (String(f.blocker || '').trim() ? 1 : 2));
+  out.nextAt = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  out.prep.push('계약 준비: 등기부·건축물대장 확인 · 확인설명서 초안 · 계약금 입금계좌 확인');
+  return out;
+}
+
+/* ── §10 오늘 응대·방문·계약 후보 ─────────────────────────────── */
+function inqToday(){
+  var today = todayStr();
+  var out = { answer:[], visit:[], close:[], synthetic:0, real:0 };
+  inqAll(0).forEach(function(ev){
+    var pr = inqPrep(ev);
+    var days = ctDaysTo(String(ev.receivedAt).slice(0, 10));
+    var fresh = (days === null) ? false : (days >= -3);       /* 사흘 안에 온 것 */
+    var row = { ev:ev, prep:pr, when:ev.receivedAt, heat:pr.heat.code };
+    if(pr.heat.code === 'HOT' || (fresh && pr.heat.code === 'WARM')) out.answer.push(row);
+    if((ev._p || {}).visitWish) out.visit.push(row);
+    if(pr.link.code === 'EXISTING_ACTIVE' && pr.match.top.length) out.close.push(row);
+    out.real++;
+  });
+  out.answer.sort(function(a, b){ return String(b.when).localeCompare(String(a.when)); });
+  return out;
+}
+
+/* ── 대표님 단추 — 🔴 복사만 한다. 보내지 않는다 ─────────────────── */
+function inqFindByRow(row){
+  var all = inqAll(0);
+  for(var i = 0; i < all.length; i++)
+    if(String((all[i]._row || {}).row) === String(row)) return all[i];
+  return null;
+}
+function inqCopyDraft(row){
+  var ev = inqFindByRow(row);
+  if(!ev){ alert('그 문의를 찾지 못했습니다 — 화면을 다시 불러와 주세요.'); return; }
+  var pr = inqPrep(ev);
+  copyText(pr.draft, '답변 초안을 복사했습니다 — 🔴 문자는 나가지 않았습니다. 붙여넣어 보내십니다.');
+}
+function inqVisitShow(row){
+  var ev = inqFindByRow(row);
+  if(!ev){ alert('그 문의를 찾지 못했습니다 — 화면을 다시 불러와 주세요.'); return; }
+  var nl = String.fromCharCode(10);
+  var v = inqVisitPlan(ev);
+  var lines = ['방문 묶음 — ' + (v.when ? ('희망 ' + v.when) : '시간 미정'), ''];
+  lines.push('만날 곳  ' + (v.meet || '🔴 정해야 합니다'));
+  if(!v.stops.length) lines.push('보여 줄 매물이 아직 없습니다 — 조건을 더 받아야 합니다.');
+  v.stops.forEach(function(s, i){
+    lines.push((i + 1) + ') ' + s.apt + ' ' + s.unit + '  ' + s.price +
+      (s.rent ? ('/' + s.rent) : '') + (s.fee ? (' · 관리비 ' + s.fee) : '') +
+      (s.avail ? (' · 입주 ' + s.avail) : ''));
+    lines.push('    ' + s.addr + (s.floor ? (' · ' + s.floor) : ''));
+    lines.push('    출입 ' + s.door + ' · ' + s.ld);
+  });
+  lines.push('', v.note);
+  copyText(lines.join(nl), '방문 묶음을 복사했습니다 — 🔴 예약을 잡지는 않았습니다.');
+}
+
 /* ── 재접촉 대상 ─────────────────────────────────────────────────
    종료 고객 제외 · 연락금지 제외 · 담당 밖 제외. */
 function cuBlocked(c){
@@ -5269,6 +5922,54 @@ function monBoard(){
   /* ① 재오픈 검토 + 고객 재접촉
      🔴 재접촉이 0명이어도 '고객 쪽 할 일이 0' 이 아니다 — 재오픈 검토를 따로 센다. */
   var h1 = '';
+  /* 🆕 3단계 — 들어온 문의부터 보여 준다(HOT 먼저). 🔴 문자를 보내지 않는다.
+     대표님은 [초안 복사] · [전화] · [보류] 만 고르시면 된다. */
+  var iq = inqToday();
+  if(iq.answer.length){
+    h1 += '<div class="note w" style="font-size:12.5px;margin:0 0 10px">' +
+      '📨 <b>문의 응대 준비 ' + iq.answer.length + '건</b> — 답변 초안·추천 매물까지 만들어 두었습니다. ' +
+      '🔴 여기서 문자는 나가지 않습니다(복사해서 보내십니다).</div>';
+    h1 += '<ol style="margin:0 0 12px;padding-left:19px">';
+    iq.answer.slice(0, 6).forEach(function(x){
+      var ev = x.ev, pr = x.prep, lk = pr.link, mt = pr.match;
+      var pillC = (pr.heat.code === 'HOT') ? 'p-bad'
+                : (pr.heat.code === 'WARM') ? 'p-warn' : 'p-brand';
+      var tops = (mt.top || []).map(function(t, i){
+        return (i + 1) + ') ' + esc(String(t.l.apt || '') + ' ' + String(t.l.addr2 || '')) +
+          ' <b>' + t.pct + '%</b> — ' + esc((t.why || []).slice(0, 3).join(' · '));
+      }).join('<br>');
+      h1 += monLine(
+        '<span class="pill ' + pillC + '">' + esc(pr.heat.code) + '</span> ' +
+          esc(String(ev.customer || '').trim() || '이름 없음') +
+          ' <span class="mono" style="font-size:11.5px;color:var(--t3)">' +
+          esc(phMask(ev.phone)) + '</span>' +
+          ' <span class="pill p-mute">' + esc(ev.source) + '</span>' +
+          ' <span class="pill ' + (lk.code === 'EXISTING_ACTIVE' ? 'p-ok'
+              : (lk.code === 'REOPEN_REVIEW' ? 'p-bad' : 'p-mute')) + '">' + esc(lk.code) + '</span>',
+        esc(String(ev.receivedAt).slice(0, 16)) +
+          '<br>“' + esc(maskSecret(String(ev.rawText || '')).slice(0, 80)) + '”' +
+          '<br><b>원하는 것</b> ' + (pr.wants.length ? esc(pr.wants.join(' · ')) : '아직 적힌 것이 없습니다') +
+          (tops ? ('<br><b>추천 TOP' + (mt.top || []).length + '</b><br>' + tops)
+                : ('<br><b>추천</b> ' + esc(mt.why))) +
+          (pr.ask.length ? ('<br><b>확인할 것</b> ' + esc(pr.ask.slice(0, 3).join(' / '))) : ''),
+        esc(lk.why) + ' · ' +
+          (pr.how.code === 'CALL' ? '📞 <b>전화</b>가 좋습니다 — ' : '✉️ <b>문자</b>로 먼저 — ') +
+          esc(pr.how.why),
+        '<button class="btn sm" onclick="inqCopyDraft(&#39;' + esc(String((ev._row || {}).row || '')) +
+          '&#39;)">답변 초안 복사</button> ' +
+          (lk.c ? ('<button class="btn sm" onclick="CU_SEL=&#39;' + esc(String(lk.c.id || '')) +
+                   '&#39;;go(&#39;crm&#39;,&#39;cust&#39;)">고객 열기</button> ') : '') +
+          ((ev._p || {}).visitWish ? ('<button class="btn sm" onclick="inqVisitShow(&#39;' +
+             esc(String((ev._row || {}).row || '')) + '&#39;)">방문 묶음 보기</button>') : ''));
+    });
+    h1 += '</ol>';
+    if(iq.answer.length > 6)
+      h1 += '<div style="font-size:11.5px;color:var(--t3);margin:0 0 8px">그 밖에 ' +
+        (iq.answer.length - 6) + '건 더 있습니다 — 인입함에서 보실 수 있습니다.</div>';
+  } else {
+    h1 += '<div style="font-size:11.5px;color:var(--t3);margin:0 0 8px">📨 오늘 응대할 새 문의 0건 — ' +
+      '인입함 <b>' + (DB.inbox || []).length + '건</b>에서 손님 문의만 골라 봤습니다(광고·임대인·업체 영업전화 제외).</div>';
+  }
   if(ro.length){
     h1 += '<div class="note w" style="font-size:12.5px;margin:0 0 10px">' +
       '🔴 <b>재오픈 검토 ' + ro.length + '건</b> — 종료된 고객에게 <b>그 뒤로 새 연락</b>이 왔습니다. ' +
@@ -5470,7 +6171,9 @@ function monBoard(){
   }
 
   return hDone + '<div class="monwrap4">' +
-    box('① 고객 ' + (ro.length ? ('<span class="pill p-bad">재오픈 ' + ro.length + '</span> ') : '') +
+    box('① 고객 ' + (iq.answer.length ? ('<span class="pill p-warn">문의 ' +
+        iq.answer.length + '</span> ') : '') +
+        (ro.length ? ('<span class="pill p-bad">재오픈 ' + ro.length + '</span> ') : '') +
         '재접촉 ' + cu.length,
         '종료·연락금지·조건 없는 분·보여 줄 매물이 없는 분은 뺐습니다', h1, ro.length > 0) +
     box('② 확보·촬영할 매물 TOP ' + ls.length,
