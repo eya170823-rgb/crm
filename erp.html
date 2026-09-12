@@ -210,8 +210,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.8.3';
-var ERP_BUILD = '2026-09-12 13:31';
+var ERP_VER = '1.9.0';
+var ERP_BUILD = '2026-09-12 15:29';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -474,6 +474,12 @@ function aiExtract(t){
   /* 금액 — "55의 200" = 월세55/보증금200 · "보증금 200" · "월세 55" */
   var mm = s.match(/(\d{2,5})\s*의\s*(\d{2,5})/);
   if(mm){ o.rent = mm[1]; o.deposit = mm[2]; o.confidence.push('보증금·월세'); }
+  /* 🔴 대표 메모·임대인 문자에 흔한 "300/55"(보증금/월세) 표기 — 종전엔 못 읽었다(실측).
+     먼저 읽은 값은 덮지 않는다. */
+  if(!o.deposit && !o.rent){
+    var sl = s.match(/(?:^|[^0-9])(\d{2,5})\s*\/\s*(\d{2,5})(?:[^0-9]|$)/);
+    if(sl){ o.deposit = sl[1]; o.rent = sl[2]; o.confidence.push('보증금/월세'); }
+  }
   if(!o.deposit){ var d1 = s.match(/보증금\s*(\d{2,5})/); if(d1){ o.deposit = d1[1]; o.confidence.push('보증금'); } }
   if(!o.rent){ var r1 = s.match(/(월세|임대료)\s*(\d{2,5})/); if(r1){ o.rent = r1[2]; o.confidence.push('월세'); } }
   if(!o.deposit) o.missing.push('보증금');
@@ -495,6 +501,12 @@ function aiExtract(t){
   else if(/전세/.test(s)) o.trade = '전세';
   else if(/매매/.test(s)) o.trade = '매매';
   else o.missing.push('거래유형');
+  /* 입주 가능일 — 날짜 꼴이나 "즉시/다음주" 같은 말이 있으면 적는다(없으면 비운다) */
+  var mv = s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일[^0-9]{0,6}(입주|입실)/);
+  if(mv) o.moveIn = mv[1] + '월 ' + mv[2] + '일';
+  else if(/즉시\s*(입주|입실)|바로\s*(입주|입실|입실됩)/.test(s)) o.moveIn = '즉시';
+  else if(/다음\s*주[^0-9]{0,8}(입주|입실)/.test(s)) o.moveIn = '다음 주';
+  if(o.moveIn) o.confidence.push('입주 가능일');
   /* 입주가능일·방수·욕실·옵션·주차·반려·전입 — 통화에 없으면 비운다 */
   ['입주가능일','방수','욕실수','옵션','주차','반려동물','전입','외국인'].forEach(function(k){ o.missing.push(k); });
   return o;
@@ -791,6 +803,422 @@ function ctTodayStrip(){
         '<b style="font-size:16px">' + esc(String(c[1])) + '</b></span>'; }).join('') +
     '</div></div></div>';
 }
+/* ═══════════════════════════════════════════════════════════════════
+   매물접수 → 광고준비 (2026-09-12 2단계)
+   🔴 새 화면·새 메뉴를 만들지 않는다. 아래는 전부 **값을 돌려주는 함수**다.
+   🔴 저장·발송·게시 코드가 없다. 매물 상태를 바꾸지 않는다.
+   🔴 이미 있는 aiExtract · matchBuilding · judge · judgePhoto · adMissing 을 그대로 쓴다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 🔴 건물 "이름" 이 아니라 건물 "종류" 인 값 — 이것으로 건물을 가리지 않는다.
+   임대인 명부 apt 칸에 이렇게 적힌 분이 있다(실측). */
+var BLDG_KIND = ['다가구주택', '다가구', '단독주택', '단독', '상가주택', '근린생활시설',
+                 '아파트', '오피스텔', '빌라', '연립', '도시형생활주택', '투룸', '원룸',
+                 '투룸 임대인', '다세대'];
+function bldgIsKind(v){
+  var t = sq(v);
+  if(!t) return true;
+  for(var i = 0; i < BLDG_KIND.length; i++){
+    if(t === sq(BLDG_KIND[i])) return true;
+  }
+  /* 종류어만 이어 붙인 것("단독다가구상가주택")도 이름이 아니다 */
+  var rest = t;
+  BLDG_KIND.forEach(function(k){ rest = rest.split(sq(k)).join(''); });
+  return rest.length === 0;
+}
+
+/* 광고에 반드시 있어야 하는 값 / 있으면 좋은 값 — AD_GOAL 채널 규격에서 가져온다 */
+var INTAKE_REQ = [['dealType','거래유형'],['deposit','보증금'],['building','건물'],
+                  ['unit','호실'],['area','면적'],['roomCount','방 수'],
+                  ['bathCount','욕실 수'],['floor','층'],['totalFloor','총 층']];
+var INTAKE_OPT = [['maintenance','관리비'],['moveInDate','입주 가능일'],
+                  ['rent','월세'],['yearlyRent','연세']];
+
+/* 네 갈래를 한 가지 꼴로 — 원본은 rawText 에 그대로 남긴다 */
+function intakeEvent(r, forceUnit){
+  var src = srcOf(r.kind, r.text);
+  var code = (src === '통화녹음' || src === '부재중전화') ? 'CALL'
+           : (src === '메모') ? 'MEMO'
+           : (src === 'MMS' || src === '사진접수') ? 'MMS' : 'SMS';
+  var ai = aiExtract(r.text);
+  /* 🔴 호실을 집어서 들어오면 그 호실만 본다(한 줄에 여럿일 때) */
+  if(forceUnit){
+    ai = JSON.parse(JSON.stringify(ai));
+    ai.unit = String(forceUnit);
+    ai.unitCands = null;
+    ai.missing = (ai.missing || []).filter(function(m){
+      return String(m).indexOf('호실') !== 0; });
+  }
+  var bm = matchBuilding(r, ai);
+  var ev = {
+    eventId: code + ':' + String(r.row || '') + ':' + String(r.when || '').slice(0, 19),
+    source: code, receivedAt: String(r.when || ''), sender: phMask(r.phone),
+    rawText: String(r.text || ''),                       /* 🔴 원본 그대로 보존 */
+    building: bm.bldg || '', address: bm.addr || '', jibun: bm.jibun || '',
+    unit: ai.unit || '', unitCands: ai.unitCands || null,
+    dealType: ai.trade || '', deposit: ai.deposit || '', rent: ai.rent || '',
+    yearlyRent: '', maintenance: (ai.feeIncluded ? '포함' : ''),
+    area: '', roomCount: '', bathCount: '', floor: '', totalFloor: '',
+    moveInDate: ai.moveIn || '', kind: ai.kind || '',
+    statusHint: 'UNKNOWN', photoRefs: [],
+    landlordId: '', listingId: '',
+    parseConfidence: ai.confidence.length,
+    matchConfidence: 0, matchHow: '', reviewReason: '',
+    approvalStatus: 'PENDING',
+    _ai: ai, _bm: bm, _row: r
+  };
+  /* 🔴 임대인이 건물명을 줄여 쓴다("제니" = 에코제니, "히튼" = 에코힐튼).
+     matchBuilding 은 이름 전체가 맞아야 붙으므로 그때 건물을 못 찾는다(실측).
+     → 보낸 번호로 임대인을 찾아 그 건물을 보탠다. ERP doneAlerts 가 잇는 방식과 같다.
+     🔴 matchBuilding 자체는 건드리지 않는다(기존 화면·검산을 그대로 둔다). */
+  if(!(bm.landlords || []).length && r && r.phone){
+    var byPh = (DB.landlords || []).filter(function(l){ return phHas(l.phone, r.phone); });
+    if(byPh.length === 1 && sq(byPh[0].apt) && !bldgIsKind(byPh[0].apt)){
+      bm.landlords = byPh;
+      bm.bldg = bm.bldg || String(byPh[0].apt || '');
+      bm.addr = bm.addr || String(byPh[0].addr || '');
+      if(bm.how.indexOf('보낸 번호') < 0) bm.how.push('보낸 번호');
+      /* 그 건물 매물도 다시 모은다 */
+      var bb = sq(bm.bldg);
+      (DB.listings || []).forEach(function(o){
+        if(bb && sq(o.apt) === bb && bm.listings.indexOf(o) < 0) bm.listings.push(o);
+      });
+    }
+  }
+  var ld = (bm.landlords || [])[0];
+  if(ld) ev.landlordId = String(ld.id || ld.phone || '');
+  var mp = matchProperty(ev);
+  ev.listingId = mp.listingId; ev.matchConfidence = mp.confidence;
+  ev.matchHow = mp.how; ev.reviewReason = mp.why; ev._match = mp;
+  /* 🔴 건물 이름은 **매물장** 것을 먼저 쓴다.
+     임대인 명부 apt 칸에 건물 종류("다가구주택", "단독 다가구 상가주택")가 적힌 분이 있어,
+     지번으로 붙으면 그 값이 건물 이름처럼 나왔다(2026-09-12 실측). */
+  var hit1 = (mp.hits || [])[0];
+  if(hit1 && sq(hit1.apt)) ev.building = String(hit1.apt);
+  else if(bldgIsKind(ev.building)) ev.building = '';
+  if(hit1 && sq(hit1.addr)) ev.address = String(hit1.addr);
+  /* 호실별 최신상태 — 같은 호실의 다른 문자까지 모아서 본다 */
+  if(ev.unit) ev.statusHint = statusHintOf(intakeSameUnitRows(ev), ev.unit).code;
+  return ev;
+}
+/* 🔴 한 줄에 호실이 여럿이면 **호실마다** 접수후보를 만든다.
+   "301호는 계약됐구요! 402호는 남아있어요" 한 줄이 후보 2건이 된다.
+   종전처럼 하나로 두면 호실을 못 읽어 후보가 0건이 됐다(2026-09-12 실측).
+   이게 지시 4 "문장 전체 상태를 한 번에 적용 금지" 를 실제로 지키는 길이다. */
+function intakeEventsFrom(r){
+  var ai0 = aiExtract(r.text);
+  var units = ai0.unit ? [ai0.unit] : (ai0.unitCands || []);
+  if(units.length <= 1) return [intakeEvent(r)];
+  return units.map(function(u){
+    var ev = intakeEvent(r, u);
+    ev.eventId = ev.eventId + '#' + u;
+    ev.fromMultiUnit = units.slice();
+    return ev;
+  });
+}
+/* 메모도 같은 길로 보낸다 — 저장만 하고 끝나면 접수가 안 된다 */
+function intakeMemo(text, when, who){
+  return intakeEvent({ row:'memo', when:String(when || todayStr()), kind:'메모',
+                       name:String(who || '대표 메모'), phone:'', bld:'',
+                       text:String(text || ''), reg:'' });
+}
+/* 그 호실을 말한 인입함 줄을 모은다(최신상태 판정용) */
+function intakeSameUnitRows(ev){
+  var out = [{ when:ev.receivedAt, text:ev.rawText }];
+  if(!ev.unit) return out;
+  var bk = sq(ev.building);
+  (DB.inbox || []).forEach(function(x){
+    var t = String(x.text || '');
+    if(sq(t).indexOf(sq(ev.unit)) < 0) return;
+    /* 🔴 건물이 같다고 확인된 줄만 — 다른 건물 같은 호실을 섞으면 판정이 틀어진다 */
+    var same = bk && sq(t).indexOf(bk) >= 0;
+    if(!same && ev.landlordId && phMask(x.phone) === ev.sender) same = true;
+    if(same) out.push({ when:String(x.when || ''), text:t });
+  });
+  return out;
+}
+
+/* ── 매칭 엔진 하나 — 네 갈래가 모두 이것만 쓴다 ───────────────────
+   우선순위
+     1 listingId 로 바로 연결        (확신 100)
+     2 지번(주소) + 호실 정확히 같음 (확신 90)
+     3 건물명 + 호실 정확히 같음     (확신 80)
+     4 건물만 같음                   → REVIEW_REQUIRED (확신 40)
+     5 건물을 못 찾음                → NEW_BUILDING / REVIEW_REQUIRED
+   🔴 호실만 같은 것은 **절대** 붙이지 않는다. "301호" 만으로 다른 건물 301호를
+      연결하면 살아 있는 방을 죽이거나 남의 방을 광고한다. */
+function matchProperty(ev){
+  var out = { listingId:'', confidence:0, how:'', why:'', code:'REVIEW_REQUIRED',
+              hits:[], building:ev.building || '' };
+  var bm = ev._bm || { listings:[], landlords:[], how:[] };
+  if(!ev.unit){
+    out.why = ev.unitCands ? ('호실 후보가 여러 개입니다(' + ev.unitCands.join(', ') + ')')
+                           : '호실을 읽지 못했습니다';
+    return out;
+  }
+  /* 1 — 이미 붙어 있는 매물번호 */
+  if(ev._row && ev._row.listingId){
+    var d = (DB.listings || []).filter(function(o){
+      return String(o.id) === String(ev._row.listingId); })[0];
+    if(d){ out.listingId = String(d.id); out.confidence = 100; out.how = '매물번호 직접';
+           out.code = 'MATCH'; out.hits = [d]; return out; }
+  }
+  if(!bm.listings.length && !bm.landlords.length && !bm.bldg){
+    out.code = 'NEW_BUILDING'; out.why = '우리 자료에 이 건물이 없습니다'; return out;
+  }
+  var u = sq(ev.unit);
+  /* 2 — 지번 + 호실 */
+  var byJibun = (bm.listings || []).filter(function(o){
+    return ev.jibun && sq(o.addr).indexOf(sq(ev.jibun)) >= 0 && sq(o.addr2) === u; });
+  /* 3 — 건물명 + 호실 */
+  var byName = (bm.listings || []).filter(function(o){
+    return sq(o.apt) && sq(o.apt) === sq(bm.bldg) && sq(o.addr2) === u; });
+  /* 3.5 — 보낸 번호의 임대인이 가진 매물 중 호실이 같은 것
+     🔴 임대인이 건물명을 줄여 써서("제니" = 에코제니) 이름으로 못 붙는 일이 있다(실측).
+        보낸 번호는 강한 근거다. 다만 지번·건물명보다 낮게 본다(확신 70) —
+        확신 80 아래는 광고준비로 못 넘어가므로 사람이 한 번 본다.
+     🔴 호실만 같은 것과는 다르다. 번호가 같은 임대인의 매물만 본다. */
+  var bySender = [];
+  if(ev._row && ev._row.phone){
+    bySender = (DB.listings || []).filter(function(o){
+      if(sq(o.addr2) !== u) return false;
+      var L = ldOfListing(o);
+      return L && phHas(L.phone, ev._row.phone);
+    });
+  }
+  var hits = byJibun.length ? byJibun : (byName.length ? byName : bySender);
+  var how = byJibun.length ? '지번+호실'
+          : (byName.length ? '건물명+호실' : (bySender.length ? '보낸번호+호실' : ''));
+  if(hits.length === 1){
+    out.listingId = String(hits[0].id);
+    out.confidence = byJibun.length ? 90 : (byName.length ? 80 : 70);
+    out.how = how; out.code = 'MATCH'; out.hits = hits;
+    return out;
+  }
+  if(hits.length > 1){
+    out.confidence = 50; out.how = how; out.hits = hits; out.code = 'REVIEW_REQUIRED';
+    out.why = '같은 건물·같은 호실 매물이 ' + hits.length + '건 있습니다 — 사람이 골라야 합니다';
+    return out;
+  }
+  /* 4 — 건물만 같음 */
+  out.confidence = 40; out.how = (bm.how || []).join('+') || '건물';
+  out.hits = bm.listings || [];
+  out.code = 'NEW';
+  out.why = '건물은 우리 자료에 있고(' + out.how + ') 그 호실 매물은 없습니다 — 새 후보';
+  return out;
+}
+
+/* ── 이미 아는 값은 다시 묻지 않는다 ─────────────────────────────
+   접수 문자에서 읽은 값 → 없으면 붙은 매물의 값 → 그래도 없으면 물어본다. */
+function intakeNeeds(ev){
+  var hit = (ev._match && ev._match.hits && ev._match.hits.length === 1)
+            ? ev._match.hits[0] : null;
+  var FROM = { dealType:'type', deposit:'price', rent:'rentAmt', building:'apt',
+               unit:'addr2', area:'area', roomCount:'rooms', bathCount:'baths',
+               floor:'floor', totalFloor:'totalFloor', maintenance:'feeAmt',
+               moveInDate:'availDate', yearlyRent:'rentAmt' };
+  var known = [], needReq = [], needOpt = [];
+  function val(k){
+    var v = String(ev[k] == null ? '' : ev[k]).trim();
+    if(v) return { v:v, from:'이번 접수' };
+    if(hit && FROM[k]){
+      var w2 = String(hit[FROM[k]] == null ? '' : hit[FROM[k]]).trim();
+      if(w2) return { v:w2, from:'기존 매물 ' + hit.id };
+    }
+    return null;
+  }
+  INTAKE_REQ.concat(INTAKE_OPT).forEach(function(f){
+    var req = INTAKE_REQ.some(function(x){ return x[0] === f[0]; });
+    var g = val(f[0]);
+    if(g) known.push({ k:f[0], label:f[1], v:g.v, from:g.from });
+    else if(req) needReq.push({ k:f[0], label:f[1] });
+    else needOpt.push({ k:f[0], label:f[1] });
+  });
+  return { known:known, missingRequired:needReq, missingOptional:needOpt,
+           askAgain:0, hit:hit };
+}
+
+/* ── 중복매물 판정 ──────────────────────────────────────────────── */
+function intakeDup(ev){
+  var mp = ev._match || {};
+  if(mp.code === 'NEW') return { code:'NEW', why:'같은 건물에 그 호실 매물이 없습니다', hit:null };
+  if(mp.code === 'NEW_BUILDING') return { code:'NEW_BUILDING', why:mp.why, hit:null };
+  if(mp.code !== 'MATCH') return { code:'REVIEW_REQUIRED', why:mp.why || '사람이 봐야 합니다', hit:null };
+  var o = (DB.listings || []).filter(function(x){
+    return String(x.id) === String(mp.listingId); })[0];
+  if(!o) return { code:'REVIEW_REQUIRED', why:'붙인 매물을 다시 찾지 못했습니다', hit:null };
+  /* 상태가 달라졌나 — 문자가 말한 최신상태와 매물장 상태 */
+  var st = String(o.status || '');
+  var tradable = LST_TRADABLE.indexOf(st) >= 0;
+  if(ev.statusHint === 'CONTRACT_DONE' && tradable)
+    return { code:'STATUS_CHANGE', why:'문자는 계약완료인데 매물장은 ' + st + ' 입니다',
+             hit:o, from:st, to:'계약완료' };
+  if(ev.statusHint === 'AVAILABLE' && !tradable)
+    return { code:'STATUS_CHANGE', why:'문자는 아직 있다는데 매물장은 ' + st + ' 입니다',
+             hit:o, from:st, to:'접수' };
+  /* 값이 달라졌나 */
+  var ch = [];
+  [['deposit', 'price', '보증금'], ['rent', 'rentAmt', '월세']].forEach(function(c){
+    var now = String(ev[c[0]] || '').trim(), was = String(o[c[1]] == null ? '' : o[c[1]]).trim();
+    if(now && was && now !== was) ch.push({ label:c[2], from:was, to:now });
+  });
+  if(ch.length) return { code:'PRICE_CHANGE', why:'기존 매물과 금액이 다릅니다', hit:o, changes:ch };
+  return { code:'SAME', why:'기존 매물 ' + o.id + ' 과 같습니다 — 새로 만들지 않습니다', hit:o };
+}
+
+/* ── 사진 세 갈래 ───────────────────────────────────────────────
+   EXACT_UNIT            그 호실 사진 — 광고에 쓸 수 있다
+   BUILDING_COMMON       건물 공용부 — 공용부로만 쓴다
+   OTHER_UNIT_REFERENCE  다른 호실 — 🔴 이 호실 내부사진으로 절대 쓰지 않는다 */
+function intakePhoto(ev){
+  var ph = judgePhoto(ev._match && ev._match.code === 'MATCH'
+             ? { code:'SAME', hit:(ev._match.hits || [])[0] }
+             : { code:'NEW', hit:null },
+           ev._bm, { unit:ev.unit }, ev._row);
+  /* 🔴 judgePhoto 가 돌려주는 칸 이름 그대로 쓴다 — unit.{name,raw,done} · others[].{raw,done}
+     광고에 쓸 수 있는 것은 **보정완료(done)** 뿐이다. 원본(raw)만 있으면 아직 못 쓴다. */
+  var uDone = (ph.unit && ph.unit.done) ? ph.unit.done : 0;
+  var uRaw = (ph.unit && ph.unit.raw) ? ph.unit.raw : 0;
+  var others = (ph.others || []).reduce(function(a, x){
+    return a + (x.raw || 0) + (x.done || 0); }, 0);
+  var out = {
+    code: ph.code, why: ph.why || '', note: ph.note || '', folder: ph.bldFolder || '',
+    EXACT_UNIT: uDone, EXACT_UNIT_RAW: uRaw, BUILDING_COMMON: ph.common || 0,
+    OTHER_UNIT_REFERENCE: others,
+    useForAd: uDone > 0 ? 'EXACT_UNIT' : '',
+    commonUse: (ph.common || 0) > 0 ? 'BUILDING_COMMON — 공용부·외관으로만' : '',
+    blocked: others > 0
+      ? ('🔴 같은 건물 다른 호실 사진 ' + others + '장 — 이 호실 광고에 쓰지 않습니다') : '',
+    askShoot: (uDone === 0 && uRaw === 0 && !phIdxErr())
+  };
+  if(phIdxErr()){ out.code = 'REVIEW_REQUIRED'; out.why = phIdxErr(); out.askShoot = false; }
+  return out;
+}
+
+/* ── 광고준비 판정 ─────────────────────────────────────────────
+   DATA_REQUIRED / PHOTO_REQUIRED / REVIEW_REQUIRED / AD_READY_PREVIEW
+   🔴 대표 승인 전에는 AD_READY 가 되지 않는다 — PREVIEW 까지만. */
+function intakeAd(ev){
+  var nd = intakeNeeds(ev), dup = intakeDup(ev), ph = intakePhoto(ev);
+  var r = { code:'REVIEW_REQUIRED', why:'', needs:nd, dup:dup, photo:ph, blockers:[] };
+  if(ev.statusHint === 'CONTRACT_DONE'){
+    r.code = 'REVIEW_REQUIRED';
+    r.blockers.push('계약완료 문자가 있습니다 — 광고 대상이 아닙니다');
+    r.why = r.blockers[0]; return r;
+  }
+  if(dup.code === 'REVIEW_REQUIRED' || dup.code === 'NEW_BUILDING'){
+    r.code = 'REVIEW_REQUIRED'; r.blockers.push(dup.why); r.why = dup.why; return r;
+  }
+  if(ev.matchConfidence < 80 && dup.code !== 'NEW'){
+    r.code = 'REVIEW_REQUIRED';
+    r.blockers.push('매물 연결이 확실하지 않습니다(' + ev.matchConfidence + ')');
+    r.why = r.blockers[0]; return r;
+  }
+  if(nd.missingRequired.length){
+    r.code = 'DATA_REQUIRED';
+    r.why = '광고 필수값이 비어 있습니다 — ' +
+            nd.missingRequired.map(function(x){ return x.label; }).join('·');
+    r.blockers.push(r.why); return r;
+  }
+  if(ph.code === 'REVIEW_REQUIRED'){
+    /* 사진 자료를 못 읽었거나, 그 호실 원본은 있는데 보정완료가 0장인 경우 */
+    r.code = 'REVIEW_REQUIRED'; r.why = ph.why; r.blockers.push(ph.why); return r;
+  }
+  if(!ph.EXACT_UNIT){
+    r.code = 'PHOTO_REQUIRED';
+    r.why = (ph.code === 'BUILDING_ONLY'
+             ? '건물 공용부 사진만 있습니다 — 이 호실 내부사진이 없습니다'
+             : '이 호실 사진이 없습니다') +
+            (ph.OTHER_UNIT_REFERENCE ? (' ' + ph.blocked) : '');
+    r.blockers.push(r.why); return r;
+  }
+  r.code = (ev.approvalStatus === 'APPROVED') ? 'AD_READY' : 'AD_READY_PREVIEW';
+  r.why = (r.code === 'AD_READY') ? '광고 가능합니다'
+        : '필수값·사진이 갖춰졌습니다 — 🔴 대표 승인을 누르면 광고 가능';
+  return r;
+}
+
+/* ── 채널별 광고문구 준비 — 🔴 사실만 쓴다. 게시하지 않는다 ────────
+   없는 옵션·장점을 지어내지 않고, 허위 희소성("마지막 1실")을 쓰지 않는다. */
+function adCopyPrep(ev){
+  var ad = intakeAd(ev);
+  if(ad.code !== 'AD_READY_PREVIEW' && ad.code !== 'AD_READY')
+    return { ok:false, why:'광고준비가 안 됐습니다 — ' + ad.why, drafts:[] };
+  var k = {}, nd = ad.needs;
+  nd.known.forEach(function(x){ k[x.k] = x.v; });
+  var NBSP = ' ', LF = String.fromCharCode(10);   /* 🔴 ERP 에 LF 전역은 없다 */
+  /* 단위를 붙인다 — 이미 붙어 있으면 그대로 둔다(값은 지어내지 않는다) */
+  function unit1(v, u){
+    var t = String(v == null ? '' : v).trim();
+    if(!t) return '';
+    return (t.indexOf(u) >= 0) ? t : (t + u);
+  }
+  function money(){
+    var d = k.deposit ? ('보증금 ' + unit1(k.deposit, '만')) : '';
+    var rr = k.rent ? ('월세 ' + unit1(k.rent, '만')) : '';
+    return [d, rr].filter(Boolean).join(' / ');
+  }
+  var facts = [];
+  if(k.area) facts.push('전용 ' + unit1(k.area, '㎡'));
+  if(k.roomCount) facts.push('방 ' + unit1(k.roomCount, '개'));
+  if(k.bathCount) facts.push('욕실 ' + unit1(k.bathCount, '개'));
+  if(k.floor){
+    var fl = unit1(k.floor, '층');
+    facts.push(k.totalFloor ? (fl + ' (총 ' + unit1(k.totalFloor, '층') + ')') : fl);
+  }
+  if(k.maintenance) facts.push('관리비 ' +
+    (/^[0-9]+$/.test(String(k.maintenance).trim()) ? unit1(k.maintenance, '만') : k.maintenance));
+  if(k.moveInDate) facts.push('입주 ' + k.moveInDate);
+  var head = (k.building || '') + ' ' + (k.unit || '');
+  /* 제목에 "월세 보증금…/월세…" 처럼 겹쳐 적히지 않게 — 금액 문구가 이미 말하면 뺀다 */
+  var dealWord = (k.dealType && money().indexOf(k.dealType) < 0) ? k.dealType : '';
+  var DR = [
+    { ch:'daangn', name:'당근',
+      title: (head + ' ' + dealWord + ' ' + money()).split('  ').join(' ').trim(),
+      body: head + NBSP + (k.dealType || '') + ' ' + money() + LF + facts.join(' · ') +
+            LF + '※ 사진은 해당 호실 실사입니다.' },
+    { ch:'zigbang', name:'직방',
+      title: ((k.building || '') + ' ' + dealWord + ' ' + money()).split('  ').join(' ').trim(),
+      body: facts.join(' / ') + LF + '문의 주시면 방 보는 시간 맞춰 드립니다.' },
+    { ch:'dabang', name:'다방',
+      title: (dealWord + ' ' + money() + ' ' + (k.building || '')).split('  ').join(' ').trim(),
+      body: facts.join(', ') },
+    { ch:'naver', name:'네이버',
+      title: (k.building || '') + ' ' + (k.unit || '') + ' ' + (k.dealType || ''),
+      body: '보증금/월세 ' + money() + LF + facts.join(LF) },
+    { ch:'blog', name:'블로그',
+      title: (k.building || '') + ' ' + (k.unit || '') + ' 실제 조건 정리',
+      body: head + ' ' + (k.dealType || '') + ' ' + money() + LF + facts.join(LF) +
+            LF + '사진은 해당 호실에서 직접 찍은 것만 올립니다.' }
+  ];
+  /* 🔴 지어낸 말이 섞였는지 스스로 본다 */
+  var BAN = ['마지막', '단 한', '급매', '최저가', '무조건', '역세권 확정', '곧 마감'];
+  var bad = [];
+  DR.forEach(function(d){
+    BAN.forEach(function(b){
+      if((d.title + d.body).indexOf(b) >= 0) bad.push(d.ch + ':' + b);
+    });
+  });
+  return { ok:true, why:'', drafts:DR, banned:bad, facts:facts,
+           note:'🔴 복사해서 쓰는 초안입니다. 이 함수는 게시하지 않습니다.' };
+}
+
+/* ── 인입함 전체를 접수후보로 — 화면이 아니라 값만 돌려준다 ───────── */
+function intakeAll(limit){
+  var out = [];
+  (DB.inbox || []).forEach(function(r){
+    var t = String(r.text || '');
+    if(!t) return;
+    if(!/\d{3,4}\s*호/.test(t)) return;          /* 호실이 없으면 매물 접수가 아니다 */
+    intakeEventsFrom(r).forEach(function(ev){
+      ev.ad = intakeAd(ev);
+      out.push(ev);
+    });
+  });
+  out.sort(function(a, b){ return String(b.receivedAt).localeCompare(String(a.receivedAt)); });
+  return limit ? out.slice(0, limit) : out;
+}
+
 /* ── 인입함 중복 줄 묶기 (2026-09-12 실측으로 들어온 수정) ──────────────
    휴대폰 백업 파일 7개가 전부 '전체 백업' 이어서, 회수가 돌 때마다 같은 문자를
    다시 넣었다. 받아온 500줄 중 296줄이 덧줄이고, 한 번호는 122줄이 고유 27줄이었다.
@@ -3559,7 +3987,10 @@ var DONE_SAY = ['계약완료', '계약 완료', '계약됐', '계약 됐', '계
                 '나갔', '마감', '임대완료', '임대 완료', '계약이 진행', '계약진행중'];
 var STILL_SAY = ['남아', '남았', '있어요', '있습니다', '가능', '공실', '비어', '퇴실 예정',
                  '퇴실예정', '입주'];
-function doneUnits(t){
+/* 🔴 한 문장을 호실마다 쪼개는 일은 **여기 한 곳에서만** 한다.
+   doneUnits(계약완료 목록) 와 statusHintOf(호실별 최신상태) 가 같은 결과를 쓴다 —
+   두 군데서 따로 판정하면 언젠가 서로 어긋난다. */
+function unitSpans(t){
   var s2 = String(t || ''), pos = [], i = 0;
   while(i < s2.length){
     var j = s2.indexOf('호', i);
@@ -3573,21 +4004,52 @@ function doneUnits(t){
     if(num.length >= 3 && num.length <= 4) pos.push({ u:num + '호', at:k + 1, end:j + 1 });
     i = j + 1;
   }
-  function has(seg, list){
-    for(var n = 0; n < list.length; n++) if(seg.indexOf(list[n]) >= 0) return true;
-    return false;
-  }
-  var out = [];
   for(var m = 0; m < pos.length; m++){
-    var from = pos[m].end;
-    var to = (m + 1 < pos.length) ? pos[m + 1].at : s2.length;
-    var seg = s2.slice(from, to);
-    var isDone = has(seg, DONE_SAY), isStill = has(seg, STILL_SAY);
+    pos[m].seg = s2.slice(pos[m].end, (m + 1 < pos.length) ? pos[m + 1].at : s2.length);
+  }
+  return pos;
+}
+function sayHas(seg, list){
+  for(var n = 0; n < list.length; n++) if(String(seg || '').indexOf(list[n]) >= 0) return true;
+  return false;
+}
+/* 그 호실 한 칸만 보고 'DONE'(계약완료) · 'STILL'(아직 있음) · '' 를 돌려준다 */
+function unitSay(t, unit){
+  var s2 = String(t || ''), pos = unitSpans(s2), u = sq(unit);
+  for(var m = 0; m < pos.length; m++){
+    if(sq(pos[m].u) !== u) continue;
+    var isDone = sayHas(pos[m].seg, DONE_SAY), isStill = sayHas(pos[m].seg, STILL_SAY);
     /* 그 호실 뒤에 아무 말이 없으면(앞에 몰아서 쓴 문장) 문장 전체를 본다 */
-    if(!isDone && !isStill) isDone = has(s2, DONE_SAY);
-    if(isDone && !isStill && out.indexOf(pos[m].u) < 0) out.push(pos[m].u);
+    if(!isDone && !isStill) isDone = sayHas(s2, DONE_SAY);
+    if(isStill) return 'STILL';
+    return isDone ? 'DONE' : '';
+  }
+  return '';
+}
+function doneUnits(t){
+  var s2 = String(t || ''), pos = unitSpans(s2), out = [];
+  for(var m = 0; m < pos.length; m++){
+    if(unitSay(s2, pos[m].u) === 'DONE' && out.indexOf(pos[m].u) < 0) out.push(pos[m].u);
   }
   return out;
+}
+/* 같은 호실에 여러 문자가 있을 때 **가장 최근 직접근거** 만 쓴다.
+   rows 는 {when, text} 꼴. 🔴 문장 전체 상태를 한 번에 적용하지 않는다. */
+function statusHintOf(rows, unit){
+  var best = null;
+  (rows || []).forEach(function(r){
+    var say = unitSay(r.text, unit);
+    if(!say) return;
+    var wn = String(r.when || '');
+    if(!best || wn > best.when) best = { when:wn, say:say, text:String(r.text || '') };
+  });
+  if(!best) return { code:'UNKNOWN', when:'', text:'', why:'그 호실을 직접 말한 문자가 없습니다' };
+  if(best.say === 'DONE')
+    return { code:'CONTRACT_DONE', when:best.when, text:best.text,
+             why:'가장 최근 직접근거가 계약완료이고 그 뒤에 "있다"는 말이 없습니다' };
+  var soon = sayHas(best.text, ['퇴실 예정', '퇴실예정']);
+  return { code: soon ? 'MOVEOUT_SOON' : 'AVAILABLE', when:best.when, text:best.text,
+           why:'가장 최근 직접근거가 ' + (soon ? '퇴실 예정' : '아직 있다') + ' 입니다' };
 }
 function doneAlerts(){
   var inb = DB.inbox || [], seen = {}, out = [];
