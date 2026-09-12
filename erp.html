@@ -210,7 +210,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.10.0';
+var ERP_VER = '1.11.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -768,7 +768,7 @@ function viewToday(){
       : '') + '</span></div>' +
   homeLoadBox() +
   phIdxBox('촬영 필요') +
-  briefCard() +
+  briefCard() + boardCard() +
   top3Card() +
   monBoard() +
   '<div class="kpis">' +
@@ -4670,9 +4670,19 @@ function inqPhoneSets(){
   INQ_PS = { nL:nL, nS:nS, nC:nC, ld:ld, ls:ls, cu:cu };
   return INQ_PS;
 }
-function inqWho(phone){
+function inqWho(phone, name){
   var ps = inqPhoneSets(), k = phKey(phone);
-  if(!k) return { code:'NOPHONE', hit:null };
+  if(!k){
+    /* 🔴 번호가 없으면(주소록에 이름으로 저장된 통화녹음) 이름으로 이어 본다 */
+    var bn = inqByName(name);
+    if(bn.code === 'CUSTOMER' || bn.code === 'LANDLORD' || bn.code === 'LISTING')
+      return { code:bn.code, hit:bn.hit, via:'NAME', how:bn.how };
+    if(bn.code === 'BUILDING')
+      return { code:'BUILDING', hit:null, via:'NAME', how:bn.how, bldg:bn.bldg };
+    if(bn.code === 'AMBIG')
+      return { code:'NOPHONE', hit:null, via:'NAME', how:bn.how };
+    return { code:'NOPHONE', hit:null, how:(bn.how || '') };
+  }
   if(ps.cu[k]) return { code:'CUSTOMER', hit:ps.cu[k] };
   if(ps.ld[k]) return { code:'LANDLORD', hit:ps.ld[k] };
   if(ps.ls[k]) return { code:'LISTING', hit:ps.ls[k] };
@@ -4693,13 +4703,15 @@ function inqIsInquiry(r){
   var ars = inqHas(t, INQ_ARS);
   if(ars) return { ok:false, why:'기관·ARS 안내 멘트(“' + ars + '”)' };
   var biz = inqHas(t, INQ_BIZ);
-  var who = inqWho(r.phone);
+  var who = inqWho(r.phone, r.name);
   var want = inqHas(t, INQ_WANT);
   var src = srcOf(r.kind, t);
   /* 부재중·전화수신은 글이 없어도 문의일 수 있다 */
   if(!want && src !== '부재중전화') return { ok:false, why:'문의로 볼 말이 없음' };
-  if(who.code === 'LANDLORD') return { ok:false, why:'임대인 번호', who:who };
-  if(who.code === 'LISTING') return { ok:false, why:'매물 연락처', who:who };
+  if(who.code === 'LANDLORD')
+    return { ok:false, why:(who.via === 'NAME' ? '임대인(이름으로 확인)' : '임대인 번호'), who:who };
+  if(who.code === 'LISTING')
+    return { ok:false, why:(who.via === 'NAME' ? '매물 연락처(이름으로 확인)' : '매물 연락처'), who:who };
   if(biz) return { ok:true, why:'업체 영업전화로 보입니다(“' + biz + '”) — 검토 필요',
                    review:true, who:who };
   return { ok:true, why:'', who:who };
@@ -4817,7 +4829,7 @@ function inquiryEvent(r){
   var src = srcOf(r.kind, t);
   var chk = inqIsInquiry(r);
   var p = inqParse(t);
-  var who = chk.who || inqWho(r.phone);
+  var who = chk.who || inqWho(r.phone, r.name);
   var mid = '';
   if(p.mentionedBuilding || p.mentionedUnit){
     (DB.listings || []).forEach(function(l){
@@ -4871,7 +4883,7 @@ function inqAll(limit){
 
 /* ── §4 기존 고객 우선 연결 — 🔴 고객을 새로 만들지 않는다 ────────── */
 function inqLink(ev){
-  var who = ev._who || inqWho(ev.phone);
+  var who = ev._who || inqWho(ev.phone, ev.customer);
   if(who.code === 'CUSTOMER'){
     var c = who.hit;
     var st = String(c.progressStatus || '').trim();
@@ -4884,10 +4896,17 @@ function inqLink(ev){
                    ' · 🔴 자동으로 다시 열지 않습니다([다시 상담 시작] 을 눌러야 바뀝니다)' };
     }
     return { code:'EXISTING_ACTIVE', c:c,
-             why:'이미 상담 중인 고객입니다(진행상태 ' + (st || '빈칸') + ') — 새로 만들지 않습니다' };
+             why:'이미 상담 중인 고객입니다(진행상태 ' + (st || '빈칸') + ') — 새로 만들지 않습니다' +
+                 (who.via === 'NAME' ? (' · ' + String(who.how || '')) : '') };
   }
+  if(who.code === 'BUILDING')
+    return { code:'REVIEW', c:null, bldg:who.bldg,
+             why:'번호가 없습니다 — ' + String(who.how || '') +
+                 ' · 사람은 대표님이 확인해 주셔야 합니다' };
   if(who.code === 'NOPHONE')
-    return { code:'REVIEW', c:null, why:'번호가 없어 고객을 찾을 수 없습니다' };
+    return { code:'REVIEW', c:null,
+             why:'번호가 없어 고객을 찾을 수 없습니다' +
+                 (who.how ? (' — ' + who.how) : '') };
   return { code:'NEW_CANDIDATE', c:null,
            why:'처음 보는 번호입니다 — 🔴 대표님이 [고객 등록] 을 누르기 전에는 만들지 않습니다' };
 }
@@ -5225,6 +5244,241 @@ function inqToday(){
   });
   out.answer.sort(function(a, b){ return String(b.when).localeCompare(String(a.when)); });
   return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   4단계 — 실제 영업 운영 연결 (2026-09-13)
+   ② 번호 없는 통화녹음을 이름으로 잇는다   ③ 신규고객 승인등록(승인 전 생성 0)
+   ⑤ 촬영을 건물 동선으로 묶는다            ⑧ 오늘 실행판
+   🔴 문자·게시·계약을 자동으로 하지 않는다. 고객은 대표 승인 뒤에만 만든다.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── ② 번호 없는 통화녹음 ───────────────────────────────────────
+   녹음 파일 이름이 '통화 녹음 <상대>_날짜_시각' 이라, 주소록에 **이름**으로 저장된 사람은
+   번호가 비어 들어온다(실측: 번호 없는 통화 52건 전부 이름은 있었다).
+   그래서 이름으로 잇는다 — 🔴 딱 하나일 때만. 여럿이면 잇지 않고 REVIEW.
+   잘못된 사람에게 잇는 것보다 못 잇는 것이 낫다. */
+function inqUnitStrip(s){ return String(s || '').replace(/\d{2,4}\s*호/g, ''); }
+function inqByName(nm){
+  var base = sq(nm), cut = sq(inqUnitStrip(nm));
+  if(!base) return { code:'NONAME', hits:[] };
+  var hits = [];
+  function eat(tag, rows, f){
+    (rows || []).forEach(function(o){
+      var v = sq(o[f]);
+      if(!v || v.length < 3) return;
+      var how = '';
+      if(v === base) how = '주소록 이름이 명부와 같습니다';
+      else if(v === cut) how = '호실만 떼면 명부 이름과 같습니다';
+      else if(v.length >= 5 && base.indexOf(v) >= 0) how = '주소록 이름 안에 명부 이름이 들어 있습니다';
+      if(how) hits.push({ tag:tag, o:o, how:how });
+    });
+  }
+  eat('CUSTOMER', DB.customers, 'name');
+  eat('LANDLORD', DB.landlords, 'name');
+  eat('LISTING', DB.listings, 'cname');
+  var seen = {}, uniq = [];
+  hits.forEach(function(h){
+    var k = h.tag + ':' + String(h.o.id);
+    if(!seen[k]){ seen[k] = 1; uniq.push(h); } });
+  if(uniq.length === 1)
+    return { code:uniq[0].tag, hit:uniq[0].o, how:uniq[0].how, hits:uniq };
+  if(uniq.length > 1)
+    return { code:'AMBIG', hits:uniq,
+             how:'이름이 맞는 사람이 ' + uniq.length + '명입니다 — 잇지 않았습니다' };
+  /* 이름이 아니라 주소록 라벨('임대-노형동738-12진군길25퀸하우스')일 때 — 건물이 한 곳이면 건물까지만 */
+  var bl = {};
+  function eatB(rows){
+    (rows || []).forEach(function(o){
+      var a = sq(o.apt);
+      if(a && a.length >= 3 && base.indexOf(a) >= 0) bl[String(o.apt).trim()] = 1; }); }
+  eatB(DB.listings);
+  eatB(DB.landlords);
+  var names = Object.keys(bl);
+  if(names.length === 1)
+    return { code:'BUILDING', bldg:names[0], hits:[],
+             how:'주소록 이름에 건물 이름(' + names[0] + ')이 있습니다 — 사람은 아직 모릅니다' };
+  if(names.length > 1)
+    return { code:'AMBIG', hits:[],
+             how:'주소록 이름에 건물 이름이 ' + names.length + '개 있습니다 — 잇지 않았습니다' };
+  return { code:'UNKNOWN', hits:[], how:'명부에서 찾지 못했습니다' };
+}
+
+/* 고객 번호는 기존 CRM 과 같은 꼴로 만든다(index.html uid() = 시각_무작위5자).
+   🔴 형식이 다르면 두 화면이 같은 사람을 다르게 본다. */
+function cuNewId(list){
+  var id;
+  do { id = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 7); }
+  while((list || []).some(function(c){ return String(c.id) === id; }));
+  return id;
+}
+
+/* ── ③ 신규고객 승인등록 — 🔴 대표가 누르기 전에는 아무것도 만들지 않는다 ── */
+function inqNewCustomerDraft(ev){
+  var pr = inqPrep(ev);
+  var p = ev._p || {};
+  var nl = String.fromCharCode(10);
+  var note = ['[문의 ' + String(ev.receivedAt).slice(0, 16) + ' ' + ev.source + ']',
+              maskSecret(String(ev.rawText || '')).slice(0, 300)];
+  if(pr.wants.length) note.push('읽어낸 조건: ' + pr.wants.join(' · '));
+  if((pr.match.top || []).length)
+    note.push('그때 추천: ' + pr.match.top.map(function(t){
+      return String(t.l.apt || '') + ' ' + String(t.l.addr2 || '') + '(' + t.pct + '%)'; }).join(' / '));
+  if(pr.ask.length) note.push('확인할 것: ' + pr.ask.slice(0, 3).join(' / '));
+  return {
+    id:'', name:(String(ev.customer || '').trim() || ('문의 ' + String(ev.receivedAt).slice(5, 16))),
+    phone:String(ev.phone || ''), role:'임차인', type:String(p.dealType || ''),
+    recvDate:String(ev.receivedAt).slice(0, 10), deadline:'',
+    budget:(p.depositBudget || p.rentBudget)
+      ? ((p.depositBudget || '') + (p.rentBudget ? ('/' + p.rentBudget) : '')) : '',
+    region:String(p.desiredRegion || ''), propType:String(p.propertyType || ''),
+    areaSize:'', step:'0', progressStatus:'진행중',
+    conApt:(ev.mentionedListing ? String(ev.mentionedListing.apt || '') : ''),
+    conMoveIn:String(p.moveInDate || ''), conFloor:'', conUnit:'', conPrice:'', conRenewal:'',
+    note:note.join(nl).slice(0, 1500), nextAction:todayStr(), agent:'',
+    _prep:pr
+  };
+}
+async function inqApproveCustomer(row){
+  var nl = String.fromCharCode(10);
+  var ev = inqFindByRow(row);
+  if(!ev){ alert('그 문의를 찾지 못했습니다 — 화면을 다시 불러와 주세요.'); return; }
+  var lk = inqLink(ev);
+  if(lk.code === 'EXISTING_ACTIVE' || lk.code === 'REOPEN_REVIEW'){
+    alert('이미 있는 고객입니다(' + String((lk.c || {}).name || '') + ').' + nl +
+          '새로 만들지 않습니다 — [고객 열기] 로 그 고객에 이어 적으십시오.');
+    return;
+  }
+  if(lk.code === 'BLOCKED'){ alert('🔴 연락금지로 적힌 분입니다 — 만들지 않습니다.'); return; }
+  var d = inqNewCustomerDraft(ev);
+  var msg = ['새 고객을 만듭니다 — 이대로 등록할까요?', '',
+    '이름   ' + d.name, '번호   ' + phMask(d.phone),
+    '조건   ' + [d.region, d.propType, d.type, d.budget ? ('예산 ' + d.budget) : '',
+                 d.conMoveIn ? ('입주 ' + d.conMoveIn) : ''].filter(Boolean).join(' · '),
+    '다음 연락 ' + d.nextAction,
+    '메모   문의 원문 + 읽어낸 조건 + 그때 추천 매물이 함께 들어갑니다',
+    '', '🔴 고객 1건만 만듭니다. 문자는 나가지 않습니다.',
+    '🔴 매물·계약·광고는 건드리지 않습니다.'].join(nl);
+  if(!confirm(msg)) return;
+  /* 🔴 저장 직전에 최신 고객 목록을 다시 읽어 같은 번호가 이미 있는지 본다(중복 0) */
+  var fresh;
+  try{
+    var g = await jget({ action:'getAll', type:'customers' });
+    fresh = g.data || g.result || [];
+  }catch(e){ alert('고객 자료를 다시 읽지 못해 만들지 않습니다: ' + (e && e.message || e)); return; }
+  var k = phKey(d.phone);
+  var dup = k ? fresh.filter(function(c){ return phHas(c.phone, d.phone); }) : [];
+  if(dup.length){
+    DB.customers = fresh;
+    route();
+    alert('🔴 같은 번호의 고객이 이미 있습니다(' + String(dup[0].name || '') + ').' + nl +
+          '만들지 않았습니다 — 그 고객에 이어 적으십시오.');
+    return;
+  }
+  d.id = cuNewId(fresh);
+  var obj = JSON.parse(JSON.stringify(d));
+  delete obj._prep;
+  try{
+    await erpUpsert('customers', obj);
+    var g2 = await jget({ action:'getAll', type:'customers' });
+    DB.customers = g2.data || g2.result || [];
+    INQ_PS = null; INQ_ALL = null;                 /* 다시 셈하게 */
+    var now = (DB.customers || []).filter(function(x){ return String(x.id) === String(obj.id); })[0];
+    /* 인입함 줄에 처리 표시 — 대표님 미처리 목록에서 내린다 */
+    try{ await jgetTry({ action:'inboxMark', row:String(row), val:'고객등록 ' + obj.id }); }catch(e2){}
+    route();
+    alert([now ? '고객을 만들었습니다 ✓' : '🔴 다시 읽었더니 안 보입니다 — 확인이 필요합니다', '',
+      String((now || obj).name || '') + ' · ' + phMask((now || obj).phone),
+      '조건 ' + [(now || obj).region, (now || obj).propType, (now || obj).budget]
+        .filter(Boolean).join(' · '),
+      '다음 연락 ' + String((now || obj).nextAction || ''), '',
+      '문의 원문·읽어낸 조건·그때 추천 매물이 메모에 들어갔습니다 — 다시 입력하지 않으셔도 됩니다.'
+      ].join(nl));
+  }catch(e){
+    route();
+    alert('만들지 못했습니다 — 고객 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+
+/* ── ⑤ 촬영을 건물 동선으로 묶는다 (호실별 일정이 아니라 건물 한 번) ── */
+function shootPlan(){
+  var by = {};
+  listingAdAll().forEach(function(x){
+    if(!adLive(x.o)) return;
+    if(x.ev.todo.code !== 'NEED_PHOTO') return;
+    var key = String(x.o.apt || '(이름 없음)');
+    var b = by[key] || (by[key] = { apt:key, addr:String(x.o.addr || ''), units:[],
+                                    common:0, doors:0, lds:[], need:{} });
+    var ph = x.ev.ad.photo || {};
+    b.common = Math.max(b.common, ph.BUILDING_COMMON || 0);
+    var hay = String(x.o.note || '') + ' ' + String(x.o.desc || '');
+    var hasDoor = /비번|비밀번호|출입|현관/.test(hay);
+    if(hasDoor) b.doors++;
+    var miss = (x.ev.ad.needs && x.ev.ad.needs.missingRequired || [])
+      .map(function(m){ return m.label; });
+    miss.forEach(function(m){ b.need[m] = (b.need[m] || 0) + 1; });
+    b.units.push({ id:String(x.o.id), unit:String(x.o.addr2 || ''),
+                   floor:String(x.o.floor || ''), type:String(x.o.type || ''),
+                   price:cuNum(x.o.price), rent:cuNum(x.o.rentAmt),
+                   other:ph.OTHER_UNIT_REFERENCE || 0, door:hasDoor, miss:miss });
+  });
+  var out = Object.keys(by).map(function(k){ return by[k]; });
+  out.forEach(function(b){
+    b.units.sort(function(p, q){
+      return (parseInt(p.unit, 10) || 0) - (parseInt(q.unit, 10) || 0); });
+    /* 그 건물 임대인 — 이미 아는 사람만 */
+    b.lds = (DB.landlords || []).filter(function(l){
+      return sq(l.apt) && sq(l.apt) === sq(b.apt); })
+      .map(function(l){ return { id:String(l.id), name:String(l.name || ''),
+                                 mask:phMask(l.phone) }; });
+    b.shots = ['현관·거실', '방(호실마다)', '주방', '욕실', '창밖 전망', '건물 외관(한 번만)'];
+  });
+  /* 호실이 많은 건물부터 — 한 번 가서 많이 찍는 순서 */
+  out.sort(function(a, b){ return b.units.length - a.units.length; });
+  return { buildings:out, units:out.reduce(function(a, b){ return a + b.units.length; }, 0) };
+}
+function shootCopy(){
+  var nl = String.fromCharCode(10);
+  var p = shootPlan();
+  var L = ['촬영 동선 — 건물 ' + p.buildings.length + '곳 · 호실 ' + p.units + '개', ''];
+  p.buildings.forEach(function(b, i){
+    L.push((i + 1) + ') ' + b.apt + '  (' + b.units.length + '호실)');
+    L.push('   주소 ' + b.addr);
+    L.push('   호실 ' + b.units.map(function(u){ return u.unit; }).join(', '));
+    L.push('   찍을 것 ' + b.shots.join(' · '));
+    L.push('   건물 공용부 사진 ' + (b.common ? (b.common + '장 있음(또 안 찍어도 됨)') : '없음'));
+    L.push('   출입방법 아는 호실 ' + b.doors + '/' + b.units.length);
+    L.push('   임대인 ' + (b.lds.length ? b.lds.map(function(x){
+      return (x.name || '이름없음') + ' ' + x.mask; }).join(' / ') : '명부에 없음'));
+    var nk = Object.keys(b.need);
+    if(nk.length) L.push('   같이 확인할 값 ' + nk.map(function(k){
+      return k + '(' + b.need[k] + '건)'; }).join(' · '));
+    L.push('');
+  });
+  L.push('🔴 이 목록은 사진을 올리거나 광고를 올리지 않습니다 — 찍어 오시면 폴더에 넣습니다.');
+  copyText(L.join(nl), '촬영 동선을 복사했습니다');
+}
+
+/* ── ⑧ 오늘 실행판 — 대표가 오늘 움직일 사람·매물만 ────────────── */
+function todayBoard(){
+  var iq = inqToday();
+  var la = listingAdAll().filter(function(x){ return adLive(x.o); });
+  var sp = shootPlan();
+  var done = doneAlerts();
+  var doneIds = {};
+  done.forEach(function(a){ a.hits.forEach(function(h){ doneIds[String(h.o.id)] = 1; }); });
+  return {
+    answer:iq.answer,                                     /* 즉시 응답 */
+    visit:iq.visit,                                       /* 오늘 방문 */
+    close:iq.close,                                       /* 계약 가능 */
+    vacancy:{ n:Object.keys(doneIds).length,              /* 공실 확보(계약완료 확인) */
+              why:'계약완료 문자가 온 매물 — 상태를 바꾸면 그 방이 정리됩니다' },
+    ad:{ ready:la.filter(function(x){ return x.ev.ad.code === 'AD_READY_PREVIEW'; }).length,
+         data:la.filter(function(x){ return x.ev.ad.code === 'DATA_REQUIRED'; }).length,
+         photo:la.filter(function(x){ return x.ev.ad.code === 'PHOTO_REQUIRED'; }).length,
+         review:la.filter(function(x){ return x.ev.ad.code === 'REVIEW_REQUIRED'; }).length,
+         shootB:sp.buildings.length, shootU:sp.units }
+  };
 }
 
 /* ── 대표님 단추 — 🔴 복사만 한다. 보내지 않는다 ─────────────────── */
@@ -5957,6 +6211,10 @@ function monBoard(){
           esc(pr.how.why),
         '<button class="btn sm" onclick="inqCopyDraft(&#39;' + esc(String((ev._row || {}).row || '')) +
           '&#39;)">답변 초안 복사</button> ' +
+          (lk.code === 'NEW_CANDIDATE'
+            ? ('<button class="btn sm pri" onclick="inqApproveCustomer(&#39;' +
+               esc(String((ev._row || {}).row || '')) + '&#39;)">고객 등록 승인</button> ')
+            : '') +
           (lk.c ? ('<button class="btn sm" onclick="CU_SEL=&#39;' + esc(String(lk.c.id || '')) +
                    '&#39;;go(&#39;crm&#39;,&#39;cust&#39;)">고객 열기</button> ') : '') +
           ((ev._p || {}).visitWish ? ('<button class="btn sm" onclick="inqVisitShow(&#39;' +
@@ -6192,6 +6450,37 @@ function monBoard(){
     '(월요일 확인할 TOP 10 이 맨 위에 있습니다).<br>' +
     '전화로 확인하신 뒤 <b>매물로 등록하시면 위 ② 목록에 저절로 올라옵니다</b> — ' +
     '이 화면이 고객·매물을 스스로 만들지는 않습니다.</div>';
+}
+
+/* ── ⑧ 오늘 실행판 — 오늘 움직일 사람·매물만 (4단계) ─────────────
+   🔴 검사 숫자를 보여 주지 않는다. 누구에게 무엇을 하는지만 적는다. */
+function boardCard(){
+  var b = todayBoard();
+  function cell(t, n, sub, hot){
+    return '<div style="flex:1 1 150px;min-width:150px;background:#fff;border:1px solid ' +
+      (hot ? 'var(--bad)' : 'var(--line)') + ';border-radius:10px;padding:10px 12px">' +
+      '<div style="font-size:12px;color:var(--t3)">' + t + '</div>' +
+      '<div style="font-size:22px;font-weight:700;line-height:1.3' +
+      (hot ? ';color:var(--bad)' : '') + '">' + n + '</div>' +
+      '<div style="font-size:11.5px;color:var(--t3)">' + sub + '</div></div>';
+  }
+  var h = '<div class="card" style="margin:0 0 14px">' +
+    '<div class="sbody" style="padding:13px 16px">' +
+    '<h4 style="margin:0 0 9px;font-size:16px">오늘 실행판</h4>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    cell('즉시 응답', b.answer.length, '문의가 와 있습니다', b.answer.length > 0) +
+    cell('오늘 방문', b.visit.length, '방문을 원한 손님', b.visit.length > 0) +
+    cell('계약 가능', b.close.length, '상담 중 + 보여 줄 방 있음', false) +
+    cell('공실 확보', b.vacancy.n, '계약완료 확인이 필요합니다', b.vacancy.n > 0) +
+    cell('광고 준비', b.ad.ready, '값 ' + b.ad.data + ' · 사진 ' + b.ad.photo +
+         ' · 확인 ' + b.ad.review, false) +
+    '</div>' +
+    '<div style="margin-top:9px;font-size:12px;color:var(--t3)">' +
+    '촬영은 건물 <b>' + b.ad.shootB + '곳</b> 한 번에 ' + b.ad.shootU + '호실 ' +
+    '<button class="btn sm" onclick="shootCopy()">촬영 동선 복사</button>' +
+    '<br>🔴 이 화면은 문자를 보내지 않고, 광고를 올리지 않고, 계약을 만들지 않습니다.</div>' +
+    '</div></div>';
+  return h;
 }
 
 /* 🔴 대표님이 화면을 열면 제일 먼저 보는 세 줄 */
