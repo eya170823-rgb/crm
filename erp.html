@@ -210,7 +210,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.9.3';
+var ERP_VER = '1.9.4';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -358,17 +358,21 @@ async function loadAll(force){
    한 번 더 시도해 보고, 그래도 안 되면 그때 실패로 적는다. */
 async function jgetTry(q, n){
   var last;
-  /* 🔴 세 번까지 물어본다 (2026-09-12 실측으로 늘렸다).
+  /* 🔴 **다섯 번**까지 물어본다 (2026-09-12 실측으로 세 번 → 다섯 번).
      한참 쉬었다 처음 부르면 GAS 가 큰 응답(임대인 4,075건)에서 한 번 죽는다.
      새 브라우저 프로필 3회 연속 시험: 1회 임대인 실패(120초) · 2·3회 전부 통과(24초).
-     두 번으로는 부족했다. 기다리는 시간은 1.5초 → 4초 → 8초 로 늘린다. */
-  for(var i = 0; i < (n || 3); i++){
+     🔴 그 뒤 검산을 여러 번 돌리며 실측한 실패: 매물 1회 · 인입함 1회 · 홈 1회.
+        세 번으로도 놓쳤다 — 기다리는 시간은 1.5초 → 4초 → 8초 → 15초 → 25초.
+     대표님 화면에서도 같은 값이 쓰인다(쉬었다 처음 여는 때가 가장 잘 죽는다). */
+  var WAIT = [1500, 4000, 8000, 15000, 25000];
+  var tries = n || 5;
+  for(var i = 0; i < tries; i++){
     try{ return await jget(q); }
     catch(e){
       last = e;
       if(String(e && e.message || '') === 'NOKEY') throw e;   /* 토큰 없음은 다시 해도 같다 */
-      if(i + 1 >= (n || 3)) break;
-      await new Promise(function(r){ setTimeout(r, [1500, 4000, 8000][i] || 8000); });
+      if(i + 1 >= tries) break;
+      await new Promise(function(r){ setTimeout(r, WAIT[i] || 25000); });
     }
   }
   throw last;
@@ -648,7 +652,10 @@ function judgePhoto(j, bm, ai, r){
     if(unitKey && sq(u) === unitKey)
       p.unit = { name:u, raw:uv.raw, done:uv.done,
                  rawMaxKB:uv.rawMaxKB, rawMinKB:uv.rawMinKB,
-                 doneMaxKB:uv.doneMaxKB, doneMinKB:uv.doneMinKB };
+                 doneMaxKB:uv.doneMaxKB, doneMinKB:uv.doneMinKB,
+                 /* 🔴 해상도 — photo_dim_scan.py 가 담는다. 없으면 undefined(예전처럼) */
+                 rawMinW:uv.rawMinW, rawMinH:uv.rawMinH,
+                 doneMinW:uv.doneMinW, doneMinH:uv.doneMinH };
     else p.others.push({ name:u, raw:uv.raw, done:uv.done,
                          rawMaxKB:uv.rawMaxKB, doneMaxKB:uv.doneMaxKB });
   });
@@ -944,6 +951,16 @@ function bldgKeyOk(v){
       수만 번 훑었다(덤프가 300초를 넘겨 회신을 못 했다 — 실측).
    → 호실번호·보낸번호로 미리 갈라 두고, 그 뒤에는 찾아보기만 한다.
       고르는 조건(호실 + 건물이름/보낸번호)은 그대로이므로 결과가 달라지지 않는다. */
+/* 🔴 시험으로 넣은 줄은 **판정에 쓰지 않는다**.
+   실측 사고(2026-09-12): 메모 기능을 시험하며 넣은 한 줄에 "즉시입주" 가 들어 있어,
+   그 호실(에코제니 305호)의 2026-08-05 계약완료 근거를 덮어쓰고 "아직 있다" 로 판정됐다.
+   🔴 줄을 지우지는 않는다 — 인입함 목록에는 그대로 보이고, 판정·후보에서만 뺀다. */
+var TEST_MARKS = ['[검사용메모', '[검사용', '[TEST]'];
+function isTestRow(t){
+  var s = String(t || '');
+  for(var i = 0; i < TEST_MARKS.length; i++) if(s.indexOf(TEST_MARKS[i]) >= 0) return true;
+  return false;
+}
 var IN_IDX = null;
 function inboxIdx(){
   var rows = DB.inbox || [];
@@ -952,6 +969,7 @@ function inboxIdx(){
   var byUnit = {}, byPhone = {};
   rows.forEach(function(x){
     var t = String(x.text || '');
+    if(isTestRow(t)) return;
     var rec = { when:String(x.when || ''), text:t, ph:phKey(x.phone), sq:sq(t) };
     /* 그 줄이 말한 호실을 한 번만 뽑는다 */
     var seen = {};
@@ -1130,6 +1148,11 @@ function intakeDup(ev){
    64×64 썸네일이 1~2KB 로 들어와 있다(실측). 그런 것을 광고에 올리면 허위매물로 보인다. */
 var PH_MIN_KB = 20;        /* 이보다 작으면 광고에 쓸 사진이 아니다 */
 var PH_GOOD_KB = 60;       /* 이 정도면 넉넉하다(참고용 — 막지는 않는다) */
+/* 🔴 크기(KB)만으로 화질을 믿지 않는다 — 그림이 작으면 KB 가 넉넉해도 못 쓴다.
+   실측: 워터마크가 64×64 썸네일을 그대로 찍어 1KB 보정완료를 만든 폴더가 있었다.
+   해상도는 인덱스에 담긴 폴더만 알 수 있다(doneMinW/doneMinH) — 없으면 막지 않는다. */
+var PH_MIN_W = 600;
+var PH_MIN_H = 400;
 function intakePhoto(ev){
   var ph = judgePhoto(ev._match && ev._match.code === 'MATCH'
              ? { code:'SAME', hit:(ev._match.hits || [])[0] }
@@ -1158,30 +1181,64 @@ function intakePhoto(ev){
         그리고 "촬영 필요" 와 "보정 필요" 를 가른다 — 원본이 있으면 촬영이 아니다. */
   var u = (ph.unit || {});
   out.doneMaxKB = (u.doneMaxKB === undefined) ? null : u.doneMaxKB;
+  out.doneMinKB = (u.doneMinKB === undefined) ? null : u.doneMinKB;
   out.rawMaxKB = (u.rawMaxKB === undefined) ? null : u.rawMaxKB;
   out.rawMinKB = (u.rawMinKB === undefined) ? null : u.rawMinKB;
+  out.doneMinW = (u.doneMinW === undefined) ? null : u.doneMinW;
+  out.doneMinH = (u.doneMinH === undefined) ? null : u.doneMinH;
+  out.rawMinW = (u.rawMinW === undefined) ? null : u.rawMinW;
+  out.rawMinH = (u.rawMinH === undefined) ? null : u.rawMinH;
   out.quality = 'UNKNOWN';
+  out.qualityWhy = '';
   if(out.doneMaxKB !== null){
     out.quality = (out.doneMaxKB < PH_MIN_KB) ? 'LOW'
                 : ((out.doneMaxKB >= PH_GOOD_KB) ? 'GOOD' : 'OK');
+    if(out.quality === 'LOW')
+      out.qualityWhy = '보정완료 사진이 ' + out.doneMaxKB + 'KB 뿐입니다';
+  }
+  /* 🔴 그림 크기(해상도)로 한 번 더 본다 — KB 가 넉넉해도 작은 그림은 광고에 못 쓴다 */
+  if(out.doneMinW !== null && out.doneMinW > 0 &&
+     (out.doneMinW < PH_MIN_W || (out.doneMinH !== null && out.doneMinH > 0 && out.doneMinH < PH_MIN_H))){
+    out.quality = 'LOW';
+    out.qualityWhy = '보정완료 사진이 ' + out.doneMinW + '×' + out.doneMinH +
+      ' 뿐입니다(광고 최소 ' + PH_MIN_W + '×' + PH_MIN_H + ')';
+  }
+  /* 🔴 0KB·가로 0 = 깨진 파일. 광고에 쓰지 않는다. */
+  if(out.doneMinKB === 0 || out.doneMinW === 0){
+    out.quality = 'BROKEN';
+    out.qualityWhy = '보정완료에 열리지 않는 파일이 섞여 있습니다';
   }
   if(out.rawMinKB === 0) out.broken = '원본에 0KB 빈 파일이 섞여 있습니다';
-  if(out.EXACT_UNIT > 0 && out.quality === 'LOW'){
+  /* 원본이 광고에 쓸 만한가 — 크기와 해상도 둘 다 본다(다시 보정하면 되는지 가른다) */
+  var rawUsable = (out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB) &&
+                  !(out.rawMinW !== null && out.rawMinW > 0 && out.rawMinW < PH_MIN_W);
+  if(out.EXACT_UNIT > 0 && (out.quality === 'LOW' || out.quality === 'BROKEN')){
     out.code = 'REVIEW_REQUIRED';
     out.useForAd = '';
-    out.why = '그 호실 보정완료 사진이 ' + out.doneMaxKB + 'KB 뿐입니다 — 광고에 쓸 크기가 아닙니다' +
-      ((out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB)
-        ? (' (원본은 ' + out.rawMaxKB + 'KB 있습니다 — 촬영이 아니라 다시 보정하면 됩니다)')
+    out.why = '그 호실 ' + out.qualityWhy + ' — 광고에 쓸 사진이 아닙니다' +
+      (rawUsable
+        ? (' (원본은 ' + out.rawMaxKB + 'KB' +
+           (out.rawMinW ? ('·' + out.rawMinW + '×' + out.rawMinH) : '') +
+           ' 있습니다 — 촬영이 아니라 다시 보정하면 됩니다)')
         : ' (원본도 작습니다 — 다시 찍어야 합니다)');
-    out.askShoot = !(out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB);
-    out.fixBy = (out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB) ? 'REDO_WATERMARK' : 'SHOOT';
-  } else if(out.EXACT_UNIT === 0 && out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB){
+    out.askShoot = !rawUsable;
+    out.fixBy = rawUsable ? 'REDO_WATERMARK' : 'SHOOT';
+  } else if(out.EXACT_UNIT === 0 && rawUsable){
     /* 🔴 그 호실 원본이 있는데 보정이 안 된 것 — 촬영 요청 대상이 아니다 */
     out.code = 'REVIEW_REQUIRED';
     out.why = '그 호실 원본 ' + out.EXACT_UNIT_RAW + '장(최대 ' + out.rawMaxKB +
-      'KB)이 있는데 보정완료가 0장입니다 — 촬영이 아니라 보정이 필요합니다';
+      'KB' + (out.rawMinW ? ('·' + out.rawMinW + '×' + out.rawMinH) : '') +
+      ')이 있는데 보정완료가 0장입니다 — 촬영이 아니라 보정이 필요합니다';
     out.askShoot = false;
     out.fixBy = 'WATERMARK';
+  } else if(out.EXACT_UNIT === 0 && out.EXACT_UNIT_RAW > 0 && !rawUsable){
+    /* 🔴 그 호실 원본이 있기는 하나 썸네일이다 — 보정해도 못 쓴다. 이건 촬영이다. */
+    out.code = 'REVIEW_REQUIRED';
+    out.why = '그 호실 원본 ' + out.EXACT_UNIT_RAW + '장이 있지만 ' +
+      (out.rawMinW ? (out.rawMinW + '×' + out.rawMinH) : (out.rawMaxKB + 'KB')) +
+      ' 밖에 안 됩니다 — 보정해도 광고에 못 씁니다(다시 찍어야 합니다)';
+    out.askShoot = true;
+    out.fixBy = 'SHOOT';
   }
   return out;
 }
@@ -1233,10 +1290,55 @@ function intakeAd(ev){
 
 /* ── 채널별 광고문구 준비 — 🔴 사실만 쓴다. 게시하지 않는다 ────────
    없는 옵션·장점을 지어내지 않고, 허위 희소성("마지막 1실")을 쓰지 않는다. */
+/* 🔴 광고에 나갈 **건물 이름**인가 — 이름이 아니면 문구를 아예 만들지 않는다.
+   실측(2026-09-12): 매물장 단지명이 '202'(호실번호)로 들어가 광고문에 "단지 : 202" 로 찍혔다.
+   막는 것: ① 숫자뿐 ② 호실과 같음 ③ 너무 짧음 ④ 종류어뿐 ⑤ 주소(동·도로명) 조각 */
+function bldgNameCheck(name, unit, addr){
+  var t = sq(name), u = sq(unit), n = String(name || '');
+  if(!t) return { code:'REVIEW_BUILDING_NAME', why:'건물명이 비어 있습니다' };
+  if(/^[0-9-]+$/.test(t))
+    return { code:'REVIEW_BUILDING_NAME', why:'건물명이 숫자뿐입니다 — "' + n + '"' };
+  if(u && (t === u || (t + '호') === u))
+    return { code:'REVIEW_BUILDING_NAME', why:'건물명이 호실과 같습니다 — "' + n + '"' };
+  if(t.length < 3)
+    return { code:'REVIEW_BUILDING_NAME', why:'건물명이 너무 짧습니다 — "' + n + '"' };
+  if(bldgIsKind(t))
+    return { code:'REVIEW_BUILDING_NAME', why:'건물 종류어일 뿐 이름이 아닙니다 — "' + n + '"' };
+  if(/(동|리|읍|면)$/.test(t) && String(addr || '').indexOf(n) >= 0)
+    return { code:'REVIEW_BUILDING_NAME', why:'주소(동 이름)를 건물명으로 잡았습니다 — "' + n + '"' };
+  if(/^[가-힣]{1,6}(로|길)[0-9-]*$/.test(t))
+    return { code:'REVIEW_BUILDING_NAME', why:'도로명을 건물명으로 잡았습니다 — "' + n + '"' };
+  return { code:'VALID_BUILDING_NAME', why:'' };
+}
+/* 사진 폴더 지번으로 진짜 이름을 찾아 본다(있으면 대표님께 보여 준다) */
+function bldgNameSuggest(addr){
+  var jb = (String(addr || '').match(/(\d{1,5}-\d{1,4})/) || [])[1] || '';
+  var out = '';
+  try {
+    if(jb && PIDX && PIDX.index){
+      Object.keys(PIDX.index).forEach(function(k){
+        var v = PIDX.index[k];
+        if(!out && sq(v.jibun) === sq(jb) &&
+           bldgNameCheck(v.name, '', '').code === 'VALID_BUILDING_NAME') out = v.name;
+      });
+    }
+  } catch(e){}
+  return out;
+}
 function adCopyPrep(ev){
   var ad = intakeAd(ev);
   if(ad.code !== 'AD_READY_PREVIEW' && ad.code !== 'AD_READY')
     return { ok:false, why:'광고준비가 안 됐습니다 — ' + ad.why, drafts:[] };
+  /* 🔴 이름을 먼저 가른다 — 잘못된 이름으로 광고문을 만들지 않는다 */
+  var hit0 = (ev._match && (ev._match.hits || [])[0]) || null;
+  var nm = (hit0 && hit0.apt) || ev.building;
+  var nc = bldgNameCheck(nm, (hit0 && hit0.addr2) || ev.unit, (hit0 && hit0.addr) || ev.address);
+  if(nc.code !== 'VALID_BUILDING_NAME'){
+    var sug = bldgNameSuggest((hit0 && hit0.addr) || ev.address);
+    return { ok:false, nameCheck:nc, suggest:sug, drafts:[],
+             why:'건물명을 확인해야 합니다 — ' + nc.why +
+                 (sug ? (' (사진 폴더 지번으로는 "' + sug + '" 입니다)') : '') };
+  }
   var k = {}, nd = ad.needs;
   nd.known.forEach(function(x){ k[x.k] = x.v; });
   var NBSP = ' ', LF = String.fromCharCode(10);   /* 🔴 ERP 에 LF 전역은 없다 */
@@ -1610,6 +1712,21 @@ function adSafety(ev){
     }
   }
 
+  /* H — 광고에 나갈 이름이 이름이 아닌 경우 (🔴 허위·오표기 방지)
+     실측: 매물장에 단지명이 '202'(호실번호)로 들어간 건이 있었고, 광고문에도
+     "단지 : 202" 로 찍혔다. 사진 폴더 지번으로는 건물 이름을 알 수 있다. */
+  r.checked.push('건물명(단지명) 검사');
+  var nm2 = (o && o.apt) || ev.building;
+  var nc2 = bldgNameCheck(nm2, (o && o.addr2) || ev.unit, (o && o.addr) || ev.address);
+  r.bldgName = nc2.code;
+  if(nc2.code !== 'VALID_BUILDING_NAME'){
+    var real = bldgNameSuggest((o && o.addr) || ev.address);
+    r.blockers.push(nc2.why + ' — 이대로 광고에 나가면 잘못된 이름입니다' +
+      (real ? (' (사진 폴더 지번으로는 "' + real + '" 입니다 — 대표님 확인 필요)') : ''));
+    r.actions.push({ code:'REVIEW_REQUIRED',
+                     why:'건물명을 확인해야 합니다' + (real ? (' → ' + real) : '') });
+  }
+
   /* 결론 */
   if(r.blockers.length) r.code = 'BLOCKED';
   else if(r.actions.filter(function(a){ return a.code === 'UPDATE_REQUIRED'; }).length)
@@ -1667,15 +1784,21 @@ function listingEvent(o){
   /* 🔴 임대인을 **먼저** 붙인다. 문자에 건물 전체 이름이 없고 줄임말만 있으면
      ("제니" = 에코제니) 그 줄은 임대인 번호로만 이어진다.
      종전에는 문자를 먼저 모아 캐시해서 그런 줄 11건을 잃었다(전/후 대조로 잡음). */
-  var ld = (DB.landlords || []).filter(function(l){
-    return sq(l.apt) && sq(l.apt) === sq(o.apt); })[0];
-  if(!ld) ld = (DB.landlords || []).filter(function(l){
+  /* 🔴 한 건물에 임대인이 여럿이면 **전부** 본다.
+     실측 사고(2026-09-12): 에코힐튼은 임대인이 2명인데 첫 사람만 봐서, 둘째 사람이 보낸
+     "히튼1607호 계약완료" 문자를 못 이었다 → 이미 계약된 호실에 촬영을 요청할 뻔했다. */
+  var lds = (DB.landlords || []).filter(function(l){
+    return sq(l.apt) && sq(l.apt) === sq(o.apt); });
+  if(!lds.length) lds = (DB.landlords || []).filter(function(l){
     var la = sq(l.apt), ap = sq(o.apt);
-    return la && ap && la.length >= 3 && (la.indexOf(ap) >= 0 || ap.indexOf(la) >= 0); })[0];
-  if(ld){ ev._bm.landlords = [ld]; ev.landlordId = String(ld.id || ''); }
+    return la && ap && la.length >= 3 && (la.indexOf(ap) >= 0 || ap.indexOf(la) >= 0); });
+  if(lds.length){ ev._bm.landlords = lds; ev.landlordId = String(lds[0].id || ''); }
   /* 그 호실을 말한 문자가 있으면 최신상태를 읽는다 */
   var rows = intakeSameUnitRows(ev);
   if(ev.unit) ev.statusHint = statusHintOf(rows, ev.unit).code;
+  /* 🔴 월요일 계획과 **같은 근거**를 쓴다 — 두 화면이 다른 숫자를 말하면 안 된다.
+     doneAlerts 는 건물 이름 줄임말·오타("히튼")도 임대인 번호로 이어 준다. */
+  if(ev.statusHint !== 'CONTRACT_DONE' && doneConflict(o)) ev.statusHint = 'CONTRACT_DONE';
   if(ev.statusHint === 'UNKNOWN' && LST_TRADABLE.indexOf(String(o.status || '')) >= 0)
     ev.statusHint = 'AVAILABLE';
   return ev;
@@ -1699,6 +1822,7 @@ function intakeAll(limit){
   (DB.inbox || []).forEach(function(r){
     var t = String(r.text || '');
     if(!t) return;
+    if(isTestRow(t)) return;                     /* 🔴 시험 줄은 후보로 세우지 않는다 */
     if(!/\d{3,4}\s*호/.test(t)) return;          /* 호실이 없으면 매물 접수가 아니다 */
     intakeEventsFrom(r).forEach(function(ev){
       ev.ad = intakeAd(ev);
@@ -4587,10 +4711,18 @@ function statusHintOf(rows, unit){
   return { code: soon ? 'MOVEOUT_SOON' : 'AVAILABLE', when:best.when, text:best.text,
            why:'가장 최근 직접근거가 ' + (soon ? '퇴실 예정' : '아직 있다') + ' 입니다' };
 }
+/* 🔴 한 번만 셈한다 — 매물 45건마다 인입함을 다시 훑으면 느리다(성능 수정과 같은 이유).
+   자료(인입·임대인·매물) 가 바뀌면 다시 센다. 임대인을 붙이기 전에 굳지 않게 셋 다 본다. */
+var DONE_CACHE = null;
 function doneAlerts(){
-  var inb = DB.inbox || [], seen = {}, out = [];
+  var inb = DB.inbox || [];
+  var ck = inb.length + '|' + ((DB.landlords || []).length) + '|' +
+           ((DB.listings || []).length) + '|' + String((inb[0] || {}).row || '');
+  if(DONE_CACHE && DONE_CACHE.key === ck) return DONE_CACHE.out;
+  var seen = {}, out = [];
   inb.forEach(function(r){
     var t = String(r.text || '');
+    if(isTestRow(t)) return;
     if(t.indexOf(DONE_MARK) < 0) return;
     var when = String(r.when || '');
     var key = when.slice(0, 16) + '|' + sq(t).slice(0, 40);
@@ -4615,16 +4747,22 @@ function doneAlerts(){
       out.push({ when:when, mask:phMask(r.phone), land:(ld || {}).name || '',
                  units:units, hits:hits, text:t, reg:String(r.reg || '') });
   });
-  return out.sort(function(a, b){ return String(b.when).localeCompare(String(a.when)); });
+  var sorted = out.sort(function(a, b){ return String(b.when).localeCompare(String(a.when)); });
+  var byId = {};
+  sorted.forEach(function(a){
+    a.hits.forEach(function(h){
+      var k = String(h.o.id);
+      if(!byId[k]) byId[k] = a;      /* 가장 최근 것 하나 */
+    });
+  });
+  DONE_CACHE = { key:ck, out:sorted, byId:byId };
+  return sorted;
 }
 /* 그 매물이 '계약완료 문자' 와 어긋나는가 */
 function doneConflict(o){
   var id = String(o && o.id || '');
-  var all = doneAlerts();
-  for(var i = 0; i < all.length; i++)
-    for(var j = 0; j < all[i].hits.length; j++)
-      if(String(all[i].hits[j].o.id) === id) return all[i];
-  return null;
+  doneAlerts();
+  return (DONE_CACHE && DONE_CACHE.byId[id]) || null;
 }
 
 /* ── ② 촬영 TOP ─────────────────────────────────────────────── */
