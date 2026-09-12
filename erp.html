@@ -210,8 +210,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.8.1';
-var ERP_BUILD = '2026-09-12 10:14';
+var ERP_VER = '1.8.2';
+var ERP_BUILD = '2026-09-12 10:56';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -327,12 +327,30 @@ async function loadAll(force){
   try{ route(); }catch(e1){}
   /* 200건이면 2주치뿐이라 '계약완료 문자' 대조를 못 한다 — 500건까지 본다 */
   await loadOne('inbox', async function(){
-    var a = await jgetTry({ action:'inboxList', limit:500 });
-    var inRaw = ((a.result||{}).rows) || [];
+    /* 🔴 쪽넘김으로 **전부** 읽는다. 최신 500줄만 읽으면 그 밖의 문자를
+       "없는 것" 으로 보게 되고, 계약완료 판정·중복검사가 틀린다.
+       한 쪽 500줄 · 최대 12쪽(6,000줄). 거기서 끊기면 끊겼다고 적는다. */
+    var inRaw = [], off = 0, pages = 0, more = true, cut = false, tot = 0;
+    while(more){
+      var a = await jgetTry({ action:'inboxList', limit:500, offset:off });
+      var R = a.result || {};
+      var got = R.rows || [];
+      inRaw = inRaw.concat(got);
+      tot = R.total || tot;
+      pages++;
+      more = !!R.more && got.length > 0;
+      off += got.length;
+      if(more && pages >= 12){ cut = true; break; }
+      /* 🔴 GAS 는 연달아 부르면 자주 한 번 실패한다(이 프로젝트의 오래된 문제).
+         쪽마다 잠깐 쉬어 준다 — 쉬지 않으면 뒤따르는 다른 자료까지 못 읽는다. */
+      if(more) await new Promise(function(r){ setTimeout(r, 600); });
+    }
     DB.inbox = inDedup(inRaw);            /* 🔴 같은 문자 여러 줄을 화면에서만 묶는다 */
     DB.inboxRaw = inRaw.length;
     DB.inboxDup = inRaw.length - DB.inbox.length;
-    DB.inboxTotal = (a.result||{}).total || inRaw.length;
+    DB.inboxPages = pages;
+    DB.inboxCut = cut;                    /* 끊겼으면 화면에 그대로 적는다 */
+    DB.inboxTotal = tot || inRaw.length;
   });
   DB.loading = false;
 }
@@ -340,12 +358,17 @@ async function loadAll(force){
    한 번 더 시도해 보고, 그래도 안 되면 그때 실패로 적는다. */
 async function jgetTry(q, n){
   var last;
-  for(var i = 0; i < (n || 2); i++){
+  /* 🔴 세 번까지 물어본다 (2026-09-12 실측으로 늘렸다).
+     한참 쉬었다 처음 부르면 GAS 가 큰 응답(임대인 4,075건)에서 한 번 죽는다.
+     새 브라우저 프로필 3회 연속 시험: 1회 임대인 실패(120초) · 2·3회 전부 통과(24초).
+     두 번으로는 부족했다. 기다리는 시간은 1.5초 → 4초 → 8초 로 늘린다. */
+  for(var i = 0; i < (n || 3); i++){
     try{ return await jget(q); }
     catch(e){
       last = e;
       if(String(e && e.message || '') === 'NOKEY') throw e;   /* 토큰 없음은 다시 해도 같다 */
-      await new Promise(function(r){ setTimeout(r, 1200 + i * 2000); });
+      if(i + 1 >= (n || 3)) break;
+      await new Promise(function(r){ setTimeout(r, [1500, 4000, 8000][i] || 8000); });
     }
   }
   throw last;
@@ -775,9 +798,16 @@ function ctTodayStrip(){
    🔴 시트는 그대로 두고 **화면에서만** 한 줄로 묶는다. 안 묶으면 같은 방을
       다섯 번 확인하게 되고, 미처리 건수가 2.5배로 보인다.
    묶은 줄수는 r.dup 에 남겨 화면에 그대로 적는다(숨기지 않는다). */
+/* 🔴 묶는 열쇠 — 보낸이 + 정확한 시각(초까지) + 접수경로 + 본문 전체.
+   분 단위·앞 40자만 쓰면 **서로 다른 문자가 합쳐진다**(같은 사람이 같은 분에
+   두 통 보내는 일은 흔하다). 인입함의 when 은 초까지 있다(실측 19자).
+   ⚠ 서버가 본문을 400자에서 자르므로, 400자가 넘는 문자는 앞 400자까지만 비교된다.
+     같은 사람이 같은 **초**에 앞 400자가 똑같은 긴 문자를 두 통 보낸 경우만
+     합쳐질 수 있다 — 실측 0건이고, 그런 일이 생기면 화면에 묶음 수로 드러난다. */
 function inKeyOf(r){
-  return String((r || {}).when || '').slice(0, 16) + '|' + phDigits((r || {}).phone) +
-         '|' + sq((r || {}).text).slice(0, 40);
+  var o = r || {};
+  return String(o.when || '') + '|' + phDigits(o.phone) + '|' +
+         String(o.kind || '') + '|' + sq(o.text);
 }
 function inDedup(rows){
   var by = {}, order = [];
@@ -789,7 +819,53 @@ function inDedup(rows){
     if(!sq(by[k].reg) && sq(r.reg)) by[k] = r;
     by[k].dup = n;
   });
-  return order.map(function(k){ return by[k]; });
+  var rows = order.map(function(k){ return by[k]; });
+  return inPathMerge(rows);
+}
+/* 🔴 같은 문자 한 통이 실시간(MacroDroid) 과 백업 파일 두 경로로 들어와 두 줄이 된다.
+   실측 2026-09-12: 전체 1,052줄 중 27줄이 그런 경우였다(2~4초 차이).
+   조건을 좁게 잡는다 — 같은 번호 · 본문이 **전체가** 같다 · 10초 이내 ·
+   접수경로가 다르다. 네 가지를 다 만족할 때만 묶는다.
+   같은 경로로 두 번 온 것은 묶지 않는다(그건 정말 두 통일 수 있다). */
+function inSecs(v){
+  var t = String(v || '');
+  if(t.length < 19) return null;
+  var y = +t.slice(0, 4), mo = +t.slice(5, 7), d = +t.slice(8, 10);
+  var hh = +t.slice(11, 13), mi = +t.slice(14, 16), ss = +t.slice(17, 19);
+  if(!y || !mo || !d) return null;
+  return Date.UTC(y, mo - 1, d, hh, mi, ss) / 1000;
+}
+function inIsBackup(k){ return String(k || '').indexOf('백업') >= 0; }
+function inPathMerge(rows){
+  var byBody = {};
+  rows.forEach(function(r, i){
+    var k = phDigits(r.phone) + '|' + sq(r.text);
+    (byBody[k] = byBody[k] || []).push(i);
+  });
+  var drop = {};
+  Object.keys(byBody).forEach(function(k){
+    var idx = byBody[k];
+    if(idx.length < 2) return;
+    for(var a = 0; a < idx.length; a++){
+      for(var b = a + 1; b < idx.length; b++){
+        var x = rows[idx[a]], y = rows[idx[b]];
+        if(drop[idx[a]] || drop[idx[b]]) continue;
+        if(inIsBackup(x.kind) === inIsBackup(y.kind)) continue;   /* 경로가 같으면 안 묶는다 */
+        var tx = inSecs(x.when), ty = inSecs(y.when);
+        if(tx === null || ty === null) continue;
+        if(Math.abs(tx - ty) > 10) continue;                      /* 10초 넘으면 안 묶는다 */
+        /* 처리 표시가 있는 줄을 남긴다. 둘 다 없으면 실시간 줄을 남긴다(원본 경로). */
+        var keepA = sq(x.reg) ? true : (sq(y.reg) ? false : !inIsBackup(x.kind));
+        var keep = keepA ? x : y, gone = keepA ? y : x;
+        keep.dup = (keep.dup || 1) + (gone.dup || 1);
+        keep.dupPath = (keep.dupPath || 0) + 1;
+        drop[keepA ? idx[b] : idx[a]] = 1;
+      }
+    }
+  });
+  var out = [];
+  rows.forEach(function(r, i){ if(!drop[i]) out.push(r); });
+  return out;
 }
 /* ── 통합 인입함 ── */
 function inboxRows(){
@@ -843,6 +919,17 @@ function viewInbox(){
     kpi('사진접수', bySrc['사진접수']||0, '', "go('crm','inbox','사진접수')") +
     kpi('부재중전화', bySrc['부재중전화']||0, '', "go('crm','inbox','부재중전화')") +
   '</div>';
+  h += '<div class="note i">인입함 <b>' + (DB.inboxTotal || 0) + '줄</b> 중 <b>' +
+    (DB.inboxRaw || 0) + '줄</b>을 읽었습니다(' + (DB.inboxPages || 0) + '쪽). ' +
+    ((DB.inboxRaw || 0) >= (DB.inboxTotal || 0)
+      ? '전체를 읽었으니 계약완료 판정·중복검사에 써도 됩니다.'
+      : '🔴 <b>덜 읽었습니다</b> — 읽은 범위 밖 문자는 "없는 것" 으로 보이니 판정에 쓰지 마세요.') +
+    (DB.inboxCut ? ' 🔴 12쪽에서 끊었습니다.' : '') + '</div>';
+  var pathN = 0;
+  (DB.inbox || []).forEach(function(r){ pathN += (r.dupPath || 0); });
+  if(pathN) h += '<div class="note i">그 중 <b>' + pathN + '줄</b>은 같은 문자 한 통이 ' +
+    '<b>실시간과 백업 두 경로</b>로 들어온 것입니다(같은 번호 · 본문 전체가 같고 10초 이내 · ' +
+    '경로가 다를 때만 묶습니다).</div>';
   if(DB.inboxDup) h += '<div class="note i">🔴 같은 문자가 여러 줄 들어와 있어 <b>' +
     DB.inboxDup + '줄</b>을 한 줄로 묶어 보여 줍니다(받아온 ' + (DB.inboxRaw || 0) +
     '줄 → ' + all.length + '줄). 휴대폰 백업 파일이 여러 개라 회수가 같은 문자를 ' +
@@ -2780,7 +2867,7 @@ async function loadAppr(){
   if(APPR !== null || APPR_LOADING) return;
   APPR_LOADING = true;
   try{
-    var j = await jget({ action:'approvalList' });
+    var j = await jgetTry({ action:'approvalList' });
     APPR = (j.result && j.result.rows) || j.result || j.data || [];
     if(!Array.isArray(APPR)) APPR = [];
   }catch(e){ APPR = []; APPR_ERR = String((e && e.message) || e); }
@@ -3149,7 +3236,7 @@ async function loadIStat(){
   if(ISTAT !== null || ISTAT_LOADING) return;
   ISTAT_LOADING = true;
   try{
-    var j = await jget({ action:'inboxStat' });
+    var j = await jgetTry({ action:'inboxStat' });
     ISTAT = j.result || j.data || {};
   }catch(e){ ISTAT = {}; ISTAT_ERR = String((e && e.message) || e); }
   ISTAT_LOADING = false;
@@ -3512,7 +3599,8 @@ function doneAlerts(){
     if(seen[key]) return;
     seen[key] = 1;
     var ph = phDigits(r.phone);
-    var ld = (DB.landlords || []).filter(function(l){ return phDigits(l.phone) === ph; })[0] || null;
+    /* 🔴 칸에 번호가 여러 개면 그 중 하나만 맞아도 같은 사람이다 */
+    var ld = (DB.landlords || []).filter(function(l){ return phHas(l.phone, r.phone); })[0] || null;
     var units = doneUnits(t);
     var hits = [];
     (DB.listings || []).forEach(function(o){
@@ -3645,7 +3733,7 @@ function ldCallTop(n){
     if(!inMyScope(o)) return;
     var l = ldOfListing(o);
     if(!l){ skipped.push({ o:o, why:'임대인 명부에서 이 건물을 못 찾았습니다' }); return; }
-    var d = phDigits(l.phone);
+    var d = phFirst(l.phone);     /* 🔴 칸에 여러 개면 첫 번호를 쓴다(이어붙이면 엉뚱한 번호가 된다) */
     var cs = String(l.contactStatus || '') + ' ' + String(l.note || '');
     if(cs.indexOf('연락금지') >= 0 || cs.indexOf('수신거부') >= 0){
       skipped.push({ o:o, why:'연락금지' + (l.banReason ? ('(' + l.banReason + ')') : '') }); return; }
@@ -3777,8 +3865,42 @@ function phDigits(v){
   if(out.length >= 11 && out.slice(0, 2) === '82') out = '0' + out.slice(2);
   return out;
 }
-function phMask(v){
+/* 🔴 전화 칸에 번호가 여러 개 들어 있는 일이 흔하다
+   (실측 2026-09-12: 임대인 4,075명 중 433명 = 10.6%).
+     예) "010-3693-9936, 010-6487-5666, 010-6620-0971, 010-8660-7989"
+   숫자를 다 이어붙여 비교하면 **한 번호도 못 맞춘다.** 실제로 에코 드 파리 218호
+   계약완료 문자가 임대인과 못 이어져 '어긋남' 목록에서 빠졌다.
+   그래서 칸에서 번호를 하나하나 뽑아 쓴다. */
+var PH_RE = /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/g;
+function phAll(v){
+  var t = String(v == null ? '' : v), out = [], m;
+  PH_RE.lastIndex = 0;
+  while((m = PH_RE.exec(t)) !== null){
+    var d = phDigits(m[0]);
+    if(d.length >= 9 && d.length <= 11 && out.indexOf(d) < 0) out.push(d);
+  }
+  if(!out.length){
+    var d2 = phDigits(t);
+    if(d2.length >= 9 && d2.length <= 11) out.push(d2);
+  }
+  return out;
+}
+function phFirst(v){ var a = phAll(v); return a.length ? a[0] : ''; }
+/* 맞추는 기준은 뒤 8자리 — 시트가 010 의 앞 0 을 떨구기 때문이다(1026010110).
+   GAS inboxPhoneKey_ 가 쓰는 규칙과 같게 맞췄다. */
+function phKey(v){
   var d = phDigits(v);
+  return d.length >= 8 ? d.slice(-8) : '';
+}
+function phHas(cell, target){
+  var t = phKey(target);
+  if(!t) return false;
+  var a = phAll(cell);
+  for(var i = 0; i < a.length; i++) if(phKey(a[i]) === t) return true;
+  return false;
+}
+function phMask(v){
+  var d = phFirst(v) || phDigits(v);
   return d.length >= 4 ? ('***' + d.slice(-4)) : '***';
 }
 /* 고객이 무언가를 원한다는 신호 */
@@ -3814,7 +3936,7 @@ function reopenReview(){
     var base = String(c.recvDate || '').slice(0, 10);
     var hits = [], seen = {};
     inb.forEach(function(r){
-      if(phDigits(r.phone) !== ph) return;
+      if(!phHas(c.phone, r.phone)) return;   /* 🔴 고객 칸에도 번호가 여러 개일 수 있다 */
       var when = String(r.when || '');
       if(base && when.slice(0, 10) <= base) return;
       var t = String(r.text || '');
@@ -4044,7 +4166,7 @@ function monBoard(){
       return String(c.progressStatus || '').trim() === '종료'; }))
     /* 🔴 "재오픈 0건" 이 "확인을 다 했다" 는 뜻이 아니다 — 어디까지 봤는지 밝힌다 */
     h1 += '<div style="font-size:11.5px;color:var(--t3);margin:0 0 8px">' +
-      '재오픈 검토 0건 — 인입함 <b>최근 ' + (DB.inbox || []).length + '건</b> 안에서만 봤습니다. ' +
+      '재오픈 검토 0건 — 인입함 <b>' + (DB.inbox || []).length + '건</b>(읽은 ' + (DB.inboxRaw || 0) + '줄 중 같은 문자를 묶은 것) 안에서 봤습니다. ' +
       '과거 문자(MMS)는 여기에 들어오지 않습니다.</div>';
   if(DB.customers === null) h1 += monEmpty('고객 자료를 불러오는 중입니다…');
   else if(DB.cuErr) h1 += monEmpty('🔴 고객 자료를 불러오지 못했습니다 — <b>후보가 없는 것이 아닙니다</b>.');
@@ -5429,7 +5551,8 @@ async function loadCustomers(){
   if(DB.customers !== null || CU_LOADING) return;
   CU_LOADING = true;
   try{
-    var d = await jget({ action:'getAll', type:'customers' });
+    /* 🔴 GAS 는 첫 호출에서 자주 한 번 실패한다 — 매물과 같은 재시도를 쓴다 */
+    var d = await jgetTry({ action:'getAll', type:'customers' });
     DB.customers = d.data || d.result || [];
     DB.cuErr = '';                       /* 이번엔 잘 읽혔으니 지난 실패 표시를 지운다 */
   }catch(e){ DB.customers = []; DB.cuErr = String((e && e.message) || e); }
@@ -5443,7 +5566,8 @@ async function loadContracts(){
   if(DB.contracts !== null || CT_LOADING) return;
   CT_LOADING = true;
   try{
-    var d = await jget({ action:'getAll', type:'contracts' });
+    /* 🔴 실측 2026-09-12: 재시도가 없어 첫 호출 실패로 '계약 0건' 처럼 보였다 */
+    var d = await jgetTry({ action:'getAll', type:'contracts' });
     DB.contracts = d.data || d.result || [];
     DB.ctErr = '';
   }catch(e){
