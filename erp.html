@@ -210,8 +210,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.8';
-var ERP_BUILD = '2026-09-12 09:10';
+var ERP_VER = '1.8.1';
+var ERP_BUILD = '2026-09-12 10:14';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -328,8 +328,11 @@ async function loadAll(force){
   /* 200건이면 2주치뿐이라 '계약완료 문자' 대조를 못 한다 — 500건까지 본다 */
   await loadOne('inbox', async function(){
     var a = await jgetTry({ action:'inboxList', limit:500 });
-    DB.inbox = ((a.result||{}).rows) || [];
-    DB.inboxTotal = (a.result||{}).total || DB.inbox.length;
+    var inRaw = ((a.result||{}).rows) || [];
+    DB.inbox = inDedup(inRaw);            /* 🔴 같은 문자 여러 줄을 화면에서만 묶는다 */
+    DB.inboxRaw = inRaw.length;
+    DB.inboxDup = inRaw.length - DB.inbox.length;
+    DB.inboxTotal = (a.result||{}).total || inRaw.length;
   });
   DB.loading = false;
 }
@@ -765,6 +768,29 @@ function ctTodayStrip(){
         '<b style="font-size:16px">' + esc(String(c[1])) + '</b></span>'; }).join('') +
     '</div></div></div>';
 }
+/* ── 인입함 중복 줄 묶기 (2026-09-12 실측으로 들어온 수정) ──────────────
+   휴대폰 백업 파일 7개가 전부 '전체 백업' 이어서, 회수가 돌 때마다 같은 문자를
+   다시 넣었다. 받아온 500줄 중 296줄이 덧줄이고, 한 번호는 122줄이 고유 27줄이었다.
+   '더존빌301호는 계약됐구요' 문자는 5개 파일에 있어 인입함에 5줄로 있다.
+   🔴 시트는 그대로 두고 **화면에서만** 한 줄로 묶는다. 안 묶으면 같은 방을
+      다섯 번 확인하게 되고, 미처리 건수가 2.5배로 보인다.
+   묶은 줄수는 r.dup 에 남겨 화면에 그대로 적는다(숨기지 않는다). */
+function inKeyOf(r){
+  return String((r || {}).when || '').slice(0, 16) + '|' + phDigits((r || {}).phone) +
+         '|' + sq((r || {}).text).slice(0, 40);
+}
+function inDedup(rows){
+  var by = {}, order = [];
+  (rows || []).forEach(function(r){
+    var k = inKeyOf(r);
+    if(!by[k]){ r.dup = 1; by[k] = r; order.push(k); return; }
+    var n = (by[k].dup || 1) + 1;
+    /* 처리 표시가 있는 줄을 남긴다 — 이미 처리한 일을 다시 시키지 않는다 */
+    if(!sq(by[k].reg) && sq(r.reg)) by[k] = r;
+    by[k].dup = n;
+  });
+  return order.map(function(k){ return by[k]; });
+}
 /* ── 통합 인입함 ── */
 function inboxRows(){
   var rows = (DB.inbox || []).slice();
@@ -817,6 +843,10 @@ function viewInbox(){
     kpi('사진접수', bySrc['사진접수']||0, '', "go('crm','inbox','사진접수')") +
     kpi('부재중전화', bySrc['부재중전화']||0, '', "go('crm','inbox','부재중전화')") +
   '</div>';
+  if(DB.inboxDup) h += '<div class="note i">🔴 같은 문자가 여러 줄 들어와 있어 <b>' +
+    DB.inboxDup + '줄</b>을 한 줄로 묶어 보여 줍니다(받아온 ' + (DB.inboxRaw || 0) +
+    '줄 → ' + all.length + '줄). 휴대폰 백업 파일이 여러 개라 회수가 같은 문자를 ' +
+    '다시 넣은 것입니다. <b>시트는 그대로</b>이고 지운 것은 없습니다.</div>';
 
   if(UI.help) h += '<div class="note i"><b>이 화면 사용법</b><br>' +
     '· 한 줄을 누르면 오른쪽에 상세가 열립니다(페이지 이동 없음).<br>' +
@@ -846,7 +876,9 @@ function viewInbox(){
         '<td><span class="ell">' + esc(r.bld || (bldgTokens([r.name,r.bld].join(' ')).name ? '' : '') || '-') + '</span></td>' +
         '<td>' + esc(ai.unit || (ai.unitCands ? '여러개' : '-')) + '</td>' +
         '<td><span class="ell">' + esc(txt.slice(0,120)) + '</span></td>' +
-        '<td>' + (r.reg ? '<span class="pill p-mute">처리됨</span>' : '<span class="pill p-warn">미처리</span>') + '</td>' +
+        '<td>' + (r.reg ? '<span class="pill p-mute">처리됨</span>' : '<span class="pill p-warn">미처리</span>') +
+          ((r.dup || 1) > 1 ? ' <span class="pill p-mute" title="같은 문자가 인입함에 ' + r.dup +
+            '줄 있습니다(시트는 그대로)">같은 문자 ' + r.dup + '줄</span>' : '') + '</td>' +
         '<td onclick="event.stopPropagation()"><div class="rowacts">' +
           '<button class="btn sm" onclick="pick(' + r.row + ')">매물</button>' +
           '<button class="btn sm" disabled title="다음 단계">고객</button>' +
@@ -3433,8 +3465,15 @@ function reContact(){
    서버가 임대완료 문자를 알아보고 인입함에 ⚠️ 로 넣어 둔다.
    그 호실이 우리 매물장에 아직 '접수' 로 있으면 헛걸음하게 된다. */
 var DONE_MARK = '임대완료 문자';
+/* 🔴 한 문자에 호실이 여럿 나오면 **호실마다 그 뒤 문구를 따로** 본다.
+   "301호는 계약됐구요! 402호는 남아있어요~" 에서 402호까지 계약완료로 보면
+   아직 살아 있는 방을 죽인다(2026-09-12 실측으로 잡은 오판). */
+var DONE_SAY = ['계약완료', '계약 완료', '계약됐', '계약 됐', '계약되었', '계약 되었',
+                '나갔', '마감', '임대완료', '임대 완료', '계약이 진행', '계약진행중'];
+var STILL_SAY = ['남아', '남았', '있어요', '있습니다', '가능', '공실', '비어', '퇴실 예정',
+                 '퇴실예정', '입주'];
 function doneUnits(t){
-  var out = [], s2 = String(t || ''), i = 0;
+  var s2 = String(t || ''), pos = [], i = 0;
   while(i < s2.length){
     var j = s2.indexOf('호', i);
     if(j < 0) break;
@@ -3444,8 +3483,22 @@ function doneUnits(t){
       if(c >= 48 && c <= 57){ num = s2.charAt(k) + num; k--; }
       else break;
     }
-    if(num.length >= 3 && num.length <= 4 && out.indexOf(num + '호') < 0) out.push(num + '호');
+    if(num.length >= 3 && num.length <= 4) pos.push({ u:num + '호', at:k + 1, end:j + 1 });
     i = j + 1;
+  }
+  function has(seg, list){
+    for(var n = 0; n < list.length; n++) if(seg.indexOf(list[n]) >= 0) return true;
+    return false;
+  }
+  var out = [];
+  for(var m = 0; m < pos.length; m++){
+    var from = pos[m].end;
+    var to = (m + 1 < pos.length) ? pos[m + 1].at : s2.length;
+    var seg = s2.slice(from, to);
+    var isDone = has(seg, DONE_SAY), isStill = has(seg, STILL_SAY);
+    /* 그 호실 뒤에 아무 말이 없으면(앞에 몰아서 쓴 문장) 문장 전체를 본다 */
+    if(!isDone && !isStill) isDone = has(s2, DONE_SAY);
+    if(isDone && !isStill && out.indexOf(pos[m].u) < 0) out.push(pos[m].u);
   }
   return out;
 }
