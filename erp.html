@@ -210,8 +210,8 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.9.2';
-var ERP_BUILD = '2026-09-12 17:50';
+var ERP_VER = '1.9.3';
+var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
 /* ── 저장소 접근(기존 CRM 과 같은 열쇠를 쓴다) ───────────────────── */
@@ -642,8 +642,15 @@ function judgePhoto(j, bm, ai, r){
   p.common = b.common || 0;
   var unitKey = ai.unit ? sq(ai.unit) : '';
   Object.keys(b.units || {}).forEach(function(u){
-    if(unitKey && sq(u) === unitKey) p.unit = { name:u, raw:b.units[u].raw, done:b.units[u].done };
-    else p.others.push({ name:u, raw:b.units[u].raw, done:b.units[u].done });
+    /* 🔴 크기(KB)도 같이 넘긴다 — 64×64 썸네일(1~2KB)을 광고에 올리지 않기 위해서다.
+       photo_size_scan.py 가 인덱스에 담아 둔 값이고, 없으면 undefined 라 예전처럼 동작한다. */
+    var uv = b.units[u];
+    if(unitKey && sq(u) === unitKey)
+      p.unit = { name:u, raw:uv.raw, done:uv.done,
+                 rawMaxKB:uv.rawMaxKB, rawMinKB:uv.rawMinKB,
+                 doneMaxKB:uv.doneMaxKB, doneMinKB:uv.doneMinKB };
+    else p.others.push({ name:u, raw:uv.raw, done:uv.done,
+                         rawMaxKB:uv.rawMaxKB, doneMaxKB:uv.doneMaxKB });
   });
   if(!ai.unit){ p.code = 'REVIEW_REQUIRED'; p.why = '호실을 읽지 못해 호실 사진을 찾을 수 없습니다'; return p; }
   if(p.unit){
@@ -1119,6 +1126,10 @@ function intakeDup(ev){
    EXACT_UNIT            그 호실 사진 — 광고에 쓸 수 있다
    BUILDING_COMMON       건물 공용부 — 공용부로만 쓴다
    OTHER_UNIT_REFERENCE  다른 호실 — 🔴 이 호실 내부사진으로 절대 쓰지 않는다 */
+/* 🔴 광고에 쓸 만한 사진인가 — 크기로 가른다(인덱스에 담은 KB).
+   64×64 썸네일이 1~2KB 로 들어와 있다(실측). 그런 것을 광고에 올리면 허위매물로 보인다. */
+var PH_MIN_KB = 20;        /* 이보다 작으면 광고에 쓸 사진이 아니다 */
+var PH_GOOD_KB = 60;       /* 이 정도면 넉넉하다(참고용 — 막지는 않는다) */
 function intakePhoto(ev){
   var ph = judgePhoto(ev._match && ev._match.code === 'MATCH'
              ? { code:'SAME', hit:(ev._match.hits || [])[0] }
@@ -1141,6 +1152,37 @@ function intakePhoto(ev){
     askShoot: (uDone === 0 && uRaw === 0 && !phIdxErr())
   };
   if(phIdxErr()){ out.code = 'REVIEW_REQUIRED'; out.why = phIdxErr(); out.askShoot = false; }
+
+  /* ── 품질 ───────────────────────────────────────────────────────
+     🔴 EXACT_UNIT 이라고 바로 광고 가능으로 보지 않는다. 크기가 너무 작으면 막는다.
+        그리고 "촬영 필요" 와 "보정 필요" 를 가른다 — 원본이 있으면 촬영이 아니다. */
+  var u = (ph.unit || {});
+  out.doneMaxKB = (u.doneMaxKB === undefined) ? null : u.doneMaxKB;
+  out.rawMaxKB = (u.rawMaxKB === undefined) ? null : u.rawMaxKB;
+  out.rawMinKB = (u.rawMinKB === undefined) ? null : u.rawMinKB;
+  out.quality = 'UNKNOWN';
+  if(out.doneMaxKB !== null){
+    out.quality = (out.doneMaxKB < PH_MIN_KB) ? 'LOW'
+                : ((out.doneMaxKB >= PH_GOOD_KB) ? 'GOOD' : 'OK');
+  }
+  if(out.rawMinKB === 0) out.broken = '원본에 0KB 빈 파일이 섞여 있습니다';
+  if(out.EXACT_UNIT > 0 && out.quality === 'LOW'){
+    out.code = 'REVIEW_REQUIRED';
+    out.useForAd = '';
+    out.why = '그 호실 보정완료 사진이 ' + out.doneMaxKB + 'KB 뿐입니다 — 광고에 쓸 크기가 아닙니다' +
+      ((out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB)
+        ? (' (원본은 ' + out.rawMaxKB + 'KB 있습니다 — 촬영이 아니라 다시 보정하면 됩니다)')
+        : ' (원본도 작습니다 — 다시 찍어야 합니다)');
+    out.askShoot = !(out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB);
+    out.fixBy = (out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB) ? 'REDO_WATERMARK' : 'SHOOT';
+  } else if(out.EXACT_UNIT === 0 && out.rawMaxKB !== null && out.rawMaxKB >= PH_MIN_KB){
+    /* 🔴 그 호실 원본이 있는데 보정이 안 된 것 — 촬영 요청 대상이 아니다 */
+    out.code = 'REVIEW_REQUIRED';
+    out.why = '그 호실 원본 ' + out.EXACT_UNIT_RAW + '장(최대 ' + out.rawMaxKB +
+      'KB)이 있는데 보정완료가 0장입니다 — 촬영이 아니라 보정이 필요합니다';
+    out.askShoot = false;
+    out.fixBy = 'WATERMARK';
+  }
   return out;
 }
 
@@ -1423,9 +1465,11 @@ function intakeTodo(ev){
   if(ad.code === 'REVIEW_REQUIRED') return { code:'NEED_REVIEW', why:ad.why };
   if(ad.code === 'PHOTO_REQUIRED'){
     var ph = ad.photo;
-    if(ph.EXACT_UNIT_RAW > 0)
+    /* 🔴 원본이 있으면 촬영이 아니라 보정이다 */
+    if(ph.EXACT_UNIT_RAW > 0 || ph.fixBy === 'WATERMARK' || ph.fixBy === 'REDO_WATERMARK')
       return { code:'NEED_REVIEW',
-               why:'그 호실 원본 사진 ' + ph.EXACT_UNIT_RAW + '장이 있는데 보정완료가 0장입니다 — 촬영이 아니라 보정이 필요합니다' };
+               why:'그 호실 원본 사진이 있습니다(최대 ' + (ph.rawMaxKB == null ? '?' : ph.rawMaxKB) +
+                   'KB) — 촬영이 아니라 보정이 필요합니다' };
     return { code:'NEED_PHOTO', why:ph.why || '이 호실 사진이 없습니다' };
   }
   if(ad.code === 'DATA_REQUIRED'){
