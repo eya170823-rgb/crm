@@ -356,6 +356,11 @@ async function loadAll(force){
     DB.inboxCut = cut;                    /* 끊겼으면 화면에 그대로 적는다 */
     DB.inboxTotal = tot || inRaw.length;
   });
+  /* 🔴 2026-09-13 — 인입함을 읽은 **바로 뒤에** 화면을 다시 그린다.
+     종전에는 여기에 route() 가 없어서, 공실현황·문자수신함을 다 읽을 때까지
+     홈이 "불러오는 중…" 에 머물렀다(LIVE 실측 53초).
+     홈 화면 판단은 DB.inbox 가 들어오면 끝나므로 여기서 그려 주면 된다. */
+  try{ route(); }catch(e2){}
   /* 공실현황 (2026-09-13) — 인입함에만 없는 사건이 여기 있다.
      실측: 호실 묶음 48건이 이 탭·MMS 백업에만 있었고 그중 7건이 신규 공실 후보였다. */
   await loadOne('vac', async function(){
@@ -364,6 +369,7 @@ async function loadAll(force){
     DB.vac = R.rows || [];
     DB.vacTotal = R.total || DB.vac.length;
   });
+  try{ route(); }catch(e3){}          /* 공실현황까지 반영해 한 번 더 그린다 */
   /* 문자수신함 (2026-09-13) — 쪽넘김으로 전부.
      GAS v149 부터 offset 을 받는다. 옛 GAS 면 more 가 없어 첫 쪽에서 멈춘다(안전). */
   await loadOne('smsq', async function(){
