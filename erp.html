@@ -297,7 +297,10 @@ var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:
               종전에는 인입함만 읽어서, 그 두 탭에만 있던 사건을 화면이 아예 못 봤다
               (일요일 종결 2단계 실측: 호실 묶음 48건 · 그중 신규 공실 후보 7건). */
            vac:null, smsq:null, vacErr:'', smsqErr:'',
-           err:'', errKind:'', ldErr:'', inErr:'', loading:false };
+           err:'', errKind:'', ldErr:'', inErr:'', loading:false,
+           /* 🔴 2026-09-13 §20-3 — 인입함을 '다 읽음/일부만/못 읽음' 으로 나눠 적는다.
+              0건(진짜 없음)과 못 읽음을 화면에서 구분하기 위한 것이다. */
+           inboxState:'', inboxBad:[] };
 
 async function jget(params){
   var u = gsUrl(), t = gsTok();
@@ -305,6 +308,10 @@ async function jget(params){
   var qs = Object.keys(params).map(function(k){
     return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
   var r = await fetch(u + '?' + qs + '&token=' + encodeURIComponent(t) + '&t=' + Date.now());
+  /* 🔴 2026-09-13 §20-3 — 여태 404 를 그냥 r.json() 에 넘겨 'Unexpected token' 으로 뭉갰다.
+     그래서 '플랫폼 일시 404' 와 '진짜 오류' 를 구분하지 못했다(실측: 20회 중 7회가 404).
+     상태를 오류에 실어 주면 아래 jgetTry 가 404 만 따로 더 버틸 수 있다. */
+  if(!r.ok){ var er = new Error('HTTP ' + r.status); er.status = r.status; throw er; }
   var j = await r.json();
   if(!j || !j.ok) throw new Error((j && j.error) || '불러오지 못했습니다');
   return j;
@@ -313,6 +320,7 @@ async function loadAll(force){
   if(DB.loading) return;
   if(DB.listings && !force) return;
   DB.loading = true; DB.err = ''; DB.ldErr = ''; DB.inErr = '';
+  DB.inboxState = 'LOADING'; DB.inboxBad = [];
   /* 🔴 자료원마다 따로 읽는다.
      예전에는 하나의 try 로 묶여 있어, 임대인(4,075건)에서 GAS 가 한 번 실패하면
      **인입함까지 통째로 못 읽었다**(2026-09-12 실측). 월요일 아침에 그러면
@@ -335,8 +343,20 @@ async function loadAll(force){
        "없는 것" 으로 보게 되고, 계약완료 판정·중복검사가 틀린다.
        한 쪽 500줄 · 최대 12쪽(6,000줄). 거기서 끊기면 끊겼다고 적는다. */
     var inRaw = [], off = 0, pages = 0, more = true, cut = false, tot = 0;
+    var badPages = [];
     while(more){
-      var a = await jgetTry({ action:'inboxList', limit:500, offset:off });
+      /* 🔴 2026-09-13 §20-3 — 쪽 단위로 지킨다.
+         종전에는 3쪽 중 마지막 한 쪽이 404 면 통째로 throw 되어
+         **이미 받아 둔 앞 쪽까지 버리고** 인입함이 빈 채로 남았다.
+         이제 실패한 쪽 번호만 적어 두고, 받은 것은 그대로 쓴다(PARTIAL). */
+      var a = null;
+      try{
+        a = await jgetTry({ action:'inboxList', limit:500, offset:off }, 0, true);
+      }catch(ePage){
+        badPages.push(pages + 1);
+        if(inRaw.length > 0) break;   /* 부분이라도 있으면 지킨다 */
+        throw ePage;                  /* 한 쪽도 못 읽었으면 기존대로 실패로 알린다 */
+      }
       var R = a.result || {};
       var got = R.rows || [];
       inRaw = inRaw.concat(got);
@@ -355,6 +375,9 @@ async function loadAll(force){
     DB.inboxPages = pages;
     DB.inboxCut = cut;                    /* 끊겼으면 화면에 그대로 적는다 */
     DB.inboxTotal = tot || inRaw.length;
+    /* 🔴 §20-3 — 다 읽었는지 일부만 읽었는지 구분해 둔다(0건과 헷갈리지 않게) */
+    DB.inboxBad = badPages;
+    DB.inboxState = badPages.length ? 'PARTIAL' : 'READY';
   });
   /* 🔴 2026-09-13 — 인입함을 읽은 **바로 뒤에** 화면을 다시 그린다.
      종전에는 여기에 route() 가 없어서, 공실현황·문자수신함을 다 읽을 때까지
@@ -416,7 +439,12 @@ function srcFp(phone, text){
   return phKey(phone) + '|' + b.slice(0, 300);
 }
 function srcMerge(){
-  var base = DB.inbox || [];
+  /* 🔴 2026-09-13 §20-3 — 인입함을 **못 읽었으면** 합치지 않는다.
+     종전에는 DB.inbox 가 null(못 읽음)이어도 base=[] 로 시작해
+     DB.inbox = [] 가 되었다. 그러면 화면이 '인입 0건' 처럼 보인다 —
+     못 읽은 것과 진짜 0건은 다르다(단위검증 E4 가 이것을 잡았다). */
+  if(DB.inbox === null){ DB.srcAdded = 0; return; }
+  var base = DB.inbox;
   if(!DB.vac && !DB.smsq){ DB.srcAdded = 0; return; }
   var seen = {};
   base.forEach(function(r){
@@ -472,7 +500,7 @@ function gasStat(q, tries, ms, ok, err){
       GAS_STAT.calls.push({ what:what, tries:tries, ms:ms, ok:!!ok, err:err || '' });
   }catch(e){}
 }
-async function jgetTry(q, n){
+async function jgetTry(q, n, slow){
   var last;
   /* 🔴 **다섯 번**까지 물어본다 (2026-09-12 실측으로 세 번 → 다섯 번).
      한참 쉬었다 처음 부르면 GAS 가 큰 응답(임대인 4,075건)에서 한 번 죽는다.
@@ -481,9 +509,17 @@ async function jgetTry(q, n){
         세 번으로도 놓쳤다 — 기다리는 시간은 1.5초 → 4초 → 8초 → 15초 → 25초.
      대표님 화면에서도 같은 값이 쓰인다(쉬었다 처음 여는 때가 가장 잘 죽는다). */
   var WAIT = [1500, 4000, 8000, 15000, 25000];
+  /* 🔴 2026-09-13 §20-3 — 404 전용 기다림표.
+     실측(단독 순차 20회): 404 가 **5회 연달아** 나고 3.2분 뒤 저절로 회복했다.
+     종전 다섯 번(누적 53.5초)으로는 그 구간을 못 넘겨 인입함이 통째로 비었다.
+     404 일 때만 일곱 번(누적 208.5초)까지 버틴다 — 다른 오류는 그대로 다섯 번. */
+  var WAIT404 = [1500, 4000, 8000, 15000, 30000, 60000, 90000];
+  /* 여러 자료가 동시에 404 를 만나 한꺼번에 재시도하지 않도록 ±15% 로 흩는다 */
+  function jit(ms){ return Math.round(ms * (0.85 + Math.random() * 0.3)); }
   var tries = n || 5;
+  var maxTries = tries;
   var t0 = Date.now();
-  for(var i = 0; i < tries; i++){
+  for(var i = 0; i < maxTries; i++){
     try{
       var res = await jget(q);
       gasStat(q, i + 1, Date.now() - t0, true, '');
@@ -492,8 +528,16 @@ async function jgetTry(q, n){
     catch(e){
       last = e;
       if(String(e && e.message || '') === 'NOKEY'){ gasStat(q, i + 1, Date.now() - t0, false, 'NOKEY'); throw e; }
-      if(i + 1 >= tries) break;
-      await new Promise(function(r){ setTimeout(r, WAIT[i] || 25000); });
+      var st = e && e.status;
+      /* 🔴 권한 오류는 기다린다고 낫지 않는다 — 곧바로 알린다(토큰·배포 문제) */
+      if(st === 401 || st === 403){ gasStat(q, i + 1, Date.now() - t0, false, 'HTTP ' + st); throw e; }
+      var is404 = (st === 404);
+      /* 🔴 404 는 더 버틴다. 단 **오래 기다려도 되는 자료**(slow=true)만 —
+         매물처럼 첫 화면을 좌우하는 자료는 대표님을 3분 기다리게 하지 않는다. */
+      if(is404 && slow && maxTries < WAIT404.length) maxTries = WAIT404.length;
+      if(i + 1 >= maxTries) break;
+      var tbl = is404 ? WAIT404 : WAIT;
+      await new Promise(function(r){ setTimeout(r, jit(tbl[i] || tbl[tbl.length - 1])); });
     }
   }
   gasStat(q, tries, Date.now() - t0, false, String(last && last.message || last).slice(0, 60));
@@ -522,7 +566,7 @@ async function loadOne(what, fn){
        옛 GAS(v148 이하)는 smsQueueList 에 offset 이 없어도 첫 쪽은 정상으로 온다. */
     else if(what === 'vac'){ DB.vacErr = r.say; DB.vac = DB.vac || []; }
     else if(what === 'smsq'){ DB.smsqErr = r.say; DB.smsq = DB.smsq || []; }
-    else DB.inErr = r.say;
+    else { DB.inErr = r.say; DB.inboxState = 'ERROR'; }
   }
 }
 
@@ -8072,6 +8116,10 @@ function homeLoadBox(){
   if(DB.err) h += loadErrBox(DB.err, '매물 자료', 'retryAll()');
   if(DB.ldErr) h += loadErrBox(DB.ldErr, '임대인 자료', 'retryAll()');
   if(DB.inErr) h += loadErrBox(DB.inErr, '인입함 자료', 'retryAll()');
+  /* 🔴 §20-3 — 일부 쪽만 못 읽었을 때. 숫자를 0 으로 보여 주지 않고 사실대로 적는다. */
+  if(!DB.inErr && DB.inboxState === 'PARTIAL')
+    h += loadErrBox('인입함을 일부만 불러왔습니다(' + (DB.inboxBad || []).length +
+      '쪽 실패) — 지금 보이는 건수는 전체가 아닙니다.', '인입함 자료', 'retryAll()');
   if(DB.cuErr) h += loadErrBox(DB.cuErr, '고객 자료', 'retryCustomers()');
   if(DB.ctErr) h += loadErrBox(DB.ctErr, '계약 자료', 'retryContracts()');
   if(!h && (DB.listings === null || DB.inbox === null || DB.landlords === null))
