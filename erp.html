@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>브리즈 ERP</title>
 <style>
+/* 🏢 건물정보 입력화면 2026-09-14 */
+.bf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px 12px;margin:4px 0 12px}
+.bf-f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.bf-wide{grid-column:1/-1}
+.bf-l{font-size:12px;font-weight:600;color:var(--t2)}
+.bf-i{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;
+  font-family:inherit;background:#fff;color:inherit;width:100%;box-sizing:border-box}
+.bf-i:focus{outline:none;border-color:var(--pri,#1B4F8A)}
+.bf-sec{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:2px 0 12px;background:var(--bg3)}
+.bf-sech{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+.bf-secn{font-weight:400;font-size:12px;color:var(--t3);flex:1}
+.bf-hid{font-size:12.5px;color:var(--t3);margin-top:7px;letter-spacing:1px}
+.bf-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.bf-note{font-size:12px;color:var(--t3)}
 /* 🏢 건물·대장 2026-09-14 — 목록 행 선택 · 탭 (읽기 전용 화면) */
 .bld-row:hover{background:var(--bg3)}
 .bld-row.on{background:var(--navy-l,#EAF0FA);box-shadow:inset 3px 0 0 var(--pri,#1B4F8A)}
@@ -219,7 +233,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.12.2';
+var ERP_VER = '1.13.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -309,7 +323,8 @@ var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:
            err:'', errKind:'', ldErr:'', inErr:'', loading:false,
            /* 🔴 2026-09-13 §20-3 — 인입함을 '다 읽음/일부만/못 읽음' 으로 나눠 적는다.
               0건(진짜 없음)과 못 읽음을 화면에서 구분하기 위한 것이다. */
-           inboxState:'', inboxBad:[] };
+           inboxState:'', inboxBad:[],
+           buildings:null };   /* 🏢 2026-09-14 건물마스터 */
 
 async function jget(params){
   var u = gsUrl(), t = gsTok();
@@ -419,6 +434,11 @@ async function loadAll(force){
     DB.vacTotal = R.total || DB.vac.length;
   });
   try{ route(); }catch(e3){}          /* 공실현황까지 반영해 한 번 더 그린다 */
+  /* 🏢 2026-09-14 건물마스터 — 없거나 못 읽어도 다른 화면은 그대로 돈다 */
+  await loadOne('buildings', async function(){
+    var bg = await jgetTry({ action:'getAll', type:'buildings' });
+    DB.buildings = bg.data || bg.result || [];
+  });
   /* 문자수신함 (2026-09-13) — 쪽넘김으로 전부.
      GAS v149 부터 offset 을 받는다. 옛 GAS 면 more 가 없어 첫 쪽에서 멈춘다(안전). */
   await loadOne('smsq', async function(){
@@ -593,6 +613,7 @@ async function loadOne(what, fn){
        옛 GAS(v148 이하)는 smsQueueList 에 offset 이 없어도 첫 쪽은 정상으로 온다. */
     else if(what === 'vac'){ DB.vacErr = r.say; DB.vac = DB.vac || []; }
     else if(what === 'smsq'){ DB.smsqErr = r.say; DB.smsq = DB.smsq || []; }
+    else if(what === 'buildings'){ DB.bgErr = r.say; DB.buildings = DB.buildings || []; }
     else { DB.inErr = r.say; DB.inboxState = 'ERROR'; }
   }
 }
@@ -8321,9 +8342,16 @@ function bldgGroups(){
    🔴 탭 6개 중 이번에 동작하는 것은 **현재공실·전체호실 2개**뿐이다.
       나머지 4개는 자리만 두고 '준비중' 이라고 적는다 — 가짜 자료를 채우지 않는다. */
 var BLD_SEL = '', BLD_TAB = '현재공실';
-var BLD_TABS = ['현재공실', '전체호실', '개인매물', '관계자', '광고', '거래이력'];
+var BLD_TABS = ['건물정보', '현재공실', '전체호실', '개인매물', '관계자', '광고', '거래이력'];
 var BLD_LIVE = ['접수'];        /* 🔴 '공실' 로 보는 상태값 — 화면에 그대로 적는다 */
 
+function chr10(){ return String.fromCharCode(10); }
+function nowStamp(){
+  var d = new Date(), p = function(n){ return (n < 10 ? '0' : '') + n; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
+         p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+String.prototype.length4 = function(){ var t = String(this); while(t.length < 4) t = '0' + t; return t; };
 function bldPick(k){ BLD_SEL = (BLD_SEL === String(k) ? '' : String(k)); route(); }
 function bldTab(t){ BLD_TAB = String(t); route(); }
 
@@ -8372,6 +8400,168 @@ function bldUnitRows(rows){
   h += '</tbody></table></div>';
   return h;
 }
+/* ══ 🏢 건물정보 보기/수정 (2026-09-14) ═══════════════════════════
+   대표가 직접 채우는 칸만 모았다. 건물 한 곳에 한 번만 적으면 그 건물 호실이 함께 쓴다.
+   🔴 저장은 erpUpsert **단건**만 쓴다. saveAll 은 부르지 않는다.
+   🔴 화면에 "저장됐다" 고 뜨는 것으로 끝내지 않는다 — 저장 뒤 시트를 **다시 읽어** 확인한다.
+   🔒 보안 3칸(공동현관 비번·공실 비번·출입방법)은 건물마스터에 넣지 않는다.
+      건물보안(bldgSec) 탭에 따로 저장하고, 화면에서도 **기본으로 가린다**. */
+var BLD_FORM = null;      /* 지금 편집 중인 값 */
+var BLD_SAVING = false;
+var BLD_SEC_SHOW = false; /* 🔒 보안칸 보이기 — 기본 꺼짐 */
+var BLD_MSG = '';
+
+/* 대표가 채우는 항목 — [키, 라벨, 입력형태, 힌트] */
+var BLD_FIELDS = [
+  ['name',       '건물명',        'text', '예: 에코 드 파리'],
+  ['roadAddr',   '도로명',        'text', '예: 제주시 은남길 12'],
+  ['jibun',      '지번',          'text', '예: 260-15'],
+  ['bldgUse',    '건물종류',      'text', '예: 도시형생활주택 · 오피스텔'],
+  ['mgmtOffice', '관리사무소',    'text', '있으면 이름, 없으면 비워 두세요'],
+  ['mgmtPhone',  '관리실 연락처', 'text', '예: 064-000-0000'],
+  ['mgmtPerson', '관리실 담당자', 'text', '예: 김OO 소장'],
+  ['feeOne',     '원룸 관리비',   'text', '예: 8만원'],
+  ['feeSep',     '분리형 관리비', 'text', '예: 9만원'],
+  ['cleanFee',   '퇴실청소비',    'text', '예: 15만원'],
+  ['pets',       '반려',          'text', '예: 불가 · 소형견 가능'],
+  ['moveIn',     '전입',          'text', '예: 가능 · 불가'],
+  ['park',       '주차',          'text', '예: 가능(세대당 1) · 불가'],
+  ['options',    '기본옵션',      'text', '예: 에어컨·냉장고·세탁기·인덕션'],
+  ['mgmtNote',   '관리실 전달사항', 'area', '관리실에 전할 말, 우리가 알아야 할 규칙']
+];
+var BLD_SEC_FIELDS = [
+  ['gateCode', '공동현관 비밀번호'],
+  ['unitCode', '공실 비밀번호'],
+  ['entryHow', '공실 출입방법']
+];
+
+function bldRow(b){
+  /* 이 건물의 건물마스터 행 — 없으면 매물장 값으로 **화면에만** 미리 채운다(저장 전까지 시트 변화 0) */
+  var got = (DB.buildings || []).filter(function(x){
+    return String(x.addrKey || '') === String(b.key); })[0];
+  if(got) return JSON.parse(JSON.stringify(got));
+  var one = b.rows[0] || {};
+  return {
+    id: '', addrKey: b.key, addr: String(one.addr || ''),
+    name: (b.nameList[0] || ''), dong: String(b.key).split(' ')[0],
+    jibun: (String(b.key).split(' ')[1] || ''),
+    bldgUse: String(one.bldgUse || ''), totalFloor: String(one.totalFloor || ''),
+    __new: true
+  };
+}
+function bldFormStart(b){
+  BLD_FORM = bldRow(b); BLD_MSG = ''; BLD_SEC_SHOW = false;
+  route();
+}
+function bldFormSet(k, v){ if(BLD_FORM) BLD_FORM[k] = v; }
+function bldSecToggle(){ BLD_SEC_SHOW = !BLD_SEC_SHOW; route(); }
+
+async function bldFormSave(){
+  if(!BLD_FORM || BLD_SAVING) return;
+  var f = BLD_FORM;
+  if(!sq(f.name)){ alert('건물명을 적어 주세요.'); return; }
+  if(!confirm('이 건물 정보를 시트에 저장합니다.' + chr10() +
+              '(' + (f.name || '') + ' · ' + (f.addrKey || '') + ')')) return;
+  BLD_SAVING = true; BLD_MSG = '저장 중…'; route();
+  try{
+    /* 🔴 새 건물이면 여기서 id 를 만든다. 기존이면 그 id 를 그대로 쓴다(덮어쓰기 아님) */
+    if(!sq(f.id)){
+      var used = {}; (DB.buildings || []).forEach(function(x){ used[String(x.id || '')] = 1; });
+      var n = 1; while(used['B-' + String(n).length4()]) n++;
+      f.id = 'B-' + String(n).length4();
+    }
+    f.updatedAt = nowStamp();
+    var body = {};
+    ['id','addrKey','addr','name','dong','jibun','totalFloor','hhldCnt','elevator',
+     'parkTotal','parkMode','bldgUse','lat','lon','note','updatedAt',
+     'roadAddr','mgmtOffice','mgmtPhone','mgmtPerson','feeOne','feeSep','cleanFee',
+     'pets','moveIn','park','options','mgmtNote'].forEach(function(k){
+      if(f[k] !== undefined && f[k] !== null) body[k] = String(f[k]);
+    });
+    await erpUpsert('buildings', body);          /* 🔴 단건 upsert. saveAll 아님 */
+
+    /* 🔒 보안 3칸은 건물보안으로 따로 — 하나라도 적혀 있을 때만 보낸다 */
+    var secAny = BLD_SEC_FIELDS.some(function(p){ return sq(f['__sec_' + p[0]]); });
+    if(secAny){
+      var sec = { id: 'S-' + f.id, scope: 'building', targetId: f.id,
+                  updatedBy: (UI.who || 'admin'), updatedAt: f.updatedAt };
+      BLD_SEC_FIELDS.forEach(function(p){ sec[p[0]] = String(f['__sec_' + p[0]] || ''); });
+      await erpUpsert('bldgSec', sec);
+    }
+
+    /* 🔴 저장됐다고 말하기 전에 **시트를 다시 읽는다** */
+    var chk = await jgetTry({ action:'getAll', type:'buildings' });
+    DB.buildings = chk.data || chk.result || [];
+    var back = (DB.buildings || []).filter(function(x){
+      return String(x.id || '') === String(f.id); })[0];
+    if(!back){
+      BLD_MSG = '🔴 저장했다고 나왔지만 시트에서 다시 찾지 못했습니다 — 확인이 필요합니다';
+    }else{
+      var diff = [];
+      BLD_FIELDS.forEach(function(p){
+        if(String(back[p[0]] || '') !== String(f[p[0]] || '')) diff.push(p[1]);
+      });
+      BLD_MSG = diff.length
+        ? ('🔴 시트에 다시 읽어 보니 다른 칸이 있습니다: ' + diff.join(', '))
+        : ('✅ 시트에 저장되고 다시 읽어 확인했습니다 — ' + f.id +
+           (secAny ? ' · 🔒 보안 3칸은 건물보안 탭에 따로 저장' : ''));
+      BLD_FORM = back;
+    }
+  }catch(e){
+    BLD_MSG = '🔴 저장하지 못했습니다: ' + String((e && e.message) || e).slice(0, 90);
+  }
+  BLD_SAVING = false; route();
+}
+
+function bldFormHtml(b){
+  if(!BLD_FORM || String(BLD_FORM.addrKey || '') !== String(b.key)) BLD_FORM = bldRow(b);
+  var f = BLD_FORM;
+  var h = '';
+  if(f.__new) h += '<div class="note">이 건물은 <b>건물마스터에 아직 없습니다</b>. ' +
+    '아래 값은 매물장에서 가져와 <b>화면에만</b> 채운 것이라, [저장] 을 눌러야 시트에 들어갑니다.</div>';
+  if(BLD_MSG) h += '<div class="note' + (BLD_MSG.indexOf('✅') === 0 ? ' b' : '') + '">' + esc(BLD_MSG) + '</div>';
+
+  h += '<div class="bf-grid">';
+  BLD_FIELDS.forEach(function(p){
+    var k = p[0], lab = p[1], typ = p[2], hint = p[3];
+    var v = esc(String(f[k] == null ? '' : f[k]));
+    h += '<label class="bf-f' + (typ === 'area' ? ' bf-wide' : '') + '">' +
+      '<span class="bf-l">' + esc(lab) + '</span>' +
+      (typ === 'area'
+        ? ('<textarea class="bf-i" rows="2" placeholder="' + esc(hint) + '" ' +
+           'oninput="bldFormSet(\'' + k + '\', this.value)">' + v + '</textarea>')
+        : ('<input class="bf-i" value="' + v + '" placeholder="' + esc(hint) + '" ' +
+           'oninput="bldFormSet(\'' + k + '\', this.value)">')) +
+      '</label>';
+  });
+  h += '</div>';
+
+  /* 🔒 보안 영역 — 기본 가림 */
+  h += '<div class="bf-sec">' +
+    '<div class="bf-sech">🔒 출입 정보 <span class="bf-secn">공동현관·공실 비밀번호·출입방법</span>' +
+    '<button class="btn btn-xs" onclick="bldSecToggle()">' + (BLD_SEC_SHOW ? '가리기' : '보기') + '</button></div>';
+  if(BLD_SEC_SHOW){
+    h += '<div class="note">🔴 이 칸은 <b>건물보안</b> 탭에 따로 저장됩니다. ' +
+         '광고 문구·문자·외부 응답에는 <b>절대 나가지 않습니다</b>.</div><div class="bf-grid">';
+    BLD_SEC_FIELDS.forEach(function(p){
+      var kk = '__sec_' + p[0];
+      h += '<label class="bf-f"><span class="bf-l">' + esc(p[1]) + '</span>' +
+        '<input class="bf-i" value="' + esc(String(f[kk] == null ? '' : f[kk])) + '" ' +
+        'oninput="bldFormSet(\'' + kk + '\', this.value)"></label>';
+    });
+    h += '</div>';
+  }else{
+    h += '<div class="bf-hid">●●●● 가려 두었습니다 — [보기] 를 눌러야 나옵니다</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="bf-act">' +
+    '<button class="btn pri" onclick="bldFormSave()"' + (BLD_SAVING ? ' disabled' : '') + '>' +
+    (BLD_SAVING ? '저장 중…' : '저장') + '</button>' +
+    '<span class="bf-note">저장하면 시트를 <b>다시 읽어</b> 실제로 들어갔는지 확인합니다. ' +
+    '한 건만 저장하며 다른 행은 건드리지 않습니다.</span></div>';
+  return h;
+}
 function bldPanel(b){
   var h = '<div class="card" id="bld-panel"><div class="h1row">' +
     '<h1 style="font-size:16px">' + esc(b.nameList.join(' / ') || '(건물명 없음)') +
@@ -8381,7 +8571,7 @@ function bldPanel(b){
   h += '<div class="tabs">';
   BLD_TABS.forEach(function(t){
     var on = (t === BLD_TAB);
-    var ready = (t === '현재공실' || t === '전체호실');
+    var ready = (t === '건물정보' || t === '현재공실' || t === '전체호실');
     h += '<button class="tb' + (on ? ' on' : '') + '" onclick="bldTab(\'' + t + '\')">' +
       esc(t) + (ready ? '' : ' <span style="opacity:.6;font-size:10.5px">준비중</span>') + '</button>';
   });
@@ -8393,7 +8583,9 @@ function bldPanel(b){
     return String(x.addr2 || '').localeCompare(String(y.addr2 || ''));
   });
 
-  if(BLD_TAB === '현재공실'){
+  if(BLD_TAB === '건물정보'){
+    h += bldFormHtml(b);
+  }else if(BLD_TAB === '현재공실'){
     var live = all.filter(function(o){ return BLD_LIVE.indexOf(String(o.status || '')) >= 0; });
     var cnt = {};
     b.rows.forEach(function(o){ var k = String(o.status || '(빈칸)'); cnt[k] = (cnt[k] || 0) + 1; });
