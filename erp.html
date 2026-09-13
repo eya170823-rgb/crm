@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>브리즈 ERP</title>
 <style>
+/* 🏢 건물·대장 2026-09-14 — 목록 행 선택 · 탭 (읽기 전용 화면) */
+.bld-row:hover{background:var(--bg3)}
+.bld-row.on{background:var(--navy-l,#EAF0FA);box-shadow:inset 3px 0 0 var(--pri,#1B4F8A)}
+#bld-panel{margin-top:12px}
+#bld-panel .tabs{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px;
+  border-bottom:1px solid var(--line);padding-bottom:7px}
+#bld-panel .tb{border:1px solid var(--line);background:#fff;border-radius:8px;
+  font-size:12.5px;font-weight:600;color:var(--t2);padding:5px 11px;cursor:pointer}
+#bld-panel .tb.on{background:var(--pri,#1B4F8A);border-color:var(--pri,#1B4F8A);color:#fff}
 /* ── 색 토큰: 흰색 기본 · 다크 · 시스템 ───────────────────────────── */
 :root{
   --bg:#F7F8FA; --panel:#FFFFFF; --panel2:#FBFCFD; --line:#E3E7ED; --line2:#EEF1F5;
@@ -210,7 +219,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.12.0';
+var ERP_VER = '1.12.2';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -245,7 +254,7 @@ var MENU = [
   ['ad','광고·마케팅',[['admgr','광고관리',1],['mkt','마케팅',1],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
   ['group','그룹웨어',[['gw','업무·결재',1],['academy','아카데미',1],['board','공지',0]]],
-  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',0],['bldg','건물·대장',0]]],
+  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',0],['bldg','건물·대장',1]]],
   ['admin','관리부',[['base','기본관리',1],['auto','자동화관리',1],['staff','직원·권한',1],['log','변경이력',0]]]
 ];
 var CUR = { m1:'today', m2:'today' };
@@ -312,7 +321,24 @@ async function jget(params){
      그래서 '플랫폼 일시 404' 와 '진짜 오류' 를 구분하지 못했다(실측: 20회 중 7회가 404).
      상태를 오류에 실어 주면 아래 jgetTry 가 404 만 따로 더 버틸 수 있다. */
   if(!r.ok){ var er = new Error('HTTP ' + r.status); er.status = r.status; throw er; }
-  var j = await r.json();
+  /* 🔴 2026-09-14 — index.html gsFetchJson(2647) 의 방어를 그대로 가져온다.
+     GAS 는 HTTP 200 을 주면서 JSON 대신 구글 오류 HTML 을 돌려줄 때가 있다
+     (index.html 실측 주석: 60여 회 호출 중 6회쯤 "현재 파일을 열 수 없습니다" 페이지).
+     r.json() 을 바로 부르면 "Unexpected token '<'" 로 죽어 **재시도할 일인지 판단을 못 한다.**
+     먼저 글자로 받아 '{' 로 시작하는지 보고, 아니면 다시 시도할 수 있는 오류로 올린다. */
+  var txt = await r.text();
+  if(!txt || txt.trim().charAt(0) !== '{'){
+    var eh = new Error('서버가 JSON 대신 HTML을 보냈습니다(HTTP ' + r.status + ')');
+    eh.status = r.status; eh.html = true;
+    throw eh;
+  }
+  var j;
+  try{ j = JSON.parse(txt); }
+  catch(ep){
+    var e2 = new Error('서버 응답을 읽지 못했습니다(JSON 아님)');
+    e2.status = r.status; e2.html = true;
+    throw e2;
+  }
   if(!j || !j.ok) throw new Error((j && j.error) || '불러오지 못했습니다');
   return j;
 }
@@ -531,7 +557,8 @@ async function jgetTry(q, n, slow){
       var st = e && e.status;
       /* 🔴 권한 오류는 기다린다고 낫지 않는다 — 곧바로 알린다(토큰·배포 문제) */
       if(st === 401 || st === 403){ gasStat(q, i + 1, Date.now() - t0, false, 'HTTP ' + st); throw e; }
-      var is404 = (st === 404);
+      /* 🔴 §20-3C — HTML 오류 페이지(200 이어도)도 404 와 같은 일시 오류로 본다 */
+      var is404 = (st === 404) || (e && e.html === true);
       /* 🔴 404 는 더 버틴다. 단 **오래 기다려도 되는 자료**(slow=true)만 —
          매물처럼 첫 화면을 좌우하는 자료는 대표님을 3분 기다리게 하지 않는다. */
       if(is404 && slow && maxTries < WAIT404.length) maxTries = WAIT404.length;
@@ -8239,6 +8266,211 @@ function vacPhotoWord(ph){
   return '없음 → 촬영 필요';
 }
 
+/* ══ 🏢 건물·대장 1단계 — 건물 목록 (2026-09-13) ════════════════════
+   매물관리(listings)를 **주소로 묶어** 건물 단위로 본다.
+   왜 주소인가: 건물명(apt)으로 묶으면 깨진 값에 끌려간다 —
+     실제로 연동 1515-8 의 건물명이 '202' 로 들어가 있다(B260907-01).
+     주소로 묶으면 그 행도 제자리를 찾는다.
+   🔴 읽기 전용이다. 시트에 쓰지 않는다. 신규건물·신규호실·입력폼·저장 없음(시트 신설 전).
+   🔴 깨진 건물명을 화면에서 **고치지 않는다** — 깨진 대로 보여 주고 표시만 해 둔다.
+   🔴 못 읽었으면 0건으로 위장하지 않는다. */
+/* 🔴 2026-09-14 — 건물·대장 **전용** 건물명 판정.
+   왜 따로 두는가: 기존 bldgKeyOk() 는 3글자 미만을 건물명으로 인정하지 않는다.
+     그 규칙은 "문자에 적힌 건물명을 근거로 쓸 수 있는가"를 보는 것이라 그 화면에서는 맞지만,
+     건물 목록에서는 「그린」(2글자) 같은 실제 이름까지 경고로 잡혔다(2026-09-13 실측 오탐).
+   🔴 bldgKeyOk() 원본은 건드리지 않는다 — 인입함·계약완료 판정 6곳이 그것을 쓰고 있어
+      같이 바꾸면 그 화면들이 함께 깨진다.
+   이 화면의 기준은 **형태**다: 한글·영문이 하나도 없으면(숫자·기호뿐이면) 확인 대상. */
+function bldNameOk(v){
+  var t = sq(v);
+  if(!t) return false;                       /* 빈 이름은 따로 표시한다 */
+  return /[가-힣a-zA-Z]/.test(t);            /* '202' → false · '그린' → true · '노형세기1차' → true */
+}
+function bldgCacheKey(a){
+  var t = String(a == null ? '' : a).trim();
+  var pfx = ['제주특별자치도 제주시 ', '제주특별자치도 서귀포시 ',
+             '제주시 ', '서귀포시 ', '제주특별자치도 '];
+  for(var i = 0; i < pfx.length; i++){
+    if(t.indexOf(pfx[i]) === 0){ t = t.slice(pfx[i].length); break; }
+  }
+  return t.replace(/\s+/g, ' ').trim();      /* GAS colAddrKey_ 와 같은 규칙 */
+}
+function bldgGroups(){
+  var g = {}, order = [];
+  (DB.listings || []).forEach(function(o){
+    var k = bldgCacheKey(o.addr) || '(주소 없음)';
+    if(!g[k]){ g[k] = { key:k, rows:[], names:{} }; order.push(k); }
+    g[k].rows.push(o);
+    var nm = String(o.apt || '').trim();
+    if(nm) g[k].names[nm] = 1;
+  });
+  return order.map(function(k){
+    var b = g[k];
+    b.units = b.rows.length;
+    /* 🔴 '공실'은 폐기된 상태값이다 — 거래 가능 = '접수' (2026-08-27 규칙) */
+    b.live = b.rows.filter(function(o){ return String(o.status || '') === '접수'; }).length;
+    b.nameList = Object.keys(b.names);
+    return b;
+  }).sort(function(x, y){
+    if(y.units !== x.units) return y.units - x.units;   /* 호실 많은 순 */
+    return x.key.localeCompare(y.key);
+  });
+}
+/* ══ 🏢 건물·대장 2단계 — 건물을 고르면 아래에서 호실을 본다 (2026-09-14) ═══
+   🔴 여전히 읽기 전용이다. 입력칸·저장·신규 없음. 시트에 쓰지 않는다.
+   🔴 탭 6개 중 이번에 동작하는 것은 **현재공실·전체호실 2개**뿐이다.
+      나머지 4개는 자리만 두고 '준비중' 이라고 적는다 — 가짜 자료를 채우지 않는다. */
+var BLD_SEL = '', BLD_TAB = '현재공실';
+var BLD_TABS = ['현재공실', '전체호실', '개인매물', '관계자', '광고', '거래이력'];
+var BLD_LIVE = ['접수'];        /* 🔴 '공실' 로 보는 상태값 — 화면에 그대로 적는다 */
+
+function bldPick(k){ BLD_SEL = (BLD_SEL === String(k) ? '' : String(k)); route(); }
+function bldTab(t){ BLD_TAB = String(t); route(); }
+
+/* 호실 정렬용 숫자 — GAS vacHoKey_ 와 같은 규칙(101-204 → 101204) */
+function bldHoNum(v){
+  var t = String(v == null ? '' : v).trim();
+  var dh = t.match(/^(\d+)\s*-\s*(\d+)$/);
+  if(dh) return parseInt(dh[1] + dh[2], 10);
+  var d = t.replace(/[^0-9]/g, '');
+  return d ? parseInt(d, 10) : 0;
+}
+/* 사진 유무 — 드라이브 색인을 본 기존 판정(adPhotoOf)을 그대로 쓴다.
+   🔴 시트의 photoCnt 는 45행 중 1행만 채워져 있고 그 값도 '원본0·보정완료0' 이다(실측).
+      그것만 믿으면 "사진 있음" 을 잘못 말하게 된다. */
+function bldPhoto(o){
+  try{
+    if(PIDX === null) return { t:'확인 전', c:'p-mute' };
+    var ph = adPhotoOf(o);
+    if(ph && ph.code === 'PHOTO_READY') return { t:'있음', c:'p-ok' };
+    if(ph && ph.unit) return { t:'있음(점검필요)', c:'p-warn' };
+    return { t:'없음', c:'p-mute' };
+  }catch(e){ return { t:'확인 전', c:'p-mute' }; }
+}
+function bldMoney(o){
+  var t = String(o.type || '');
+  var p = String(o.price || '').trim();
+  var r = String(o.rentAmt || '').trim();
+  return { p: p || '-', r: (t === '매매' || t === '전세') ? '-' : (r || '-') };
+}
+function bldUnitRows(rows){
+  var h = '<div class="tblwrap"><table><thead><tr>' +
+    '<th>호실</th><th>상태</th><th>거래유형</th><th class="num">보증금</th>' +
+    '<th class="num">월세</th><th>사진</th></tr></thead><tbody>';
+  rows.forEach(function(o){
+    var m = bldMoney(o), ph = bldPhoto(o);
+    var live = BLD_LIVE.indexOf(String(o.status || '')) >= 0;
+    h += '<tr>' +
+      '<td><b>' + esc(String(o.addr2 || '-')) + '</b></td>' +
+      '<td><span class="pill ' + (live ? 'p-ok' : 'p-mute') + '">' + esc(String(o.status || '(빈칸)')) + '</span></td>' +
+      '<td>' + esc(String(o.type || '-')) + '</td>' +
+      '<td class="num mono">' + esc(m.p) + '</td>' +
+      '<td class="num mono">' + esc(m.r) + '</td>' +
+      '<td><span class="pill ' + ph.c + '">' + esc(ph.t) + '</span></td>' +
+      '</tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+function bldPanel(b){
+  var h = '<div class="card" id="bld-panel"><div class="h1row">' +
+    '<h1 style="font-size:16px">' + esc(b.nameList.join(' / ') || '(건물명 없음)') +
+    ' <span class="mono" style="font-weight:400;color:var(--t3)">' + esc(b.key) + '</span></h1>' +
+    '<button class="btn btn-xs" onclick="bldPick(\'\')">닫기</button></div>';
+  /* 탭 6개 */
+  h += '<div class="tabs">';
+  BLD_TABS.forEach(function(t){
+    var on = (t === BLD_TAB);
+    var ready = (t === '현재공실' || t === '전체호실');
+    h += '<button class="tb' + (on ? ' on' : '') + '" onclick="bldTab(\'' + t + '\')">' +
+      esc(t) + (ready ? '' : ' <span style="opacity:.6;font-size:10.5px">준비중</span>') + '</button>';
+  });
+  h += '</div>';
+
+  var all = b.rows.slice().sort(function(x, y){
+    var a = bldHoNum(x.addr2), c = bldHoNum(y.addr2);
+    if(a !== c) return a - c;                       /* 호실번호 오름차순 */
+    return String(x.addr2 || '').localeCompare(String(y.addr2 || ''));
+  });
+
+  if(BLD_TAB === '현재공실'){
+    var live = all.filter(function(o){ return BLD_LIVE.indexOf(String(o.status || '')) >= 0; });
+    var cnt = {};
+    b.rows.forEach(function(o){ var k = String(o.status || '(빈칸)'); cnt[k] = (cnt[k] || 0) + 1; });
+    h += '<div class="note">🔴 이 건물에서 <b>공실로 본 것</b> = 상태가 <b>' + BLD_LIVE.join(' · ') +
+      '</b> 인 호실입니다. 이 건물 상태 내역: ' +
+      esc(Object.keys(cnt).map(function(k){ return k + ' ' + cnt[k]; }).join(' · ')) +
+      ' <span style="color:var(--t3)">(임대중·보류는 공실로 세지 않았습니다)</span></div>';
+    h += live.length ? bldUnitRows(live)
+      : '<div class="empty">지금 거래 가능한(접수) 호실이 없습니다.</div>';
+  }else if(BLD_TAB === '전체호실'){
+    h += '<div class="note">이 건물의 매물관리 행 <b>' + all.length + '</b>개입니다. ' +
+      '호실번호 오름차순으로 정렬했습니다.</div>';
+    h += bldUnitRows(all);
+  }else{
+    h += '<div class="soonbox"><b>준비 중입니다</b>' +
+      '<div>「' + esc(BLD_TAB) + '」 는 아직 붙이지 않았습니다. ' +
+      '없는 자료를 지어내지 않으려고 빈 화면으로 둡니다.</div></div>';
+  }
+  h += '</div>';
+  return h;
+}
+function viewBldg(){
+  var head = crumb() + '<div class="h1row"><h1>건물·대장</h1>';
+  if(DB.err) return head + '</div>' + keyBox();
+  /* 🔴 못 읽음(null)과 진짜 0건을 구분한다 */
+  if(DB.listings === null)
+    return head + '</div>' +
+      '<div class="card"><div class="soonbox"><b>매물 자료를 아직 못 읽었습니다</b>' +
+      '<div>0건이 아니라 <b>모르는 것</b>입니다. 잠시 뒤 [다시 불러오기] 를 눌러 주세요.</div>' +
+      '<div style="margin-top:10px"><button class="btn pri" onclick="retryAll()">다시 불러오기</button></div>' +
+      '</div></div>';
+
+  var gs = bldgGroups();
+  var tUnits = 0, tLive = 0;
+  gs.forEach(function(b){ tUnits += b.units; tLive += b.live; });
+
+  var h = head + '<span class="cnt">건물 <b>' + gs.length + '</b>개 · 호실 <b>' + tUnits +
+    '</b>개 · 거래가능 <b class="hot">' + tLive + '</b>개</span></div>';
+  h += '<div class="note">매물관리 ' + tUnits + '행을 <b>주소</b>로 묶은 것입니다. ' +
+       '이 화면은 <b>읽기 전용</b>이며 시트에 아무것도 쓰지 않습니다. ' +
+       '건물·호실 정보를 실제로 저장하는 것은 마스터 탭을 만든 뒤입니다.</div>';
+
+  if(!gs.length)
+    return h + '<div class="card"><div class="empty">매물이 0건입니다.</div></div>';
+
+  h += '<div class="card"><div class="tblwrap"><table><thead><tr>' +
+       '<th>건물명</th><th>읍면동 · 지번</th><th class="num">호실</th>' +
+       '<th class="num">거래가능</th><th>상태 내역</th></tr></thead><tbody>';
+  gs.forEach(function(b){
+    /* 건물명이 여러 개면 그대로 나열한다(합치거나 고르지 않는다) */
+    var nm = b.nameList.length ? b.nameList.join(' / ') : '(건물명 없음)';
+    /* 🔴 숫자·기호뿐인 이름이면 고치지 않고 **표시만** 한다 (형태 기준 · bldNameOk) */
+    var bad = b.nameList.length && !b.nameList.some(function(x){ return bldNameOk(x); });
+    var st = {};
+    b.rows.forEach(function(o){
+      var k = String(o.status || '(빈칸)');
+      st[k] = (st[k] || 0) + 1;
+    });
+    var stTxt = Object.keys(st).map(function(k){ return k + ' ' + st[k]; }).join(' · ');
+    h += '<tr class="bld-row' + (BLD_SEL === b.key ? ' on' : '') +
+      '" onclick="bldPick(\'' + b.key.replace(/'/g, "\\'") + '\')" style="cursor:pointer">' +
+      '<td><b>' + esc(nm) + '</b>' +
+        (bad ? ' <span class="pill p-warn" title="매물관리의 건물명 칸이 이 값입니다 — 화면에서 고치지 않았습니다">🔴 건물명 확인</span>' : '') +
+      '</td>' +
+      '<td class="mono">' + esc(b.key) + '</td>' +
+      '<td class="num"><b>' + b.units + '</b></td>' +
+      '<td class="num">' + (b.live ? '<b class="hot">' + b.live + '</b>' : '<span style="color:var(--t3)">0</span>') + '</td>' +
+      '<td style="font-size:12.5px;color:var(--t2)">' + esc(stTxt) + '</td>' +
+      '</tr>';
+  });
+  h += '</tbody></table></div></div>';
+  /* 고른 건물의 작업패널을 **표 아래**에 붙인다 */
+  var sel = gs.filter(function(b){ return b.key === BLD_SEL; })[0];
+  if(sel) h += bldPanel(sel);
+  else h += '<div class="note b">건물을 누르면 아래에 <b>현재공실 · 전체호실</b> 탭이 열립니다.</div>';
+  return h;
+}
 function viewVac(){
   if(DB.err) return crumb() + '<div class="h1row"><h1>공실 승인함</h1></div>' + keyBox();
   var nw = vacNewList(), dn = vacDoneList();
@@ -8494,6 +8726,7 @@ function route(){
   else if(CUR.m2 === 'base') m.innerHTML = viewAdmin();
   else if(CUR.m2 === 'auto') m.innerHTML = viewAuto();
   else if(CUR.m2 === 'stat') m.innerHTML = viewData();
+  else if(CUR.m2 === 'bldg') m.innerHTML = viewBldg();   /* 🏢 건물·대장 2026-09-13 */
   else if(CUR.m2 === 'gw') m.innerHTML = viewGroup();
   else if(CUR.m2 === 'academy') m.innerHTML = viewAcademy();
   else if(CUR.m2 === 'mkt') m.innerHTML = viewMkt();
