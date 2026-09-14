@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.13.1';
+var ERP_VER = '1.14.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -365,12 +365,34 @@ var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:
            inboxState:'', inboxBad:[],
            buildings:null, units:null, persons:null, roleLinks:null };   /* 🏢👤 2026-09-14 마스터 */
 
-async function jget(params){
+/* 한 번 부를 때 기다리는 최대 시간. GAS 는 3~18초가 보통이라 넉넉히 잡되,
+   폰에서 멈춘 요청을 영원히 두지 않을 만큼은 짧게 한다(2026-09-14 실측 기반). */
+var GS_TMO = 40000;
+async function jget(params, tmo){
   var u = gsUrl(), t = gsTok();
   if(!u || !t) throw new Error('NOKEY');
   var qs = Object.keys(params).map(function(k){
     return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
-  var r = await fetch(u + '?' + qs + '&token=' + encodeURIComponent(t) + '&t=' + Date.now());
+  /* 🔴 2026-09-14 — 여태 fetch 에 **시간 제한이 없었다**.
+     PC 에서는 3~18초면 끝나 문제가 안 보였지만, 폰(이동통신)에서는 요청이 그대로
+     멈춰 버리는 일이 있다. 멈춘 fetch 는 성공도 실패도 아니라 **영원히 안 끝나고**,
+     그래서 아래 jgetTry 의 재시도도 걸리지 않는다 — 화면이 "불러오는 중" 에 갇힌다.
+     시간이 지나면 끊어서 **실패로 만들어** 재시도가 돌게 한다. */
+  var ac = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var lim = tmo || GS_TMO;
+  var tid = ac ? setTimeout(function(){ try{ ac.abort(); }catch(e){} }, lim) : 0;
+  var r;
+  try{
+    r = await fetch(u + '?' + qs + '&token=' + encodeURIComponent(t) + '&t=' + Date.now(),
+                    ac ? { signal: ac.signal } : undefined);
+  }catch(eF){
+    if(ac && ac.signal.aborted){
+      var et = new Error('응답이 ' + Math.round(lim / 1000) + '초 안에 오지 않았습니다');
+      et.timeout = true;
+      throw et;
+    }
+    throw eF;
+  }finally{ if(tid) clearTimeout(tid); }
   /* 🔴 2026-09-13 §20-3 — 여태 404 를 그냥 r.json() 에 넘겨 'Unexpected token' 으로 뭉갰다.
      그래서 '플랫폼 일시 404' 와 '진짜 오류' 를 구분하지 못했다(실측: 20회 중 7회가 404).
      상태를 오류에 실어 주면 아래 jgetTry 가 404 만 따로 더 버틸 수 있다. */
@@ -396,10 +418,62 @@ async function jget(params){
   if(!j || !j.ok) throw new Error((j && j.error) || '불러오지 못했습니다');
   return j;
 }
+/* 📊 적재 진행 상태 (2026-09-14) — "불러오는 중" 만 있으면 멈춘 줄 안다.
+   몇 번째 자료를 읽는 중인지 · 몇 초 지났는지 · 30초가 넘으면 [다시 시도] 를 보여 준다.
+   🔴 무한 대기를 만들지 않는다. */
+var LOADP = { on:false, t0:0, idx:0, tot:0, step:'', names:[] };
+var LOADP_T = 0;
+function loadpStart(names){
+  LOADP.on = true; LOADP.t0 = Date.now(); LOADP.idx = 0;
+  LOADP.tot = names.length; LOADP.names = names; LOADP.step = names[0] || '';
+  if(LOADP_T) clearInterval(LOADP_T);
+  LOADP_T = setInterval(loadpPaint, 1000);
+}
+function loadpStep(name){
+  LOADP.idx = Math.min(LOADP.idx + 1, LOADP.tot);
+  LOADP.step = name;
+  loadpPaint();
+}
+function loadpEnd(){
+  LOADP.on = false;
+  if(LOADP_T){ clearInterval(LOADP_T); LOADP_T = 0; }
+}
+function loadpSec(){ return Math.max(0, Math.round((Date.now() - LOADP.t0) / 1000)); }
+/* 화면에 이미 그려 둔 진행 카드의 숫자만 갈아 끼운다(전체를 다시 그리지 않는다) */
+function loadpPaint(){
+  var a = document.getElementById('lp-sec');
+  if(!a) return;
+  a.textContent = loadpSec() + '초';
+  var b = document.getElementById('lp-step');
+  if(b) b.textContent = LOADP.step + ' (' + LOADP.idx + '/' + LOADP.tot + ')';
+  var c = document.getElementById('lp-slow');
+  if(c) c.style.display = (loadpSec() >= 30) ? '' : 'none';
+}
+/* 첫 화면이 뜨기 전에 보여 줄 카드 */
+function loadpCard(){
+  var sec = LOADP.on ? loadpSec() : 0;
+  return '<div class="card"><div class="soonbox">' +
+    '<b>자료를 읽고 있습니다 — <span id="lp-step">' + esc(LOADP.step) +
+      ' (' + LOADP.idx + '/' + LOADP.tot + ')</span></b>' +
+    '<div style="margin-top:6px">경과 <b id="lp-sec">' + sec + '초</b>' +
+      ' · 구글시트 응답이 늦을 때가 있어 <b>수십 초</b>가 걸리기도 합니다.</div>' +
+    '<div id="lp-slow" style="margin-top:12px;display:' + (sec >= 30 ? '' : 'none') + '">' +
+      '<div style="color:var(--bad)">🔴 평소보다 느립니다.</div>' +
+      '<div style="margin-top:8px">' +
+        '<button class="btn pri" onclick="retryAll()">다시 시도</button> ' +
+        '<button class="btn" onclick="loadpGiveUp()">기다리지 않고 열기</button></div>' +
+      '<div style="margin-top:6px;font-size:12px;color:var(--t3)">' +
+        '\'기다리지 않고 열기\' 를 누르면 읽은 것까지만 보여 줍니다 — ' +
+        '🔴 <b>숫자가 0 이면 없다는 뜻이 아니라 아직 못 읽은 것</b>입니다.</div>' +
+    '</div></div></div>';
+}
+/* 🔴 0건 위장 금지 — 못 읽은 것은 못 읽었다고 화면이 말한다(homeLoadBox 가 적는다) */
+function loadpGiveUp(){ LOADP.give = true; try{ route(); }catch(e){} }
 async function loadAll(force){
   if(DB.loading) return;
   if(DB.listings && !force) return;
-  DB.loading = true; DB.err = ''; DB.ldErr = ''; DB.inErr = '';
+  DB.loading = true; DB.err = ''; DB.ldErr = ''; DB.inErr = ''; LOADP.give = false;
+  loadpStart(['매물', '임대인', '인입함', '공실현황', '문자수신함']);
   DB.inboxState = 'LOADING'; DB.inboxBad = [];
   /* 🔴 자료원마다 따로 읽는다.
      예전에는 하나의 try 로 묶여 있어, 임대인(4,075건)에서 GAS 가 한 번 실패하면
@@ -501,6 +575,7 @@ async function loadAll(force){
   });
   srcMerge();                 /* 세 원본을 한 줄기로 — 지문으로 같은 사건을 묶는다 */
   DB.loading = false;
+  loadpEnd();
 }
 /* 공실현황·문자수신함을 인입함 줄기에 합친다 (2026-09-13)
    왜 이렇게 하나
@@ -618,9 +693,11 @@ async function jgetTry(q, n, slow){
       if(st === 401 || st === 403){ gasStat(q, i + 1, Date.now() - t0, false, 'HTTP ' + st); throw e; }
       /* 🔴 §20-3C — HTML 오류 페이지(200 이어도)도 404 와 같은 일시 오류로 본다 */
       var is404 = (st === 404) || (e && e.html === true);
+      /* 🔴 2026-09-14 — 시간초과도 '기다리면 낫는' 오류로 본다(폰에서 흔하다) */
+      var isTmo = !!(e && e.timeout);
       /* 🔴 404 는 더 버틴다. 단 **오래 기다려도 되는 자료**(slow=true)만 —
          매물처럼 첫 화면을 좌우하는 자료는 대표님을 3분 기다리게 하지 않는다. */
-      if(is404 && slow && maxTries < WAIT404.length) maxTries = WAIT404.length;
+      if((is404 || isTmo) && slow && maxTries < WAIT404.length) maxTries = WAIT404.length;
       if(i + 1 >= maxTries) break;
       var tbl = is404 ? WAIT404 : WAIT;
       await new Promise(function(r){ setTimeout(r, jit(tbl[i] || tbl[tbl.length - 1])); });
@@ -642,7 +719,12 @@ function loadErrWord(e){
     : ('불러오지 못했습니다: ' + msg);
   return { kind: kind, say: say };
 }
+var LOADP_NAME = { listings:'매물', landlords:'임대인', inbox:'인입함',
+                   vac:'공실현황', smsq:'문자수신함',
+                   buildings:'건물마스터', units:'호실마스터',
+                   persons:'사람마스터', roleLinks:'역할연결' };
 async function loadOne(what, fn){
+  if(LOADP.on) loadpStep(LOADP_NAME[what] || what);
   try{ await fn(); }
   catch(e){
     var r = loadErrWord(e);
@@ -2530,6 +2612,13 @@ function inboxRows(){
 }
 function viewInbox(){
   if(DB.err) return crumb() + '<div class="h1row"><h1>통합 인입함</h1></div>' + keyBox();
+  /* 🔴 2026-09-14 — 인입함을 아직 못 읽었으면 **0건이라고 말하지 않는다**.
+     (화면 잠금을 매물 기준으로 바꾸면서 이 화면이 먼저 열릴 수 있게 됐다) */
+  if(DB.inbox === null){
+    return crumb() + '<div class="h1row"><h1>통합 인입함</h1></div>' +
+      (DB.loading ? loadpCard()
+        : loadErrBox('인입함을 아직 읽지 못했습니다 — 0건이 아닙니다.', '인입함 자료', 'retryAll()'));
+  }
   var all = DB.inbox || [];
   var rows = inboxRows();
   var un = all.filter(function(r){ return !r.reg; }).length;
@@ -7427,32 +7516,54 @@ function adCopyList(rows){
    🔴 여기서 외부에 올리지 않는다. 사람이 올린 뒤 '올렸다'고 적는 곳이다.
    🔴 규칙 9: 시트 행은 전체 객체로 보낸다(부분 객체는 나머지 칸을 지운다). */
 var AD_SAVING = false;
+var AD_BUSY = false;
+/* 🔴 2026-09-14 — 누르고 나서 저장 직전 재조회(실측 3.3~18.4초) 동안 아무 표시가 없어
+   버튼이 죽은 것처럼 보였다. 그 사이 또 누르면 확인창이 두 번 뜬다.
+   누르는 즉시 표시하고, 끝날 때까지 다시 못 누르게 한다. */
+function adBusy(on){
+  AD_BUSY = !!on;
+  var bs = document.querySelectorAll('button');
+  for(var i = 0; i < bs.length; i++){
+    var t = String(bs[i].textContent || '');
+    if(t === '내림 확인' || t === '올림 확인' || t === '확인하는 중…'){
+      bs[i].disabled = !!on;
+      if(on){ if(!bs[i].getAttribute('data-lab')) bs[i].setAttribute('data-lab', t);
+              bs[i].textContent = '확인하는 중…'; }
+      else { var lab = bs[i].getAttribute('data-lab');
+             if(lab){ bs[i].textContent = lab; bs[i].removeAttribute('data-lab'); } }
+    }
+  }
+}
 async function adMark(id, ch, on){
   var nl = String.fromCharCode(10);
   if(AD_SAVING){ alert('저장 중입니다'); return; }
+  if(AD_BUSY) return;                 /* 두 번 눌러도 확인창이 두 번 뜨지 않는다 */
+  adBusy(true);
   var lab = (AD_CH.filter(function(c){ return c.key === ch; })[0] || {}).label || ch;
   /* 🔴 저장 직전에 매물 자료를 다시 읽는다 — 그 사이 누가 바꿨을 수 있다 */
   var fresh;
   try{
     var g = await jget({ action:'getAll', type:'listings' });
     fresh = (g.data || g.result || []).map(adsRestore);
-  }catch(e){ alert('매물 자료를 다시 읽지 못해 저장하지 않습니다: ' + (e && e.message || e)); return; }
+  }catch(e){ adBusy(false); alert('매물 자료를 다시 읽지 못해 저장하지 않습니다: ' + (e && e.message || e)); return; }
   var row = fresh.filter(function(x){ return String(x.id) === String(id); })[0];
-  if(!row){ alert('매물을 찾지 못했습니다 — 저장하지 않습니다.'); return; }
+  if(!row){ adBusy(false); alert('매물을 찾지 못했습니다 — 저장하지 않습니다.'); return; }
   var mine = adFind(id);
   if(mine && String(row.status||'') !== String(mine.status||'')){
     alert('그 사이 매물 상태가 ' + (mine.status||'') + ' → ' + (row.status||'') +
-      ' 로 바뀌었습니다.' + nl + '화면을 새로 읽고 다시 하세요.'); return; }
+      ' 로 바뀌었습니다.' + nl + '화면을 새로 읽고 다시 하세요.'); adBusy(false); return; }
 
   var was = adOf(row, ch);
-  if(on && was && was.on){ alert(lab + ' 은 이미 게시 중으로 적혀 있습니다.'); return; }
-  if(!on && !(was && was.on)){ alert(lab + ' 은 게시 중이 아닙니다.'); return; }
+  if(on && was && was.on){ adBusy(false); alert(lab + ' 은 이미 게시 중으로 적혀 있습니다.'); return; }
+  if(!on && !(was && was.on)){ adBusy(false); alert(lab + ' 은 게시 중이 아닙니다.'); return; }
 
   var no = '', at = todayStr();
+  adBusy(false);                      /* 확인창을 띄우기 직전에 표시를 거둔다 */
+  AD_BUSY = true;                     /* 다만 중복 진입은 계속 막는다 */
   if(on){
     no = String(prompt(lab + ' 에 올린 글 번호·링크가 있으면 적어 주세요 (없으면 비워 두세요)', '') || '').trim();
-    if(no.length > 200){ alert('너무 깁니다 — 200자 안으로 적어 주세요.'); return; }
-    if(hasSecret(no)){ alert('🔴 비밀번호로 보이는 내용이 있습니다 — 적지 않습니다.'); return; }
+    if(no.length > 200){ adBusy(false); alert('너무 깁니다 — 200자 안으로 적어 주세요.'); return; }
+    if(hasSecret(no)){ adBusy(false); alert('🔴 비밀번호로 보이는 내용이 있습니다 — 적지 않습니다.'); return; }
   }
   var msg = [ (on ? (lab + ' 에 올렸다고 적습니다') : (lab + ' 에서 내렸다고 적습니다')), '',
     '매물   ' + row.id + '  ' + (row.apt||'') + ' ' + (row.addr2||''),
@@ -7463,7 +7574,7 @@ async function adMark(id, ch, on){
     '', '🔴 이 버튼은 실제로 광고를 올리거나 내리지 않습니다.',
     '🔴 대표님이 채널에서 직접 한 일을 여기에 적어 두는 것입니다.',
     '', '이대로 적을까요?'].filter(function(x){ return x !== ''; }).join(nl);
-  if(!confirm(msg)) return;
+  if(!confirm(msg)){ adBusy(false); return; }
 
   var obj = JSON.parse(JSON.stringify(row));
   obj.ads = obj.ads || {};
@@ -7482,6 +7593,7 @@ async function adMark(id, ch, on){
   delete obj.adsOff;
 
   AD_SAVING = true;
+  adBusy(false);                      /* 여기서부터는 AD_SAVING 이 막는다 */
   try{
     await erpUpsert('listings', obj);
     var g2 = await jget({ action:'getAll', type:'listings' });
@@ -9400,7 +9512,13 @@ function vacRecalc(){
 function route(){
   var m = document.getElementById('main');
   if(SEARCH){ m.innerHTML = mstSearchHtml(SEARCH) + viewSearch(SEARCH); bindBar(); return; }
-  if(DB.loading && !DB.inbox){ m.innerHTML = crumb() + '<div class="card"><div class="empty">불러오는 중…</div></div>'; return; }
+  /* 🔴 2026-09-14 — 여태 **인입함**(가장 느린 줄기: 쪽넘김 + 쪽마다 0.6초 쉼 + 긴 재시도)
+     을 기다리느라 화면 전체가 잠겨 있었다. 폰에서는 그 시간이 몇 분이 된다.
+     매물만 들어오면 열어 준다. 인입함이 필요한 화면은 그 화면이 스스로 말한다.
+     🔴 0건 위장 금지 — 아직 못 읽은 것은 '0건' 이 아니라 '읽는 중' 이라고 적는다. */
+  if(DB.loading && !DB.listings && !LOADP.give){
+    m.innerHTML = crumb() + loadpCard(); loadpPaint(); return;
+  }
   if(CUR.m2 === 'today') m.innerHTML = viewToday();
   else if(CUR.m2 === 'inbox') m.innerHTML = viewInbox();
   else if(CUR.m2 === 'admgr') m.innerHTML = viewAd();
