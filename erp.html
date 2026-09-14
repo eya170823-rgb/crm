@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.14.1';
+var ERP_VER = '1.15.1';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -472,7 +472,7 @@ function loadpGiveUp(){ LOADP.give = true; try{ route(); }catch(e){} }
 async function loadAll(force){
   if(DB.loading) return;
   if(DB.listings && !force) return;
-  DB.loading = true; DB.err = ''; DB.ldErr = ''; DB.inErr = ''; LOADP.give = false;
+  DB.loading = true; DB.ready = false; DB.err = ''; DB.ldErr = ''; DB.inErr = ''; LOADP.give = false;
   loadpStart(['매물', '임대인', '인입함', '공실현황', '문자수신함']);
   /* 🔴 2026-09-14 — 여기서 한 번 그려 주지 않으면 진행 카드가 **아예 안 뜬다**.
      route() 는 자료가 하나 들어온 뒤에야 불리기 때문이다(LIVE 실측으로 확인). */
@@ -578,6 +578,11 @@ async function loadAll(force){
   });
   srcMerge();                 /* 세 원본을 한 줄기로 — 지문으로 같은 사건을 묶는다 */
   DB.loading = false;
+  /* 🔴 2026-09-14 — '첫 적재가 정말 끝났다' 는 신호.
+     DB.loading 만 보면 안 된다: 첫 화면은 loadAll 이 **시작되기 전에** 한 번 그려지고,
+     그때 loading 은 아직 false 다. 그 틈에 마스터를 읽으면 첫 적재와 경쟁해
+     "불러오는 중" 이 다시 길어진다(2026-09-14 실측: 5초 시점에 건물 13이 들어와 있었다). */
+  DB.ready = true;
   loadpEnd();
 }
 /* 공실현황·문자수신함을 인입함 줄기에 합친다 (2026-09-13)
@@ -922,6 +927,114 @@ function bldColOk(v){
   if(t.indexOf('행') >= 0) return false;
   return true;
 }
+/* ═══ 🆕 2026-09-14 새 경로 3벌 — 기존 함수를 **지우지 않고 옆에** 둔다 ═══
+   왜 옆에 두는가: 기존 matchBuilding/matchProperty 는 지금 실제로 돌고 있다.
+   새 경로가 못 찾으면 **곧바로 기존 경로로 떨어지게** 해서, 되던 것이 깨지지 않게 한다.
+   🔴 마스터를 아직 안 읽었으면(null) 새 경로는 아무것도 하지 않는다 — 기존 경로 그대로. */
+
+/* GAS vacHoKey_ 와 같은 규칙 — "101-204"(101동 204호) → "101204", "305호" → "305" */
+function uHoKey(v){
+  var t = String(v == null ? '' : v).trim();
+  var dh = t.match(/^(\d+)\s*-\s*(\d+)$/);
+  if(dh) return dh[1] + dh[2];
+  return t.replace(/[^0-9]/g, '');
+}
+/* unitId = 건물id + '-' + 호실키 (시트 호실마스터의 id 와 같은 규칙) */
+function unitIdOf(bldgId, unit){
+  var k = uHoKey(unit);
+  if(!bldgId || !k) return '';
+  return String(bldgId) + '-' + k;
+}
+
+/* ── ② 건물마스터에서 건물 찾기 ────────────────────────────────
+   기존 matchBuilding 은 매물장 apt(건물명)·임대인 명부로 찾는다.
+   그래서 **매물이 없는 건물**은 못 찾고, 건물명이 '202' 처럼 깨져 있으면 엉뚱한 곳에 붙는다.
+   여기서는 건물마스터의 지번을 1순위로 본다.
+   🔴 애매하면(후보 2개 이상) null 을 돌려 기존 경로로 넘긴다 — 오연결 0 이 먼저다. */
+function matchBuildingMaster(row, ai){
+  if(DB.buildings === null) return null;          /* 아직 안 읽음 → 기존 경로 */
+  var B = DB.buildings || [];
+  if(!B.length) return null;
+  function mk(b, how, conf){
+    return { id:String(b.id || ''), name:String(b.name || ''), addr:String(b.addr || ''),
+             addrKey:String(b.addrKey || ''), jibun:String(b.jibun || ''),
+             dong:String(b.dong || ''), how:how, conf:conf };
+  }
+  var hay = [row && row.name, (row && bldColOk(row.bld) ? row.bld : ''),
+             row && row.text, ai && ai.bldg].join(' ');
+  var tk = bldgTokens(hay);
+  var flat = String(hay).replace(/\s/g, '');
+  /* ① 지번 — 가장 강한 근거 */
+  if(tk.jibun){
+    var byJ = B.filter(function(b){ return String(b.jibun || '') === tk.jibun; });
+    if(byJ.length > 1 && tk.dong){
+      var byJD = byJ.filter(function(b){ return String(b.dong || '') === tk.dong; });
+      if(byJD.length) byJ = byJD;
+    }
+    if(byJ.length === 1) return mk(byJ[0], tk.dong ? '지번+동' : '지번', 95);
+    if(byJ.length > 1) return null;               /* 애매 → 기존 경로 */
+  }
+  /* ② 건물명 — 🔴 형태가 이름이 아니면 쓰지 않는다('202' 같은 것은 여기서 걸러진다) */
+  var byN = B.filter(function(b){
+    var nm = sq(b.name);
+    return nm && nm.length >= 2 && bldNameOk(nm) && flat.indexOf(nm) >= 0;
+  });
+  if(byN.length > 1){
+    /* 긴 이름이 이긴다 — '에코' 와 '에코제니' 가 둘 다 걸리면 '에코제니'.
+       길이가 같으면 가리지 않는다(애매 → 기존 경로). */
+    byN.sort(function(x, y){ return sq(y.name).length - sq(x.name).length; });
+    if(sq(byN[0].name).length === sq(byN[1].name).length) return null;
+    byN = [byN[0]];
+  }
+  if(byN.length === 1) return mk(byN[0], '건물명', 80);
+  return null;
+}
+
+/* ── ① 호실마스터 조회 — 이름 대조가 아니라 **키 조회** ────────────
+   🔴 핵심: 그 호실에 지금 매물 행이 없어도(임대중·계약완료) 호실은 대장에 남아 있다.
+      예전에는 매물장 addr2 로만 찾아서 그런 문자가 REVIEW 로 빠졌다. */
+function matchUnitMaster(bldgId, unit){
+  if(DB.units === null) return null;              /* 아직 안 읽음 → 기존 경로 */
+  var uid = unitIdOf(bldgId, unit);
+  if(!uid) return null;
+  var u = (DB.units || []).filter(function(x){ return String(x.id) === uid; })[0];
+  if(!u) return null;
+  var hit = (DB.listings || []).filter(function(o){ return String(o.unitId || '') === uid; });
+  return { unitId:uid, unit:u, listings:hit };
+}
+
+/* ── ③ 사람마스터 1인 조회 ────────────────────────────────────
+   🔴 없으면 **만들지 않는다**. 후보로만 알린다(자동생성 금지).
+   🔴 임대인관리·고객관리·인입함 원본은 읽기만 한다. */
+function personByPhone(phone){
+  if(DB.persons === null) return null;            /* 아직 안 읽음 */
+  var k = phKey(phone);
+  if(!k) return null;
+  var hit = (DB.persons || []).filter(function(p){
+    return String(p.phoneKey || '') === k || phHas(p.phone, phone) || phHas(p.phone2, phone); });
+  if(hit.length === 1) return hit[0];
+  if(hit.length > 1) return { many:hit };
+  return null;
+}
+/* 이 번호가 지금 어디에 있는지 — 🔴 읽기만 한다. 고치지 않는다. */
+function personWhere(phone){
+  var out = { person:null, many:null, landlords:[], customers:[] };
+  if(!phone) return out;
+  var p = personByPhone(phone);
+  if(p && p.many) out.many = p.many; else out.person = p;
+  out.landlords = (DB.landlords || []).filter(function(L){
+    return phHas(L.phone, phone) || phHas(L.phone2, phone); });
+  out.customers = (DB.customers || []).filter(function(c){ return phHas(c.phone, phone); });
+  return out;
+}
+function personWhereWord(phone){
+  var wr = personWhere(phone), a = [];
+  if(wr.person) a.push('사람마스터 ' + wr.person.id + (wr.person.name ? ('(' + wr.person.name + ')') : ''));
+  if(wr.many) a.push('🔴 사람마스터에 같은 번호가 ' + wr.many.length + '명');
+  if(wr.landlords.length) a.push('임대인관리 ' + wr.landlords.length + '행');
+  if(wr.customers.length) a.push('고객관리 ' + wr.customers.length + '행');
+  return a.join(' · ');
+}
 function matchBuilding(row, ai){
   var hay = [row.name, (bldColOk(row.bld) ? row.bld : ''), row.text].join(' ');
   var tk = bldgTokens(hay);
@@ -949,6 +1062,23 @@ function matchBuilding(row, ai){
     if(byName || byJibun) res.listings.push(o);
   });
   if(!res.bldg && res.listings.length) res.bldg = res.listings[0].apt || '';
+  /* 🆕 2026-09-14 — 건물마스터 결과를 **덧붙인다**. 🔴 기존 결과를 덮지 않는다.
+     · 기존 경로가 찾았으면: id 만 붙인다(아래 호실 키 조회에 쓴다)
+     · 기존 경로가 못 찾았으면: 그때만 건물을 채운다(예전엔 NEW_BUILDING 으로 빠지던 것) */
+  var mB = matchBuildingMaster(row, ai);
+  if(mB){
+    res.master = mB;
+    res.bldgId = mB.id;
+    if(!res.bldg && !res.landlords.length && !res.listings.length){
+      res.bldg = mB.name || res.bldg;
+      res.addr = mB.addr || res.addr;
+      res.how.push('건물마스터(' + mB.how + ')');
+      var pre = String(mB.id) + '-';
+      (DB.listings || []).forEach(function(o){
+        if(String(o.unitId || '').indexOf(pre) === 0) res.listings.push(o);
+      });
+    }
+  }
   return res;
 }
 /* ═══ 판정 ═══════════════════════════════════════════════════════ */
@@ -965,7 +1095,14 @@ function judge(ai, bm){
   if(hits.length > 1){ r.code = 'REVIEW_REQUIRED'; r.why = '같은 호실이 매물장에 ' + hits.length + '건 있습니다'; return r; }
   if(!hits.length){
     r.code = 'NEW';
-    r.why = '건물은 우리 자료에 있고(' + (bm.how.join('+') || '대조') + '), 그 호실 매물은 없습니다';
+    /* 🆕 그 호실이 **대장에는 있는지** 본다 — 임대중·계약완료라 매물 행만 없는 방이다 */
+    var mu2 = bm.bldgId ? matchUnitMaster(bm.bldgId, ai.unit) : null;
+    if(mu2){
+      r.unitId = mu2.unitId;
+      r.why = '그 호실은 대장에 있습니다(' + mu2.unitId + ') — 지금 매물 행이 없을 뿐입니다';
+    } else {
+      r.why = '건물은 우리 자료에 있고(' + (bm.how.join('+') || '대조') + '), 그 호실 매물은 없습니다';
+    }
     return r;
   }
   r.hit = hits[0];
@@ -1168,6 +1305,10 @@ function keyBox(){
 
 /* ── 오늘업무 ── */
 function viewToday(){
+  /* 🆕 2026-09-14 — 새 경로(건물마스터·호실마스터·사람마스터)가 쓰일 화면이다.
+     🔴 첫 적재가 **끝난 뒤에만** 읽는다 — 같이 읽으면 첫 화면이 다시 느려진다.
+     아직 없으면 새 경로가 스스로 비켜서고 기존 경로로 돈다(화면은 그대로 뜬다). */
+  if(DB.ready && DB.buildings === null) loadMasters(['buildings', 'units', 'persons']);
   /* 3개를 고르려면 계약·고객까지 있어야 한다 — 없으면 그 화면에서만 따로 읽는다 */
   if(DB.contracts === null) loadContracts();
   if(DB.customers === null) loadCustomers();
@@ -1501,6 +1642,16 @@ function matchProperty(ev){
   if(!bm.listings.length && !bm.landlords.length && !bm.bldg){
     out.code = 'NEW_BUILDING'; out.why = '우리 자료에 이 건물이 없습니다'; return out;
   }
+  /* 1.5 — 🆕 2026-09-14 호실 키(unitId) 조회. 이름 대조가 아니라 **키**라 가장 정확하다.
+     🔴 못 찾으면 아래 기존 경로(지번+호실 · 건물명+호실 · 보낸번호+호실)로 그대로 내려간다. */
+  var mu = bm.bldgId ? matchUnitMaster(bm.bldgId, ev.unit) : null;
+  if(mu && mu.listings.length === 1){
+    out.listingId = String(mu.listings[0].id);
+    out.confidence = 95; out.how = '호실키(unitId)'; out.code = 'MATCH';
+    out.hits = mu.listings; out.unitId = mu.unitId;
+    out.why = '호실 대장 ' + mu.unitId + ' 로 바로 찾았습니다';
+    return out;
+  }
   var u = sq(ev.unit);
   /* 2 — 지번 + 호실 */
   var byJibun = (bm.listings || []).filter(function(o){
@@ -1560,6 +1711,15 @@ function matchProperty(ev){
         return out;
       }
     }
+  }
+  /* 6-0 — 🆕 그 호실이 **대장에는 있고** 지금 매물 행이 없는 경우.
+     임대중·계약완료라 매물장에서 빠진 방이다. 예전에는 이런 문자가 REVIEW 로 빠졌다. */
+  if(mu && !mu.listings.length){
+    out.code = 'NEW'; out.confidence = 85; out.how = '호실마스터';
+    out.unitId = mu.unitId; out.hits = bm.listings || [];
+    out.why = '그 호실은 대장에 있습니다(' + mu.unitId + ') — 지금 매물 행이 없을 뿐입니다' +
+              '(빈 호실이거나 임대중).';
+    return out;
   }
   /* 6 — 건물만 같음 → 그 호실 매물은 없다(새 후보) */
   if((bm.listings || []).length || bm.bldg){
@@ -2622,6 +2782,10 @@ function viewInbox(){
       (DB.loading ? loadpCard()
         : loadErrBox('인입함을 아직 읽지 못했습니다 — 0건이 아닙니다.', '인입함 자료', 'retryAll()'));
   }
+  /* 🆕 2026-09-14 — 새 경로(건물마스터·호실마스터·사람마스터)가 쓰일 화면이다.
+     🔴 첫 적재가 **끝난 뒤에만** 읽는다 — 같이 읽으면 첫 화면이 다시 느려진다.
+     아직 없으면 새 경로가 스스로 비켜서고 기존 경로로 돈다(화면은 그대로 뜬다). */
+  if(DB.ready && DB.buildings === null) loadMasters(['buildings', 'units', 'persons']);
   var all = DB.inbox || [];
   var rows = inboxRows();
   var un = all.filter(function(r){ return !r.reg; }).length;
@@ -6035,7 +6199,14 @@ async function inqApproveCustomer(row){
                  d.conMoveIn ? ('입주 ' + d.conMoveIn) : ''].filter(Boolean).join(' · '),
     '다음 연락 ' + d.nextAction,
     '메모   문의 원문 + 읽어낸 조건 + 그때 추천 매물이 함께 들어갑니다',
-    '', '🔴 고객 1건만 만듭니다. 문자는 나가지 않습니다.',
+    '',
+    /* 🆕 2026-09-14 — 이 번호가 이미 어디에 있는지 먼저 알린다(사람 중복생성 방지).
+       🔴 막지는 않는다. 임대인이면서 고객일 수 있다 — 역할이 둘일 뿐 사람은 하나다. */
+    (personWhereWord(d.phone)
+      ? ('🔴 이 번호는 이미 있습니다 — ' + personWhereWord(d.phone) + nl +
+         '🔴 같은 사람이면 새로 만들지 말고 역할만 더하십시오.' + nl)
+      : '') +
+    '🔴 고객 1건만 만듭니다. 문자는 나가지 않습니다.',
     '🔴 매물·계약·광고는 건드리지 않습니다.'].join(nl);
   if(!confirm(msg)) return;
   /* 🔴 저장 직전에 최신 고객 목록을 다시 읽어 같은 번호가 이미 있는지 본다(중복 0) */
@@ -9519,7 +9690,10 @@ function route(){
      을 기다리느라 화면 전체가 잠겨 있었다. 폰에서는 그 시간이 몇 분이 된다.
      매물만 들어오면 열어 준다. 인입함이 필요한 화면은 그 화면이 스스로 말한다.
      🔴 0건 위장 금지 — 아직 못 읽은 것은 '0건' 이 아니라 '읽는 중' 이라고 적는다. */
-  if(DB.loading && !DB.listings && !LOADP.give){
+  /* 🔴 2026-09-14 — **실패했으면 진행 카드를 보여주지 않는다**.
+     못 읽었는데 "읽고 있습니다" 라고 말하면 대표님이 계속 기다리게 된다.
+     DB.err 가 있으면 아래 화면이 '불러오지 못했습니다 + 다시 불러오기' 를 낸다. */
+  if(DB.loading && !DB.listings && !DB.err && !LOADP.give){
     m.innerHTML = crumb() + loadpCard(); loadpPaint(); return;
   }
   if(CUR.m2 === 'today') m.innerHTML = viewToday();
