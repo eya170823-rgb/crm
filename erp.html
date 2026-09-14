@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.17.0';
+var ERP_VER = '1.18.1';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -973,6 +973,26 @@ function matchBuildingMaster(row, ai){
     }
     if(byJ.length === 1) return mk(byJ[0], tk.dong ? '지번+동' : '지번', 95);
     if(byJ.length > 1) return null;               /* 애매 → 기존 경로 */
+  }
+  /* 🔴 2026-09-14 — **본문이 발신자 이름을 이긴다.**
+     실측 사고: 발신자 이름이 "오피-에코드파리" 인 분이 "유니 1806호 300/50" 을 보냈는데
+     이름칸 때문에 **에코 드 파리 1806호**로 붙었다. 본문은 다른 건물을 말하고 있었다.
+     규칙: 본문에 "<이름> NNN호" 가 있으면 그 이름을 먼저 본다.
+           그 이름이 건물마스터에 없으면 **이름칸으로 대신하지 않는다**(모르는 건물이다). */
+  var body = String((row && row.text) || '');
+  var bodyName = '';
+  var bm2 = body.match(/([가-힣A-Za-z][가-힣A-Za-z0-9]{1,11})\s*(\d{3,4})\s*호/);
+  if(bm2) bodyName = sq(bm2[1]);
+  if(bodyName && bodyName.length >= 2 && bldNameOk(bodyName)){
+    var hitBody = B.filter(function(b){
+      var nm = sq(b.name);
+      if(!nm) return false;
+      return nm === bodyName || nm.indexOf(bodyName) >= 0 || bodyName.indexOf(nm) >= 0;
+    });
+    if(hitBody.length === 1) return mk(hitBody[0], '본문 건물명', 85);
+    if(hitBody.length > 1) return null;
+    /* 🔴 본문이 말하는 건물이 우리 자료에 없다 — 발신자 이름으로 대신하지 않는다 */
+    return null;
   }
   /* ② 건물명 — 🔴 형태가 이름이 아니면 쓰지 않는다('202' 같은 것은 여기서 걸러진다) */
   var byN = B.filter(function(b){
@@ -2913,7 +2933,30 @@ function inbPanel(r){
     '<button class="btn sm" onclick="inbMarkAs(&#39;' + esc(String(r.row)) + '&#39;,&#39;스팸&#39;)">스팸</button> ' +
     '<button class="btn sm" onclick="inbMarkAs(&#39;' + esc(String(r.row)) + '&#39;,&#39;보류&#39;)">보류</button>' +
     '</div>';
+  /* 🆕 2단계 — 임대인 탭이면 공실 판정과 [공실로 접수] 를 함께 보여 준다 */
+  if(INB_TAB === '임대인' || vacDoneHint(r.text) || vacHo(r.text)){
+    var v = vacRead(r);
+    h += '<div style="margin-top:10px;padding:9px 11px;background:var(--bg2);border-radius:6px;font-size:12.5px">' +
+      '<b>공실 판정</b> <span class="pill ' +
+      (v.code === 'SAME' ? 'p-good' : (v.code === 'LOCKED' ? 'p-bad' : 'p-warn')) + '">' +
+      esc(v.code) + '</span> ' + esc(v.why);
+    if(v.money.deposit || v.money.rent)
+      h += '<br>읽어낸 값 보증금 ' + esc(v.money.deposit || '(없음)') +
+           ' · 월세 ' + esc(v.money.rent || '(없음)');
+    if(vacDoneHint(r.text))
+      h += '<br>🔴 "방이 나갔다" 로 읽히지만 <b>계약완료로 자동 바꾸지 않습니다</b>.';
+    h += '<div style="margin-top:8px">' +
+      (v.code === 'NEW_BUILDING'
+        ? ('<button class="btn sm" onclick="vacNewBldg(&#39;' + esc(String(r.row)) +
+           '&#39;)">신규 건물 후보로 올리기</button>')
+        : (v.lock
+            ? '<button class="btn sm" disabled title="저장하지 않기로 한 호실">공실로 접수</button>'
+            : ('<button class="btn sm pri" onclick="vacAccept(&#39;' + esc(String(r.row)) +
+               '&#39;)">공실로 접수</button>'))) +
+      '</div></div>';
+  }
   if(INB_FORM && String(INB_FORM.row) === String(r.row)) h += inbFormHtml(r);
+  if(VAC_FORM && String(VAC_FORM.row) === String(r.row)) h += vacFormHtml(r);
   h += '</div></div>';
   return h;
 }
@@ -3085,6 +3128,265 @@ async function inbMark(row, val){
     if(r) r.reg = String(val);
     INB_OPEN = ''; route();
   }catch(e){ alert('표시하지 못했습니다: ' + String(e && e.message || e)); }
+}
+/* ══ 2단계 2026-09-14 — 공실접수 (인입함 임대인 → 호실) ══════════
+   🔴 자동 생성 금지. 대표님이 눌러야만 만들어진다.
+   🔴 "방 나갔습니다 / 계약완료" 를 **계약완료로 자동처리하지 않는다.**
+   🔴 발신번호는 '접수연락처' 로만 잇는다 — 소유자로 단정하지 않는다. ══ */
+/* 🔴 손대면 안 되는 호실 (철칙) */
+var VAC_LOCK = ['1008'];                       /* 저장 금지 */
+var VAC_REVIEW = ['1325'];                     /* 사람이 봐야 함 */
+var VAC_NO_NEW = ['309', '525', '603', '222']; /* 새로 만들지 않는다 */
+var VAC_FORM = null;
+var VAC_SAVING = false;
+
+/* 글에서 가격을 읽는다 — 🔴 없으면 없는 대로 둔다(지어내지 않는다) */
+function vacMoney(t){
+  var s0 = String(t || '');
+  var out = { deposit: '', rent: '' };
+  var m = s0.match(/(\d{2,5})\s*[\/의]\s*(\d{2,4})/);      /* 300/45 · 300의 45 */
+  if(m){ out.deposit = m[1]; out.rent = m[2]; return out; }
+  var d = s0.match(/보증금\s*(\d{2,5})/);
+  var r = s0.match(/월세\s*(\d{2,4})/);
+  if(d) out.deposit = d[1];
+  if(r) out.rent = r[1];
+  return out;
+}
+function vacHo(t){
+  var m = String(t || '').match(/(\d{3,4})\s*호/);
+  return m ? m[1] : '';
+}
+/* 인입 한 줄 → 건물·호실·가격 후보와 판정 */
+function vacRead(r){
+  var out = { bm:null, ho:'', unitId:'', unit:null, listing:null,
+              code:'REVIEW', why:'', money:vacMoney(r && r.text), lock:false };
+  out.bm = matchBuildingMaster(r, {});
+  out.ho = vacHo(r && r.text);
+  if(!out.bm){ out.code = 'NEW_BUILDING'; out.why = '우리 자료에 이 건물이 없습니다'; return out; }
+  if(!out.ho){ out.code = 'REVIEW'; out.why = '호실을 읽지 못했습니다'; return out; }
+  if(VAC_LOCK.indexOf(out.ho) >= 0){
+    out.lock = true; out.code = 'LOCKED';
+    out.why = '🔴 ' + out.ho + '호는 저장하지 않기로 한 호실입니다';
+    return out;
+  }
+  if(VAC_REVIEW.indexOf(out.ho) >= 0){
+    out.code = 'REVIEW'; out.why = '🔴 ' + out.ho + '호는 사람이 봐야 하는 호실입니다';
+    return out;
+  }
+  var mu = matchUnitMaster(out.bm.id, out.ho + '호');
+  if(mu){
+    out.unitId = mu.unitId; out.unit = mu.unit;
+    out.listing = (mu.listings || [])[0] || null;
+    if(out.listing){
+      var chg = [];
+      if(out.money.deposit && String(out.listing.price || '') !== out.money.deposit)
+        chg.push('보증금 ' + (out.listing.price || '(없음)') + ' → ' + out.money.deposit);
+      if(out.money.rent && String(out.listing.rentAmt || '') !== out.money.rent)
+        chg.push('월세 ' + (out.listing.rentAmt || '(없음)') + ' → ' + out.money.rent);
+      out.changes = chg;
+      out.code = chg.length ? 'CHANGE' : 'SAME';
+      out.why = chg.length ? ('기존 매물 ' + out.listing.id + ' 과 값이 다릅니다: ' + chg.join(' · '))
+                           : ('기존 매물 ' + out.listing.id + ' 과 같습니다');
+    } else {
+      out.code = 'NEW';
+      out.why = '그 호실은 대장에 있고(' + out.unitId + ') 지금 매물 행이 없습니다';
+    }
+    return out;
+  }
+  if(VAC_NO_NEW.indexOf(out.ho) >= 0){
+    out.code = 'REVIEW';
+    out.why = '🔴 ' + out.ho + '호는 새로 만들지 않기로 한 호실입니다';
+    return out;
+  }
+  out.code = 'NEW';
+  out.why = '건물은 있고(' + out.bm.name + ') 그 호실은 대장에 없습니다 — 새 호실 후보';
+  return out;
+}
+/* 계약완료 말투인가 — 🔴 읽기만 한다. 자동으로 상태를 바꾸지 않는다. */
+function vacDoneHint(t){
+  var f = sq(t || '');
+  return (f.indexOf('계약완료') >= 0 || f.indexOf('임대완료') >= 0 ||
+          f.indexOf('방나갔') >= 0 || f.indexOf('나갔습니다') >= 0 || f.indexOf('나갔어') >= 0);
+}
+/* [공실로 접수] — 입력칸을 연다 */
+function vacAccept(row){
+  var r = inbFind(row);
+  if(!r){ alert('그 줄을 찾지 못했습니다.'); return; }
+  var v = vacRead(r);
+  if(v.lock){ alert(v.why); return; }
+  VAC_FORM = {
+    row: String(row), code: v.code, bldgId: v.bm ? v.bm.id : '', bldg: v.bm ? v.bm.name : '',
+    ho: v.ho, unitId: v.unitId, listingId: v.listing ? String(v.listing.id) : '',
+    deposit: v.money.deposit, rent: v.money.rent, memo: ''
+  };
+  route();
+}
+function vacFormSet(k, val){ if(VAC_FORM) VAC_FORM[k] = val; }
+function vacFormHtml(r){
+  var f = VAC_FORM, v = vacRead(r);
+  function inp(k, label, ph){
+    return '<label style="display:block;margin:0 0 7px">' +
+      '<span style="display:block;font-size:11.5px;color:var(--t3)">' + esc(label) + '</span>' +
+      '<input type="text" value="' + esc(f[k] || '') + '" placeholder="' + esc(ph || '') + '" ' +
+      'style="width:100%" oninput="vacFormSet(&#39;' + k + '&#39;,this.value)"></label>';
+  }
+  var done = vacDoneHint(r.text);
+  return '<div class="card" style="margin:12px 0 0;border-color:var(--good)">' +
+    '<div class="sbody" style="padding:12px 14px">' +
+    '<h4 style="margin:0 0 4px;font-size:14px">공실로 접수 — ' + esc(f.code) + '</h4>' +
+    '<div style="font-size:12.5px;color:var(--t2);margin:0 0 8px">' + esc(v.why) + '</div>' +
+    (done ? ('<div class="note b" style="margin:0 0 10px">🔴 "방이 나갔다/계약완료" 로 읽히는 글입니다. ' +
+             '<b>계약완료로 자동 바꾸지 않습니다</b> — 공실 접수와는 다른 일입니다.</div>') : '') +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">' +
+      inp('bldg', '건물', '') + inp('ho', '호실', '803') +
+      inp('deposit', '보증금(만)', '') + inp('rent', '월세(만)', '') +
+      inp('memo', '메모', '') +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--t3);margin:4px 0 8px">' +
+    '🔴 값을 지어내지 않습니다. 글에 없는 것은 비워 둡니다.<br>' +
+    '🔴 보낸 번호는 <b>접수연락처</b> 로만 잇습니다 — 소유자로 단정하지 않습니다.</div>' +
+    '<div>' +
+    '<button class="btn sm pri" onclick="vacAcceptSave()">이대로 접수</button> ' +
+    '<button class="btn sm" onclick="VAC_FORM=null;route()">취소</button>' +
+    '</div></div></div>';
+}
+/* 🔴 여기서만 만들어진다 */
+async function vacAcceptSave(){
+  var nl = String.fromCharCode(10);
+  if(VAC_SAVING){ alert('저장 중입니다'); return; }
+  var f = VAC_FORM;
+  if(!f) return;
+  var r = inbFind(f.row);
+  if(!r){ alert('그 줄을 찾지 못했습니다.'); return; }
+  if(VAC_LOCK.indexOf(String(f.ho)) >= 0){
+    alert('🔴 ' + f.ho + '호는 저장하지 않기로 한 호실입니다.'); return; }
+  if(!f.bldgId){ alert('건물을 먼저 정해야 합니다 — 없는 건물은 [신규 건물 후보] 로 올려 주세요.'); return; }
+  if(!f.ho){ alert('호실을 읽지 못했습니다 — 직접 적어 주세요.'); return; }
+  if(!f.unitId && VAC_NO_NEW.indexOf(String(f.ho)) >= 0){
+    alert('🔴 ' + f.ho + '호는 새로 만들지 않기로 한 호실입니다.'); return; }
+
+  var uid = f.unitId || (f.bldgId + '-' + uHoKey(f.ho + '호'));
+  var isNew = !f.listingId;
+  var msg = [(isNew ? '공실을 새로 접수합니다' : '기존 매물 값을 고칩니다') + ' — 이대로 할까요?', '',
+    '건물   ' + (f.bldg || ''),
+    '호실   ' + f.ho + '호  (' + uid + ')',
+    '보증금 ' + (f.deposit || '(비움)') + ' · 월세 ' + (f.rent || '(비움)'),
+    f.listingId ? ('매물   ' + f.listingId + ' 를 고칩니다') : '매물   새로 만듭니다',
+    '', '🔴 보낸 번호는 접수연락처로만 잇습니다 — 소유자로 적지 않습니다.',
+    '🔴 계약완료로 바꾸지 않습니다. 문자는 나가지 않습니다.'].join(nl);
+  if(!confirm(msg)) return;
+
+  VAC_SAVING = true;
+  try{
+    /* ① 매물을 다시 읽어 그 사이 바뀌었는지 본다 */
+    var g = await jget({ action:'getAll', type:'listings' });
+    var fresh = (g.data || g.result || []).map(adsRestore);
+    var cur = f.listingId
+      ? fresh.filter(function(x){ return String(x.id) === String(f.listingId); })[0] : null;
+    if(f.listingId && !cur){ VAC_SAVING = false; alert('그 매물을 찾지 못했습니다 — 고치지 않았습니다.'); return; }
+
+    /* ② 호실마스터 — 없으면 만든다 */
+    if(!f.unitId){
+      await erpUpsert('units', {
+        id: uid, buildingId: f.bldgId, ho: f.ho + '호', hoKey: uHoKey(f.ho + '호'),
+        floor: '', area: '', rooms: '', baths: '', direction: '', structure: '',
+        note: '인입함 ' + f.row + ' 에서 접수', updatedAt: new Date().toISOString()
+      });
+    }
+    /* ③ 매물관리 — 🔴 규칙 9: 전체 행 객체를 보낸다 */
+    var obj;
+    if(cur){
+      obj = JSON.parse(JSON.stringify(cur));
+      if(f.deposit) obj.price = String(f.deposit);
+      if(f.rent) obj.rentAmt = String(f.rent);
+      obj.unitId = uid;
+      obj.updatedAt = new Date().toISOString();
+      adsFlatten(obj); delete obj.ads; delete obj.adsOff;
+    } else {
+      obj = {
+        id: vacNewId(fresh), apt: String(f.bldg || ''), addr2: f.ho + '호',
+        addr: '', status: '접수', type: '월세',
+        price: String(f.deposit || ''), rentAmt: String(f.rent || ''),
+        unitId: uid, recvDate: todayStr(),
+        note: ['[인입함 ' + f.row + ' · ' + String(r.when || '') + ']',
+               maskSecret(String(r.text || '')).slice(0, 300),
+               f.memo ? ('메모: ' + f.memo) : ''].filter(Boolean).join(nl).slice(0, 1000),
+        updatedAt: new Date().toISOString()
+      };
+      var b0 = (DB.buildings || []).filter(function(b){ return String(b.id) === String(f.bldgId); })[0];
+      if(b0) obj.addr = String(b0.addr || '');
+    }
+    await erpUpsert('listings', obj);
+
+    /* ④ 보낸 번호 → 사람마스터 → 역할연결 '접수연락처'
+       🔴 소유자로 단정하지 않는다. 없으면 만들지 않고 넘어간다. */
+    var linked = '';
+    var pr = personByPhone(r.phone);
+    if(pr && !pr.many){
+      var lid = 'L-' + String(pr.id).replace('P-', '') + '-' + uHoKey(f.ho + '호') + '-접수';
+      var has = (DB.roleLinks || []).some(function(x){ return String(x.id) === lid; });
+      if(!has){
+        await erpUpsert('roleLinks', {
+          id: lid, personId: String(pr.id), scope: 'unit', targetId: uid,
+          role: '접수연락처', since: todayStr(), until: '',
+          evidence: '인입함 ' + f.row, note: '공실 접수 때 보낸 번호 — 소유자로 확인된 것이 아닙니다',
+          updatedAt: new Date().toISOString()
+        });
+        linked = pr.id;
+      }
+    }
+    /* ⑤ 인입함 표시 */
+    try{ await jgetTry({ action:'inboxMark', row:String(f.row), val:'공실접수 ' + obj.id }); }catch(e2){}
+    /* ⑥ 다시 읽어 확인 */
+    var g2 = await jget({ action:'getAll', type:'listings' });
+    DB.listings = (g2.data || g2.result || []).map(adsRestore);
+    DB.units = null; DB.roleLinks = null;
+    await loadMasters(['units', 'roleLinks']);
+    var now = (DB.listings || []).filter(function(x){ return String(x.id) === String(obj.id); })[0];
+    r.reg = '공실접수 ' + obj.id;
+    VAC_SAVING = false; VAC_FORM = null; INB_OPEN = '';
+    route();
+    alert([now ? '접수했습니다 ✓' : '🔴 다시 읽었더니 안 보입니다 — 확인이 필요합니다', '',
+      obj.id + ' · ' + (obj.apt || '') + ' ' + (obj.addr2 || ''),
+      '호실 ' + uid,
+      linked ? ('접수연락처로 ' + linked + ' 를 이었습니다') : '',
+      '', '🔴 계약완료로 바꾸지 않았습니다. 문자도 나가지 않았습니다.'
+    ].filter(function(x){ return x !== ''; }).join(nl));
+  }catch(e){
+    VAC_SAVING = false; route();
+    alert('접수하지 못했습니다 — 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+function vacNewId(list){
+  var d = new Date(), ym = String(d.getFullYear()).slice(2) +
+    ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2);
+  var mx = 0;
+  (list || []).forEach(function(o){
+    var m = String(o.id || '').match(/^R(\d{6})-(\d+)$/);
+    if(m && m[1] === ym) mx = Math.max(mx, parseInt(m[2], 10));
+  });
+  return 'R' + ym + '-' + ('0' + (mx + 1)).slice(-2);
+}
+/* [신규 건물 후보] — 🔴 건물마스터에 바로 만들지 않는다. 결재함으로 올린다. */
+async function vacNewBldg(row){
+  var nl = String.fromCharCode(10);
+  var r = inbFind(row);
+  if(!r) return;
+  var tk = bldgTokens(String(r.text || ''));
+  var nm = String(r.bld || '').trim();
+  var msg = ['새 건물 후보를 결재함에 올립니다 — 대표님이 승인하시면 건물마스터에 들어갑니다.', '',
+    '읽어낸 것  지번 ' + (tk.jibun || '(없음)') + ' · 동 ' + (tk.dong || '(없음)') +
+      ' · 이름 ' + (nm || '(없음)'),
+    '', '🔴 지금은 건물마스터를 고치지 않습니다. 결재함에 올리기만 합니다.'].join(nl);
+  if(!confirm(msg)) return;
+  try{
+    await erpPost({ action:'approvalAdd', kind:'신규건물', targetType:'inbox',
+      targetId:String(row), dept:'운영',
+      title:'신규 건물 후보 — ' + (tk.dong || '') + ' ' + (tk.jibun || '') + ' ' + nm,
+      note:maskSecret(String(r.text || '')).slice(0, 280) });
+    alert('결재함에 올렸습니다 ✓' + nl + nl + '🔴 건물마스터는 아직 바뀌지 않았습니다.');
+    await adApvLoad(true); route();
+  }catch(e){ alert('올리지 못했습니다: ' + String(e && e.message || e)); }
 }
 function viewInbox(){
   if(DB.err) return crumb() + '<div class="h1row"><h1>통합 인입함</h1></div>' + keyBox();
