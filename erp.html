@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.21.0';
+var ERP_VER = '1.22.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -306,7 +306,7 @@ var MENU = [
   ['ops','운영부',[['photo','촬영 필요',1],['vac','공실 승인함',1],['listing','매물장',0],['landlord','임대인 명부',0]]],
   ['ad','광고·마케팅',[['admgr','광고관리',1],['mkt','마케팅',1],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
-  ['group','그룹웨어',[['gw','업무·결재',1],['academy','아카데미',1],['board','공지',0]]],
+  ['group','그룹웨어',[['apv','결재함',1],['gw','업무·결재',1],['academy','아카데미',1],['board','공지',0]]],
   ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',1],['bldg','건물·대장',1],['person','사람',1]]],
   ['admin','관리부',[['base','기본관리',1],['auto','자동화관리',1],['staff','직원·권한',1],['log','변경이력',0]]]
 ];
@@ -1359,7 +1359,7 @@ function todayFour(){
   });
   /* ④ 승인대기 — 결재함 '요청' */
   ((typeof APV_ROWS !== 'undefined' && APV_ROWS) || []).forEach(function(a){
-    if(String(a.status || '요청') === '요청') out.apv.push(a);
+    if(apvStatOf(a) === '대기') out.apv.push(a);
   });
   return out;
 }
@@ -1384,7 +1384,8 @@ function todayFourHtml(){
       box('확인필요', (DB.inbox === null ? null : f.need.length),
           '최근 7일 미처리 인입', "INB_TAB='매물문의';go('crm','inbox')", f.need.length ? 'b' : '') +
       box('승인대기', (APV_ROWS === null ? null : f.apv.length),
-          '결재함에서 기다리는 것', "go('ops','base')", f.apv.length ? 'w' : '') +
+          '결재함에서 기다리는 것', "APV_STF='대기';APV_TAB='전체';go('group','apv')",
+          f.apv.length ? 'w' : '') +
     '</div>' +
     '<div style="font-size:12px;color:var(--t3);margin-top:8px">' +
     '🔴 <b>새 공실</b> 은 허락받은 것만 셉니다. 아직 확인 안 한 <b>후보 ' +
@@ -6253,6 +6254,292 @@ function viewData(){
     }
   });
   h += '</ul></div></div>';
+  return h;
+}
+
+/* ══ 2-1 (2026-09-14) 결재함 한 화면 ══════════════════════════════════════
+   신규건물 / 가격변경 / 신규호실 / 광고승인 / 광고내림 / 수집접수 / 지번확인 / 촬영필요
+   🔴 새 저장소를 만들지 않는다 — 기존 결재함(approvals)을 그대로 쓴다(철칙).
+   🔴 반려는 사유가 있어야 한다 — 서버(approvalDecide)가 막는다.
+   🔴 승인해도 광고·문자는 나가지 않는다.
+   🔴 승인 뒤 마스터 반영:
+      · 지번확인·가격변경 → 그 매물 한 칸만 고친다(확인창 + 저장 뒤 다시 읽어 확인)
+      · 신규건물·신규호실 → 마스터 **입력 화면을 연다**(추측으로 새 행을 만들지 않는다)
+      · 광고승인 → 광고승인.json 은 PC 의 동기화가 옮긴다(브라우저는 파일을 못 쓴다) ══ */
+var APV_GROUPS = [
+  { key:'신규건물', kinds:['신규건물'],            go:"go('data','bldg')" },
+  { key:'가격변경', kinds:['가격변경'],            go:"AD_FILT='';go('ad','admgr')" },
+  { key:'신규호실', kinds:['신규호실'],            go:"go('data','bldg')" },
+  { key:'광고승인', kinds:['광고게시','광고승인'], go:"AD_FILT='why';go('ad','admgr')" },
+  { key:'광고내림', kinds:['내림','광고내림'],     go:"AD_FILT='down';go('ad','admgr')" },
+  { key:'수집접수', kinds:['공실확인','수집접수'], go:"COL_TAB='신규후보';go('data','collect')" },
+  { key:'지번확인', kinds:['지번확인'],            go:"go('data','bldg')" },
+  { key:'촬영필요', kinds:['촬영필요'],            go:"go('ops','photo')" }
+];
+var APV_STATES = ['대기', '승인', '반려'];
+var APV_TAB = '전체', APV_STF = '대기', APV_BUSY = false, APV_SEL = '';
+
+/* 시트의 '요청' 을 화면에서는 '대기' 라고 부른다 (사람 말) */
+function apvStatOf(a){
+  var t = String((a && a.status) || '요청').trim();
+  return t === '요청' ? '대기' : t;
+}
+function apvGroupOf(a){
+  var k = String((a && a.kind) || '').trim();
+  for(var i = 0; i < APV_GROUPS.length; i++)
+    if(APV_GROUPS[i].kinds.indexOf(k) >= 0) return APV_GROUPS[i].key;
+  return '';                                   /* 8갈래에 없는 것 = 기타 */
+}
+function apvRows(tab, st){
+  var all = (APV_ROWS || []).slice();
+  return all.filter(function(a){
+    if(st && st !== '전체' && apvStatOf(a) !== st) return false;
+    if(!tab || tab === '전체') return true;
+    if(tab === '기타') return !apvGroupOf(a);
+    return apvGroupOf(a) === tab;
+  }).sort(function(x, y){
+    return String(y.requestedAt || '').localeCompare(String(x.requestedAt || ''));
+  });
+}
+function apvCount(tab, st){ return apvRows(tab, st).length; }
+function apvPill(st){
+  var cls = st === '대기' ? 'p-warn' : (st === '승인' ? 'p-good' : 'p-mute');
+  return '<span class="pill ' + cls + '">' + esc(st) + '</span>';
+}
+/* note 끝에 [[key=value]] 로 적어 둔 것 — 승인 때 무엇을 고칠지 알려 준다 */
+function apvPatch(note){
+  var out = {}, re = /\[\[([a-zA-Z]+)=([^\]]{1,120})\]\]/g, m;
+  var t = String(note || '');
+  while((m = re.exec(t))) out[m[1]] = String(m[2]).trim();
+  return out;
+}
+function apvListingOf(a){
+  if(String((a && a.targetType) || '') !== 'listing') return null;
+  return (DB.listings || []).filter(function(o){
+    return String(o.id) === String(a.targetId); })[0] || null;
+}
+function apvOpen(id){ APV_SEL = (APV_SEL === String(id) ? '' : String(id)); route(); }
+function apvGoTarget(id){
+  var a = (APV_ROWS || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!a) return;
+  var g = APV_GROUPS.filter(function(x){ return x.key === apvGroupOf(a); })[0];
+  if(g && g.go){ try{ eval(g.go); }catch(e){ alert('열지 못했습니다: ' + String(e && e.message || e)); } }
+  else alert('이 종류는 이어질 화면이 정해져 있지 않습니다.');
+}
+function apvGoListing(id){
+  var a = (APV_ROWS || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  var o = a && apvListingOf(a);
+  if(!o){ alert('이 결재는 매물에 연결돼 있지 않습니다.'); return; }
+  AD_FILT = ''; AD_SEL = String(o.id); go('ad', 'admgr');
+}
+
+/* ── 승인 뒤 마스터 반영 ─────────────────────────────────────────── */
+async function apvApply(a){
+  var nl = String.fromCharCode(10);
+  var grp = apvGroupOf(a);
+  var pat = apvPatch(a.note);
+  var o = apvListingOf(a);
+
+  if(grp === '지번확인' || grp === '가격변경'){
+    if(!o){ alert('승인했습니다 ✓' + nl + '🔴 연결된 매물을 찾지 못해 자료는 고치지 않았습니다.'); return; }
+    var want = {};
+    if(grp === '지번확인'){
+      var addr = pat.addr || String(prompt(['승인하셨습니다. 이제 매물장 주소를 고칩니다.', '',
+        '지금   ' + String(o.addr || ''), '',
+        '새 주소를 적어 주세요 (비우면 고치지 않습니다)'].join(nl), String(o.addr || '')) || '').trim();
+      if(!addr){ alert('주소는 고치지 않았습니다 — 결재는 승인된 채로 둡니다.'); return; }
+      want.addr = addr;
+    } else {
+      if(pat.price !== undefined) want.price = pat.price;
+      if(pat.rentAmt !== undefined) want.rentAmt = pat.rentAmt;
+      if(!Object.keys(want).length){
+        alert('승인했습니다 ✓' + nl + '🔴 바꿀 금액이 결재에 적혀 있지 않아 매물은 고치지 않았습니다.' + nl +
+              '광고관리에서 직접 고쳐 주세요.');
+        return;
+      }
+    }
+    var ks = Object.keys(want);
+    if(!confirm(['매물 자료를 고칩니다 — 이대로 할까요?', '',
+      '매물   ' + o.id + '  ' + (o.apt || '') + ' ' + (o.addr2 || ''),
+      ks.map(function(k){ return k + '   ' + String(o[k] || '(없음)') + '  →  ' + want[k]; }).join(nl),
+      '', '🔴 이 칸만 고칩니다. 다른 칸은 건드리지 않습니다.'].join(nl))) return;
+    try{
+      var g = await jget({ action:'getAll', type:'listings' });
+      var fresh = (g.data || g.result || []).map(adsRestore);
+      var cur = fresh.filter(function(x){ return String(x.id) === String(o.id); })[0];
+      if(!cur){ alert('🔴 매물을 다시 찾지 못했습니다 — 고치지 않았습니다.'); return; }
+      var obj = JSON.parse(JSON.stringify(cur));
+      ks.forEach(function(k){ obj[k] = String(want[k]); });
+      obj.updatedAt = new Date().toISOString();
+      adsFlatten(obj); delete obj.ads; delete obj.adsOff;
+      await erpUpsert('listings', obj);
+      var g2 = await jget({ action:'getAll', type:'listings' });
+      DB.listings = (g2.data || g2.result || []).map(adsRestore);
+      var back = (DB.listings || []).filter(function(x){ return String(x.id) === String(o.id); })[0];
+      var okAll = back && ks.every(function(k){ return String(back[k] || '') === String(want[k]); });
+      alert((okAll ? '고쳤습니다 ✓' : '🔴 다시 읽었더니 그대로입니다 — 확인이 필요합니다') + nl + nl +
+            o.id + ' · ' + ks.join(', '));
+    }catch(e){ alert('고치지 못했습니다 — 자료는 그대로입니다.' + nl + String(e && e.message || e)); }
+    return;
+  }
+
+  if(grp === '신규건물' || grp === '신규호실'){
+    alert(['승인했습니다 ✓', '',
+      '🔴 마스터에 새 줄을 **추측으로 만들지 않습니다.**',
+      '건물·대장 화면을 엽니다 — 거기서 값을 확인하고 저장해 주세요.'].join(nl));
+    go('data', 'bldg');
+    return;
+  }
+  if(grp === '광고승인'){
+    alert(['승인했습니다 ✓', '',
+      '🔴 광고는 나가지 않습니다.',
+      '이 승인은 사무실 PC 의 **광고승인 동기화**가 광고승인.json 으로 옮깁니다.',
+      '(브라우저는 PC 파일을 쓸 수 없습니다)'].join(nl));
+    return;
+  }
+  if(grp === '광고내림'){
+    alert(['승인했습니다 ✓', '',
+      '🔴 광고는 자동으로 내려가지 않습니다.',
+      '채널에서 직접 내리신 뒤 광고관리에서 [내림 확인] 을 눌러 주세요.'].join(nl));
+    return;
+  }
+  if(grp === '수집접수'){
+    alert(['승인했습니다 ✓ — 수집매물에서 "허락" 으로 보입니다.', '',
+      '🔴 매물장에는 아직 안 들어갑니다. 수집매물에서 [매물로 접수] 를 눌러 주세요.'].join(nl));
+    return;
+  }
+  alert('승인했습니다 ✓');
+}
+
+async function apvDecide(id, to){
+  var nl = String.fromCharCode(10);
+  if(APV_BUSY){ alert('처리 중입니다'); return; }
+  var a = (APV_ROWS || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!a){ alert('결재 건을 찾지 못했습니다.'); return; }
+  if(apvStatOf(a) !== '대기'){ alert('이미 ' + apvStatOf(a) + ' 된 건입니다.'); return; }
+  var reason = '';
+  if(to === '반려'){
+    /* 🔴 반려는 사유가 있어야 한다 — 서버도 막지만 여기서 먼저 받는다 */
+    reason = String(prompt(['반려 사유를 적어 주세요 (반드시 필요합니다)', '',
+      a.kind + ' · ' + a.title].join(nl), '') || '').trim();
+    if(!reason){ alert('사유가 없어 반려하지 않았습니다.'); return; }
+    if(hasSecret(reason)){ alert('🔴 비밀번호로 보이는 내용이 있습니다 — 적지 않습니다.'); return; }
+  }
+  if(!confirm([(to === '승인' ? '이 결재를 승인합니다' : '이 결재를 반려합니다'), '',
+    '종류   ' + (a.kind || ''),
+    '제목   ' + (a.title || ''),
+    reason ? ('사유   ' + reason) : '',
+    '', '🔴 승인해도 광고·문자는 나가지 않습니다.'].filter(function(x){ return x !== ''; }).join(nl))) return;
+
+  APV_BUSY = true; route();
+  try{
+    await erpPost({ action:'approvalDecide', id:String(id), status:String(to), reason:reason });
+    await adApvLoad(true);
+    var now = (APV_ROWS || []).filter(function(x){ return String(x.id) === String(id); })[0];
+    APV_BUSY = false; route();
+    if(!now || apvStatOf(now) !== to){
+      alert('🔴 다시 읽었더니 그대로입니다 — 확인이 필요합니다.');
+      return;
+    }
+    if(to === '승인') await apvApply(now);
+    else alert('반려했습니다 ✓' + nl + '사유: ' + reason);
+    route();
+  }catch(e){
+    APV_BUSY = false; route();
+    alert('처리하지 못했습니다 — 결재함은 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+
+function apvRowHtml(a){
+  var st = apvStatOf(a);
+  var grp = apvGroupOf(a) || '기타';
+  var o = apvListingOf(a);
+  var open = (String(APV_SEL) === String(a.id));
+  var btns = '';
+  if(st === '대기'){
+    btns += '<button class="btn sm pri" onclick="event.stopPropagation();apvDecide(&#39;' +
+      esc(String(a.id)) + '&#39;,&#39;승인&#39;)">승인</button> ' +
+      '<button class="btn sm" onclick="event.stopPropagation();apvDecide(&#39;' +
+      esc(String(a.id)) + '&#39;,&#39;반려&#39;)">반려</button> ';
+  }
+  btns += '<button class="btn sm" onclick="event.stopPropagation();apvGoTarget(&#39;' +
+    esc(String(a.id)) + '&#39;)">열기</button>';
+  if(o) btns += ' <button class="btn sm" onclick="event.stopPropagation();apvGoListing(&#39;' +
+    esc(String(a.id)) + '&#39;)">연결매물</button>';
+
+  var h = '<tr onclick="apvOpen(&#39;' + esc(String(a.id)) + '&#39;)" style="cursor:pointer">' +
+    '<td>' + esc(grp) + '</td>' +
+    '<td><span class="ell">' + esc(a.title || '-') + '</span>' +
+      (o ? ('<div style="font-size:11.5px;color:var(--t3)">' +
+            esc(String(o.apt || '') + ' ' + String(o.addr2 || '')) + '</div>') : '') + '</td>' +
+    '<td class="mono">' + esc(String(a.requestedAt || '').slice(0, 10)) + '</td>' +
+    '<td>' + apvPill(st) + '</td>' +
+    '<td style="white-space:nowrap">' + btns + '</td></tr>';
+  if(open){
+    h += '<tr><td colspan="5" style="background:var(--bg2)">' +
+      '<div style="font-size:12.5px;white-space:pre-wrap;padding:4px 2px">' +
+      esc(maskSecret(String(a.note || '(적힌 내용 없음)'))) + '</div>' +
+      '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">올린 사람 ' +
+      esc(a.requester || '-') + ' · 기한 ' + esc(String(a.dueAt || '').slice(0, 10) || '-') +
+      (String(a.reason || '') ? (' · 사유 ' + esc(a.reason)) : '') + '</div></td></tr>';
+  }
+  return h;
+}
+
+function viewApv(){
+  if(APV_ROWS === null){
+    adApvLoad();
+    return crumb() + '<div class="h1row"><h1>결재함</h1></div>' +
+      '<div class="card"><div class="empty">결재함을 불러오는 중…</div></div>';
+  }
+  var wait = apvCount('전체', '대기');
+  var h = crumb() + '<div class="h1row"><h1>결재함</h1><span class="cnt">대기 <b>' +
+    wait + '</b>건</span>' +
+    '<button class="btn sm" onclick="adApvLoad(true).then(route)">다시 불러오기</button></div>';
+  if(APV_BUSY) h += '<div class="note w">처리 중입니다…</div>';
+
+  /* 상태 고르기 */
+  h += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 8px">' +
+    ['대기', '승인', '반려', '전체'].map(function(t){
+      return '<button class="btn sm' + (APV_STF === t ? ' pri' : '') +
+        '" onclick="APV_STF=&#39;' + t + '&#39;;route()">' + t + ' <b>' +
+        apvCount(APV_TAB, t === '전체' ? '' : t) + '</b></button>';
+    }).join(' ') + '</div>';
+
+  /* 8갈래 */
+  var stf = (APV_STF === '전체') ? '' : APV_STF;
+  h += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px;' +
+    'border-bottom:1px solid var(--line);padding-bottom:8px">' +
+    '<button class="btn sm' + (APV_TAB === '전체' ? ' pri' : '') +
+    '" onclick="APV_TAB=&#39;전체&#39;;route()">전체 <b>' + apvCount('전체', stf) + '</b></button>' +
+    APV_GROUPS.map(function(g){
+      return '<button class="btn sm' + (APV_TAB === g.key ? ' pri' : '') +
+        '" onclick="APV_TAB=&#39;' + g.key + '&#39;;route()">' + esc(g.key) + ' <b>' +
+        apvCount(g.key, stf) + '</b></button>';
+    }).join(' ') +
+    ' <button class="btn sm' + (APV_TAB === '기타' ? ' pri' : '') +
+    '" onclick="APV_TAB=&#39;기타&#39;;route()">기타 <b>' + apvCount('기타', stf) + '</b></button>' +
+    '</div>';
+
+  var rows = apvRows(APV_TAB, stf);
+  h += '<div class="card"><div class="sbody">';
+  if(!rows.length){
+    h += '<div class="empty" style="padding:18px">' +
+      (APV_STF === '대기' ? '결재할 것이 없습니다 ✓' : '해당하는 결재가 없습니다') + '</div>';
+  } else {
+    h += '<div class="tblwrap"><table><colgroup><col style="width:96px"><col>' +
+      '<col style="width:92px"><col style="width:70px"><col style="width:220px"></colgroup>' +
+      '<thead><tr><th>종류</th><th>제목</th><th>올린 날</th><th>상태</th><th>처리</th></tr></thead><tbody>' +
+      rows.slice(0, 120).map(apvRowHtml).join('') + '</tbody></table></div>';
+    if(rows.length > 120) h += '<div class="note" style="margin-top:8px">' + rows.length +
+      '건 중 앞 120건만 보입니다.</div>';
+  }
+  h += '<div class="note b" style="margin-top:10px">' +
+    '🔴 <b>승인해도 광고·문자는 나가지 않습니다.</b> 반려는 사유를 적어야 합니다.<br>' +
+    '지번확인·가격변경은 승인하면 그 매물 한 칸만 고칩니다. ' +
+    '신규건물·신규호실은 마스터 화면을 열어 드립니다 — 추측으로 새 줄을 만들지 않습니다.<br>' +
+    '광고승인은 사무실 PC 의 <b>광고승인 동기화</b>가 광고승인.json 으로 옮깁니다.' +
+    '</div></div></div>';
   return h;
 }
 
@@ -11315,6 +11602,7 @@ function route(){
   else if(CUR.m2 === 'collect') m.innerHTML = viewCollect();   /* 🆕 3단계 수집매물 */
   else if(CUR.m2 === 'bldg') m.innerHTML = viewBldg();   /* 🏢 건물·대장 2026-09-13 */
   else if(CUR.m2 === 'person') m.innerHTML = viewPerson();  /* 👤 사람 2026-09-14 */
+  else if(CUR.m2 === 'apv') m.innerHTML = viewApv();      /* 🆕 2-1 결재함 */
   else if(CUR.m2 === 'gw') m.innerHTML = viewGroup();
   else if(CUR.m2 === 'academy') m.innerHTML = viewAcademy();
   else if(CUR.m2 === 'mkt') m.innerHTML = viewMkt();
