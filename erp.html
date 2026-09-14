@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.23.0';
+var ERP_VER = '1.24.1';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -1309,7 +1309,9 @@ var UI = { sel:null, src:'', st:'', qq:'', help:false };
 function crumb(){
   var g = MENU.filter(function(x){ return x[0]===CUR.m1; })[0] || MENU[0];
   var s = g[2].filter(function(x){ return x[0]===CUR.m2; })[0] || g[2][0];
-  return '<div class="crumb">브리즈부동산중개 › <b>' + esc(g[1]) + '</b> › <b>' + esc(s[1]) + '</b></div>';
+  /* 🆕 4-1 — 이 화면이 등록·입력·조회·현황·출력 중 무엇인지 같은 자리에 적는다 */
+  return '<div class="crumb">브리즈부동산중개 › <b>' + esc(g[1]) + '</b> › <b>' + esc(s[1]) + '</b> ' +
+    scrKindPill() + '</div>';
 }
 function keyBox(){
   /* 🔴 원인에 따라 다른 말을 한다 — 서버가 잠깐 안 되는 것을 '설정하세요' 로 보여 주지 않는다. */
@@ -3022,7 +3024,12 @@ function inbRows(tab){
     if(ar !== br) return ar - br;                        /* 미처리 먼저 */
     return String(b.when || '').localeCompare(String(a.when || ''));
   });
-  return rows;
+  /* 🆕 4-2 조건 패널 — 조건이 꺼져 있으면 그대로 지나간다 */
+  return qpApply('crm/inbox', rows, {
+    date: function(r){ return r.when; },
+    group: function(r){ return inbTabOf(r); },
+    text: function(r){ return [r.when, r.name, r.phone, r.bld, r.text].join(' '); }
+  });
 }
 function inbCount(tab){ return inbRows(tab).length; }
 function inbUndone(tab){ return inbRows(tab).filter(function(r){ return !r.reg; }).length; }
@@ -3638,7 +3645,12 @@ function colRows(tab){
       return [r.apt, r.addr, r.dong, r.nick, r.phone].join(' ').toLowerCase().indexOf(q) >= 0; });
   }
   rows.sort(function(a, b){ return String(b.seenAt || '').localeCompare(String(a.seenAt || '')); });
-  return rows;
+  /* 🆕 4-2 조건 패널 */
+  return qpApply('data/collect', rows, {
+    date: function(r){ return r.seenAt; },
+    group: function(r){ return colJudge(r).code; },
+    text: function(r){ return [r.apt, r.addr, r.dong, r.nick, r.phone].join(' '); }
+  });
 }
 function colCount(tab){ return colRows(tab).length; }
 function colFind(id){
@@ -4939,6 +4951,13 @@ async function adApprove(id){
 function viewAd(){
   if(DB.err) return crumb() + '<div class="h1row"><h1>광고관리</h1></div>' + keyBox();
   var rows = adAll();
+  /* 🆕 4-2 조건 패널 — 조건이 꺼져 있으면 그대로 지나간다 */
+  rows = qpApply('ad/admgr', rows, {
+    date: function(r){ return (r.o || {}).recvDate; },
+    status: function(r){ return String((r.o || {}).status || ''); },
+    text: function(r){ var o = r.o || {};
+      return [o.id, o.apt, o.addr2, o.addr, o.type, o.kind].join(' '); }
+  });
   var live = rows.filter(function(r){ return adLive(r.o); });
   var ready = live.filter(function(r){ return r.worst === 'AD_READY'; });
   var posted = rows.filter(function(r){ return r.goalDone > 0; });
@@ -6295,13 +6314,20 @@ function apvGroupOf(a){
 }
 function apvRows(tab, st){
   var all = (APV_ROWS || []).slice();
-  return all.filter(function(a){
+  var out2 = all.filter(function(a){
     if(st && st !== '전체' && apvStatOf(a) !== st) return false;
     if(!tab || tab === '전체') return true;
     if(tab === '기타') return !apvGroupOf(a);
     return apvGroupOf(a) === tab;
   }).sort(function(x, y){
     return String(y.requestedAt || '').localeCompare(String(x.requestedAt || ''));
+  });
+  /* 🆕 4-2 조건 패널 — 결재함에도 같은 조건 틀을 쓴다 */
+  return qpApply('group/apv', out2, {
+    date: function(a){ return a.requestedAt; },
+    status: function(a){ return apvStatOf(a); },
+    group: function(a){ return apvGroupOf(a) || '기타'; },
+    text: function(a){ return [a.kind, a.title, a.requester, a.note].join(' '); }
   });
 }
 function apvCount(tab, st){ return apvRows(tab, st).length; }
@@ -6675,6 +6701,353 @@ function viewApv(){
     '광고승인은 사무실 PC 의 <b>광고승인 동기화</b>가 광고승인.json 으로 옮깁니다.' +
     '</div></div></div>';
   return h;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   4-1 · 4-2 · 4-3  화면 공통 틀 (2026-09-14)
+   🔴 데이터·기능·action 을 지우지 않는다. 보여주는 방식만 더한다.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 4-1 화면 5종 분류 ─────────────────────────────────────────────── */
+var SCR_KIND = {
+  'today/today':'현황',
+  'crm/inbox':'조회',   'crm/cust':'조회',
+  'ops/photo':'현황',   'ops/vac':'조회',
+  'ad/admgr':'조회',    'ad/mkt':'출력',
+  'deal/contract':'조회','deal/settle':'현황',
+  'group/apv':'조회',   'group/gw':'현황',  'group/academy':'출력',
+  'data/stat':'현황',   'data/collect':'조회','data/bldg':'조회','data/person':'조회',
+  'admin/base':'입력',  'admin/auto':'입력','admin/staff':'등록'
+};
+var SCR_KIND_WHY = {
+  '등록':'새로 만드는 화면', '입력':'값을 채우는 화면', '조회':'조건으로 찾아보는 화면',
+  '현황':'지금 상태를 한눈에 보는 화면', '출력':'뽑아서 쓰는 화면'
+};
+function scrKey(m1, m2){ return String(m1 || CUR.m1) + '/' + String(m2 || CUR.m2); }
+function scrKind(m1, m2){ return SCR_KIND[scrKey(m1, m2)] || ''; }
+function scrKindPill(m1, m2){
+  var k = scrKind(m1, m2);
+  if(!k) return '';
+  var cls = (k === '조회' || k === '현황') ? 'p-mute' : 'p-warn';
+  return '<span class="pill ' + cls + '" title="' + esc(SCR_KIND_WHY[k] || '') + '">' + k + '</span>';
+}
+
+/* ── 4-2 조회 화면 조건 패널 ──────────────────────────────────────── */
+var QP = {}, QP_SAVED = {};
+var QP_PERIODS = [['today','금일'],['yday','전일'],['week','금주'],['lweek','전주'],
+                  ['month','금월'],['lmonth','전월'],['d30','최근30일'],['custom','직접입력']];
+function qpDay(d){
+  var z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return z.toISOString().slice(0, 10);
+}
+function qpRange(key){
+  var now = new Date(), t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  function back(n){ return new Date(t.getTime() - n * 86400000); }
+  if(key === 'today')  return { from: qpDay(t), to: qpDay(t) };
+  if(key === 'yday')   return { from: qpDay(back(1)), to: qpDay(back(1)) };
+  if(key === 'week'){
+    var wd = (t.getDay() + 6) % 7;                     /* 월요일 시작 */
+    return { from: qpDay(back(wd)), to: qpDay(t) };
+  }
+  if(key === 'lweek'){
+    var wd2 = (t.getDay() + 6) % 7;
+    return { from: qpDay(back(wd2 + 7)), to: qpDay(back(wd2 + 1)) };
+  }
+  if(key === 'month')  return { from: qpDay(new Date(now.getFullYear(), now.getMonth(), 1)), to: qpDay(t) };
+  if(key === 'lmonth') return { from: qpDay(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+                                to: qpDay(new Date(now.getFullYear(), now.getMonth(), 0)) };
+  if(key === 'd30')    return { from: qpDay(back(29)), to: qpDay(t) };
+  return { from:'', to:'' };
+}
+function qpGet(sc){
+  if(!QP[sc]) QP[sc] = { period:'', from:'', to:'', q:'', status:'', group:'',
+                         on:false, open:true, tab:'기본' };
+  return QP[sc];
+}
+function qpSet(sc, k, v){
+  var g = qpGet(sc);
+  g[k] = v;
+  if(k === 'period'){ var r = qpRange(v); if(v !== 'custom'){ g.from = r.from; g.to = r.to; } }
+  route();
+}
+function qpSearch(sc){ var g = qpGet(sc); g.on = true; g.open = false; route(); }
+function qpToggle(sc){ var g = qpGet(sc); g.open = !g.open; route(); }
+function qpReset(sc){
+  QP[sc] = { period:'', from:'', to:'', q:'', status:'', group:'', on:false, open:true, tab:'기본' };
+  route();
+}
+/* 조건 저장 탭 — 브라우저에만 둔다(시트를 건드리지 않는다) */
+function qpSavedLoad(sc){
+  if(QP_SAVED[sc]) return QP_SAVED[sc];
+  var v = [];
+  try{ v = JSON.parse(localStorage.getItem('qp_' + sc) || '[]') || []; }catch(e){ v = []; }
+  QP_SAVED[sc] = v; return v;
+}
+function qpSavedPut(sc){
+  var g = qpGet(sc);
+  var nm = String(prompt('이 조건을 무슨 이름으로 저장할까요?', '') || '').trim();
+  if(!nm) return;
+  var v = qpSavedLoad(sc).filter(function(x){ return x.name !== nm; });
+  v.push({ name:nm, q:g.q, period:g.period, from:g.from, to:g.to, status:g.status, group:g.group });
+  QP_SAVED[sc] = v.slice(0, 8);
+  try{ localStorage.setItem('qp_' + sc, JSON.stringify(QP_SAVED[sc])); }catch(e){}
+  g.tab = nm; route();
+}
+function qpSavedUse(sc, nm){
+  var g = qpGet(sc);
+  if(nm === '기본'){ qpReset(sc); return; }
+  var x = qpSavedLoad(sc).filter(function(y){ return y.name === nm; })[0];
+  if(!x) return;
+  g.q = x.q || ''; g.period = x.period || ''; g.from = x.from || ''; g.to = x.to || '';
+  g.status = x.status || ''; g.group = x.group || ''; g.tab = nm; g.on = true; g.open = false;
+  route();
+}
+function qpSavedDel(sc, nm){
+  if(!confirm('저장한 조건 "' + nm + '" 을 지울까요?')) return;
+  QP_SAVED[sc] = qpSavedLoad(sc).filter(function(x){ return x.name !== nm; });
+  try{ localStorage.setItem('qp_' + sc, JSON.stringify(QP_SAVED[sc])); }catch(e){}
+  var g = qpGet(sc); if(g.tab === nm) g.tab = '기본';
+  route();
+}
+/* 조건에 맞는 줄만 남긴다 — cfg: {date:fn, status:fn, text:fn, group:fn} */
+function qpApply(sc, rows, cfg){
+  var g = qpGet(sc);
+  if(!g.on) return rows;
+  cfg = cfg || {};
+  return (rows || []).filter(function(r){
+    if((g.from || g.to) && cfg.date){
+      var d = String(cfg.date(r) || '').slice(0, 10);
+      if(!d) return false;
+      if(g.from && d < g.from) return false;
+      if(g.to && d > g.to) return false;
+    }
+    if(g.status && cfg.status && String(cfg.status(r) || '') !== g.status) return false;
+    if(g.group && cfg.group && String(cfg.group(r) || '') !== g.group) return false;
+    if(g.q && cfg.text){
+      if(String(cfg.text(r) || '').toLowerCase().indexOf(g.q.toLowerCase()) < 0) return false;
+    }
+    return true;
+  });
+}
+function qpSummary(sc){
+  var g = qpGet(sc), bits = [];
+  if(g.from || g.to) bits.push((g.from || '처음') + ' ~ ' + (g.to || '오늘'));
+  if(g.status) bits.push('상태 ' + g.status);
+  if(g.group) bits.push(g.group);
+  if(g.q) bits.push('"' + g.q + '"');
+  return bits.length ? bits.join(' · ') : '조건 없음(전체)';
+}
+/* cfg: {title, statuses:[], groups:[], groupLabel, dateLabel, placeholder} */
+function qpHtml(sc, cfg){
+  cfg = cfg || {};
+  var g = qpGet(sc);
+  var saved = qpSavedLoad(sc);
+  var h = '<div class="card" style="margin:0 0 12px"><div class="sbody" style="padding:11px 13px">';
+  /* 조건 저장 탭 */
+  h += '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:8px">' +
+    '<button class="btn sm' + (g.tab === '기본' ? ' pri' : '') +
+    '" onclick="qpSavedUse(&#39;' + sc + '&#39;,&#39;기본&#39;)">기본</button>' +
+    saved.map(function(x){
+      return ' <button class="btn sm' + (g.tab === x.name ? ' pri' : '') +
+        '" onclick="qpSavedUse(&#39;' + sc + '&#39;,&#39;' + esc(x.name) + '&#39;)">★ ' + esc(x.name) +
+        '</button><button class="btn sm" title="지우기" onclick="qpSavedDel(&#39;' + sc +
+        '&#39;,&#39;' + esc(x.name) + '&#39;)">×</button>';
+    }).join('') +
+    ' <button class="btn sm" onclick="qpSavedPut(&#39;' + sc + '&#39;)">+ 조건 저장</button>' +
+    '<span style="flex:1"></span>' +
+    '<button class="btn sm" onclick="qpToggle(&#39;' + sc + '&#39;)">' +
+    (g.open ? '조건 접기' : '조건 펴기') + '</button></div>';
+
+  if(!g.open){
+    h += '<div style="font-size:12.5px;color:var(--t2)">' +
+      '<b>조건</b> ' + esc(qpSummary(sc)) +
+      ' <button class="btn sm" onclick="qpToggle(&#39;' + sc + '&#39;)">고치기</button>' +
+      ' <button class="btn sm" onclick="qpReset(&#39;' + sc + '&#39;)">조건 지우기</button></div>';
+    return h + '</div></div>';
+  }
+
+  /* 기간 */
+  h += '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px">' +
+    esc(cfg.dateLabel || '기간') + '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px">' +
+    QP_PERIODS.map(function(p){
+      return '<button class="btn sm' + (g.period === p[0] ? ' pri' : '') +
+        '" onclick="qpSet(&#39;' + sc + '&#39;,&#39;period&#39;,&#39;' + p[0] + '&#39;)">' +
+        p[1] + '</button>';
+    }).join('') + '</div>';
+  if(g.period === 'custom' || g.from || g.to){
+    h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;font-size:12.5px">' +
+      '<input type="date" value="' + esc(g.from) + '" onchange="qpSet(&#39;' + sc +
+      '&#39;,&#39;from&#39;,this.value)" style="padding:5px 7px;border:1px solid var(--line);border-radius:7px">' +
+      '<span>~</span>' +
+      '<input type="date" value="' + esc(g.to) + '" onchange="qpSet(&#39;' + sc +
+      '&#39;,&#39;to&#39;,this.value)" style="padding:5px 7px;border:1px solid var(--line);border-radius:7px">' +
+      '</div>';
+  }
+  /* 구분 라디오 */
+  if(cfg.groups && cfg.groups.length){
+    h += '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px">' +
+      esc(cfg.groupLabel || '구분') + '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px">' +
+      ['<button class="btn sm' + (!g.group ? ' pri' : '') + '" onclick="qpSet(&#39;' + sc +
+       '&#39;,&#39;group&#39;,&#39;&#39;)">전체</button>'].concat(
+        cfg.groups.map(function(x){
+          return '<button class="btn sm' + (g.group === x ? ' pri' : '') +
+            '" onclick="qpSet(&#39;' + sc + '&#39;,&#39;group&#39;,&#39;' + esc(x) + '&#39;)">' +
+            esc(x) + '</button>'; })).join('') + '</div>';
+  }
+  /* 상태 알약 */
+  if(cfg.statuses && cfg.statuses.length){
+    h += '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:4px">상태</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px">' +
+      ['<button class="btn sm' + (!g.status ? ' pri' : '') + '" onclick="qpSet(&#39;' + sc +
+       '&#39;,&#39;status&#39;,&#39;&#39;)">전체</button>'].concat(
+        cfg.statuses.map(function(x){
+          return '<button class="btn sm' + (g.status === x ? ' pri' : '') +
+            '" onclick="qpSet(&#39;' + sc + '&#39;,&#39;status&#39;,&#39;' + esc(x) + '&#39;)">' +
+            esc(x) + '</button>'; })).join('') + '</div>';
+  }
+  /* 검색어 */
+  h += '<div style="display:flex;gap:6px;align-items:center">' +
+    '<input value="' + esc(g.q) + '" placeholder="' + esc(cfg.placeholder || '건물명·호실·이름으로 찾기') +
+    '" oninput="qpGet(&#39;' + sc + '&#39;).q=this.value" ' +
+    'onkeydown="if(event.key===&#39;Enter&#39;)qpSearch(&#39;' + sc + '&#39;)" ' +
+    'style="flex:1;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:7px">' +
+    '<button class="btn pri" onclick="qpSearch(&#39;' + sc + '&#39;)">검색</button>' +
+    '<button class="btn" onclick="qpReset(&#39;' + sc + '&#39;)">조건 지우기</button></div>';
+  return h + '</div></div>';
+}
+
+/* ── 고르기(여러 줄) ───────────────────────────────────────────────── */
+var SEL = {};
+function selGet(sc){ if(!SEL[sc]) SEL[sc] = {}; return SEL[sc]; }
+function selHas(sc, id){ return !!selGet(sc)[String(id)]; }
+function selIds(sc){ return Object.keys(selGet(sc)).filter(function(k){ return SEL[sc][k]; }); }
+function selToggle(sc, id){
+  var g = selGet(sc), k = String(id);
+  if(g[k]) delete g[k]; else g[k] = 1;
+  route();
+}
+function selClear(sc){ SEL[sc] = {}; route(); }
+function selBox(sc, id){
+  return '<input type="checkbox" ' + (selHas(sc, id) ? 'checked ' : '') +
+    'onclick="event.stopPropagation();selToggle(&#39;' + sc + '&#39;,&#39;' + esc(String(id)) + '&#39;)" ' +
+    'style="width:16px;height:16px;cursor:pointer">';
+}
+
+/* ── 4-3 하단 액션바 ──────────────────────────────────────────────── */
+var ABAR_BUSY = false;
+function abarHtml(sc, cfg){
+  cfg = cfg || {};
+  var n = selIds(sc).length;
+  function b(label, on, ok){
+    return '<button class="btn sm' + (ok ? ' pri' : '') + '"' +
+      (on ? (' onclick="' + on + '"') : ' disabled style="opacity:.45"') + '>' + label + '</button>';
+  }
+  var h = '<div class="card" style="margin:12px 0 0"><div class="sbody" style="padding:9px 12px">' +
+    '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' +
+    '<span style="font-size:12px;color:var(--t2);font-weight:700">고른 것 ' + n + '건</span>' +
+    (n ? (' <button class="btn sm" onclick="selClear(&#39;' + sc + '&#39;)">고르기 해제</button>') : '') +
+    '<span style="width:8px"></span>' +
+    b('신규 ▲', cfg.onNew || '', true) +
+    b('변경', cfg.onEdit || '') +
+    b('선택삭제', n ? ('abTrash(&#39;' + sc + '&#39;,&#39;' + esc(cfg.type || '') + '&#39;)') : '') +
+    b('상태변경', cfg.onStatus || '') +
+    b('광고승인', cfg.onAdApv || '') +
+    b('문자', cfg.onSms || '') +
+    b('Excel ▲', 'abExcel(&#39;' + sc + '&#39;)') +
+    b('웹자료올리기', cfg.onUpload || "go('admin','base')") +
+    b('인쇄', 'window.print()') +
+    b('이력', cfg.onLog || "alert('변경이력은 구글시트 변경이력 탭에 쌓입니다.')") +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--t3);margin-top:6px">' +
+    '🔴 <b>선택삭제</b>는 바로 지우지 않습니다 — 휴지통(삭제로그)으로 옮기고 <b>30일 안에 되살릴 수</b> 있습니다.' +
+    '</div></div></div>';
+  return h;
+}
+/* 🔴 즉시 삭제 없음 — 휴지통으로 옮긴다 */
+async function abTrash(sc, type){
+  var nl = String.fromCharCode(10);
+  if(ABAR_BUSY){ alert('처리 중입니다'); return; }
+  var ids = selIds(sc);
+  if(!ids.length){ alert('고른 줄이 없습니다.'); return; }
+  if(!type){ alert('이 화면에서는 삭제를 쓸 수 없습니다.'); return; }
+  if(!confirm(['고른 ' + ids.length + '건을 휴지통으로 옮깁니다 — 이대로 할까요?', '',
+    ids.slice(0, 8).join(', ') + (ids.length > 8 ? ' 외 ' + (ids.length - 8) + '건' : ''),
+    '', '🔴 바로 지우지 않습니다. 삭제로그에 내용이 남고 30일 안에 되살릴 수 있습니다.',
+    '🔴 되살리기는 대표님만 할 수 있습니다.'].join(nl))) return;
+  ABAR_BUSY = true; route();
+  var okN = 0, bad = [];
+  for(var i = 0; i < ids.length; i++){
+    try{
+      var r = await erpPost({ action:'trash', type:type, data:{ id:ids[i] } });
+      var res = (r && (r.result || r.data)) || {};
+      if(res.error) bad.push(ids[i] + ': ' + res.error); else okN++;
+    }catch(e){ bad.push(ids[i] + ': ' + String(e && e.message || e)); }
+  }
+  ABAR_BUSY = false; selClear(sc);
+  alert([okN + '건을 휴지통으로 옮겼습니다 ✓',
+    bad.length ? ('🔴 못 옮긴 것 ' + bad.length + '건' + nl + bad.slice(0, 4).join(nl)) : '',
+    '', '30일 안에는 되살릴 수 있습니다.'].filter(function(x){ return x !== ''; }).join(nl));
+  try{ await loadAll(true); }catch(e){}
+  route();
+}
+/* 화면에 보이는 표를 CSV 로 — 시트를 건드리지 않는다 */
+function abExcel(sc){
+  var t = document.querySelector('#main table');
+  if(!t){ alert('이 화면에는 내려받을 표가 없습니다.'); return; }
+  var rows = Array.prototype.map.call(t.querySelectorAll('tr'), function(tr){
+    return Array.prototype.map.call(tr.querySelectorAll('th,td'), function(td){
+      var v = String(td.textContent || '').replace(/\s+/g, ' ').trim();
+      return '"' + v.split('"').join('""') + '"';
+    }).join(',');
+  }).join(String.fromCharCode(13) + String.fromCharCode(10));
+  var blob = new Blob([String.fromCharCode(0xFEFF) + rows], { type:'text/csv;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = sc.split('/').join('_') + '_' + todayStr() + '.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ try{ document.body.removeChild(a); URL.revokeObjectURL(a.href); }catch(e){} }, 400);
+}
+
+/* ── 4-2 조회 화면별 조건 설정 ────────────────────────────────────── */
+function qpScreens(){
+  return {
+    'crm/inbox':   { type:'', dateLabel:'받은 날', groupLabel:'갈래',
+                     groups: INB_TABS.slice(),
+                     placeholder:'이름·번호·건물·내용으로 찾기',
+                     onNew:"go('crm','cust')", onSms:"alert('문자는 각 줄에서 보냅니다 — 자동 발송은 없습니다.')" },
+    'crm/cust':    { type:'customers', dateLabel:'다음 연락일',
+                     statuses:['상담','보류','종료'],
+                     placeholder:'이름·조건으로 찾기' },
+    'ad/admgr':    { type:'listings', dateLabel:'접수일',
+                     statuses: ST_FLOW.concat(['계약완료','거래완료','보류']),
+                     placeholder:'건물명·호실·주소로 찾기',
+                     onAdApv:"AD_FILT='why';route()" },
+    'data/collect':{ type:'', dateLabel:'본 날', groupLabel:'갈래',
+                     groups: COL_TABS.slice(),
+                     placeholder:'건물·주소·닉네임으로 찾기' },
+    'data/bldg':   { type:'', dateLabel:'', placeholder:'건물명·지번으로 찾기' },
+    'group/apv':   { type:'approvals', dateLabel:'올린 날',
+                     statuses: APV_STATES.slice(), groupLabel:'갈래',
+                     groups: APV_GROUPS.map(function(g){ return g.key; }),
+                     placeholder:'제목으로 찾기' }
+  };
+}
+/* 화면 HTML 에 조건 패널과 하단 액션바를 끼운다 — 제목 바로 밑, 그리고 맨 끝 */
+function qpInject(html, sc){
+  var cfg = qpScreens()[sc];
+  if(!cfg) return html;
+  var panel = '', bar = '';
+  try{ panel = qpHtml(sc, cfg); }catch(e){ panel = ''; }
+  try{ bar = abarHtml(sc, cfg); }catch(e){ bar = ''; }
+  if(!panel && !bar) return html;
+  var i = html.indexOf('class="h1row"');
+  if(i >= 0){
+    var j = html.indexOf('</div>', i);
+    if(j >= 0) return html.slice(0, j + 6) + panel + html.slice(j + 6) + bar;
+  }
+  return panel + html + bar;
 }
 
 /* ── 그룹웨어 ──────────────────────────────────────────────────── */
@@ -9384,6 +9757,13 @@ function viewCust(){
   else if(CU_FILT === 'match') rows = hasM;
   else if(CU_FILT === 'all') rows = all.map(function(c){
     return { c:c, d:ctDaysTo(c.nextAction), due:false, noPlan:false, top:[], n:cuMatch(c).length }; });
+  /* 🆕 4-2 조건 패널 */
+  rows = qpApply('crm/cust', rows, {
+    date: function(r){ return (r.c || {}).nextAction; },
+    status: function(r){ return String((r.c || {}).progressStatus || ''); },
+    text: function(r){ var c = r.c || {};
+      return [c.name, c.phone, c.region, c.budget, c.memo].join(' '); }
+  });
 
   var h = crumb() + '<div class="h1row"><h1>고객 명부</h1><span class="cnt">' +
     '전체 <b>' + all.length + '</b>명 · 진행 중 <b>' + live.length + '</b>명 · 종료 <b>' + done + '</b>명</span></div>' +
@@ -11424,6 +11804,10 @@ function viewBldg(){
       '</div></div>';
 
   var gs = bldgGroups();
+  /* 🆕 4-2 조건 패널 — 건물은 이름·지번으로만 찾는다(기간은 쓰지 않는다) */
+  gs = qpApply('data/bldg', gs, {
+    text: function(b){ return [b.key, (b.nameList || []).join(' ')].join(' '); }
+  });
   var tUnits = 0, tLive = 0;
   gs.forEach(function(b){ tUnits += b.units; tLive += b.live; });
 
@@ -11724,24 +12108,29 @@ function route(){
   if(DB.loading && !DB.listings && !DB.err && !LOADP.give){
     m.innerHTML = crumb() + loadpCard(); loadpPaint(); return;
   }
+  /* 🆕 4-2·4-3 — 조회 화면이면 조건 패널과 하단 액션바를 같은 자리에 끼운다 */
+  var __inj = function(fn){
+    var sc = scrKey();
+    try{ return qpInject(fn(), sc); }catch(e){ return fn(); }
+  };
   if(CUR.m2 === 'today') m.innerHTML = viewToday();
-  else if(CUR.m2 === 'inbox') m.innerHTML = viewInbox();
-  else if(CUR.m2 === 'admgr') m.innerHTML = viewAd();
+  else if(CUR.m2 === 'inbox') m.innerHTML = __inj(viewInbox);
+  else if(CUR.m2 === 'admgr') m.innerHTML = __inj(viewAd);
   else if(CUR.m2 === 'photo') m.innerHTML = viewPhoto();
   else if(CUR.m2 === 'vac') m.innerHTML = viewVac();      /* 🏢 공실 승인함 2026-09-13 */
   else if(CUR.m2 === 'settle') m.innerHTML = viewSettle();
   else if(CUR.m2 === 'base') m.innerHTML = viewAdmin();
   else if(CUR.m2 === 'auto') m.innerHTML = viewAuto();
   else if(CUR.m2 === 'stat') m.innerHTML = viewData();
-  else if(CUR.m2 === 'collect') m.innerHTML = viewCollect();   /* 🆕 3단계 수집매물 */
-  else if(CUR.m2 === 'bldg') m.innerHTML = viewBldg();   /* 🏢 건물·대장 2026-09-13 */
+  else if(CUR.m2 === 'collect') m.innerHTML = __inj(viewCollect);   /* 🆕 3단계 수집매물 */   /* 🆕 3단계 수집매물 */
+  else if(CUR.m2 === 'bldg') m.innerHTML = __inj(viewBldg);   /* 🏢 건물·대장 2026-09-13 */
   else if(CUR.m2 === 'person') m.innerHTML = viewPerson();  /* 👤 사람 2026-09-14 */
-  else if(CUR.m2 === 'apv') m.innerHTML = viewApv();      /* 🆕 2-1 결재함 */
+  else if(CUR.m2 === 'apv') m.innerHTML = __inj(viewApv);      /* 🆕 2-1 결재함 */
   else if(CUR.m2 === 'gw') m.innerHTML = viewGroup();
   else if(CUR.m2 === 'academy') m.innerHTML = viewAcademy();
   else if(CUR.m2 === 'mkt') m.innerHTML = viewMkt();
   else if(CUR.m2 === 'staff') m.innerHTML = viewStaff();
-  else if(CUR.m2 === 'cust') m.innerHTML = viewCust();
+  else if(CUR.m2 === 'cust') m.innerHTML = __inj(viewCust);
   else if(CUR.m2 === 'contract'){
     if(DB.contracts === null){
       m.innerHTML = crumb() + '<div class="h1row"><h1>계약</h1></div>' +
