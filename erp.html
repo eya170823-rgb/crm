@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.20.1';
+var ERP_VER = '1.21.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -9237,6 +9237,73 @@ function adBusy(on){
     }
   }
 }
+/* ══ 🔴 2026-09-14 (지시 1-5) 게시 근거 ═══════════════════════════════════
+   "게시중" 으로 적으려면 **게시 링크(URL) 또는 캡처 첨부**가 있어야 한다.
+   근거 없이 적으면 화면에는 광고 중인데 실제로는 안 올라간 상태가 된다(알려진 결함).
+   🔴 서버(GAS upsertRow)가 같은 규칙으로 또 막는다 — 화면 숨김이 아니다. ══ */
+function adProofOk(u){
+  var t = String(u == null ? '' : u).trim();
+  if(!t) return false;
+  if(/^https?:\/\/\S{6,}/i.test(t)) return true;
+  if(/^첨부:LA[0-9A-Za-z]{4,}$/.test(t)) return true;
+  return false;
+}
+/* 캡처 사진 한 장을 고르게 한다 (고르지 않으면 null) */
+function adShotPick(){
+  return new Promise(function(res){
+    var el = document.createElement('input');
+    el.type = 'file';
+    el.accept = 'image/*';
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    var done = false;
+    el.onchange = function(){
+      done = true;
+      var f = el.files && el.files[0];
+      try{ document.body.removeChild(el); }catch(e){}
+      if(!f){ res(null); return; }
+      var fr = new FileReader();
+      fr.onload = function(){ res({ name:f.name, mime:f.type || 'image/jpeg', b64:String(fr.result||'') }); };
+      fr.onerror = function(){ res(null); };
+      fr.readAsDataURL(f);
+    };
+    /* 창을 닫아 버리면 onchange 가 안 온다 — 자리만 치운다 */
+    setTimeout(function(){ if(!done){ try{ document.body.removeChild(el); }catch(e){} } }, 300000);
+    el.click();
+  });
+}
+/* 게시 근거를 받아 낸다 — 링크 먼저, 없으면 캡처 첨부. 둘 다 없으면 '' 를 돌려준다. */
+async function adProofAsk(listingId, lab){
+  var nl = String.fromCharCode(10);
+  var u = String(prompt([lab + ' 에 올린 글 **링크(URL)** 를 적어 주세요.', '',
+    '🔴 링크나 캡처가 없으면 "게시중" 으로 적지 않습니다.',
+    '   (화면에는 광고 중인데 실제로는 안 올라간 상태를 막기 위한 것입니다)', '',
+    '링크가 없으면 그냥 확인을 누르세요 — 캡처 첨부로 넘어갑니다.'].join(nl), '') || '').trim();
+  if(u && !adProofOk(u)){
+    alert('링크 형식이 아닙니다 — http:// 또는 https:// 로 시작해야 합니다.');
+    return '';
+  }
+  if(u) return u;
+  if(!confirm(['링크가 없군요.', '', '채널에 올라간 화면 **캡처 사진**을 첨부하시겠습니까?', '',
+    '첨부하지 않으면 "게시중" 으로 적지 않습니다.'].join(nl))) return '';
+  var f = await adShotPick();
+  if(!f){ alert('캡처를 고르지 않았습니다 — 적지 않습니다.'); return ''; }
+  try{
+    var r = await erpPost({ action:'attachUpload', listingId:String(listingId),
+      b64:f.b64, name:f.name, mime:f.mime, note:'게시 캡처 (' + lab + ')' });
+    var row = (r && (r.result || r.data)) || {};
+    var aid = String(row.id || '');
+    if(!/^LA[0-9A-Za-z]{4,}$/.test(aid)){
+      alert('캡처는 올라갔는데 첨부번호를 못 받았습니다 — 적지 않습니다.');
+      return '';
+    }
+    return '첨부:' + aid;
+  }catch(e){
+    alert('캡처를 올리지 못했습니다 — 적지 않습니다.' + nl + String(e && e.message || e));
+    return '';
+  }
+}
+
 async function adMark(id, ch, on){
   var nl = String.fromCharCode(10);
   if(AD_SAVING){ alert('저장 중입니다'); return; }
@@ -9263,8 +9330,18 @@ async function adMark(id, ch, on){
   var no = '', at = todayStr();
   adBusy(false);                      /* 확인창을 띄우기 직전에 표시를 거둔다 */
   AD_BUSY = true;                     /* 다만 중복 진입은 계속 막는다 */
+  var proof = '';
   if(on){
-    no = String(prompt(lab + ' 에 올린 글 번호·링크가 있으면 적어 주세요 (없으면 비워 두세요)', '') || '').trim();
+    /* 🔴 2026-09-14 지시 1-5 — 게시 링크 또는 캡처가 **반드시** 있어야 한다 */
+    proof = await adProofAsk(id, lab);
+    if(!adProofOk(proof)){
+      adBusy(false);
+      alert(['🔴 "게시중" 으로 적지 않았습니다.', '',
+        '게시 링크(URL) 나 캡처 사진이 있어야 적을 수 있습니다.',
+        '채널에 올린 글을 열어 주소를 복사해 오시거나, 화면 캡처를 첨부해 주세요.'].join(nl));
+      return;
+    }
+    no = String(prompt(lab + ' 광고번호·글번호가 따로 있으면 적어 주세요 (없으면 비워 두세요)', '') || '').trim();
     if(no.length > 200){ adBusy(false); alert('너무 깁니다 — 200자 안으로 적어 주세요.'); return; }
     if(hasSecret(no)){ adBusy(false); alert('🔴 비밀번호로 보이는 내용이 있습니다 — 적지 않습니다.'); return; }
   }
@@ -9273,6 +9350,7 @@ async function adMark(id, ch, on){
     '상태   ' + (row.status||''),
     on ? ('올린 날 ' + at) : ('지금까지 올린 날 ' + ((was && was.at) || '-')),
     on && no ? ('번호   ' + no) : '',
+    on ? ('근거   ' + (proof.indexOf('첨부:') === 0 ? '캡처 첨부 ' + proof.slice(3) : proof)) : '',
     on ? '' : ('내린 날 ' + at + ' · 확인자 ' + String(ME.name || ME.id || '대표')),
     '', '🔴 이 버튼은 실제로 광고를 올리거나 내리지 않습니다.',
     '🔴 대표님이 채널에서 직접 한 일을 여기에 적어 두는 것입니다.',
@@ -9283,7 +9361,7 @@ async function adMark(id, ch, on){
   obj.ads = obj.ads || {};
   obj.adsOff = obj.adsOff || {};
   if(on){
-    obj.ads[ch] = { on:true, no:no, at:at, url:'', chk:adHash(adSnapshot(obj)) };
+    obj.ads[ch] = { on:true, no:no, at:at, url:proof, chk:adHash(adSnapshot(obj)) };
     delete obj.adsOff[ch];              /* 다시 올렸으면 내림 기록은 지운다 */
   } else {
     /* 🔴 내리기 전에 올려 뒀던 번호·날짜를 남긴다 — 안 남기면 언제 뭘 올렸는지 사라진다 */
