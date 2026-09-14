@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.24.1';
+var ERP_VER = '1.27.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -307,8 +307,9 @@ var MENU = [
   ['ad','광고·마케팅',[['admgr','광고관리',1],['mkt','마케팅',1],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
   ['group','그룹웨어',[['apv','결재함',1],['gw','업무·결재',1],['academy','아카데미',1],['board','공지',0]]],
-  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',1],['bldg','건물·대장',1],['person','사람',1]]],
-  ['admin','관리부',[['base','기본관리',1],['auto','자동화관리',1],['staff','직원·권한',1],['log','변경이력',0]]]
+  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',1],['bldg','건물·대장',1],['person','사람',1],['rel','관계설정',1]]],
+  ['admin','관리부',[['base','기본관리',1],['auto','자동화관리',1],['staff','직원·권한',1],
+    ['upload','웹자료올리기',1],['bulk','그리드 일괄입력',1],['log','변경이력',0]]]
 ];
 var CUR = { m1:'today', m2:'today' };
 
@@ -337,7 +338,35 @@ function drawNav(){
 function drawSide(){
   var g = MENU.filter(function(x){ return x[0]===CUR.m1; })[0] || MENU[0];
   var n = (DB.inbox||[]).filter(function(r){ return !r.reg; }).length;
+  /* 🆕 4-16 — 첫 화면에서는 네 무리(접수·매물·영업·기준)로 모아 보여 준다.
+     🔴 메뉴를 없애지 않는다. [전체 메뉴] 를 누르면 종전 그대로 나온다. */
+  var homeSide = '';
+  if(CUR.m2 === 'today' && !SIDE_ALL){
+    homeSide = HOME_GROUPS.map(function(hg){
+      return '<div class="sgrp"><h4>' + esc(hg.key) +
+        ' <span style="font-weight:400;color:var(--t3);font-size:11px">' + esc(hg.why) + '</span></h4>' +
+        hg.items.map(function(it){
+          var g2 = MENU.filter(function(x){ return x[0] === it[1]; })[0];
+          var s2 = g2 && g2[2].filter(function(x){ return x[0] === it[2]; })[0];
+          if(!s2) return '';
+          var badge = (it[2] === 'inbox' && n) ? '<em>' + n + '</em>' : (s2[2] ? '' : '<em>준비중</em>');
+          return '<button class="s1" onclick="go(&#39;' + it[1] + '&#39;,&#39;' + it[2] + '&#39;)">' +
+            '<span>' + esc(it[0]) + '</span>' + badge + '</button>';
+        }).join('') + '</div>';
+    }).join('') +
+    '<div class="sgrp"><button class="s1" onclick="sideAllToggle()">' +
+    '<span>전체 메뉴 펴기 ▾</span></button></div>';
+    document.getElementById('side').innerHTML = homeSide +
+      '<div class="sgrp"><h4>바로가기</h4>' +
+      '<button class="s1" onclick="location.href=\'./saas.html\'"><span>기존 SaaS 화면</span></button>' +
+      '<button class="s1" onclick="location.href=\'./index.html\'"><span>기존 CRM 화면</span></button>' +
+      '</div>';
+    try{ favBar(); rbDraw(); }catch(e){}
+    return;
+  }
   document.getElementById('side').innerHTML =
+    (CUR.m2 === 'today' ? ('<div class="sgrp"><button class="s1" onclick="sideAllToggle()">' +
+      '<span>네 무리로 접기 ▴</span></button></div>') : '') +
     '<div class="sgrp"><h4>' + esc(g[1]) + '</h4>' +
     g[2].map(function(s){
       var badge = (s[0]==='inbox' && n) ? '<em>' + n + '</em>' : (s[2] ? '' : '<em>준비중</em>');
@@ -348,6 +377,7 @@ function drawSide(){
     '<button class="s1" onclick="location.href=\'./saas.html\'"><span>기존 SaaS 화면</span></button>' +
     '<button class="s1" onclick="location.href=\'./index.html\'"><span>기존 CRM 화면</span></button>' +
     '</div>';
+  try{ favBar(); rbDraw(); }catch(e){}
   document.querySelectorAll('[data-s]').forEach(function(b){
     b.onclick = function(){ CUR.m2 = b.getAttribute('data-s'); drawNav(); route(); };
   });
@@ -1505,6 +1535,7 @@ function viewToday(){
          esc(homeMissing().join('·')) + ' 자료를 아직 못 읽었습니다 — <b>0건이 아니라 모르는 것</b>입니다</span>')
       : '') + '</span></div>' +
   todayFourHtml() +
+  repHubHtml() +
   homeLoadBox() +
   phIdxBox('촬영 필요') +
   briefCard() + boardCard() +
@@ -4903,13 +4934,20 @@ function adApprovedSet(){
   });
   return m;
 }
-var APV_ROWS = null;
+var APV_ROWS = null, APV_LOADING = false, APV_ERR = '';
 async function adApvLoad(force){
   if(APV_ROWS && !force) return APV_ROWS;
+  if(APV_LOADING && !force) return APV_ROWS;
+  APV_LOADING = true; APV_ERR = '';
   try{
     var j = await jgetTry({ action:'approvalList' });
     APV_ROWS = (j.result && j.result.rows) || j.result || j.data || [];
-  }catch(e){ APV_ROWS = null; }
+    if(!Array.isArray(APV_ROWS)) APV_ROWS = [];
+  }catch(e){ APV_ROWS = null; APV_ERR = String((e && e.message) || e); }
+  APV_LOADING = false;
+  /* 🔴 2026-09-14 고침 — 다 읽고도 다시 그리지 않아 "불러오는 중" 에 머물렀다.
+     읽든 못 읽든 화면을 새로 그린다(못 읽으면 실패라고 말한다). */
+  try{ route(); }catch(e2){}
   return APV_ROWS;
 }
 async function adApprove(id){
@@ -5920,7 +5958,7 @@ async function loadStaff(){
 function viewStaff(){
   if(STAFF === null){ loadStaff();
     return crumb() + '<div class="h1row"><h1>직원·권한</h1></div>' +
-      '<div class="card"><div class="empty">직원 자료를 불러오는 중…</div></div>'; }
+      '<div class="card"><div class="empty">직원 자료를 불러오는 중…</div></div>' + permHtml(); }
   var L = DB.listings || [];
   var byAgent = {};
   L.forEach(function(o){ var a = String(o.agent||'').trim() || '(담당 없음)';
@@ -5954,6 +5992,7 @@ function viewStaff(){
       return '<li><i>·</i><span>' + esc(a) + '</span><b>' + byAgent[a] + '건</b></li>'; }).join('') +
     '</ul><div class="note i" style="margin-top:8px">권한은 화면에서 숨기는 것이 아니라 <b>서버가 막습니다</b>. ' +
     '직원은 본인 담당이 아닌 임대인·사진에 접근할 수 없습니다.</div></div></div>';
+  h += permHtml();          /* 🆕 4-12 권한그룹 */
   return h;
 }
 
@@ -6648,9 +6687,17 @@ function apvRowHtml(a){
 
 function viewApv(){
   if(APV_ROWS === null){
-    adApvLoad();
+    if(!APV_LOADING && !APV_ERR) adApvLoad();
+    /* 🔴 0건 위장 금지 — 못 읽은 것은 '없다' 가 아니라 '못 읽었다' 이다 */
     return crumb() + '<div class="h1row"><h1>결재함</h1></div>' +
-      '<div class="card"><div class="empty">결재함을 불러오는 중…</div></div>';
+      (APV_ERR
+        ? ('<div class="card"><div class="soonbox"><b>결재함을 불러오지 못했습니다</b>' +
+           '<div>0건이 아닙니다 — 읽기에 실패했습니다.</div>' +
+           '<div style="margin:8px 0 0;font-size:12px;color:var(--t3)">' + esc(APV_ERR.slice(0, 140)) + '</div>' +
+           '<div style="margin-top:12px"><button class="btn pri" ' +
+           'onclick="APV_ERR=&#39;&#39;;adApvLoad(true)">다시 불러오기</button></div>' +
+           '</div></div>')
+        : '<div class="card"><div class="empty">결재함을 불러오는 중…</div></div>');
   }
   var wait = apvCount('전체', '대기');
   var h = crumb() + '<div class="h1row"><h1>결재함</h1><span class="cnt">대기 <b>' +
@@ -6717,7 +6764,9 @@ var SCR_KIND = {
   'deal/contract':'조회','deal/settle':'현황',
   'group/apv':'조회',   'group/gw':'현황',  'group/academy':'출력',
   'data/stat':'현황',   'data/collect':'조회','data/bldg':'조회','data/person':'조회',
-  'admin/base':'입력',  'admin/auto':'입력','admin/staff':'등록'
+  'data/rel':'조회',
+  'admin/base':'입력',  'admin/auto':'입력','admin/staff':'등록',
+  'admin/upload':'등록', 'admin/bulk':'등록'
 };
 var SCR_KIND_WHY = {
   '등록':'새로 만드는 화면', '입력':'값을 채우는 화면', '조회':'조건으로 찾아보는 화면',
@@ -6842,7 +6891,8 @@ function qpHtml(sc, cfg){
   cfg = cfg || {};
   var g = qpGet(sc);
   var saved = qpSavedLoad(sc);
-  var h = '<div class="card" style="margin:0 0 12px"><div class="sbody" style="padding:11px 13px">';
+  var h = '<div class="card qp-panel" style="margin:0 0 12px">' +
+    '<div class="sbody" style="padding:11px 13px">';
   /* 조건 저장 탭 */
   h += '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:8px">' +
     '<button class="btn sm' + (g.tab === '기본' ? ' pri' : '') +
@@ -6944,7 +6994,8 @@ function abarHtml(sc, cfg){
     return '<button class="btn sm' + (ok ? ' pri' : '') + '"' +
       (on ? (' onclick="' + on + '"') : ' disabled style="opacity:.45"') + '>' + label + '</button>';
   }
-  var h = '<div class="card" style="margin:12px 0 0"><div class="sbody" style="padding:9px 12px">' +
+  var h = '<div class="card ab-bar" style="margin:12px 0 0">' +
+    '<div class="sbody" style="padding:9px 12px">' +
     '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' +
     '<span style="font-size:12px;color:var(--t2);font-weight:700">고른 것 ' + n + '건</span>' +
     (n ? (' <button class="btn sm" onclick="selClear(&#39;' + sc + '&#39;)">고르기 해제</button>') : '') +
@@ -7048,6 +7099,1041 @@ function qpInject(html, sc){
     if(j >= 0) return html.slice(0, j + 6) + panel + html.slice(j + 6) + bar;
   }
   return panel + html + bar;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   4-16 첫 화면 · 4-14 보고서 허브 · 4-11 즐겨찾기·메뉴검색 · 4-10 오른쪽 아이콘 바
+   🔴 메뉴·기능을 지우지 않는다. 접거나 모아 보여 줄 뿐이다.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 4-16 왼쪽 4그룹 ──────────────────────────────────────────────── */
+var HOME_GROUPS = [
+  { key:'접수', why:'들어온 것을 받는다', items:[
+    ['통합 인입함','crm','inbox'], ['수집매물','data','collect'], ['결재함','group','apv'] ] },
+  { key:'매물', why:'방을 다룬다', items:[
+    ['광고관리','ad','admgr'], ['건물·대장','data','bldg'], ['촬영 필요','ops','photo'],
+    ['공실 승인함','ops','vac'] ] },
+  { key:'영업', why:'사람을 만난다', items:[
+    ['고객 명부','crm','cust'], ['계약','deal','contract'], ['수납·정산','deal','settle'],
+    ['마케팅','ad','mkt'] ] },
+  { key:'기준', why:'바탕이 되는 값', items:[
+    ['사람','data','person'], ['현황·품질','data','stat'], ['기본관리','admin','base'],
+    ['자동화관리','admin','auto'], ['직원·권한','admin','staff'] ] }
+];
+var SIDE_ALL = false;                       /* 전체메뉴 펴기/접기 */
+function sideAllToggle(){ SIDE_ALL = !SIDE_ALL; drawSide(); }
+
+/* ── 4-11 즐겨찾기 (브라우저에만 둔다) ───────────────────────────── */
+var FAV_MAX = 5, FAV = null, FAV_SEARCH = '';
+function favLoad(){
+  if(FAV) return FAV;
+  try{ FAV = JSON.parse(localStorage.getItem('erp_fav') || '[]') || []; }catch(e){ FAV = []; }
+  if(!FAV.length) FAV = [['통합 인입함','crm','inbox'], ['광고관리','ad','admgr'],
+                         ['결재함','group','apv']];
+  return FAV;
+}
+function favSave(){ try{ localStorage.setItem('erp_fav', JSON.stringify(FAV || [])); }catch(e){} }
+function favHas(m1, m2){
+  return favLoad().some(function(f){ return f[1] === m1 && f[2] === m2; });
+}
+function favToggle(m1, m2){
+  var g = MENU.filter(function(x){ return x[0] === m1; })[0];
+  var s2 = g && g[2].filter(function(x){ return x[0] === m2; })[0];
+  if(!s2) return;
+  favLoad();
+  if(favHas(m1, m2)) FAV = FAV.filter(function(f){ return !(f[1] === m1 && f[2] === m2); });
+  else {
+    if(FAV.length >= FAV_MAX){ alert('즐겨찾기는 ' + FAV_MAX + '개까지입니다 — 하나를 빼고 넣어 주세요.'); return; }
+    FAV.push([s2[1], m1, m2]);
+  }
+  favSave(); favBar(); route();
+}
+/* 메뉴검색 — 이름으로 찾아 바로 간다 */
+function menuFind(q){
+  var t = String(q || '').trim().toLowerCase();
+  if(!t) return [];
+  var out = [];
+  MENU.forEach(function(g){
+    g[2].forEach(function(s2){
+      if(!s2[2]) return;
+      if((g[1] + ' ' + s2[1]).toLowerCase().indexOf(t) >= 0) out.push([s2[1], g[0], s2[0], g[1]]);
+    });
+  });
+  return out.slice(0, 8);
+}
+function favBar(){
+  var el = document.getElementById('favbar');
+  if(!el){
+    var nav2 = document.getElementById('nav2');
+    if(!nav2 || !nav2.parentNode) return;
+    el = document.createElement('div');
+    el.id = 'favbar';
+    el.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center;' +
+      'padding:6px 16px;border-top:1px solid var(--line);background:var(--bg2, #fafafa)';
+    nav2.parentNode.insertBefore(el, nav2.nextSibling);
+  }
+  var hit = menuFind(FAV_SEARCH);
+  el.innerHTML = '<span style="font-size:11.5px;color:var(--t3);font-weight:700">★ 자주 쓰는</span>' +
+    favLoad().map(function(f){
+      var on = (CUR.m1 === f[1] && CUR.m2 === f[2]);
+      return '<button class="btn sm' + (on ? ' pri' : '') + '" onclick="go(&#39;' + f[1] +
+        '&#39;,&#39;' + f[2] + '&#39;)">' + esc(f[0]) + '</button>';
+    }).join('') +
+    '<button class="btn sm" title="지금 화면을 즐겨찾기에 넣거나 뺍니다" onclick="favToggle(CUR.m1,CUR.m2)">' +
+    (favHas(CUR.m1, CUR.m2) ? '★ 뺀다' : '☆ 이 화면 넣기') + '</button>' +
+    '<span style="width:10px"></span>' +
+    '<input value="' + esc(FAV_SEARCH) + '" placeholder="메뉴 찾기" ' +
+    'oninput="FAV_SEARCH=this.value;favBar()" ' +
+    'style="width:140px;padding:4px 8px;font-size:12px;border:1px solid var(--line);border-radius:7px">' +
+    hit.map(function(x){
+      return ' <button class="btn sm" onclick="FAV_SEARCH=&#39;&#39;;go(&#39;' + x[1] + '&#39;,&#39;' +
+        x[2] + '&#39;);favBar()">' + esc(x[3]) + ' › ' + esc(x[0]) + '</button>';
+    }).join('');
+}
+
+/* ── 4-14 보고서 허브 — 네 칸 한 화면 ────────────────────────────── */
+function repHub(){
+  var L = DB.listings, C = DB.customers;
+  var adB = null;
+  try{ adB = adBuckets(); }catch(e){ adB = null; }
+  function n(v){ return (v === null || v === undefined) ? null : v; }
+  var vac = (L === null) ? null : L.filter(function(o){ return String(o.status || '') === '접수'; }).length;
+  var rent = (L === null) ? null : L.filter(function(o){ return String(o.status || '') === '임대중'; }).length;
+  var posted = adB ? adB.posted.length : null;
+  var ready = adB ? adB.ready.length : null;
+  var needPhoto = adB ? adB.photo.length : null;
+  var down = adB ? adB.down.length : null;
+  var cuAll = (C === null) ? null : C.length;
+  var cuLive = (C === null) ? null : C.filter(function(c){
+    return String(c.progressStatus || '') !== '종료'; }).length;
+  var cuDue = null;
+  try{ cuDue = reContact().filter(function(r){ return r.due; }).length; }catch(e){}
+  var inbNeed = (DB.inbox === null) ? null : (DB.inbox || []).filter(function(r){
+    return !r.reg && inbRecent(r, 7) && inbTabOf(r) !== '광고·스팸'; }).length;
+  var apvWait = (APV_ROWS === null) ? null : apvCount('전체', '대기');
+  var shoot = null;
+  try{ shoot = photoTasks().length; }catch(e){}
+  return [
+    { t:'공실 현황', go:"AD_FILT='';go('ad','admgr')", rows:[
+      ['거래 가능(접수)', vac], ['임대중', rent], ['촬영 필요', shoot] ] },
+    { t:'광고 현황', go:"AD_FILT='why';go('ad','admgr')", rows:[
+      ['올릴 수 있음', ready], ['게시 중', posted], ['🔴 내림 필요', down] ] },
+    { t:'고객 현황', go:"go('crm','cust')", rows:[
+      ['전체', cuAll], ['진행 중', cuLive], ['오늘·지난 재접촉', cuDue] ] },
+    { t:'확인 필요', go:"INB_TAB='매물문의';go('crm','inbox')", rows:[
+      ['최근 7일 미처리 인입', inbNeed], ['결재 대기', apvWait], ['사진 필요', needPhoto] ] }
+  ];
+}
+function repHubHtml(){
+  var cards = repHub();
+  return '<div class="card" style="margin:14px 0 0"><div class="sbody" style="padding:13px 15px">' +
+    '<h4 style="margin:0 0 4px;font-size:15px">보고서</h4>' +
+    '<div style="font-size:12.5px;color:var(--t3);margin-bottom:10px">' +
+    '🔴 아직 못 읽은 것은 <b>0</b> 이 아니라 <b>?</b> 로 적습니다.</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">' +
+    cards.map(function(c){
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:11px 13px;' +
+        'cursor:pointer" onclick="' + c.go + '">' +
+        '<div style="font-size:13px;font-weight:700;margin-bottom:7px">' + esc(c.t) + '</div>' +
+        c.rows.map(function(r){
+          return '<div style="display:flex;justify-content:space-between;font-size:12.5px;' +
+            'padding:3px 0;color:var(--t2)"><span>' + esc(r[0]) + '</span><b>' +
+            (r[1] === null || r[1] === undefined ? '?' : r[1]) + '</b></div>';
+        }).join('') + '</div>';
+    }).join('') + '</div></div></div>';
+}
+
+/* ── 4-10 오른쪽 아이콘 바 ───────────────────────────────────────── */
+var RB_OPEN = '', RB_NOTE = null;
+var RB_ITEMS = [
+  ['jump','🔍','빠른 점프'], ['ai','🤖','AI 직원'], ['note','📝','E Note 메모'],
+  ['sms','✉','문자'], ['time','🕘','타임라인'], ['book','★','북마크'],
+  ['win','🗗','새 창'], ['perm','🔒','내 권한']
+];
+function rbNoteLoad(){
+  if(RB_NOTE !== null) return RB_NOTE;
+  try{ RB_NOTE = localStorage.getItem('erp_note') || ''; }catch(e){ RB_NOTE = ''; }
+  return RB_NOTE;
+}
+function rbNoteSet(v){ RB_NOTE = String(v || ''); try{ localStorage.setItem('erp_note', RB_NOTE); }catch(e){} }
+function rbPick(k){
+  if(k === 'win'){ try{ window.open(location.href, '_blank'); }catch(e){} return; }
+  RB_OPEN = (RB_OPEN === k) ? '' : k;
+  rbDraw();
+}
+function rbBody(k){
+  if(k === 'jump'){
+    var hit = menuFind(FAV_SEARCH);
+    return '<input value="' + esc(FAV_SEARCH) + '" placeholder="메뉴 이름으로 바로 가기" ' +
+      'oninput="FAV_SEARCH=this.value;rbDraw()" style="width:100%;padding:6px 8px;font-size:12.5px;' +
+      'border:1px solid var(--line);border-radius:7px">' +
+      '<div style="margin-top:6px">' + (hit.length
+        ? hit.map(function(x){
+            return '<button class="btn sm" style="margin:2px 2px 0 0" onclick="RB_OPEN=&#39;&#39;;go(&#39;' +
+              x[1] + '&#39;,&#39;' + x[2] + '&#39;);rbDraw()">' + esc(x[3]) + ' › ' + esc(x[0]) +
+              '</button>'; }).join('')
+        : '<span style="font-size:12px;color:var(--t3)">메뉴 이름을 적어 보세요</span>') + '</div>';
+  }
+  if(k === 'ai')
+    return '<div style="font-size:12.5px;line-height:1.7">🤖 <b>AI 직원</b><br>' +
+      '🔴 아직 붙이지 않았습니다. 없는 기능을 있는 것처럼 보여 주지 않습니다.<br>' +
+      '지금 쓰는 AI 는 광고문 만들기(사무실 PC)뿐입니다.</div>';
+  if(k === 'note')
+    return '<div style="font-size:12px;color:var(--t3);margin-bottom:5px">' +
+      '이 메모는 <b>이 브라우저에만</b> 남습니다(시트로 가지 않습니다).</div>' +
+      '<textarea rows="8" oninput="rbNoteSet(this.value)" style="width:100%;padding:7px 8px;' +
+      'font-size:12.5px;border:1px solid var(--line);border-radius:7px">' + esc(rbNoteLoad()) + '</textarea>';
+  if(k === 'sms')
+    return '<div style="font-size:12.5px;line-height:1.7">✉ <b>문자</b><br>' +
+      '🔴 여기서는 보내지 않습니다. 문자는 각 줄(인입함·공실확인)에서 <b>한 건씩</b> 확인하고 보냅니다.<br>' +
+      '자동 발송은 없습니다.</div>';
+  if(k === 'time'){
+    var lg = [];
+    try{ lg = gwToday(); }catch(e){ lg = []; }
+    return '<div style="font-size:12.5px">' + (lg.length
+      ? lg.slice(0, 10).map(function(x){
+          return '<div style="padding:4px 0;border-bottom:1px solid var(--line)"><b>' +
+            esc(x.what) + '</b>' + (x.detail ? ('<br><span style="color:var(--t3);font-size:11.5px">' +
+            esc(String(x.detail).slice(0, 60)) + '</span>') : '') + '</div>'; }).join('')
+      : '<span style="color:var(--t3)">오늘 기록이 아직 없습니다</span>') + '</div>';
+  }
+  if(k === 'book')
+    return '<div style="font-size:12.5px">' + favLoad().map(function(f){
+      return '<button class="btn sm" style="margin:2px 2px 0 0" onclick="go(&#39;' + f[1] +
+        '&#39;,&#39;' + f[2] + '&#39;)">' + esc(f[0]) + '</button>'; }).join('') +
+      '<div style="margin-top:8px"><button class="btn sm" onclick="favToggle(CUR.m1,CUR.m2);rbDraw()">' +
+      (favHas(CUR.m1, CUR.m2) ? '★ 지금 화면 빼기' : '☆ 지금 화면 넣기') + '</button></div></div>';
+  if(k === 'perm'){
+    var mine = [];
+    MENU.forEach(function(g){ g[2].forEach(function(s2){ if(s2[2]) mine.push(g[1] + ' › ' + s2[1]); }); });
+    return '<div style="font-size:12.5px;line-height:1.7"><b>' + esc(String(ME.role === 'admin' ? '대표' : '직원')) +
+      '</b> 로 들어와 있습니다.<br>지금 쓸 수 있는 메뉴 <b>' + mine.length + '</b>개<br>' +
+      '<span style="font-size:11.5px;color:var(--t3)">🔴 권한은 화면 숨김이 아니라 서버에서 막습니다.</span></div>';
+  }
+  return '';
+}
+function rbDraw(){
+  var el = document.getElementById('rbar');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'rbar';
+    el.style.cssText = 'position:fixed;right:0;top:150px;z-index:40;display:flex;' +
+      'flex-direction:row-reverse;align-items:flex-start;max-width:100%';
+    document.body.appendChild(el);
+  }
+  var icons = '<div style="display:flex;flex-direction:column;gap:3px;background:#fff;' +
+    'border:1px solid var(--line);border-right:0;border-radius:10px 0 0 10px;padding:5px 3px;' +
+    'box-shadow:0 2px 8px rgba(0,0,0,.06)">' +
+    RB_ITEMS.map(function(it){
+      return '<button class="btn sm' + (RB_OPEN === it[0] ? ' pri' : '') + '" title="' + esc(it[2]) +
+        '" onclick="rbPick(&#39;' + it[0] + '&#39;)" style="width:32px;padding:5px 0">' +
+        it[1] + '</button>';
+    }).join('') + '</div>';
+  var panel = '';
+  if(RB_OPEN){
+    var t = (RB_ITEMS.filter(function(i){ return i[0] === RB_OPEN; })[0] || ['', '', ''])[2];
+    panel = '<div style="width:260px;max-width:72vw;background:#fff;border:1px solid var(--line);' +
+      'border-radius:10px 0 0 10px;padding:11px 13px;margin-right:-1px;' +
+      'box-shadow:0 2px 10px rgba(0,0,0,.08);max-height:70vh;overflow:auto">' +
+      '<div style="display:flex;align-items:center;margin-bottom:7px">' +
+      '<b style="font-size:13px;flex:1">' + esc(t) + '</b>' +
+      '<button class="btn sm" onclick="RB_OPEN=&#39;&#39;;rbDraw()">닫기</button></div>' +
+      rbBody(RB_OPEN) + '</div>';
+  }
+  el.innerHTML = icons + panel;
+}
+
+/* ── 4-13 양식 섹션 (현황 화면) ──────────────────────────────────────
+   🔴 화면에 이미 그려진 표를 가지고만 한다. 없는 자료를 만들지 않는다. ══ */
+var FM_STATE = {}, FM_SAVED = null;
+function fmGet(sc){
+  if(!FM_STATE[sc]) FM_STATE[sc] = { sort:'', sortDir:'desc', sub:'', chart:false, form:'기본' };
+  return FM_STATE[sc];
+}
+function fmSet(sc, k, v){ fmGet(sc)[k] = v; route(); }
+function fmSavedLoad(){
+  if(FM_SAVED) return FM_SAVED;
+  try{ FM_SAVED = JSON.parse(localStorage.getItem('erp_form') || '{}') || {}; }catch(e){ FM_SAVED = {}; }
+  return FM_SAVED;
+}
+function fmSavedPut(sc){
+  var nm = String(prompt('이 양식을 무슨 이름으로 저장할까요?', '') || '').trim();
+  if(!nm) return;
+  fmSavedLoad();
+  FM_SAVED[sc] = FM_SAVED[sc] || {};
+  var g = fmGet(sc);
+  FM_SAVED[sc][nm] = { sort:g.sort, sortDir:g.sortDir, sub:g.sub, chart:g.chart };
+  try{ localStorage.setItem('erp_form', JSON.stringify(FM_SAVED)); }catch(e){}
+  g.form = nm; route();
+}
+function fmSavedUse(sc, nm){
+  var g = fmGet(sc);
+  if(nm === '기본'){ FM_STATE[sc] = null; fmGet(sc); route(); return; }
+  var x = (fmSavedLoad()[sc] || {})[nm];
+  if(!x) return;
+  g.sort = x.sort; g.sortDir = x.sortDir; g.sub = x.sub; g.chart = !!x.chart; g.form = nm;
+  route();
+}
+/* 현황 화면 = 4-1 분류가 '현황' 인 화면 */
+function fmIsStat(){ return scrKind() === '현황'; }
+function fmHtml(sc){
+  var g = fmGet(sc);
+  var saved = Object.keys(fmSavedLoad()[sc] || {});
+  return '<div class="card fm-form" style="margin:0 0 12px"><div class="sbody" style="padding:10px 13px">' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px">' +
+    '<b style="font-size:12px;color:var(--t2)">양식</b>' +
+    '<button class="btn sm' + (g.form === '기본' ? ' pri' : '') +
+    '" onclick="fmSavedUse(&#39;' + sc + '&#39;,&#39;기본&#39;)">기본</button>' +
+    saved.map(function(nm){
+      return '<button class="btn sm' + (g.form === nm ? ' pri' : '') +
+        '" onclick="fmSavedUse(&#39;' + sc + '&#39;,&#39;' + esc(nm) + '&#39;)">' + esc(nm) + '</button>';
+    }).join('') +
+    '<button class="btn sm" onclick="fmSavedPut(&#39;' + sc + '&#39;)">+ 양식 저장</button>' +
+    '<span style="width:10px"></span>' +
+    '<b style="font-size:12px;color:var(--t2)">정렬</b>' +
+    '<input value="' + esc(g.sort) + '" placeholder="칸 이름" oninput="fmGet(&#39;' + sc +
+    '&#39;).sort=this.value" style="width:110px;padding:4px 7px;font-size:12px;' +
+    'border:1px solid var(--line);border-radius:7px">' +
+    '<button class="btn sm" onclick="fmSet(&#39;' + sc + '&#39;,&#39;sortDir&#39;,&#39;' +
+    (g.sortDir === 'desc' ? 'asc' : 'desc') + '&#39;)">' +
+    (g.sortDir === 'desc' ? '큰 것부터' : '작은 것부터') + '</button>' +
+    '<span style="width:10px"></span>' +
+    '<b style="font-size:12px;color:var(--t2)">소계</b>' +
+    '<input value="' + esc(g.sub) + '" placeholder="묶을 칸 이름" oninput="fmGet(&#39;' + sc +
+    '&#39;).sub=this.value" style="width:110px;padding:4px 7px;font-size:12px;' +
+    'border:1px solid var(--line);border-radius:7px">' +
+    '<button class="btn sm pri" onclick="route()">적용</button>' +
+    '<button class="btn sm' + (g.chart ? ' pri' : '') + '" onclick="fmSet(&#39;' + sc +
+    '&#39;,&#39;chart&#39;,' + (g.chart ? 'false' : 'true') + ')">그래프로 보기</button>' +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--t3);margin-top:6px">' +
+    '🔴 화면에 이미 나온 표를 정렬·소계·그래프로 바꿔 볼 뿐입니다. 자료를 새로 만들지 않습니다.' +
+    (g.chart ? ' <b>그래프</b> 는 표의 숫자 칸을 막대로 그립니다.' : '') + '</div>' +
+    '</div></div>';
+}
+/* 표를 정렬·소계·그래프로 바꿔 그린다 — 표가 없으면 아무것도 하지 않는다 */
+function fmPaint(sc){
+  var g = fmGet(sc);
+  var host = document.getElementById('main');
+  if(!host) return;
+  var t = host.querySelector('table');
+  if(!t) return;
+  var head = Array.prototype.map.call(t.querySelectorAll('thead th'), function(x){
+    return String(x.textContent || '').trim(); });
+  var body = t.querySelector('tbody');
+  if(!body) return;
+  var rows = Array.prototype.slice.call(body.querySelectorAll('tr'));
+  function cellOf(tr, name){
+    var i = head.indexOf(name);
+    if(i < 0) return '';
+    var td = tr.children[i];
+    return td ? String(td.textContent || '').trim() : '';
+  }
+  function num(v){ var n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; }
+  if(g.sort && head.indexOf(g.sort) >= 0){
+    rows.sort(function(a, b){
+      var x = cellOf(a, g.sort), y = cellOf(b, g.sort);
+      var nx = num(x), ny = num(y);
+      var r = (nx !== null && ny !== null) ? (nx - ny) : String(x).localeCompare(String(y));
+      return g.sortDir === 'desc' ? -r : r;
+    });
+    rows.forEach(function(tr){ body.appendChild(tr); });
+  }
+  if(g.sub && head.indexOf(g.sub) >= 0){
+    var cnt = {};
+    rows.forEach(function(tr){ var k = cellOf(tr, g.sub) || '(빈칸)'; cnt[k] = (cnt[k] || 0) + 1; });
+    var box = document.createElement('div');
+    box.className = 'note';
+    box.style.cssText = 'margin-top:8px;font-size:12.5px';
+    box.innerHTML = '<b>소계 — ' + esc(g.sub) + '</b><br>' + Object.keys(cnt).map(function(k){
+      return esc(k) + ' <b>' + cnt[k] + '</b>건'; }).join(' · ');
+    t.parentNode.appendChild(box);
+  }
+  if(g.chart){
+    var col = -1;
+    for(var i = 0; i < head.length; i++){
+      var ok = rows.length && rows.every(function(tr){ return num(cellOf(tr, head[i])) !== null; });
+      if(ok){ col = i; break; }
+    }
+    var wrap2 = document.createElement('div');
+    wrap2.style.cssText = 'margin-top:10px';
+    if(col < 0){
+      wrap2.innerHTML = '<div class="note w" style="font-size:12.5px">' +
+        '🔴 숫자로 된 칸이 없어 그래프를 그리지 않았습니다.</div>';
+    } else {
+      var vals = rows.map(function(tr){
+        return { k: String(tr.children[0] ? tr.children[0].textContent : '').trim().slice(0, 18),
+                 v: num(cellOf(tr, head[col])) || 0 }; }).slice(0, 20);
+      var mx = Math.max.apply(null, vals.map(function(x){ return x.v; }).concat([1]));
+      wrap2.innerHTML = '<div style="font-size:12px;font-weight:700;margin-bottom:5px">' +
+        esc(head[col]) + ' 그래프</div>' + vals.map(function(x){
+        return '<div style="display:flex;align-items:center;gap:7px;margin:2px 0;font-size:12px">' +
+          '<span style="width:150px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;' +
+          'white-space:nowrap">' + esc(x.k) + '</span>' +
+          '<span style="flex:1;background:var(--line);border-radius:4px;height:12px;overflow:hidden">' +
+          '<span style="display:block;height:12px;width:' + Math.round(x.v * 100 / mx) +
+          '%;background:var(--pri,#1B4F8A)"></span></span>' +
+          '<b style="width:56px;text-align:right">' + x.v + '</b></div>';
+      }).join('');
+    }
+    t.parentNode.appendChild(wrap2);
+  }
+}
+
+/* ── 4-15 설정 접이식 ─────────────────────────────────────────────── */
+var SET_FOLD = {}, SET_ALL_FOLD = false;
+function setFold(k){ SET_FOLD[k] = !SET_FOLD[k]; route(); }
+function setFoldAll(){
+  SET_ALL_FOLD = !SET_ALL_FOLD;
+  SET_FOLD = {};
+  route();
+}
+function setIsFold(k){ return SET_ALL_FOLD ? !SET_FOLD[k] : !!SET_FOLD[k]; }
+
+/* ══ 4-8 호실 파이프라인 ═══════════════════════════════════════════════
+   열 = 접수 · 사진 · 광고 · 상담 · 계약. 🔴 새 자료를 만들지 않는다.
+   있는 것(매물·사진색인·광고기록·계약)에서 뽑아 그린다. ══ */
+var PIPE_COLS = ['접수', '사진', '광고', '상담', '계약'];
+function pipeOne(o){
+  var out = {};
+  out['접수'] = { ok: !!String(o.recvDate || ''), at: String(o.recvDate || '').slice(0, 10),
+                  say: String(o.status || '-') };
+  var ph = null;
+  try{ ph = phCountFor(o); }catch(e){ ph = null; }
+  out['사진'] = { ok: !!(ph && ph.doneMinW), at: '',
+                  say: ph ? ((ph.done || 0) + '장' + (ph.refOnly ? ' (참고)' : '')) : '?' };
+  var ads = [];
+  try{ ads = (AD_CH || []).filter(function(c){ return adOn(o, c.key); })
+                          .map(function(c){ return c.label; }); }catch(e){ ads = []; }
+  var why = null;
+  try{ why = adWhyOne(o); }catch(e){ why = null; }
+  out['광고'] = { ok: ads.length > 0, at: '',
+                  say: ads.length ? ads.join(',') : (why && why.ok ? '올릴 수 있음' : '아직') };
+  var cuN = 0;
+  try{
+    (DB.customers || []).forEach(function(c){
+      if(cuMatch(c).some(function(x){ return String(x.l.id) === String(o.id); })) cuN++; });
+  }catch(e){}
+  out['상담'] = { ok: String(o.status || '') === '상담중' || cuN > 0, at: '',
+                  say: (String(o.status || '') === '상담중' ? '상담중 · ' : '') + '맞는 고객 ' + cuN + '명' };
+  var ct = null;
+  try{
+    ct = (DB.contracts || []).filter(function(x){
+      return String(x.listingId || x.listing || '') === String(o.id); })[0] || null;
+  }catch(e){}
+  out['계약'] = { ok: !!ct, at: ct ? String(ct.startDate || ct.date || '').slice(0, 10) : '',
+                  say: ct ? '계약 있음' : (String(o.status || '') === '임대중' ? '🔴 임대중인데 계약 없음' : '-') };
+  return out;
+}
+function pipeCell(o, k, st){
+  var mark = st.ok ? '<span class="pill p-good">✓</span>' : '<span class="pill p-mute">–</span>';
+  var btn = '';
+  if(k === '사진') btn = '<button class="btn sm" onclick="event.stopPropagation();go(&#39;ops&#39;,&#39;photo&#39;)">사진</button>';
+  else if(k === '광고') btn = '<button class="btn sm" onclick="event.stopPropagation();AD_FILT=&#39;why&#39;;AD_SEL=&#39;' +
+    esc(String(o.id)) + '&#39;;go(&#39;ad&#39;,&#39;admgr&#39;)">광고</button>';
+  else if(k === '상담') btn = '<button class="btn sm" onclick="event.stopPropagation();go(&#39;crm&#39;,&#39;cust&#39;)">고객</button>';
+  else if(k === '계약') btn = '<button class="btn sm" onclick="event.stopPropagation();go(&#39;deal&#39;,&#39;contract&#39;)">계약</button>';
+  return '<td style="font-size:12px">' + mark + ' ' + esc(st.say) +
+    (st.at ? ('<div style="color:var(--t3);font-size:11px">' + esc(st.at) + '</div>') : '') +
+    (btn ? ('<div style="margin-top:3px">' + btn + '</div>') : '') + '</td>';
+}
+function pipeHtml(units){
+  if(!units.length) return '<div class="empty" style="padding:16px">이 건물에 매물이 없습니다</div>';
+  return '<div class="tblwrap"><table><thead><tr><th>호실</th>' +
+    PIPE_COLS.map(function(c){ return '<th>' + c + '</th>'; }).join('') +
+    '</tr></thead><tbody>' +
+    units.map(function(o){
+      var p = pipeOne(o);
+      return '<tr><td><b>' + esc(String(o.addr2 || '')) + '</b>' +
+        '<div style="color:var(--t3);font-size:11px">' + esc(String(o.id)) + '</div></td>' +
+        PIPE_COLS.map(function(c){ return pipeCell(o, c, p[c]); }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div>' +
+    '<div style="font-size:11.5px;color:var(--t3);margin-top:7px">' +
+    '🔴 이 표는 <b>있는 자료에서 뽑은 것</b>입니다 — 따로 적어 두는 표가 아닙니다.</div>';
+}
+
+/* ══ 4-7 상담이력 게시판 + 칸반 ════════════════════════════════════════ */
+var CS_ROWS = null, CS_LOADING = false, CS_ERR = '', CS_FORM = null, CS_SAVING = false;
+var CS_LABELS = ['문의', '방문', '조건협의', '계약진행', '기타'];
+var CS_STATES = ['진행', '완료', '보류'];
+async function csLoad(force){
+  if(CS_ROWS && !force) return CS_ROWS;
+  if(CS_LOADING && !force) return CS_ROWS;
+  CS_LOADING = true; CS_ERR = '';
+  try{
+    var j = await jgetTry({ action:'getAll', type:'consults' });
+    CS_ROWS = j.data || j.result || [];
+    if(!Array.isArray(CS_ROWS)) CS_ROWS = [];
+  }catch(e){ CS_ROWS = null; CS_ERR = String((e && e.message) || e); }
+  CS_LOADING = false;
+  try{ route(); }catch(e2){}
+  return CS_ROWS;
+}
+function csFor(scope, targetId){
+  return (CS_ROWS || []).filter(function(r){
+    return String(r.scope || '') === String(scope) && String(r.targetId || '') === String(targetId);
+  }).sort(function(a, b){ return String(b.createdAt || '').localeCompare(String(a.createdAt || '')); });
+}
+function csNewId(){
+  var used = {}; (CS_ROWS || []).forEach(function(r){ used[String(r.id || '')] = 1; });
+  var n = 1; while(used['CS' + String(n)]) n++;
+  return 'CS' + String(n);
+}
+function csStart(scope, targetId, personId){
+  CS_FORM = { id:'', scope:String(scope), targetId:String(targetId), personId:String(personId || ''),
+              title:'', body:'', label:CS_LABELS[0], status:'진행', doneAt:'',
+              byWho:String(ME.name || '대표') };
+  route();
+}
+function csSet(k, v){ if(CS_FORM) CS_FORM[k] = v; }
+function csCancel(){ CS_FORM = null; route(); }
+async function csSave(){
+  var nl = String.fromCharCode(10);
+  if(!CS_FORM || CS_SAVING) return;
+  var f = CS_FORM;
+  if(!String(f.title || '').trim()){ alert('제목을 적어 주세요.'); return; }
+  if(hasSecret(f.title) || hasSecret(f.body)){
+    alert('🔴 비밀번호로 보이는 내용이 있습니다 — 저장하지 않습니다.'); return; }
+  if(!confirm(['상담이력을 남깁니다 — 이대로 할까요?', '',
+    '제목   ' + f.title, '라벨   ' + f.label, '상태   ' + f.status,
+    '', '🔴 문자도 광고도 나가지 않습니다.'].join(nl))) return;
+  CS_SAVING = true; route();
+  try{
+    if(!f.id) f.id = csNewId();
+    var now = new Date().toISOString();
+    var obj = { id:f.id, scope:f.scope, targetId:f.targetId, personId:f.personId,
+                title:String(f.title), body:String(f.body || ''), label:f.label,
+                status:f.status, doneAt:(f.status === '완료' ? (f.doneAt || todayStr()) : ''),
+                byWho:f.byWho, attachId:'', createdAt:(f.createdAt || now), updatedAt:now };
+    await erpUpsert('consults', obj);
+    await csLoad(true);
+    var back = (CS_ROWS || []).filter(function(r){ return String(r.id) === String(f.id); })[0];
+    CS_SAVING = false; CS_FORM = null; route();
+    alert(back ? '남겼습니다 ✓' : '🔴 저장했다는데 다시 못 찾았습니다 — 확인이 필요합니다');
+  }catch(e){
+    CS_SAVING = false; route();
+    alert('남기지 못했습니다.' + nl + String(e && e.message || e));
+  }
+}
+function csFormHtml(){
+  if(!CS_FORM) return '';
+  var f = CS_FORM;
+  return '<div class="uf" style="margin:8px 0"><div style="font-weight:700;font-size:13px;margin-bottom:6px">' +
+    '상담이력 남기기</div>' +
+    '<input value="' + esc(f.title) + '" placeholder="제목" oninput="csSet(&#39;title&#39;,this.value)" ' +
+    'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:7px">' +
+    '<textarea rows="5" placeholder="본문" oninput="csSet(&#39;body&#39;,this.value)" ' +
+    'style="width:100%;margin-top:6px;padding:8px 9px;font-size:12.5px;' +
+    'border:1px solid var(--line);border-radius:7px">' + esc(f.body) + '</textarea>' +
+    '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px">' +
+    '<b style="color:var(--t2)">라벨</b>' +
+    CS_LABELS.map(function(x){
+      return '<button class="btn sm' + (f.label === x ? ' pri' : '') +
+        '" onclick="csSet(&#39;label&#39;,&#39;' + x + '&#39;);route()">' + x + '</button>'; }).join('') +
+    '<span style="width:8px"></span><b style="color:var(--t2)">상태</b>' +
+    CS_STATES.map(function(x){
+      return '<button class="btn sm' + (f.status === x ? ' pri' : '') +
+        '" onclick="csSet(&#39;status&#39;,&#39;' + x + '&#39;);route()">' + x + '</button>'; }).join('') +
+    '</div>' +
+    '<div style="margin-top:8px">' +
+    '<button class="btn sm pri" onclick="csSave()">' + (CS_SAVING ? '저장 중…' : '저장 F8') + '</button> ' +
+    '<button class="btn sm" onclick="csCancel()">닫기</button>' +
+    '<span style="font-size:11.5px;color:var(--t3);margin-left:8px">전달자 ' + esc(f.byWho) +
+    ' · 첨부는 매물 첨부(캡처)를 씁니다</span></div></div>';
+}
+function csListHtml(scope, targetId, personId){
+  if(CS_ROWS === null && !CS_LOADING && !CS_ERR) csLoad();
+  var rows = csFor(scope, targetId);
+  var h = '<div style="display:flex;align-items:center;gap:6px;margin:6px 0">' +
+    '<b style="font-size:13px">상담이력</b>' +
+    '<span class="pill p-mute">' + (CS_ROWS === null ? '?' : rows.length) + '</span>' +
+    '<button class="btn sm" onclick="csStart(&#39;' + scope + '&#39;,&#39;' + esc(String(targetId)) +
+    '&#39;,&#39;' + esc(String(personId || '')) + '&#39;)">+ 남기기</button></div>';
+  if(CS_ERR) return h + '<div class="note w" style="font-size:12.5px">상담이력을 읽지 못했습니다 — ' +
+    '0건이 아닙니다. <button class="btn sm" onclick="CS_ERR=&#39;&#39;;csLoad(true)">다시</button></div>' +
+    csFormHtml();
+  if(CS_ROWS === null) return h + '<div class="empty" style="padding:12px">읽는 중…</div>' + csFormHtml();
+  h += csFormHtml();
+  if(!rows.length) return h + '<div class="empty" style="padding:12px">아직 남긴 상담이력이 없습니다</div>';
+  return h + rows.slice(0, 20).map(function(r){
+    return '<div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px">' +
+      '<div style="display:flex;gap:6px;align-items:center;font-size:12.5px">' +
+      '<span class="pill ' + (String(r.status) === '완료' ? 'p-good' : (String(r.status) === '보류' ? 'p-mute' : 'p-warn')) +
+      '">' + esc(String(r.status || '진행')) + '</span>' +
+      '<span class="pill p-mute">' + esc(String(r.label || '')) + '</span>' +
+      '<b style="flex:1">' + esc(String(r.title || '')) + '</b>' +
+      '<span style="color:var(--t3);font-size:11.5px">' + esc(String(r.createdAt || '').slice(0, 16)) + '</span></div>' +
+      (String(r.body || '') ? ('<div style="font-size:12.5px;white-space:pre-wrap;margin-top:5px;color:var(--t2)">' +
+        esc(maskSecret(String(r.body))) + '</div>') : '') +
+      '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">전달자 ' + esc(String(r.byWho || '-')) +
+      (String(r.doneAt || '') ? (' · 완료 ' + esc(String(r.doneAt))) : '') + '</div></div>';
+  }).join('');
+}
+/* 칸반 — 같은 자료를 세로 줄로 본다 */
+var KB_VIEW = '매물';
+var KB_COLS = { '매물': ['접수', '사진', '광고', '상담', '계약'],
+                '고객': ['문의', '상담', '매칭', '미팅', '계약'] };
+function kbListing(o){
+  var p = pipeOne(o);
+  if(p['계약'].ok) return '계약';
+  if(p['상담'].ok) return '상담';
+  if(p['광고'].ok) return '광고';
+  if(p['사진'].ok) return '사진';
+  return '접수';
+}
+function kbCustomer(c){
+  var st = String(c.progressStatus || '');
+  if(st.indexOf('계약') >= 0) return '계약';
+  if(st.indexOf('미팅') >= 0 || st.indexOf('방문') >= 0) return '미팅';
+  var n = 0;
+  try{ n = cuMatch(c).length; }catch(e){}
+  if(n > 0) return '매칭';
+  if(st.indexOf('상담') >= 0) return '상담';
+  return '문의';
+}
+function kbHtml(){
+  var cols = KB_COLS[KB_VIEW] || KB_COLS['매물'];
+  var bucket = {};
+  cols.forEach(function(c){ bucket[c] = []; });
+  if(KB_VIEW === '매물'){
+    (DB.listings || []).forEach(function(o){
+      if(!adLive(o)) return;
+      var k = kbListing(o);
+      bucket[k].push({ t: String(o.apt || '') + ' ' + String(o.addr2 || ''), id: o.id,
+                       go: "AD_SEL='" + String(o.id) + "';go('ad','admgr')" });
+    });
+  } else {
+    (DB.customers || []).forEach(function(c){
+      if(String(c.progressStatus || '') === '종료') return;
+      var k = kbCustomer(c);
+      bucket[k].push({ t: String(c.name || c.id), id: c.id, go: "CU_SEL='" + String(c.id) + "';go('crm','cust')" });
+    });
+  }
+  return '<div style="display:flex;gap:5px;margin:0 0 8px">' +
+    ['매물', '고객'].map(function(v){
+      return '<button class="btn sm' + (KB_VIEW === v ? ' pri' : '') +
+        '" onclick="KB_VIEW=&#39;' + v + '&#39;;route()">' + v + ' 칸반</button>'; }).join('') +
+    '<span style="font-size:11.5px;color:var(--t3);margin-left:8px;align-self:center">' +
+    '🔴 같은 자료를 세로 줄로 보는 것뿐입니다</span></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(' + cols.length +
+    ',minmax(0,1fr));gap:8px;overflow-x:auto">' +
+    cols.map(function(c){
+      var arr = bucket[c] || [];
+      return '<div style="border:1px solid var(--line);border-radius:9px;padding:8px;min-width:0">' +
+        '<div style="font-size:12.5px;font-weight:700;margin-bottom:6px">' + esc(c) +
+        ' <span class="pill p-mute">' + arr.length + '</span></div>' +
+        arr.slice(0, 14).map(function(x){
+          return '<div onclick="' + x.go + '" style="cursor:pointer;border:1px solid var(--line);' +
+            'border-radius:7px;padding:5px 7px;margin-bottom:4px;font-size:12px;overflow:hidden;' +
+            'text-overflow:ellipsis;white-space:nowrap">' + esc(x.t) + '</div>';
+        }).join('') +
+        (arr.length > 14 ? ('<div style="font-size:11px;color:var(--t3)">외 ' + (arr.length - 14) + '건</div>') : '') +
+        '</div>';
+    }).join('') + '</div>';
+}
+
+/* ══ 4-9 관계설정 — 사람 ↔ 건물/호실 ↔ 역할 (roleLinks 재사용) ══════ */
+var REL_BY = '사람';
+function relRows(){
+  var pm = {};
+  (DB.persons || []).forEach(function(p){ pm[String(p.id)] = p; });
+  var bm = {};
+  (DB.buildings || []).forEach(function(b){ bm[String(b.id)] = b; });
+  var um = {};
+  (DB.units || []).forEach(function(u){ um[String(u.id)] = u; });
+  return (DB.roleLinks || []).map(function(r){
+    var p = pm[String(r.personId || '')] || {};
+    var tgt = String(r.scope || '') === 'building' ? (bm[String(r.targetId)] || {})
+            : (String(r.scope || '') === 'unit' ? (um[String(r.targetId)] || {}) : {});
+    var tname = String(r.scope || '') === 'building'
+      ? (tgt.name || tgt.addrKey || r.targetId)
+      : (String(r.scope || '') === 'unit'
+          ? ((bm[String(tgt.buildingId || '')] || {}).name || '') + ' ' + (tgt.ho || r.targetId)
+          : String(r.targetId || ''));
+    return { r:r, pname: String(p.name || r.personId || '(이름 없음)'),
+             pid: String(r.personId || ''), scope:String(r.scope || ''),
+             tname: String(tname).trim(), role:String(r.role || ''),
+             status:String(r.status || '') };
+  });
+}
+function viewRel(){
+  var head = crumb() + '<div class="h1row"><h1>관계설정</h1>';
+  if(DB.persons === null || DB.roleLinks === null || DB.buildings === null || DB.units === null){
+    loadMasters();
+    return head + '</div>' + mstWait('사람·관계 자료');
+  }
+  var rows = relRows();
+  var byP = {}, byT = {};
+  rows.forEach(function(x){
+    (byP[x.pname] = byP[x.pname] || []).push(x);
+    (byT[x.tname || '(대상 없음)'] = byT[x.tname || '(대상 없음)'] || []).push(x);
+  });
+  var h = head + '<span class="cnt">관계 <b>' + rows.length + '</b>줄 · 사람 <b>' +
+    Object.keys(byP).length + '</b>명</span></div>';
+  h += '<div class="note b">🔴 사람은 <b>한 번만</b> 등록하고 <b>역할로 잇습니다</b>. ' +
+    '임대인·고객·임차인으로 따로 만들지 않습니다.</div>';
+  h += '<div style="display:flex;gap:5px;margin:0 0 10px">' +
+    ['사람', '건물·호실'].map(function(v){
+      return '<button class="btn sm' + (REL_BY === v ? ' pri' : '') +
+        '" onclick="REL_BY=&#39;' + v + '&#39;;route()">' + v + ' 기준</button>'; }).join('') +
+    '<span style="font-size:11.5px;color:var(--t3);align-self:center;margin-left:8px">' +
+    '대표거래처식 — 한 사람이 가진 것을 한 줄로 봅니다</span></div>';
+  var map = (REL_BY === '사람') ? byP : byT;
+  var keys = Object.keys(map).sort(function(a, b){ return map[b].length - map[a].length; });
+  if(!keys.length) h += '<div class="card"><div class="empty" style="padding:18px">관계가 아직 없습니다</div></div>';
+  else h += '<div class="card"><div class="sbody"><div class="tblwrap"><table>' +
+    '<thead><tr><th>' + (REL_BY === '사람' ? '사람' : '건물·호실') + '</th><th>역할</th>' +
+    '<th>' + (REL_BY === '사람' ? '건물·호실' : '사람') + '</th><th>상태</th></tr></thead><tbody>' +
+    keys.slice(0, 200).map(function(k){
+      var arr = map[k];
+      var roles = {};
+      arr.forEach(function(x){ roles[x.role || '-'] = (roles[x.role || '-'] || 0) + 1; });
+      return '<tr><td><b>' + esc(k) + '</b><div style="color:var(--t3);font-size:11px">' +
+        arr.length + '건</div></td>' +
+        '<td style="font-size:12px">' + Object.keys(roles).map(function(r){
+          return esc(r) + ' ' + roles[r]; }).join(' · ') + '</td>' +
+        '<td style="font-size:12px">' + arr.slice(0, 6).map(function(x){
+          return esc(REL_BY === '사람' ? (x.tname || '-') : x.pname); }).join(' · ') +
+        (arr.length > 6 ? (' 외 ' + (arr.length - 6)) : '') + '</td>' +
+        '<td style="font-size:12px">' + esc(arr[0].status || '-') + '</td></tr>';
+    }).join('') + '</tbody></table></div></div></div>';
+  h += '<div class="card" style="margin-top:12px"><div class="sbody">' + kbHtml() + '</div></div>';
+  return h;
+}
+
+/* ══ 4-12 권한그룹 ═════════════════════════════════════════════════════ */
+var PERM_GROUPS = [
+  { key:'대표', why:'모든 것을 본다. 결재·삭제·권한을 정한다.',
+    can:['모든 메뉴', '결재 승인·반려', '휴지통 되살리기', '건물보안 보기', '문자 발송', '배포'] },
+  { key:'직원', why:'본인 담당만 본다. 위험한 일은 서버가 막는다.',
+    can:['매물장 보기', '본인 담당 고객·계약', '인입함 처리', '결재 올리기'],
+    cannot:['결재 승인·반려', '건물보안 보기', '휴지통 되살리기', '남의 담당 고객·계약'] },
+  { key:'보기전용', why:'읽기만 한다.', can:['현황·보고서 보기'],
+    cannot:['저장·삭제', '문자', '결재'] }
+];
+function permLockHtml(label){
+  return '<div class="card"><div class="soonbox"><b>🔒 ' + esc(label) + ' — 권한이 없습니다</b>' +
+    '<div>이 화면은 지금 계정으로 열 수 없습니다.</div>' +
+    '<div style="margin-top:8px;font-size:12px;color:var(--t3)">' +
+    '🔴 화면만 숨기는 것이 아니라 <b>서버가 막습니다</b>. 필요하시면 대표님께 권한을 요청하세요.</div>' +
+    '<div style="margin-top:12px"><button class="btn pri" onclick="go(&#39;today&#39;,&#39;today&#39;)">첫 화면으로</button></div>' +
+    '</div></div>';
+}
+function permHtml(){
+  return '<div class="card" style="margin-top:12px"><div class="sbody">' +
+    '<h4 style="margin:0 0 4px;font-size:14px">권한그룹</h4>' +
+    '<div style="font-size:12.5px;color:var(--t3);margin-bottom:9px">' +
+    '🔴 권한은 화면 숨김이 아니라 <b>서버에서</b> 막습니다(adminOnly_). ' +
+    '직원을 들이기 전에 이 표대로 맞춥니다.</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">' +
+    PERM_GROUPS.map(function(g){
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:11px 13px">' +
+        '<div style="font-size:13px;font-weight:700">' + esc(g.key) +
+        (ME.role === 'admin' && g.key === '대표' ? ' <span class="pill p-good">지금 나</span>' : '') + '</div>' +
+        '<div style="font-size:11.5px;color:var(--t3);margin:3px 0 7px">' + esc(g.why) + '</div>' +
+        (g.can || []).map(function(x){
+          return '<div style="font-size:12px;color:var(--t2)">✓ ' + esc(x) + '</div>'; }).join('') +
+        (g.cannot || []).map(function(x){
+          return '<div style="font-size:12px;color:var(--t3)">🔒 ' + esc(x) + '</div>'; }).join('') +
+        '</div>';
+    }).join('') + '</div>' +
+    '<div style="margin-top:10px"><button class="btn sm" onclick="permPreview()">' +
+    '자물쇠 화면 미리 보기</button></div></div></div>';
+}
+function permPreview(){
+  alert('권한 없는 메뉴를 열면 아래처럼 보입니다.' + String.fromCharCode(10) +
+        '🔒 이 화면은 지금 계정으로 열 수 없습니다 — 서버가 막습니다.');
+}
+
+/* ══ 4-4 입력 팝업 + 탭 ════════════════════════════════════════════════
+   기본 / 상세 / 확인(🟡 N) / 보안(🔒 건물만)
+   🔴 기존 입력폼을 다시 만들지 않는다 — 그대로 안에 넣는다.
+   🔴 저장은 기존 저장 함수를 그대로 부른다(새 저장 경로를 만들지 않는다). ══ */
+var POP_STATE = null;
+var POP_TABS = ['기본', '상세', '확인', '보안'];
+function popOpen(kind, key, uid){
+  POP_STATE = { kind:String(kind), key:String(key || ''), uid:String(uid || ''),
+                tab:'기본', pin:false, max:false };
+  route();
+}
+function popClose(){ POP_STATE = null; route(); }
+function popTab(t){ if(POP_STATE){ POP_STATE.tab = String(t); route(); } }
+function popToggle(k){ if(POP_STATE){ POP_STATE[k] = !POP_STATE[k]; route(); } }
+function popReload(){
+  if(!POP_STATE) return;
+  if(POP_STATE.kind === 'bldg'){ BLD_FORM = null; }
+  if(POP_STATE.kind === 'unit'){ UNIT_FORM = null; }
+  route();
+}
+function popTodoN(b){
+  try{
+    var t = bldTodoBox(b);
+    var m = String(t).match(/확인할 항목\s*<b>(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  }catch(e){ return 0; }
+}
+function popSave(){
+  if(!POP_STATE) return;
+  if(POP_STATE.kind === 'bldg'){ try{ bldFormSave(); }catch(e){ alert('저장하지 못했습니다: ' + (e && e.message || e)); } return; }
+  if(POP_STATE.kind === 'unit'){ try{ unitFormSave(); }catch(e){ alert('저장하지 못했습니다: ' + (e && e.message || e)); } return; }
+  alert('이 팝업에는 저장할 것이 없습니다.');
+}
+function popRedo(){
+  if(!POP_STATE) return;
+  if(!confirm('적은 것을 지우고 처음부터 다시 씁니다 — 이대로 할까요?')) return;
+  popReload();
+}
+function popHtml(){
+  if(!POP_STATE) return '';
+  var st = POP_STATE;
+  var b = null, body = '', title = '';
+  if(st.kind === 'bldg'){
+    b = (typeof bldgGroups === 'function')
+      ? bldgGroups().filter(function(x){ return String(x.key) === st.key; })[0] : null;
+    if(!b) return '';
+    title = '건물 정보 — ' + (b.nameList && b.nameList.length ? b.nameList[0] : b.key);
+    if(st.tab === '기본') body = bldFormHtml(b);
+    else if(st.tab === '확인') body = bldTodoBox(b);
+    else if(st.tab === '보안') body = '<div class="note b" style="font-size:12.5px">' +
+      '🔒 공동현관·공실 비밀번호·출입방법은 <b>건물정보 탭 안쪽</b>에서 다룹니다. ' +
+      '이 값은 광고문구·문자·외부 응답에 <b>절대</b> 실리지 않습니다.</div>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin-top:6px">' +
+      BLD_SEC_FIELDS.map(function(p){ return '· ' + esc(p[1] || p[0]); }).join('<br>') + '</div>';
+    else body = '<div class="note" style="font-size:12.5px">⚪ <b>상세</b> — 관리비 항목·기본옵션·주차 같은 ' +
+      '자주 안 고치는 값입니다. 기본 탭 아래쪽에 그대로 있습니다.</div>';
+  } else if(st.kind === 'unit'){
+    b = (typeof bldgGroups === 'function')
+      ? bldgGroups().filter(function(x){ return String(x.key) === st.key; })[0] : null;
+    if(!b) return '';
+    title = '호실 — ' + st.uid;
+    if(st.tab === '기본') body = unitFormHtml(b, st.uid);
+    else if(st.tab === '확인') body = '<div class="note" style="font-size:12.5px">' +
+      '🟡 호실에서 확인할 것은 <b>건물 확인 탭</b>에 모아 보여 드립니다.</div>';
+    else if(st.tab === '보안') body = '<div class="note b" style="font-size:12.5px">' +
+      '🔒 호실 비밀번호는 <b>건물보안</b>에만 둡니다. 호실 화면에는 싣지 않습니다.</div>';
+    else body = '<div class="note" style="font-size:12.5px">⚪ <b>상세</b> — 상속/직접입력 칸은 기본 탭에 있습니다.</div>';
+  } else return '';
+
+  var n = (st.kind === 'bldg') ? popTodoN(b) : 0;
+  var w2 = st.max ? '96vw' : '760px';
+  return '<div id="pop-back" style="position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:60"' +
+    (st.pin ? '' : ' onclick="popClose()"') + '></div>' +
+    '<div id="pop" style="position:fixed;z-index:61;left:50%;top:56px;transform:translateX(-50%);' +
+    'width:' + w2 + ';max-width:96vw;max-height:84vh;overflow:auto;background:#fff;' +
+    'border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.18)">' +
+    '<div style="display:flex;align-items:center;gap:6px;padding:10px 13px;' +
+    'border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2">' +
+    '<b style="flex:1;font-size:13.5px">' + esc(title) + '</b>' +
+    '<button class="btn sm" title="새 창" onclick="window.open(location.href,&#39;_blank&#39;)">🗗</button>' +
+    '<button class="btn sm' + (st.pin ? ' pri' : '') + '" title="핀(바깥을 눌러도 안 닫힘)" ' +
+    'onclick="popToggle(&#39;pin&#39;)">📌</button>' +
+    '<button class="btn sm" title="새로고침" onclick="popReload()">⟳</button>' +
+    '<button class="btn sm' + (st.max ? ' pri' : '') + '" title="최대화" onclick="popToggle(&#39;max&#39;)">⛶</button>' +
+    '<button class="btn sm" title="닫기" onclick="popClose()">✕</button></div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:5px;padding:9px 13px;border-bottom:1px solid var(--line)">' +
+    POP_TABS.map(function(t){
+      if(t === '보안' && st.kind !== 'bldg') return '';
+      var lab = t === '확인' ? ('확인' + (n ? (' 🟡 ' + n) : '')) : (t === '보안' ? '🔒 보안' : t);
+      return '<button class="btn sm' + (st.tab === t ? ' pri' : '') +
+        '" onclick="popTab(&#39;' + t + '&#39;)">' + lab + '</button>';
+    }).join('') + '</div>' +
+    '<div style="padding:12px 14px 88px">' + body + '</div>' +
+    '<div style="position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);' +
+    'padding:9px 13px;display:flex;gap:6px;align-items:center">' +
+    '<button class="btn pri" onclick="popSave()">저장 F8</button>' +
+    '<button class="btn" onclick="popRedo()">다시작성</button>' +
+    '<button class="btn" onclick="popClose()">닫기</button>' +
+    '<span style="flex:1"></span>' +
+    '<span style="font-size:11.5px;color:var(--t3)">ID 는 저장할 때 자동으로 붙습니다</span>' +
+    '</div></div>';
+}
+
+/* ══ 4-5 · 4-6 붙여넣기 표 ═════════════════════════════════════════════
+   엑셀에서 그대로 붙여 넣는다(탭으로 나뉜 글). 검증을 통과한 줄만 저장한다.
+   🔴 한 줄씩 upsert 한다. saveAll 을 쓰지 않는다.
+   🔴 검증에서 막힌 줄은 **저장하지 않고 이유를 적는다**(0건 위장 금지). ══ */
+var PG = { kind:'매물', raw:'', rows:null, saving:false, done:null, bldg:'', common:{} };
+var PG_KINDS = {
+  '매물':  { type:'listings',  cols:['건물명', '호실', '주소', '거래유형', '보증금', '월세', '면적', '층'],
+             req:['건물명', '호실', '거래유형'] },
+  '사람':  { type:'persons',   cols:['이름', '전화', '출처', '메모'], req:['이름'] },
+  '건물':  { type:'buildings', cols:['건물명', '주소', '동', '지번', '총층'], req:['건물명', '주소'] }
+};
+function pgSet(k, v){ PG[k] = v; }
+function pgKind(k){ PG.kind = String(k); PG.rows = null; PG.done = null; route(); }
+function pgParse(){
+  var cfg = PG_KINDS[PG.kind];
+  var lines = String(PG.raw || '').split(String.fromCharCode(10))
+    .map(function(x){ return x.replace(/\r$/, ''); })
+    .filter(function(x){ return x.trim() !== ''; });
+  if(!lines.length){ PG.rows = []; route(); return; }
+  /* 첫 줄이 머리글이면 건너뛴다 */
+  var first = lines[0].split(String.fromCharCode(9)).map(function(x){ return x.trim(); });
+  var skip = cfg.cols.some(function(c){ return first.indexOf(c) >= 0; });
+  var body = skip ? lines.slice(1) : lines;
+  PG.rows = body.map(function(ln, i){
+    var cell = ln.split(String.fromCharCode(9));
+    var o = {};
+    cfg.cols.forEach(function(c, j){ o[c] = String(cell[j] || '').trim(); });
+    var bad = [];
+    cfg.req.forEach(function(c){ if(!o[c]) bad.push(c + ' 없음'); });
+    if(PG.kind === '사람' && o['전화'] && String(o['전화']).replace(/[^0-9]/g, '').length < 9)
+      bad.push('전화번호가 짧습니다');
+    if(PG.kind === '매물' && o['거래유형'] && ['월세', '전세', '매매'].indexOf(o['거래유형']) < 0)
+      bad.push('거래유형은 월세·전세·매매');
+    if(hasSecret(ln)) bad.push('🔒 비밀번호로 보이는 내용');
+    return { n:i + 1, o:o, bad:bad };
+  });
+  PG.done = null;
+  route();
+}
+function pgOk(){ return (PG.rows || []).filter(function(r){ return !r.bad.length; }); }
+function pgBad(){ return (PG.rows || []).filter(function(r){ return r.bad.length; }); }
+async function pgSave(){
+  var nl = String.fromCharCode(10);
+  if(PG.saving) return;
+  var ok = pgOk(), bad = pgBad();
+  if(!ok.length){ alert('저장할 수 있는 줄이 없습니다.'); return; }
+  var cfg = PG_KINDS[PG.kind];
+  if(!confirm(['검증을 통과한 ' + ok.length + '줄을 저장합니다 — 이대로 할까요?', '',
+    bad.length ? ('🔴 막힌 줄 ' + bad.length + '개는 저장하지 않습니다.') : '',
+    '', '🔴 한 줄씩 저장합니다(전체 덮어쓰기 아님).',
+    '🔴 문자도 광고도 나가지 않습니다.'].filter(function(x){ return x !== ''; }).join(nl))) return;
+  PG.saving = true; route();
+  var made = 0, fail = [];
+  for(var i = 0; i < ok.length; i++){
+    var o = ok[i].o, obj = {};
+    try{
+      if(PG.kind === '매물'){
+        obj = { id:'', apt:o['건물명'], addr2:o['호실'], addr:o['주소'] || PG.common.addr || '',
+                type:o['거래유형'], price:o['보증금'], rentAmt:o['월세'], area:o['면적'],
+                floor:o['층'], status:'접수', recvDate:todayStr(),
+                updatedAt:new Date().toISOString() };
+        obj.id = 'R' + todayStr().slice(2).split('-').join('') + '-' +
+                 String(100 + made).slice(1);
+      } else if(PG.kind === '사람'){
+        obj = { id:perNewId(DB.persons || []), name:o['이름'], phone:o['전화'],
+                source:o['출처'] || '일괄입력', note:o['메모'] || '',
+                updatedAt:new Date().toISOString() };
+      } else {
+        obj = { id:'', name:o['건물명'], addr:o['주소'], dong:o['동'], jibun:o['지번'],
+                totalFloor:o['총층'], addrKey:colAddrKeyish(o['주소']),
+                updatedAt:new Date().toISOString() };
+        var usedB = {}; (DB.buildings || []).forEach(function(x){ usedB[String(x.id || '')] = 1; });
+        var bn = 1; while(usedB['B-' + ('000' + bn).slice(-4)]) bn++;
+        obj.id = 'B-' + ('000' + bn).slice(-4);
+      }
+      await erpUpsert(cfg.type, obj);
+      made++;
+    }catch(e){ fail.push('#' + ok[i].n + ' ' + String(e && e.message || e).slice(0, 60)); }
+  }
+  PG.saving = false;
+  PG.done = { made:made, fail:fail, bad:bad.length };
+  try{ await loadAll(true); }catch(e){}
+  route();
+  alert([made + '줄을 저장했습니다 ✓',
+    fail.length ? ('🔴 실패 ' + fail.length + '줄' + nl + fail.slice(0, 4).join(nl)) : '',
+    bad.length ? ('🔴 검증에서 막힌 ' + bad.length + '줄은 저장하지 않았습니다.') : ''
+  ].filter(function(x){ return x !== ''; }).join(nl));
+}
+/* 주소에서 대충 키를 만든다 — 건물마스터 addrKey 규칙과 같은 뜻(동 지번) */
+function colAddrKeyish(addr){
+  var t = String(addr || '');
+  var dong = '', jib = '';
+  t.replace(/[(),]/g, ' ').split(/\s+/).forEach(function(x){
+    if(/^[가-힣]{1,6}(동|읍|면|리)$/.test(x)) dong = x;
+    if(/^\d+(-\d+)?$/.test(x)) jib = x;
+  });
+  return (dong + ' ' + jib).trim();
+}
+function pgGridHtml(){
+  var cfg = PG_KINDS[PG.kind];
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:5px;margin:0 0 9px">' +
+    Object.keys(PG_KINDS).map(function(k){
+      return '<button class="btn sm' + (PG.kind === k ? ' pri' : '') +
+        '" onclick="pgKind(&#39;' + k + '&#39;)">' + k + '</button>'; }).join('') +
+    '<span style="font-size:11.5px;color:var(--t3);align-self:center;margin-left:8px">' +
+    '엑셀에서 그대로 복사해 아래에 붙여 넣으세요</span></div>';
+  h += '<div class="note" style="font-size:12.5px"><b>칸 순서</b> ' +
+    cfg.cols.map(function(c, i){
+      return (i + 1) + ') ' + c + (cfg.req.indexOf(c) >= 0 ? ' 🔴' : ''); }).join(' · ') +
+    '<br>🔴 표시는 반드시 있어야 하는 칸입니다. 첫 줄이 머리글이면 알아서 건너뜁니다.</div>';
+  h += '<textarea rows="8" placeholder="여기에 붙여 넣으세요 (Ctrl+V)" ' +
+    'oninput="pgSet(&#39;raw&#39;,this.value)" style="width:100%;margin-top:8px;padding:9px;' +
+    'font-size:12.5px;font-family:monospace;border:1px solid var(--line);border-radius:8px">' +
+    esc(PG.raw) + '</textarea>';
+  h += '<div style="margin-top:7px"><button class="btn pri" onclick="pgParse()">검증</button> ' +
+    '<button class="btn" onclick="pgSet(&#39;raw&#39;,&#39;&#39;);PG.rows=null;route()">지우기</button></div>';
+  if(PG.rows === null) return h;
+  if(!PG.rows.length) return h + '<div class="empty" style="padding:14px">붙여 넣은 줄이 없습니다</div>';
+  var ok = pgOk(), bad = pgBad();
+  h += '<div class="note ' + (bad.length ? 'w' : 'i') + '" style="margin-top:10px;font-size:12.5px">' +
+    '읽은 줄 <b>' + PG.rows.length + '</b> · 저장할 수 있는 줄 <b>' + ok.length + '</b>' +
+    (bad.length ? (' · 🔴 막힌 줄 <b>' + bad.length + '</b>') : '') + '</div>';
+  h += '<div class="tblwrap" style="margin-top:8px"><table><thead><tr><th>#</th>' +
+    cfg.cols.map(function(c){ return '<th>' + esc(c) + '</th>'; }).join('') +
+    '<th>검증</th></tr></thead><tbody>' +
+    PG.rows.slice(0, 200).map(function(r){
+      return '<tr>' + '<td class="mono">' + r.n + '</td>' +
+        cfg.cols.map(function(c){
+          return '<td style="font-size:12px">' + esc(r.o[c] || '') + '</td>'; }).join('') +
+        '<td style="font-size:12px">' + (r.bad.length
+          ? ('<span class="pill p-warn">🔴 ' + esc(r.bad.join(' · ')) + '</span>')
+          : '<span class="pill p-good">통과</span>') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+  h += '<div style="margin-top:9px">' +
+    '<button class="btn pri" onclick="pgSave()"' + (ok.length ? '' : ' disabled style="opacity:.45"') + '>' +
+    (PG.saving ? '저장 중…' : ('통과한 ' + ok.length + '줄 저장')) + '</button>' +
+    '<span style="font-size:11.5px;color:var(--t3);margin-left:8px">' +
+    '🔴 막힌 줄은 저장하지 않습니다 — 고쳐서 다시 붙여 넣으세요</span></div>';
+  if(PG.done) h += '<div class="note i" style="margin-top:9px;font-size:12.5px">' +
+    '저장 ' + PG.done.made + '줄' + (PG.done.fail.length ? (' · 실패 ' + PG.done.fail.length) : '') +
+    (PG.done.bad ? (' · 막힌 줄 ' + PG.done.bad + ' (저장 안 함)') : '') + '</div>';
+  return h;
+}
+function viewUpload(){
+  return crumb() + '<div class="h1row"><h1>웹자료올리기</h1>' +
+    '<span class="cnt">엑셀 붙여넣기 → 검증 → 저장</span></div>' +
+    '<div class="note b">🔴 검증을 통과한 줄만 저장합니다. ' +
+    '한 줄씩 저장하며 <b>전체 덮어쓰기를 하지 않습니다</b>. 문자·광고도 나가지 않습니다.</div>' +
+    '<div class="card"><div class="sbody">' + pgGridHtml() + '</div></div>';
+}
+/* 4-5 그리드 일괄입력 — 건물을 고르고 공통정보를 위에 적은 뒤 호실을 줄로 넣는다 */
+function viewBulk(){
+  var gs = [];
+  try{ gs = bldgGroups(); }catch(e){ gs = []; }
+  if(DB.buildings === null || DB.listings === null){
+    loadMasters(['buildings', 'units']);
+    return crumb() + '<div class="h1row"><h1>그리드 일괄입력</h1></div>' + mstWait('건물 자료');
+  }
+  var h = crumb() + '<div class="h1row"><h1>그리드 일괄입력</h1>' +
+    '<span class="cnt">건물 고르기 → 공통정보 → 호실 줄</span></div>';
+  h += '<div class="note b">🔴 위에 적은 <b>공통정보</b>는 빈 칸에만 들어갑니다. ' +
+    '줄에 적은 값이 있으면 그 값이 이깁니다(상속 대신 직접입력).</div>';
+  h += '<div class="card"><div class="sbody">' +
+    '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:5px">① 건물</div>' +
+    '<select onchange="PG.bldg=this.value;PG.common.addr=this.value;route()" ' +
+    'style="padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:7px;max-width:100%">' +
+    '<option value="">— 건물을 고르세요 —</option>' +
+    gs.slice(0, 300).map(function(b){
+      var nm = (b.nameList && b.nameList.length ? b.nameList[0] : '') + ' ' + b.key;
+      return '<option value="' + esc(b.key) + '"' + (PG.bldg === b.key ? ' selected' : '') + '>' +
+        esc(nm.trim()) + '</option>';
+    }).join('') + '</select>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;' +
+    'margin-top:10px">' +
+    [['거래유형', 'type'], ['보증금', 'price'], ['월세', 'rentAmt'], ['면적', 'area']].map(function(p){
+      return '<div><div style="font-size:11.5px;color:var(--t3);margin-bottom:3px">' + p[0] +
+        ' <span style="color:var(--t3)">(공통)</span></div>' +
+        '<input value="' + esc(PG.common[p[1]] || '') + '" oninput="PG.common[&#39;' + p[1] +
+        '&#39;]=this.value" style="width:100%;padding:6px 8px;font-size:12.5px;' +
+        'border:1px solid var(--line);border-radius:7px;background:var(--bg2,#fafafa)"></div>';
+    }).join('') + '</div>';
+  h += '<div style="font-size:12px;font-weight:700;color:var(--t2);margin:12px 0 5px">' +
+    '② 호실 줄 — 한 줄이 한 호실입니다</div>';
+  PG.kind = '매물';
+  h += pgGridHtml() + '</div></div>';
+  return h;
 }
 
 /* ── 그룹웨어 ──────────────────────────────────────────────────── */
@@ -7380,10 +8466,22 @@ function viewAdmin(){
     ['자동화관리', [
       ['자동화 상태', '실제 자료로 확인', '자동화']]]
   ];
+  /* 🆕 4-15 — 접었다 폈다. 🔴 항목을 지우지 않는다. */
+  h += '<div style="margin:0 0 10px">' +
+    '<button class="btn sm" onclick="setFoldAll()">' +
+    (SET_ALL_FOLD ? '전체 펴기 ▾' : '전체 접기 ▴') + '</button>' +
+    '<span style="font-size:11.5px;color:var(--t3);margin-left:8px">' +
+    '접어도 항목은 그대로 있습니다</span></div>';
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">';
   groups.forEach(function(g){
-    h += '<div class="card"><div class="sbody"><h4 style="margin:0 0 8px;font-size:13.5px">' +
-      esc(g[0]) + '</h4><ul class="steps">';
+    var fold = setIsFold(g[0]);
+    h += '<div class="card"><div class="sbody">' +
+      '<h4 style="margin:0 0 8px;font-size:13.5px;cursor:pointer" ' +
+      'onclick="setFold(&#39;' + esc(g[0]) + '&#39;)">' +
+      (fold ? '▸ ' : '▾ ') + esc(g[0]) +
+      ' <span style="font-weight:400;color:var(--t3);font-size:11.5px">' + g[1].length + '</span></h4>' +
+      (fold ? '</div></div>' : '<ul class="steps">');
+    if(fold) return;
     g[1].forEach(function(it){
       var act = it[2];
       var btn = act === '잠금'
@@ -11077,8 +12175,9 @@ function bldgGroups(){
    🔴 여전히 읽기 전용이다. 입력칸·저장·신규 없음. 시트에 쓰지 않는다.
    🔴 탭 6개 중 이번에 동작하는 것은 **현재공실·전체호실 2개**뿐이다.
       나머지 4개는 자리만 두고 '준비중' 이라고 적는다 — 가짜 자료를 채우지 않는다. */
-var BLD_SEL = '', BLD_TAB = '현재공실';
-var BLD_TABS = ['건물정보', '현재공실', '전체호실', '개인매물', '관계자', '광고', '거래이력'];
+var BLD_SEL = '', BLD_TAB = '파이프라인';
+/* 🆕 4-8 — 건물을 누르면 **파이프라인**이 먼저 보인다(접수·사진·광고·상담·계약) */
+var BLD_TABS = ['파이프라인', '건물정보', '현재공실', '전체호실', '개인매물', '관계자', '광고', '거래이력'];
 var BLD_LIVE = ['접수'];        /* 🔴 '공실' 로 보는 상태값 — 화면에 그대로 적는다 */
 
 function chr10(){ return String.fromCharCode(10); }
@@ -11562,7 +12661,7 @@ function bldPanel(b){
   h += '<div class="tabs">';
   BLD_TABS.forEach(function(t){
     var on = (t === BLD_TAB);
-    var ready = (t === '건물정보' || t === '현재공실' || t === '전체호실');
+    var ready = (t === '파이프라인' || t === '건물정보' || t === '현재공실' || t === '전체호실');
     h += '<button class="tb' + (on ? ' on' : '') + '" onclick="bldTab(\'' + t + '\')">' +
       esc(t) + (ready ? '' : ' <span style="opacity:.6;font-size:10.5px">준비중</span>') + '</button>';
   });
@@ -11575,7 +12674,17 @@ function bldPanel(b){
   });
 
   h += bldTodoBox(b);       /* 🔴 건물을 열면 확인할 것이 가장 먼저 보인다 */
-  if(BLD_TAB === '건물정보'){
+  /* 🆕 4-4 — 같은 내용을 팝업으로도 열 수 있다 */
+  h += '<div style="margin:0 0 8px"><button class="btn sm" onclick="popOpen(&#39;bldg&#39;,&#39;' +
+    esc(String(b.key)) + '&#39;)">입력 팝업으로 열기</button>' +
+    '<span style="font-size:11.5px;color:var(--t3);margin-left:8px">' +
+    '기본 · 상세 · 확인 🟡 · 보안 🔒 탭으로 나뉩니다</span></div>';
+  /* 🆕 4-8 — 호실 파이프라인(접수·사진·광고·상담·계약) */
+  if(BLD_TAB === '파이프라인'){
+    h += '<div class="note">이 건물 호실이 <b>어디까지 왔는지</b> 한 줄로 봅니다. ' +
+      '각 칸의 단추로 그 일을 하는 화면으로 갑니다.</div>';
+    h += pipeHtml(all);
+  }else if(BLD_TAB === '건물정보'){
     h += bldFormHtml(b);
   }else if(BLD_TAB === '현재공실'){
     var live = all.filter(function(o){ return BLD_LIVE.indexOf(String(o.status || '')) >= 0; });
@@ -11711,7 +12820,12 @@ function viewPerson(){
   });
   h += '</tbody></table></div></div>';
   var sel = ps.filter(function(x){ return String(x.id) === PER_SEL; })[0];
-  if(sel) h += perPanel(sel);
+  if(sel){
+    h += perPanel(sel);
+    /* 🆕 4-7 — 사람에 상담이력을 붙인다 */
+    h += '<div class="card" style="margin-top:12px"><div class="sbody">' +
+      csListHtml('person', String(sel.id), String(sel.id)) + '</div></div>';
+  }
   return h;
 }
 function perPanel(p){
@@ -12113,20 +13227,35 @@ function route(){
     var sc = scrKey();
     try{ return qpInject(fn(), sc); }catch(e){ return fn(); }
   };
+  /* 🆕 4-13 — 현황 화면이면 양식 섹션(정렬·소계·그래프)을 제목 밑에 끼운다 */
+  var __fm = function(html){
+    if(!fmIsStat()) return html;
+    var sc = scrKey(), block = '';
+    try{ block = fmHtml(sc); }catch(e){ return html; }
+    var i = html.indexOf('class="h1row"');
+    if(i >= 0){
+      var j = html.indexOf('</div>', i);
+      if(j >= 0) return html.slice(0, j + 6) + block + html.slice(j + 6);
+    }
+    return block + html;
+  };
   if(CUR.m2 === 'today') m.innerHTML = viewToday();
   else if(CUR.m2 === 'inbox') m.innerHTML = __inj(viewInbox);
   else if(CUR.m2 === 'admgr') m.innerHTML = __inj(viewAd);
-  else if(CUR.m2 === 'photo') m.innerHTML = viewPhoto();
+  else if(CUR.m2 === 'photo') m.innerHTML = __fm(viewPhoto());
   else if(CUR.m2 === 'vac') m.innerHTML = viewVac();      /* 🏢 공실 승인함 2026-09-13 */
-  else if(CUR.m2 === 'settle') m.innerHTML = viewSettle();
+  else if(CUR.m2 === 'settle') m.innerHTML = __fm(viewSettle());
   else if(CUR.m2 === 'base') m.innerHTML = viewAdmin();
   else if(CUR.m2 === 'auto') m.innerHTML = viewAuto();
-  else if(CUR.m2 === 'stat') m.innerHTML = viewData();
+  else if(CUR.m2 === 'stat') m.innerHTML = __fm(viewData());
   else if(CUR.m2 === 'collect') m.innerHTML = __inj(viewCollect);   /* 🆕 3단계 수집매물 */   /* 🆕 3단계 수집매물 */
   else if(CUR.m2 === 'bldg') m.innerHTML = __inj(viewBldg);   /* 🏢 건물·대장 2026-09-13 */
   else if(CUR.m2 === 'person') m.innerHTML = viewPerson();  /* 👤 사람 2026-09-14 */
+  else if(CUR.m2 === 'rel') m.innerHTML = viewRel();        /* 🆕 4-9 관계설정 */
+  else if(CUR.m2 === 'upload') m.innerHTML = viewUpload();  /* 🆕 4-6 웹자료올리기 */
+  else if(CUR.m2 === 'bulk') m.innerHTML = viewBulk();      /* 🆕 4-5 그리드 일괄입력 */
   else if(CUR.m2 === 'apv') m.innerHTML = __inj(viewApv);      /* 🆕 2-1 결재함 */
-  else if(CUR.m2 === 'gw') m.innerHTML = viewGroup();
+  else if(CUR.m2 === 'gw') m.innerHTML = __fm(viewGroup());
   else if(CUR.m2 === 'academy') m.innerHTML = viewAcademy();
   else if(CUR.m2 === 'mkt') m.innerHTML = viewMkt();
   else if(CUR.m2 === 'staff') m.innerHTML = viewStaff();
@@ -12148,8 +13277,19 @@ function route(){
       ' <button class="btn" onclick="location.href=\'./saas.html\'">기존 SaaS 화면</button></div>' +
       '</div></div>';
   }
+  /* 🆕 4-4 — 입력 팝업이 열려 있으면 위에 띄운다 */
+  try{
+    var pv = document.getElementById('popwrap');
+    if(!pv){ pv = document.createElement('div'); pv.id = 'popwrap'; document.body.appendChild(pv); }
+    pv.innerHTML = POP_STATE ? popHtml() : '';
+  }catch(e){}
   bindBar();
   drawSide();
+  fmAfterRoute();          /* 🆕 4-13 — 그린 뒤에 정렬·소계·그래프를 얹는다 */
+}
+/* 🆕 4-13 — 화면을 그린 뒤 표를 정렬·소계·그래프로 바꿔 그린다 */
+function fmAfterRoute(){
+  try{ if(fmIsStat()) fmPaint(scrKey()); }catch(e){}
 }
 function bindBar(){
   var fq = document.getElementById('fq');
@@ -12203,7 +13343,17 @@ document.getElementById('q').addEventListener('input', function(){
   if(!this.value.trim() && SEARCH){ SEARCH = ''; route(); }
 });
 document.getElementById('btnHelp').onclick = function(){ UI.help = !UI.help; route(); };
-['btnAi','btnBell','btnRecent','btnFav','btnOut'].forEach(function(id){
+/* 🆕 4-4 — 팝업이 열려 있으면 F8 저장 · Esc 닫기 */
+document.addEventListener('keydown', function(ev){
+  if(!POP_STATE) return;
+  if(ev.key === 'F8'){ ev.preventDefault(); popSave(); }
+  if(ev.key === 'Escape' && !POP_STATE.pin){ ev.preventDefault(); popClose(); }
+});
+/* 🆕 4-10·4-11 — ★ 즐겨찾기와 AI·타임라인은 오른쪽 아이콘 바로 잇는다 */
+document.getElementById('btnFav').onclick = function(){ RB_OPEN = 'book'; rbDraw(); };
+document.getElementById('btnAi').onclick = function(){ RB_OPEN = 'ai'; rbDraw(); };
+document.getElementById('btnRecent').onclick = function(){ RB_OPEN = 'time'; rbDraw(); };
+['btnBell','btnOut'].forEach(function(id){
   document.getElementById(id).onclick = function(){ alert('이 기능은 다음 단계에서 붙입니다.'); };
 });
 
