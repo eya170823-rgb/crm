@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.16.0';
+var ERP_VER = '1.17.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -2783,6 +2783,309 @@ function inboxRows(){
   }
   return rows;
 }
+/* ══ 1단계 2026-09-14 — 고객접수 (인입함 → 고객) ══════════════════
+   🔴 자동 접수 금지. 대표님이 눌러야만 만들어진다.
+   🔴 인입함 원문은 그대로 둔다 — 처리상태만 적는다.
+   🔴 새 저장소를 만들지 않는다: 사람마스터 + 고객관리(기존 탭). ══ */
+var INB_TAB = '매물문의';
+var INB_DAYS = 30;
+var INB_OPEN = '';                 /* 지금 열어 둔 줄 번호 */
+var INB_FORM = null;               /* 접수 입력칸 */
+var INB_SAVING = false;
+var INB_TABS = ['매물문의', '임대인', '광고·스팸', '기타'];
+
+/* 광고·스팸으로 보이는 글자 — 있는 그대로만 본다(사람을 스팸으로 단정하지 않는다) */
+var INB_AD_WORDS = ['광고', '무료거부', '수신거부', '080', '이벤트', '할인', '쿠폰', '당첨',
+                    '카드승인', '결제', '출금', '입금', '인증번호', '본인확인', '택배', '배송'];
+
+/* 🔴 시험용 번호인가 — 010-0000-00xx · 10000000xx · 100-000-00xx (철칙 16).
+   이것을 진짜 문의로 보면 가짜 고객이 생긴다. */
+function inbTestPhone(v){
+  var d = String(v == null ? '' : v).replace(/[^0-9]/g, '');
+  if(!d) return false;
+  return d.indexOf('010000000') === 0 || d.indexOf('1000000') === 0 ||
+         d.indexOf('100000000') === 0;
+}
+/* 인입 한 줄이 어느 탭인가 — 🔴 원문을 고치지 않는다. 보기만 나눈다. */
+function inbTabOf(r){
+  var t = String((r && r.text) || '');
+  var flat = sq(t);
+  if(inbTestPhone(r && r.phone)) return '기타';      /* 시험 번호는 문의가 아니다 */
+  for(var i = 0; i < INB_AD_WORDS.length; i++){
+    if(flat.indexOf(sq(INB_AD_WORDS[i])) >= 0) return '광고·스팸';
+  }
+  /* 우리 임대인 명부에 있는 번호면 임대인 */
+  var ph = (r && r.phone) || '';
+  if(ph){
+    var isLd = (DB.landlords || []).some(function(L){
+      return phHas(L.phone, ph) || phHas(L.phone2, ph); });
+    if(isLd) return '임대인';
+  }
+  /* 공실·계약 알림 말투면 임대인 쪽으로 */
+  if(flat.indexOf('공실') >= 0 || flat.indexOf('계약완료') >= 0 || flat.indexOf('임대완료') >= 0 ||
+     flat.indexOf('방나갔') >= 0 || flat.indexOf('나갔습니다') >= 0) return '임대인';
+  /* 찾는 말투면 매물문의 */
+  if(flat.indexOf('문의') >= 0 || flat.indexOf('보러') >= 0 || flat.indexOf('구해') >= 0 ||
+     flat.indexOf('있나요') >= 0 || flat.indexOf('원룸') >= 0 || flat.indexOf('투룸') >= 0 ||
+     flat.indexOf('월세') >= 0 || flat.indexOf('전세') >= 0 || flat.indexOf('입주') >= 0) return '매물문의';
+  if(srcOf(r.kind, r.text) === '부재중전화') return '기타';
+  return '기타';
+}
+/* 최근 N일 안인가 */
+function inbRecent(r, days){
+  var t = String((r && r.when) || '').slice(0, 10).replace(/[.\/]/g, '-');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(t)) return true;      /* 날짜를 모르면 빼지 않는다 */
+  var d = new Date(t + 'T00:00:00');
+  if(isNaN(d.getTime())) return true;
+  return (Date.now() - d.getTime()) <= (days || INB_DAYS) * 86400000;
+}
+/* 탭별 줄 — 미처리 먼저 */
+function inbRows(tab){
+  var rows = (DB.inbox || []).filter(function(r){ return inbRecent(r, INB_DAYS); });
+  if(tab) rows = rows.filter(function(r){ return inbTabOf(r) === tab; });
+  if(UI.qq){
+    var q = UI.qq.toLowerCase();
+    rows = rows.filter(function(r){
+      return [r.when, r.name, r.phone, r.bld, r.text].join(' ').toLowerCase().indexOf(q) >= 0; });
+  }
+  rows.sort(function(a, b){
+    var ar = a.reg ? 1 : 0, br = b.reg ? 1 : 0;
+    if(ar !== br) return ar - br;                        /* 미처리 먼저 */
+    return String(b.when || '').localeCompare(String(a.when || ''));
+  });
+  return rows;
+}
+function inbCount(tab){ return inbRows(tab).length; }
+function inbUndone(tab){ return inbRows(tab).filter(function(r){ return !r.reg; }).length; }
+
+/* 한 줄 열기 */
+function inbOpen(row){
+  INB_OPEN = (String(INB_OPEN) === String(row)) ? '' : String(row);
+  INB_FORM = null;
+  route();
+}
+function inbFind(row){
+  return (DB.inbox || []).filter(function(r){ return String(r.row) === String(row); })[0] || null;
+}
+
+/* 열었을 때 보여 줄 것 — 원문 전체 · 이 번호가 누구인지 · 건물 후보 */
+function inbPanel(r){
+  var nl = String.fromCharCode(10);
+  var who = personWhereWord(r.phone);
+  var p = personByPhone(r.phone);
+  var h = '<div class="card" style="margin:0 0 10px;border-color:var(--pri)">' +
+    '<div class="sbody" style="padding:12px 14px">';
+  /* 원문 — 🔴 있는 그대로. 줄이지 않는다 */
+  h += '<div style="font-size:12px;color:var(--t3);margin:0 0 4px">원문 (' +
+       esc(String(r.when || '')) + ' · ' + esc(srcOf(r.kind, r.text)) + ')</div>' +
+       '<div style="white-space:pre-wrap;font-size:13px;background:var(--bg2);padding:10px;' +
+       'border-radius:6px;max-height:260px;overflow:auto">' +
+       esc(maskSecret(String(r.text || ''))) + '</div>';
+  /* 이 번호가 누구인가 */
+  h += '<div style="margin-top:10px;font-size:12.5px">' +
+       '<b>이 번호</b> ' + esc(phMask(r.phone) || '(번호 없음)') + ' — ' +
+       (inbTestPhone(r.phone)
+         ? '<span style="color:var(--bad)">🔴 시험용 번호입니다 — 고객으로 접수하지 않습니다</span>'
+         : (who ? esc(who) : '<span style="color:var(--warn)">새 번호입니다</span>'));
+  if(p && !p.many && p.name) h += ' · 이름 <b>' + esc(p.name) + '</b>';
+  if(p && p.many) h += ' · 🔴 같은 번호가 ' + p.many.length + '명입니다 — 사람이 확인해야 합니다';
+  h += '</div>';
+  /* 건물·호실 후보 */
+  var bm = matchBuildingMaster(r, {});
+  if(bm){
+    h += '<div style="margin-top:6px;font-size:12.5px">🏢 <b>건물 후보</b> ' +
+         esc(bm.name || bm.addrKey) + ' <span style="color:var(--t3)">(' + esc(bm.how) + ')</span>';
+    var ho = (String(r.text || '').match(/(\d{3,4})\s*호/) || [])[1] || '';
+    if(ho){
+      var mu = matchUnitMaster(bm.id, ho + '호');
+      h += ' · 호실 ' + esc(ho) + '호 ' +
+           (mu ? ('<b>' + esc(mu.unitId) + '</b> (대장에 있음)') :
+                 '<span style="color:var(--t3)">대장에 없음</span>');
+    }
+    h += '</div>';
+  }
+  /* 버튼 — 🔴 누르지 않으면 아무 일도 없다 */
+  h += '<div style="margin-top:12px">' +
+    (inbTestPhone(r.phone)
+      ? '<button class="btn sm" disabled title="시험용 번호">고객으로 접수</button> '
+      : ('<button class="btn sm pri" onclick="inbAccept(&#39;' + esc(String(r.row)) + '&#39;)">고객으로 접수</button> ')) +
+    '<button class="btn sm" onclick="inbLandlord(&#39;' + esc(String(r.row)) + '&#39;)">임대인으로 연결</button> ' +
+    '<button class="btn sm" onclick="inbMarkAs(&#39;' + esc(String(r.row)) + '&#39;,&#39;스팸&#39;)">스팸</button> ' +
+    '<button class="btn sm" onclick="inbMarkAs(&#39;' + esc(String(r.row)) + '&#39;,&#39;보류&#39;)">보류</button>' +
+    '</div>';
+  if(INB_FORM && String(INB_FORM.row) === String(r.row)) h += inbFormHtml(r);
+  h += '</div></div>';
+  return h;
+}
+
+/* [고객으로 접수] — 입력칸을 연다(아직 저장하지 않는다) */
+function inbAccept(row){
+  var r = inbFind(row);
+  if(!r){ alert('그 줄을 찾지 못했습니다 — 다시 불러와 주세요.'); return; }
+  var p = personByPhone(r.phone);
+  INB_FORM = {
+    row: String(row),
+    name: (p && !p.many && p.name) ? String(p.name) : String(r.name || ''),
+    phone: String(r.phone || ''),
+    region: '', propType: '', deposit: '', rent: '', moveIn: '',
+    memo: ''
+  };
+  route();
+}
+function inbFormSet(k, v){ if(INB_FORM) INB_FORM[k] = v; }
+function inbFormHtml(r){
+  var f = INB_FORM;
+  function inp(k, label, ph){
+    return '<label style="display:block;margin:0 0 7px">' +
+      '<span style="display:block;font-size:11.5px;color:var(--t3)">' + esc(label) + '</span>' +
+      '<input type="text" value="' + esc(f[k] || '') + '" placeholder="' + esc(ph || '') + '" ' +
+      'style="width:100%" oninput="inbFormSet(&#39;' + k + '&#39;,this.value)"></label>';
+  }
+  return '<div class="card" style="margin:12px 0 0;border-color:var(--good)">' +
+    '<div class="sbody" style="padding:12px 14px">' +
+    '<h4 style="margin:0 0 4px;font-size:14px">고객으로 접수 — 비워도 저장됩니다</h4>' +
+    '<div style="font-size:12px;color:var(--t3);margin:0 0 10px">' +
+    '🔴 값을 지어내지 않습니다. 모르는 것은 비워 두세요. 나중에 채우면 됩니다.</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">' +
+      inp('name', '이름', '문의자') + inp('phone', '전화', '010-0000-0000') +
+      inp('region', '희망 지역', '연동 · 노형동') + inp('propType', '유형', '원룸 · 투룸') +
+      inp('deposit', '보증금(만)', '300') + inp('rent', '월세(만)', '50') +
+      inp('moveIn', '입주 희망일', '2026-10-01') + inp('memo', '메모', '') +
+    '</div>' +
+    '<div style="margin-top:10px">' +
+    '<button class="btn sm pri" onclick="inbAcceptSave()">이대로 고객 등록</button> ' +
+    '<button class="btn sm" onclick="INB_FORM=null;route()">취소</button>' +
+    '</div></div></div>';
+}
+
+/* 🔴 여기서만 만들어진다. 누르지 않으면 아무것도 생기지 않는다. */
+async function inbAcceptSave(){
+  var nl = String.fromCharCode(10);
+  if(INB_SAVING){ alert('저장 중입니다'); return; }
+  var f = INB_FORM;
+  if(!f){ return; }
+  var r = inbFind(f.row);
+  if(!r){ alert('그 줄을 찾지 못했습니다.'); return; }
+  /* 🔴 마지막 방어 — 시험 번호는 고객으로 만들지 않는다(철칙 16) */
+  if(inbTestPhone(f.phone)){
+    alert('🔴 시험용 번호입니다(010-0000-00xx 계열) — 고객으로 만들지 않습니다.');
+    return;
+  }
+  var who = personWhereWord(f.phone);
+  var msg = ['새 고객을 만듭니다 — 이대로 등록할까요?', '',
+    '이름   ' + (f.name || '(비움)'),
+    '번호   ' + (phMask(f.phone) || '(비움)'),
+    '조건   ' + [f.region, f.propType,
+                 (f.deposit || f.rent) ? ((f.deposit || '') + '/' + (f.rent || '')) : '',
+                 f.moveIn ? ('입주 ' + f.moveIn) : ''].filter(Boolean).join(' · ') || '(비움)',
+    '다음 연락 ' + inbNextDay(),
+    '', who ? ('🔴 이 번호는 이미 있습니다 — ' + who + nl +
+               '🔴 같은 사람이면 새로 만들지 말고 역할만 더하십시오.') : '',
+    '🔴 고객 1건만 만듭니다. 문자는 나가지 않습니다.',
+    '🔴 인입함 원문은 그대로 두고 처리상태만 적습니다.'].filter(function(x){ return x !== ''; }).join(nl);
+  if(!confirm(msg)) return;
+
+  INB_SAVING = true;
+  try{
+    /* ① 저장 직전에 고객을 다시 읽어 같은 번호가 있는지 본다(중복 0) */
+    var g = await jget({ action:'getAll', type:'customers' });
+    var fresh = g.data || g.result || [];
+    if(f.phone){
+      var dup = fresh.filter(function(c){ return phHas(c.phone, f.phone); });
+      if(dup.length){
+        DB.customers = fresh; INB_SAVING = false; route();
+        alert('🔴 같은 번호의 고객이 이미 있습니다(' + String(dup[0].name || '') + ').' + nl +
+              '만들지 않았습니다 — 그 고객에 이어 적으십시오.');
+        return;
+      }
+    }
+    /* ② 사람마스터에 없으면 만든다(있으면 그대로 쓴다 — 중복 사람 금지) */
+    var pr = personByPhone(f.phone);
+    var personId = (pr && !pr.many) ? String(pr.id) : '';
+    if(!personId && f.phone){
+      personId = perNewId(DB.persons || []);
+      await erpUpsert('persons', {
+        id: personId, name: String(f.name || ''), phoneKey: phKey(f.phone),
+        phone: String(f.phone || ''), phone2: '', contactStatus: '정상', banReason: '',
+        source: '인입함 ' + String(f.row), note: '고객 접수에서 만듦',
+        updatedAt: new Date().toISOString()
+      });
+    }
+    /* ③ 고객 1건 */
+    var obj = {
+      id: cuNewId(fresh), name: String(f.name || ('문의 ' + String(r.when || '').slice(5, 16))),
+      phone: String(f.phone || ''), role: '임차인',
+      recvDate: String(r.when || '').slice(0, 10) || todayStr(),
+      region: String(f.region || ''), propType: String(f.propType || ''),
+      budget: (f.deposit || f.rent) ? ((f.deposit || '') + (f.rent ? ('/' + f.rent) : '')) : '',
+      conMoveIn: String(f.moveIn || ''), progressStatus: '진행중', step: '0',
+      nextAction: inbNextDay(),
+      note: ['[인입함 ' + String(f.row) + ' · ' + String(r.when || '') + ']',
+             maskSecret(String(r.text || '')).slice(0, 400),
+             f.memo ? ('메모: ' + f.memo) : '',
+             personId ? ('사람마스터 ' + personId) : ''].filter(Boolean).join(nl).slice(0, 1500),
+      agent: ''
+    };
+    await erpUpsert('customers', obj);
+    /* ④ 인입함 줄에 처리 표시 — 🔴 원문은 그대로 */
+    try{ await jgetTry({ action:'inboxMark', row:String(f.row), val:'접수됨 ' + obj.id }); }catch(e2){}
+    /* ⑤ 저장 후 다시 읽어 확인한다 */
+    var g2 = await jget({ action:'getAll', type:'customers' });
+    DB.customers = g2.data || g2.result || [];
+    /* 🔴 loadMasters 는 **아직 안 읽은 것만** 읽는다 — 이미 읽어 뒀으면 그냥 돌아온다.
+       방금 만든 사람이 화면에 안 보이므로, 여기서는 비우고 다시 읽는다. */
+    if(personId){ DB.persons = null; await loadMasters(['persons']); }
+    var now = (DB.customers || []).filter(function(x){ return String(x.id) === String(obj.id); })[0];
+    r.reg = '접수됨 ' + obj.id;
+    INB_SAVING = false; INB_FORM = null; INB_OPEN = '';
+    route();
+    alert([now ? '고객을 만들었습니다 ✓' : '🔴 다시 읽었더니 안 보입니다 — 확인이 필요합니다', '',
+      String((now || obj).name || '') + ' · ' + phMask((now || obj).phone),
+      personId ? ('사람마스터 ' + personId) : '',
+      '', '🔴 문자는 나가지 않았습니다.'].filter(function(x){ return x !== ''; }).join(nl));
+  }catch(e){
+    INB_SAVING = false; route();
+    alert('만들지 못했습니다 — 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+function inbNextDay(){
+  var d = new Date(Date.now() + 86400000);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function perNewId(list){
+  var mx = 0;
+  (list || []).forEach(function(p){
+    var m = String(p.id || '').match(/^P-(\d+)$/);
+    if(m) mx = Math.max(mx, parseInt(m[1], 10));
+  });
+  return 'P-' + ('000' + (mx + 1)).slice(-4);
+}
+/* [임대인으로 연결] · [스팸] · [보류] — 표시만 남긴다(원문 불변) */
+async function inbLandlord(row){
+  var nl = String.fromCharCode(10);
+  var r = inbFind(row);
+  if(!r) return;
+  var who = personWhereWord(r.phone);
+  if(!confirm(['이 줄을 임대인 연락으로 표시합니다.', '',
+    '번호 ' + (phMask(r.phone) || '(없음)') + (who ? (' — ' + who) : ''),
+    '', '🔴 임대인 명부를 고치지 않습니다. 인입함에 표시만 남깁니다.',
+    '🔴 공실 접수는 다음 단계(공실접수)에서 합니다.'].join(nl))) return;
+  await inbMark(row, '임대인');
+}
+async function inbMarkAs(row, what){
+  var nl = String.fromCharCode(10);
+  if(!confirm(['이 줄을 "' + what + '" 으로 표시합니다.', '',
+    '🔴 원문은 지우지 않습니다. 표시만 남깁니다.'].join(nl))) return;
+  await inbMark(row, what);
+}
+async function inbMark(row, val){
+  var r = inbFind(row);
+  try{
+    await jgetTry({ action:'inboxMark', row:String(row), val:String(val) });
+    if(r) r.reg = String(val);
+    INB_OPEN = ''; route();
+  }catch(e){ alert('표시하지 못했습니다: ' + String(e && e.message || e)); }
+}
 function viewInbox(){
   if(DB.err) return crumb() + '<div class="h1row"><h1>통합 인입함</h1></div>' + keyBox();
   /* 🔴 2026-09-14 — 인입함을 아직 못 읽었으면 **0건이라고 말하지 않는다**.
@@ -2799,6 +3102,8 @@ function viewInbox(){
   var all = DB.inbox || [];
   var rows = inboxRows();
   var un = all.filter(function(r){ return !r.reg; }).length;
+  /* 🆕 1단계 — 최근 30일 · 탭 4개 · 미처리 먼저 */
+  var tabRows = inbRows(INB_TAB);
   var bySrc = {};
   all.forEach(function(r){ var s = srcOf(r.kind, r.text); bySrc[s] = (bySrc[s]||0) + 1; });
 
@@ -2843,6 +3148,45 @@ function viewInbox(){
       ? '전체를 읽었으니 계약완료 판정·중복검사에 써도 됩니다.'
       : '🔴 <b>덜 읽었습니다</b> — 읽은 범위 밖 문자는 "없는 것" 으로 보이니 판정에 쓰지 마세요.') +
     (DB.inboxCut ? ' 🔴 12쪽에서 끊었습니다.' : '') + '</div>';
+  /* ══ 🆕 1단계 화면 — 최근 30일, 탭 4개 ══ */
+  h += '<div class="card" style="margin:0 0 14px"><div class="sbody" style="padding:12px 14px">' +
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px">' +
+    '<b style="font-size:14px">최근 ' + INB_DAYS + '일</b>' +
+    INB_TABS.map(function(t){
+      var n = inbUndone(t), tot = inbCount(t);
+      return '<button class="btn sm' + (INB_TAB === t ? ' pri' : '') + '" ' +
+        'onclick="INB_TAB=&#39;' + esc(t) + '&#39;;INB_OPEN=&#39;&#39;;INB_FORM=null;route()">' +
+        esc(t) + ' <b>' + n + '</b>/' + tot + '</button>';
+    }).join(' ') +
+    '<span style="flex:1"></span>' +
+    '<span style="font-size:12px;color:var(--t3)">미처리가 먼저 나옵니다 · 처리된 줄은 흐리게</span>' +
+    '</div>';
+  if(!tabRows.length){
+    h += '<div class="empty" style="padding:18px">최근 ' + INB_DAYS + '일 안에 ' +
+         esc(INB_TAB) + ' 가 없습니다. <b>0건이 아니라 이 기간에 없는 것</b>입니다.</div>';
+  } else {
+    h += '<div class="tblwrap"><table><colgroup><col style="width:112px"><col style="width:124px">' +
+      '<col><col style="width:120px"><col style="width:70px"></colgroup>' +
+      '<thead><tr><th>날짜</th><th>발신번호</th><th>내용</th><th>처리상태</th><th></th></tr></thead><tbody>';
+    tabRows.slice(0, 200).forEach(function(r){
+      var doneRow = !!r.reg;
+      var open = String(INB_OPEN) === String(r.row);
+      h += '<tr' + (doneRow ? ' style="opacity:.55"' : '') + '>' +
+        '<td class="mono">' + esc(String(r.when || '').slice(0, 16)) + '</td>' +
+        '<td class="mono">' + esc(phMask(r.phone) || '-') + '</td>' +
+        '<td><span class="ell">' + esc(maskSecret(String(r.text || '')).slice(0, 60)) + '</span></td>' +
+        '<td>' + (doneRow ? ('<span class="pill p-good">' + esc(String(r.reg).slice(0, 14)) + '</span>')
+                          : '<span class="pill p-warn">미처리</span>') + '</td>' +
+        '<td><button class="btn sm" onclick="inbOpen(&#39;' + esc(String(r.row)) + '&#39;)">' +
+          (open ? '닫기' : '열기') + '</button></td></tr>';
+      if(open) h += '<tr><td colspan="5" style="padding:0 0 10px">' + inbPanel(r) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if(tabRows.length > 200) h += '<div style="font-size:12px;color:var(--t3);margin-top:6px">' +
+      '🔴 ' + tabRows.length + '건 중 200건만 보여 줍니다.</div>';
+  }
+  h += '</div></div>';
+
   var pathN = 0;
   (DB.inbox || []).forEach(function(r){ pathN += (r.dupPath || 0); });
   if(pathN) h += '<div class="note i">그 중 <b>' + pathN + '줄</b>은 같은 문자 한 통이 ' +
