@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.22.0';
+var ERP_VER = '1.23.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -6274,7 +6274,10 @@ var APV_GROUPS = [
   { key:'광고내림', kinds:['내림','광고내림'],     go:"AD_FILT='down';go('ad','admgr')" },
   { key:'수집접수', kinds:['공실확인','수집접수'], go:"COL_TAB='신규후보';go('data','collect')" },
   { key:'지번확인', kinds:['지번확인'],            go:"go('data','bldg')" },
-  { key:'촬영필요', kinds:['촬영필요'],            go:"go('ops','photo')" }
+  { key:'촬영필요', kinds:['촬영필요'],            go:"go('ops','photo')" },
+  /* 🆕 3-1·3-2 광고 세트(글 4종) · 3-5 사후관리 갱신 후보 */
+  { key:'광고세트', kinds:['광고세트'],            go:"AD_FILT='why';go('ad','admgr')" },
+  { key:'광고갱신', kinds:['광고갱신'],            go:"AD_FILT='posted';go('ad','admgr')" }
 ];
 var APV_STATES = ['대기', '승인', '반려'];
 var APV_TAB = '전체', APV_STF = '대기', APV_BUSY = false, APV_SEL = '';
@@ -6333,6 +6336,122 @@ function apvGoListing(id){
   AD_FILT = ''; AD_SEL = String(o.id); go('ad', 'admgr');
 }
 
+/* ══ 3-2 (2026-09-14) 광고 세트 — 4종 미리보기 · 글만 수정 ═══════════════
+   글은 결재함 note 안에 '### 채널' 로 나뉘어 들어 있다(PC 의 ad_set.py 가 올린다).
+   🔴 새 저장소를 만들지 않는다. 🔴 여기서 아무것도 게시되지 않는다. ══ */
+var AD_SET_CH = ['당근', '네이버', '블로그', '인스타'];
+var AD_SET_TAB = {}, AD_SET_EDIT = null, AD_SET_SAVING = false;
+
+function adSetParse(note){
+  var out = {}, t = String(note || '');
+  AD_SET_CH.forEach(function(ch){ out[ch] = { title:'', body:'' }; });
+  var parts = t.split('### ');
+  for(var i = 1; i < parts.length; i++){
+    var blk = parts[i];
+    var nlAt = blk.indexOf(String.fromCharCode(10));
+    if(nlAt < 0) continue;
+    var ch = blk.slice(0, nlAt).trim();
+    if(AD_SET_CH.indexOf(ch) < 0) continue;
+    var rest = blk.slice(nlAt + 1).replace(/\s+$/, '');
+    var nl2 = rest.indexOf(String.fromCharCode(10));
+    out[ch] = nl2 < 0 ? { title: rest, body: '' }
+                      : { title: rest.slice(0, nl2), body: rest.slice(nl2 + 1) };
+  }
+  return out;
+}
+function adSetBuild(sets){
+  return ['[[set=1]]'].concat(AD_SET_CH.map(function(ch){
+    var x = sets[ch] || { title:'', body:'' };
+    return '### ' + ch + String.fromCharCode(10) + (x.title || '') +
+           String.fromCharCode(10) + (x.body || '');
+  })).join(String.fromCharCode(10));
+}
+function adSetIs(a){ return String((a && a.kind) || '') === '광고세트'; }
+function adSetTab(id, ch){ AD_SET_TAB[String(id)] = ch; AD_SET_EDIT = null; route(); }
+function adSetEditStart(id, ch){
+  var a = (APV_ROWS || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!a) return;
+  var sets = adSetParse(a.note);
+  AD_SET_EDIT = { id:String(id), ch:ch,
+                  title:(sets[ch] || {}).title || '', body:(sets[ch] || {}).body || '' };
+  route();
+}
+function adSetEditSet(k, v){ if(AD_SET_EDIT) AD_SET_EDIT[k] = v; }
+function adSetEditCancel(){ AD_SET_EDIT = null; route(); }
+async function adSetEditSave(){
+  var nl = String.fromCharCode(10);
+  if(!AD_SET_EDIT || AD_SET_SAVING) return;
+  var e = AD_SET_EDIT;
+  if(hasSecret(e.title) || hasSecret(e.body)){
+    alert('🔴 비밀번호로 보이는 내용이 있습니다 — 저장하지 않습니다.'); return; }
+  if(!confirm([e.ch + ' 글을 고칩니다 — 이대로 저장할까요?', '',
+    '🔴 글만 고칩니다. 승인 상태는 그대로 둡니다.',
+    '🔴 광고는 나가지 않습니다.'].join(nl))) return;
+  AD_SET_SAVING = true; route();
+  try{
+    /* 🔴 저장 직전에 다시 읽는다 — 전체 행을 보내야 다른 칸이 지워지지 않는다(철칙 9) */
+    var g = await jget({ action:'getAll', type:'approvals' });
+    var rows = g.data || g.result || [];
+    var cur = rows.filter(function(x){ return String(x.id) === String(e.id); })[0];
+    if(!cur){ AD_SET_SAVING = false; route(); alert('결재 건을 찾지 못했습니다 — 고치지 않았습니다.'); return; }
+    var sets = adSetParse(cur.note);
+    sets[e.ch] = { title:String(e.title || ''), body:String(e.body || '') };
+    var obj = JSON.parse(JSON.stringify(cur));
+    obj.note = adSetBuild(sets).slice(0, 3800);
+    obj.updatedAt = new Date().toISOString();
+    await erpUpsert('approvals', obj);
+    await adApvLoad(true);
+    var back = (APV_ROWS || []).filter(function(x){ return String(x.id) === String(e.id); })[0];
+    var okNow = back && String(adSetParse(back.note)[e.ch].body || '') === String(e.body || '');
+    AD_SET_SAVING = false; AD_SET_EDIT = null; route();
+    alert(okNow ? ('고쳤습니다 ✓' + nl + e.ch)
+                : ('🔴 다시 읽었더니 그대로입니다 — 확인이 필요합니다'));
+  }catch(err){
+    AD_SET_SAVING = false; route();
+    alert('고치지 못했습니다 — 글은 그대로입니다.' + nl + String(err && err.message || err));
+  }
+}
+function adSetHtml(a){
+  var sets = adSetParse(a.note);
+  var id = String(a.id);
+  var ch = AD_SET_TAB[id] || AD_SET_CH[0];
+  var cur = sets[ch] || { title:'', body:'' };
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 8px">' +
+    AD_SET_CH.map(function(c){
+      var has = !!(sets[c] && (sets[c].title || sets[c].body));
+      return '<button class="btn sm' + (c === ch ? ' pri' : '') + '"' +
+        ' onclick="event.stopPropagation();adSetTab(&#39;' + esc(id) + '&#39;,&#39;' + c + '&#39;)">' +
+        c + (has ? '' : ' <span style="color:var(--t3)">(없음)</span>') + '</button>';
+    }).join(' ') + '</div>';
+  if(AD_SET_EDIT && AD_SET_EDIT.id === id && AD_SET_EDIT.ch === ch){
+    h += '<div style="margin:4px 0 8px">' +
+      '<input id="adset-t" value="' + esc(AD_SET_EDIT.title) + '" ' +
+      'oninput="adSetEditSet(&#39;title&#39;,this.value)" ' +
+      'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--line);border-radius:7px">' +
+      '<textarea id="adset-b" rows="10" oninput="adSetEditSet(&#39;body&#39;,this.value)" ' +
+      'style="width:100%;margin-top:6px;padding:8px 9px;font-size:12.5px;line-height:1.6;' +
+      'border:1px solid var(--line);border-radius:7px">' + esc(AD_SET_EDIT.body) + '</textarea>' +
+      '<div style="margin-top:6px">' +
+      '<button class="btn sm pri" onclick="event.stopPropagation();adSetEditSave()">' +
+      (AD_SET_SAVING ? '저장 중…' : '저장') + '</button> ' +
+      '<button class="btn sm" onclick="event.stopPropagation();adSetEditCancel()">그만두기</button>' +
+      '<span style="font-size:11.5px;color:var(--t3);margin-left:8px">🔴 글만 고칩니다 — 승인 상태는 그대로</span>' +
+      '</div></div>';
+  } else {
+    h += '<div style="font-weight:700;font-size:13px;margin-bottom:3px">' +
+      esc(cur.title || '(제목 없음)') + '</div>' +
+      '<div style="font-size:12.5px;line-height:1.65;white-space:pre-wrap;' +
+      'background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 11px;' +
+      'max-height:280px;overflow:auto">' + esc(cur.body || '(내용 없음)') + '</div>' +
+      '<div style="margin-top:6px">' +
+      '<button class="btn sm" onclick="event.stopPropagation();adSetEditStart(&#39;' +
+      esc(id) + '&#39;,&#39;' + ch + '&#39;)">글만 수정</button>' +
+      '<span style="font-size:11.5px;color:var(--t3);margin-left:8px">' +
+      '🔴 승인해도 게시되지 않습니다 — 대표님이 채널에서 직접 올리십니다</span></div>';
+  }
+  return h;
+}
+
 /* ── 승인 뒤 마스터 반영 ─────────────────────────────────────────── */
 async function apvApply(a){
   var nl = String.fromCharCode(10);
@@ -6388,6 +6507,19 @@ async function apvApply(a){
       '🔴 마스터에 새 줄을 **추측으로 만들지 않습니다.**',
       '건물·대장 화면을 엽니다 — 거기서 값을 확인하고 저장해 주세요.'].join(nl));
     go('data', 'bldg');
+    return;
+  }
+  if(grp === '광고세트'){
+    alert(['승인했습니다 ✓', '',
+      '🔴 광고는 나가지 않습니다.',
+      '승인된 글은 사무실 PC 의 00_광고세트 폴더에 그대로 있습니다.',
+      '대표님이 채널에서 직접 올리시면 됩니다.'].join(nl));
+    return;
+  }
+  if(grp === '광고갱신'){
+    alert(['승인했습니다 ✓', '',
+      '🔴 아무것도 게시되지 않습니다.',
+      '채널에서 끌어올리거나 새로 올리신 뒤 광고관리에서 [게시 확인] 을 눌러 주세요.'].join(nl));
     return;
   }
   if(grp === '광고승인'){
@@ -6477,8 +6609,10 @@ function apvRowHtml(a){
     '<td style="white-space:nowrap">' + btns + '</td></tr>';
   if(open){
     h += '<tr><td colspan="5" style="background:var(--bg2)">' +
-      '<div style="font-size:12.5px;white-space:pre-wrap;padding:4px 2px">' +
-      esc(maskSecret(String(a.note || '(적힌 내용 없음)'))) + '</div>' +
+      (adSetIs(a)
+        ? adSetHtml(a)
+        : ('<div style="font-size:12.5px;white-space:pre-wrap;padding:4px 2px">' +
+           esc(maskSecret(String(a.note || '(적힌 내용 없음)'))) + '</div>')) +
       '<div style="font-size:11.5px;color:var(--t3);margin-top:4px">올린 사람 ' +
       esc(a.requester || '-') + ' · 기한 ' + esc(String(a.dueAt || '').slice(0, 10) || '-') +
       (String(a.reason || '') ? (' · 사유 ' + esc(a.reason)) : '') + '</div></td></tr>';
