@@ -5,6 +5,45 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>브리즈 ERP</title>
 <style>
+/* 🔍 통합검색 — 건물·호실·사람 2026-09-14 */
+.ms-g{margin:8px 0}
+.ms-t{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:5px}
+.ms-i{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fff;
+  border-radius:8px;padding:7px 10px;margin-bottom:4px;font-size:13px;cursor:pointer;color:inherit}
+.ms-i:hover{background:var(--bg3)}
+#per-panel .tabs{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 10px;
+  border-bottom:1px solid var(--line);padding-bottom:7px}
+#per-panel .tb{border:1px solid var(--line);background:#fff;border-radius:8px;
+  font-size:12.5px;font-weight:600;color:var(--t2);padding:5px 11px;cursor:pointer}
+#per-panel .tb.on{background:var(--pri,#1B4F8A);border-color:var(--pri,#1B4F8A);color:#fff}
+/* 🚪 호실 입력화면 2026-09-14 */
+.uf{border:1px solid var(--pri,#1B4F8A);border-radius:10px;padding:12px 14px;margin:12px 0 0}
+.uf-h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.uf-h b{font-size:16px}
+.uf-sub{flex:1;font-size:12.5px;color:var(--t3)}
+.uf-inh{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:4px 0 10px;background:var(--bg3)}
+.uf-inht{font-size:12px;color:var(--t2);margin-bottom:7px}
+.uf-r{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:5px 0;border-top:1px dashed var(--line)}
+.uf-r:first-of-type{border-top:0}
+.uf-rl{min-width:52px;font-size:12.5px;font-weight:600}
+.uf-seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.uf-b{border:0;background:#fff;font-size:11.5px;padding:4px 9px;cursor:pointer;color:var(--t2)}
+.uf-b.on{background:var(--pri,#1B4F8A);color:#fff;font-weight:700}
+.uf-base{font-size:12px;color:var(--t3)}
+.uf-tag{background:var(--bg3);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:10.5px}
+.uf-i{max-width:200px}
+.uf-deal{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:0 0 10px}
+.uf-dl{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px}
+.uf-dl2{margin-top:7px;font-size:12.5px;color:var(--t2)}
+/* 🔴 확인필요 2026-09-14 */
+.bld-todo{border:1px solid var(--warn,#E4A11B);background:#FFF8E7;border-radius:10px;
+  padding:10px 12px;margin:2px 0 12px;font-size:13px}
+.bld-todo .bt-l{margin-top:6px;font-size:12.5px;line-height:1.6}
+.bld-todo .bt-memo{margin:7px 0 0;padding:8px 10px;background:#fff;border:1px solid var(--line);
+  border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:120px;overflow:auto}
+.bld-todo .bt-a{margin-top:8px}
+.bf-need .bf-i{border-color:var(--warn,#E4A11B);background:#FFFDF5}
+.bf-needb{font-weight:700;color:#A9741A;font-size:11px}
 /* 🏢 건물정보 입력화면 2026-09-14 */
 .bf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px 12px;margin:4px 0 12px}
 .bf-f{display:flex;flex-direction:column;gap:3px;min-width:0}
@@ -233,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.13.0';
+var ERP_VER = '1.13.1';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -268,7 +307,7 @@ var MENU = [
   ['ad','광고·마케팅',[['admgr','광고관리',1],['mkt','마케팅',1],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
   ['group','그룹웨어',[['gw','업무·결재',1],['academy','아카데미',1],['board','공지',0]]],
-  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',0],['bldg','건물·대장',1]]],
+  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',0],['bldg','건물·대장',1],['person','사람',1]]],
   ['admin','관리부',[['base','기본관리',1],['auto','자동화관리',1],['staff','직원·권한',1],['log','변경이력',0]]]
 ];
 var CUR = { m1:'today', m2:'today' };
@@ -324,7 +363,7 @@ var DB = { inbox:null, listings:null, landlords:null, contracts:null, customers:
            /* 🔴 2026-09-13 §20-3 — 인입함을 '다 읽음/일부만/못 읽음' 으로 나눠 적는다.
               0건(진짜 없음)과 못 읽음을 화면에서 구분하기 위한 것이다. */
            inboxState:'', inboxBad:[],
-           buildings:null };   /* 🏢 2026-09-14 건물마스터 */
+           buildings:null, units:null, persons:null, roleLinks:null };   /* 🏢👤 2026-09-14 마스터 */
 
 async function jget(params){
   var u = gsUrl(), t = gsTok();
@@ -435,10 +474,10 @@ async function loadAll(force){
   });
   try{ route(); }catch(e3){}          /* 공실현황까지 반영해 한 번 더 그린다 */
   /* 🏢 2026-09-14 건물마스터 — 없거나 못 읽어도 다른 화면은 그대로 돈다 */
-  await loadOne('buildings', async function(){
-    var bg = await jgetTry({ action:'getAll', type:'buildings' });
-    DB.buildings = bg.data || bg.result || [];
-  });
+  /* 🔴 2026-09-14 — 마스터 4개(건물·호실·사람·역할연결)는 여기서 읽지 않는다.
+     첫 화면이 뜨기까지 읽을 것이 6개에서 10개로 늘면 그만큼 '불러오는 중' 이 길어진다
+     (임대인만 4,076행이고, 여기에 GAS 간헐 404 재시도가 겹친다 — 실측으로 확인).
+     마스터는 **그 화면을 열 때** loadMasters() 가 읽는다. */
   /* 문자수신함 (2026-09-13) — 쪽넘김으로 전부.
      GAS v149 부터 offset 을 받는다. 옛 GAS 면 more 가 없어 첫 쪽에서 멈춘다(안전). */
   await loadOne('smsq', async function(){
@@ -614,6 +653,9 @@ async function loadOne(what, fn){
     else if(what === 'vac'){ DB.vacErr = r.say; DB.vac = DB.vac || []; }
     else if(what === 'smsq'){ DB.smsqErr = r.say; DB.smsq = DB.smsq || []; }
     else if(what === 'buildings'){ DB.bgErr = r.say; DB.buildings = DB.buildings || []; }
+    else if(what === 'units'){ DB.unErr = r.say; DB.units = DB.units || []; }
+    else if(what === 'persons'){ DB.pnErr = r.say; DB.persons = DB.persons || []; }
+    else if(what === 'roleLinks'){ DB.rlErr = r.say; DB.roleLinks = DB.roleLinks || []; }
     else { DB.inErr = r.say; DB.inboxState = 'ERROR'; }
   }
 }
@@ -8381,15 +8423,19 @@ function bldMoney(o){
   var r = String(o.rentAmt || '').trim();
   return { p: p || '-', r: (t === '매매' || t === '전세') ? '-' : (r || '-') };
 }
-function bldUnitRows(rows){
+function bldUnitRows(rows, clickable){
   var h = '<div class="tblwrap"><table><thead><tr>' +
     '<th>호실</th><th>상태</th><th>거래유형</th><th class="num">보증금</th>' +
     '<th class="num">월세</th><th>사진</th></tr></thead><tbody>';
   rows.forEach(function(o){
     var m = bldMoney(o), ph = bldPhoto(o);
     var live = BLD_LIVE.indexOf(String(o.status || '')) >= 0;
-    h += '<tr>' +
-      '<td><b>' + esc(String(o.addr2 || '-')) + '</b></td>' +
+    var uid = String(o.unitId || '');
+    h += '<tr' + (clickable && uid ? (' class="bld-row' + (UNIT_SEL === uid ? ' on' : '') +
+      '" style="cursor:pointer" onclick="unitPick(\'' + uid + '\')"') : '') + '>' +
+      '<td><b>' + esc(String(o.addr2 || '-')) + '</b>' +
+        (clickable && !uid ? ' <span class="pill p-mute" title="호실마스터에 아직 연결되지 않았습니다">미연결</span>' : '') +
+      '</td>' +
       '<td><span class="pill ' + (live ? 'p-ok' : 'p-mute') + '">' + esc(String(o.status || '(빈칸)')) + '</span></td>' +
       '<td>' + esc(String(o.type || '-')) + '</td>' +
       '<td class="num mono">' + esc(m.p) + '</td>' +
@@ -8513,6 +8559,62 @@ async function bldFormSave(){
   BLD_SAVING = false; route();
 }
 
+/* 🔴 확인필요 — 자동채움이 값을 고르지 못한 칸. 대표가 눈으로 확인할 것 (2026-09-14)
+   needCheck 칸에 칸이름이 쉼표로 들어 있다. note 에 "무엇이 몇 건이었는지" 가 적혀 있다. */
+/* 🏢👤 마스터 지연 로딩 (2026-09-14)
+   건물·대장 / 사람 화면을 열 때만 읽는다. 다 읽으면 화면을 한 번 다시 그린다.
+   🔴 못 읽으면 0건으로 위장하지 않는다 — null 로 두고 화면이 "못 읽었다" 고 말한다. */
+var MST_LOADING = false;
+async function loadMasters(which){
+  if(MST_LOADING) return;
+  var want = which || ['buildings', 'units', 'persons', 'roleLinks'];
+  var need = want.filter(function(k){ return DB[k] === null; });
+  if(!need.length) return;
+  MST_LOADING = true;
+  try{
+    for(var i = 0; i < need.length; i++){
+      var k = need[i];
+      await loadOne(k, (function(key){
+        return async function(){
+          var r = await jgetTry({ action:'getAll', type:key });
+          DB[key] = r.data || r.result || [];
+        };
+      })(k));
+    }
+  }finally{
+    MST_LOADING = false;
+    try{ route(); }catch(e){}
+  }
+}
+/* 아직 읽는 중일 때 보여 줄 안내 — 🔴 "0건" 이라고 하지 않는다 */
+function mstWait(label){
+  return '<div class="card"><div class="soonbox"><b>' + esc(label) + ' 를 읽고 있습니다…</b>' +
+    '<div>0건이 아니라 <b>아직 읽는 중</b>입니다. 잠시만 기다려 주세요.</div></div></div>';
+}
+function bldNeed(row){
+  var t = String((row || {}).needCheck || '').trim();
+  if(!t) return [];
+  return t.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+}
+function bldNeedLabel(k){
+  var m = BLD_FIELDS.filter(function(p){ return p[0] === k; })[0];
+  return m ? m[1] : k;
+}
+/* 그 건물에서 대표가 확인할 항목 수 — 확인필요 칸 + 아직 비어 있는 중요한 칸 */
+function bldTodo(b){
+  var row = (DB.buildings || []).filter(function(x){
+    return String(x.addrKey || '') === String(b.key); })[0];
+  var need = bldNeed(row);
+  var empty = [];
+  if(row){
+    /* 🔴 '비어 있음' 을 문제로 보지 않는다 — 자료가 없어서 빈 것도 있다.
+       다만 건물 운영에 꼭 필요한 칸만 따로 센다. */
+    [['feeOne', '원룸 관리비'], ['park', '주차'], ['pets', '반려'], ['mgmtPhone', '관리실 연락처']]
+      .forEach(function(p){ if(!sq(row[p[0]])) empty.push(p[1]); });
+  }
+  return { need: need, empty: empty, row: row,
+           n: need.length + (row ? 0 : 1) };   /* 건물마스터에 아예 없으면 1로 친다 */
+}
 function bldFormHtml(b){
   if(!BLD_FORM || String(BLD_FORM.addrKey || '') !== String(b.key)) BLD_FORM = bldRow(b);
   var f = BLD_FORM;
@@ -8525,8 +8627,10 @@ function bldFormHtml(b){
   BLD_FIELDS.forEach(function(p){
     var k = p[0], lab = p[1], typ = p[2], hint = p[3];
     var v = esc(String(f[k] == null ? '' : f[k]));
-    h += '<label class="bf-f' + (typ === 'area' ? ' bf-wide' : '') + '">' +
-      '<span class="bf-l">' + esc(lab) + '</span>' +
+    var isNeed = bldNeed(f).indexOf(k) >= 0;   /* 🔴 자동채움이 고른 칸 */
+    h += '<label class="bf-f' + (typ === 'area' ? ' bf-wide' : '') + (isNeed ? ' bf-need' : '') + '">' +
+      '<span class="bf-l">' + esc(lab) +
+        (isNeed ? ' <span class="bf-needb">🔴 확인필요</span>' : '') + '</span>' +
       (typ === 'area'
         ? ('<textarea class="bf-i" rows="2" placeholder="' + esc(hint) + '" ' +
            'oninput="bldFormSet(\'' + k + '\', this.value)">' + v + '</textarea>')
@@ -8562,6 +8666,199 @@ function bldFormHtml(b){
     '한 건만 저장하며 다른 행은 건드리지 않습니다.</span></div>';
   return h;
 }
+function bldTodoBadge(b){
+  var t = bldTodo(b);
+  if(!t.row) return '<span class="pill p-warn" title="건물마스터에 아직 없습니다">미등록</span>';
+  if(t.need.length) return '<span class="pill p-warn">🔴 ' + t.need.length + '</span>';
+  return '<span class="pill p-ok">✓</span>';
+}
+function bldTodoBox(b){
+  var t = bldTodo(b);
+  if(!t.row){
+    return '<div class="note b">이 건물은 <b>건물마스터에 아직 없습니다</b>. ' +
+      '「건물정보」 탭에서 채우고 [저장] 을 누르면 등록됩니다.</div>';
+  }
+  if(!t.need.length && !t.empty.length) return '';
+  var h = '<div class="bld-todo"><b>확인할 항목 ' + (t.need.length + t.empty.length) + '개</b>';
+  if(t.need.length){
+    h += '<div class="bt-l">🔴 <b>값이 갈려서 하나를 고른 칸</b> — 맞는지 봐 주세요: ' +
+      t.need.map(function(k){ return esc(bldNeedLabel(k)); }).join(' · ') + '</div>';
+    var memo = String(t.row.note || '').trim();
+    if(memo) h += '<pre class="bt-memo">' + esc(memo) + '</pre>';
+  }
+  if(t.empty.length){
+    h += '<div class="bt-l">· 아직 비어 있는 칸: ' +
+      t.empty.map(esc).join(' · ') + ' <span style="color:var(--t3)">(자료가 없어 비워 둔 것입니다)</span></div>';
+  }
+  h += '<div class="bt-a"><button class="btn btn-xs" onclick="bldTab(\'건물정보\')">건물정보에서 고치기</button></div>';
+  h += '</div>';
+  return h;
+}
+/* ══ 🚪 호실 입력화면 (2026-09-14) ═══════════════════════════════
+   건물을 고른 상태에서 호실 한 칸을 연다.
+   🔴 건물 공통정보(관리비·주차·반려·옵션)는 **다시 입력받지 않는다.**
+      건물 기본값을 회색으로 보여 주고, 다르면 그때만 [직접입력] 으로 바꾼다.
+   🔴 '상속 / 직접입력' 2상태로 저장한다 — 빈칸=상속 방식을 쓰지 않는다.
+      그래야 "주차 불가" 를 건물 기본값(가능)과 구분해 적을 수 있다.
+   🔴 거래유형·보증금·월세·입주가능일은 **매물관리** 값이다. 여기서는 보여 주기만 한다
+      (이 화면에서 매물장을 고치지 않는다). */
+var UNIT_SEL = '', UNIT_FORM = null, UNIT_SAVING = false, UNIT_MSG = '';
+
+/* [키, 라벨, 건물마스터의 대응 칸] — 상속을 지원하는 예외 칸 */
+var UNIT_INH = [
+  ['fee',     '관리비',  'feeOne'],
+  ['pets',    '반려',    'pets'],
+  ['options', '옵션',    'options']
+];
+var UNIT_PLAIN = [
+  ['ho',        '호실',    'text', '예: 201호'],
+  ['floor',     '층',      'text', ''],
+  ['area',      '전용면적', 'text', '㎡'],
+  ['rooms',     '방',      'text', ''],
+  ['baths',     '욕실',    'text', ''],
+  ['direction', '향',      'text', ''],
+  ['structure', '구조',    'text', '예: 분리형 원룸'],
+  ['note',      '메모',    'area', '이 호실에만 해당하는 것']
+];
+var UNIT_REL = ['', '본사', '위탁', '개인직접'];
+
+function unitRowOf(uid){
+  return (DB.units || []).filter(function(x){ return String(x.id || '') === String(uid); })[0];
+}
+function unitPick(uid){
+  UNIT_SEL = (UNIT_SEL === String(uid) ? '' : String(uid));
+  UNIT_FORM = null; UNIT_MSG = '';
+  route();
+}
+function unitFormSet(k, v){ if(UNIT_FORM) UNIT_FORM[k] = v; }
+function unitModeSet(k, mode){
+  if(!UNIT_FORM) return;
+  UNIT_FORM[k + 'Mode'] = mode;
+  if(mode === '상속') UNIT_FORM[k] = '';      /* 상속이면 그 호실 값은 비운다 */
+  route();
+}
+
+async function unitFormSave(){
+  if(!UNIT_FORM || UNIT_SAVING) return;
+  var f = UNIT_FORM;
+  if(!sq(f.ho)){ alert('호실을 적어 주세요.'); return; }
+  if(!confirm('이 호실을 저장합니다 — ' + (f.id || ''))) return;
+  UNIT_SAVING = true; UNIT_MSG = '저장 중…'; route();
+  try{
+    f.updatedAt = nowStamp();
+    var body = {};
+    ['id','buildingId','ho','hoKey','floor','area','rooms','baths','direction','structure',
+     'parkMode','park','note','updatedAt','dealRel',
+     'feeMode','fee','petsMode','pets','optionsMode','options'].forEach(function(k){
+      if(f[k] !== undefined && f[k] !== null) body[k] = String(f[k]);
+    });
+    await erpUpsert('units', body);        /* 🔴 단건 upsert */
+    var chk = await jgetTry({ action:'getAll', type:'units' });
+    DB.units = chk.data || chk.result || [];
+    var back = unitRowOf(f.id);
+    if(!back){ UNIT_MSG = '🔴 저장했다는데 시트에서 다시 못 찾았습니다 — 확인이 필요합니다'; }
+    else{
+      var diff = [];
+      Object.keys(body).forEach(function(k){
+        if(k === 'updatedAt') return;
+        if(String(back[k] || '') !== String(body[k] || '')) diff.push(k);
+      });
+      UNIT_MSG = diff.length ? ('🔴 시트에 다시 읽어 보니 다른 칸: ' + diff.join(', '))
+                             : '✅ 시트에 저장되고 다시 읽어 확인했습니다';
+      UNIT_FORM = JSON.parse(JSON.stringify(back));
+    }
+  }catch(e){
+    UNIT_MSG = '🔴 저장하지 못했습니다: ' + String((e && e.message) || e).slice(0, 90);
+  }
+  UNIT_SAVING = false; route();
+}
+
+function unitFormHtml(b, uid){
+  var row = unitRowOf(uid);
+  if(!row) return '<div class="note">호실 자료를 찾지 못했습니다 (' + esc(uid) + ')</div>';
+  if(!UNIT_FORM || String(UNIT_FORM.id || '') !== String(uid))
+    UNIT_FORM = JSON.parse(JSON.stringify(row));
+  var f = UNIT_FORM;
+  var bld = (DB.buildings || []).filter(function(x){
+    return String(x.addrKey || '') === String(b.key); })[0] || {};
+  /* 이 호실의 매물(거래 정보) — 있으면 읽기로만 보여 준다 */
+  var li = (DB.listings || []).filter(function(x){ return String(x.unitId || '') === String(uid); })[0];
+
+  var h = '<div class="uf">';
+  h += '<div class="uf-h"><b>' + esc(String(row.ho || uid)) + '</b>' +
+    '<span class="uf-sub">' + esc(String(bld.name || b.nameList.join('/') || '')) + ' · ' + esc(b.key) +
+    ' <span class="mono">' + esc(uid) + '</span></span>' +
+    '<button class="btn btn-xs" onclick="unitPick(\'\')">닫기</button></div>';
+  if(UNIT_MSG) h += '<div class="note' + (UNIT_MSG.indexOf('✅') === 0 ? ' b' : '') + '">' + esc(UNIT_MSG) + '</div>';
+
+  /* ── 호실 고유값 ── */
+  h += '<div class="bf-grid">';
+  UNIT_PLAIN.forEach(function(p){
+    var k = p[0], v = esc(String(f[k] == null ? '' : f[k]));
+    h += '<label class="bf-f' + (p[2] === 'area' ? ' bf-wide' : '') + '">' +
+      '<span class="bf-l">' + esc(p[1]) + '</span>' +
+      (p[2] === 'area'
+        ? ('<textarea class="bf-i" rows="2" placeholder="' + esc(p[3]) + '" oninput="unitFormSet(\'' + k + '\', this.value)">' + v + '</textarea>')
+        : ('<input class="bf-i" value="' + v + '" placeholder="' + esc(p[3]) + '" oninput="unitFormSet(\'' + k + '\', this.value)">')) +
+      '</label>';
+  });
+  /* 매물관계 */
+  h += '<label class="bf-f"><span class="bf-l">매물관계</span><select class="bf-i" onchange="unitFormSet(\'dealRel\', this.value)">';
+  UNIT_REL.forEach(function(x){
+    h += '<option value="' + esc(x) + '"' + (String(f.dealRel || '') === x ? ' selected' : '') + '>' +
+      esc(x || '(고르세요)') + '</option>';
+  });
+  h += '</select></label>';
+  h += '</div>';
+
+  /* ── 🔴 상속 / 직접입력 ── */
+  h += '<div class="uf-inh"><div class="uf-inht">건물에서 물려받는 값 — <b>다를 때만</b> 직접입력으로 바꾸세요</div>';
+  UNIT_INH.forEach(function(p){
+    var k = p[0], lab = p[1], bk = p[2];
+    var mode = String(f[k + 'Mode'] || '') || '상속';   /* 🔴 값이 없으면 '상속' 으로 본다 */
+    var base = String(bld[bk] || '').trim();
+    h += '<div class="uf-r"><span class="uf-rl">' + esc(lab) + '</span>' +
+      '<span class="uf-seg">' +
+        '<button class="uf-b' + (mode === '상속' ? ' on' : '') + '" onclick="unitModeSet(\'' + k + '\', \'상속\')">상속</button>' +
+        '<button class="uf-b' + (mode === '직접입력' ? ' on' : '') + '" onclick="unitModeSet(\'' + k + '\', \'직접입력\')">직접입력</button>' +
+      '</span>';
+    if(mode === '상속'){
+      h += '<span class="uf-base">건물 기본값 <b>' + esc(base || '(건물에도 비어 있음)') + '</b> <span class="uf-tag">상속중</span></span>';
+    }else{
+      h += '<input class="bf-i uf-i" value="' + esc(String(f[k] == null ? '' : f[k])) +
+        '" placeholder="이 호실 값" oninput="unitFormSet(\'' + k + '\', this.value)">' +
+        '<span class="uf-base">건물 기본값 ' + esc(base || '(없음)') + '</span>';
+    }
+    h += '</div>';
+  });
+  h += '</div>';
+
+  /* ── 거래 정보 (매물관리 것 — 읽기만) ── */
+  h += '<div class="uf-deal"><div class="uf-inht">거래 정보 — <b>매물장</b> 값입니다. 여기서는 고치지 않습니다</div>';
+  if(li){
+    var m = bldMoney(li);
+    h += '<div class="uf-dl">' +
+      '<span>거래유형 <b>' + esc(String(li.type || '-')) + '</b></span>' +
+      '<span>보증금 <b>' + esc(m.p) + '</b></span>' +
+      '<span>월세 <b>' + esc(m.r) + '</b></span>' +
+      '<span>입주가능 <b>' + esc(String(li.availDate || '-')) + '</b></span>' +
+      '<span>상태 <b>' + esc(String(li.status || '-')) + '</b></span>' +
+      '<span>사진 <b>' + esc(bldPhoto(li).t) + '</b></span>' +
+      '</div>';
+    h += '<div class="uf-dl2">연락담당 <b>' + esc(String(li.cname || '(없음)')) + '</b>' +
+      (sq(li.cphone) ? ' <span class="mono">' + esc(phMask(String(li.cphone))) + '</span>' : '') +
+      ' <span style="color:var(--t3)">· 매물번호 ' + esc(String(li.id || '')) + '</span></div>';
+  }else{
+    h += '<div class="uf-dl2">이 호실에 연결된 매물이 없습니다 — 지금은 거래 중이 아닙니다.</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="bf-act"><button class="btn pri" onclick="unitFormSave()"' + (UNIT_SAVING ? ' disabled' : '') + '>' +
+    (UNIT_SAVING ? '저장 중…' : '저장') + '</button>' +
+    '<span class="bf-note">호실마스터 한 줄만 저장합니다. 저장 뒤 시트를 다시 읽어 확인합니다.</span></div>';
+  h += '</div>';
+  return h;
+}
 function bldPanel(b){
   var h = '<div class="card" id="bld-panel"><div class="h1row">' +
     '<h1 style="font-size:16px">' + esc(b.nameList.join(' / ') || '(건물명 없음)') +
@@ -8583,6 +8880,7 @@ function bldPanel(b){
     return String(x.addr2 || '').localeCompare(String(y.addr2 || ''));
   });
 
+  h += bldTodoBox(b);       /* 🔴 건물을 열면 확인할 것이 가장 먼저 보인다 */
   if(BLD_TAB === '건물정보'){
     h += bldFormHtml(b);
   }else if(BLD_TAB === '현재공실'){
@@ -8596,9 +8894,12 @@ function bldPanel(b){
     h += live.length ? bldUnitRows(live)
       : '<div class="empty">지금 거래 가능한(접수) 호실이 없습니다.</div>';
   }else if(BLD_TAB === '전체호실'){
-    h += '<div class="note">이 건물의 매물관리 행 <b>' + all.length + '</b>개입니다. ' +
-      '호실번호 오름차순으로 정렬했습니다.</div>';
-    h += bldUnitRows(all);
+    var um = (DB.units || []).filter(function(u){
+      return String(u.buildingId || '') === String((bldRow(b) || {}).id || ''); });
+    h += '<div class="note">이 건물의 매물관리 행 <b>' + all.length + '</b>개 · ' +
+      '호실마스터에 등록된 호실 <b>' + um.length + '</b>개입니다. 호실을 누르면 아래에서 고칠 수 있습니다.</div>';
+    h += bldUnitRows(all, true);
+    if(UNIT_SEL) h += unitFormHtml(b, UNIT_SEL);
   }else{
     h += '<div class="soonbox"><b>준비 중입니다</b>' +
       '<div>「' + esc(BLD_TAB) + '」 는 아직 붙이지 않았습니다. ' +
@@ -8607,9 +8908,199 @@ function bldPanel(b){
   h += '</div>';
   return h;
 }
+/* ══ 🔍 통합검색 — 건물·주소·지번·호실·이름·전화번호 (2026-09-14) ══
+   기존 viewSearch 가 매물·고객·임대인을 찾는다. 여기에 **건물·호실·사람** 을 더한다.
+   🔴 전화번호는 화면에 그대로 찍지 않는다(phMask). */
+function mstSearch(q){
+  var t = sq(q); if(!t) return { b:[], u:[], p:[] };
+  /* 🔴 검색 때문에 마스터를 새로 읽지 않는다 — 이미 읽어 둔 것에서만 찾는다.
+     (검색창에 글자를 칠 때마다 GAS 를 부르면 화면이 멈춘다) */
+  var d = t.replace(/[^0-9]/g, '');
+  function hit(v){ return sq(v).indexOf(t) >= 0; }
+  var b = (DB.buildings || []).filter(function(x){
+    return hit(x.name) || hit(x.addrKey) || hit(x.addr) || hit(x.jibun) || hit(x.roadAddr);
+  }).slice(0, 20);
+  var u = (DB.units || []).filter(function(x){
+    if(hit(x.ho) || hit(x.id)) return true;
+    if(d && String(x.hoKey || '').indexOf(d) >= 0) return true;
+    return false;
+  }).slice(0, 20);
+  var p = (DB.persons || []).filter(function(x){
+    if(hit(x.name)) return true;
+    if(d.length >= 4 && String(x.phoneKey || '').indexOf(d.slice(-8)) >= 0) return true;
+    if(d.length >= 4 && re(x.phone).indexOf(d) >= 0) return true;
+    return false;
+  }).slice(0, 20);
+  return { b:b, u:u, p:p };
+  function re(v){ return String(v || '').replace(/[^0-9]/g, ''); }
+}
+function mstSearchHtml(q){
+  var r = mstSearch(q);
+  if(!r.b.length && !r.u.length && !r.p.length) return '';
+  var h = '<div class="card"><div class="h1row"><h1 style="font-size:15px">건물 · 호실 · 사람</h1>' +
+    '<span class="cnt">건물 ' + r.b.length + ' · 호실 ' + r.u.length + ' · 사람 ' + r.p.length + '</span></div>';
+  if(r.b.length){
+    h += '<div class="ms-g"><div class="ms-t">건물</div>';
+    r.b.forEach(function(x){
+      h += '<button class="ms-i" onclick="go(\'data\',\'bldg\');bldPick(\'' +
+        String(x.addrKey).replace(/'/g, "\\'") + '\')">' +
+        '<b>' + esc(String(x.name || '(이름없음)')) + '</b> <span class="mono">' + esc(String(x.addrKey || '')) + '</span>' +
+        (bldNeed(x).length ? ' <span class="pill p-warn">🔴 ' + bldNeed(x).length + '</span>' : '') +
+        '</button>';
+    });
+    h += '</div>';
+  }
+  if(r.u.length){
+    h += '<div class="ms-g"><div class="ms-t">호실</div>';
+    r.u.forEach(function(x){
+      var bd = (DB.buildings || []).filter(function(y){ return String(y.id) === String(x.buildingId); })[0] || {};
+      h += '<button class="ms-i" onclick="go(\'data\',\'bldg\');bldPick(\'' +
+        String(bd.addrKey || '').replace(/'/g, "\\'") + '\');bldTab(\'전체호실\');unitPick(\'' +
+        String(x.id) + '\')">' +
+        '<b>' + esc(String(x.ho || '')) + '</b> ' + esc(String(bd.name || '')) +
+        ' <span class="mono">' + esc(String(x.id)) + '</span></button>';
+    });
+    h += '</div>';
+  }
+  if(r.p.length){
+    h += '<div class="ms-g"><div class="ms-t">사람</div>';
+    r.p.forEach(function(x){
+      h += '<button class="ms-i" onclick="go(\'data\',\'person\');perPick(\'' + String(x.id) + '\')">' +
+        '<b>' + esc(String(x.name || '(이름없음)')) + '</b> <span class="mono">' +
+        esc(phMask(String(x.phone || ''))) + '</span></button>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+/* ══ 👤 사람 패널 (2026-09-14) ══════════════════════════════════
+   연결건물 / 연결호실 / 역할 / 상담이력 / 계약이력 / 다음연락
+   🔴 계약은 지금 0행이라 "없다" 고 적는다 — 있는 척하지 않는다. */
+var PER_SEL = '', PER_TAB = '연결호실';
+var PER_TABS = ['연결건물', '연결호실', '역할', '상담이력', '계약이력', '다음연락'];
+function perPick(pid){ PER_SEL = (PER_SEL === String(pid) ? '' : String(pid)); route(); }
+function perTab(t){ PER_TAB = String(t); route(); }
+function perLinks(pid){
+  return (DB.roleLinks || []).filter(function(x){ return String(x.personId || '') === String(pid); });
+}
+function viewPerson(){
+  var head = crumb() + '<div class="h1row"><h1>사람</h1>';
+  if(DB.err) return head + '</div>' + keyBox();
+  if(DB.persons === null || DB.roleLinks === null || DB.units === null || DB.buildings === null){
+    loadMasters();
+    if(DB.persons === null) return head + '</div>' + mstWait('사람 자료');
+  }
+  if(DB.persons === null)
+    return head + '</div><div class="card"><div class="soonbox"><b>사람마스터를 아직 못 읽었습니다</b>' +
+      '<div>0명이 아니라 <b>모르는 것</b>입니다.</div></div></div>';
+  var ps = DB.persons || [];
+  var h = head + '<span class="cnt">사람 <b>' + ps.length + '</b>명 · 역할연결 <b>' +
+    ((DB.roleLinks || []).length) + '</b>건</span></div>';
+  h += '<div class="note">지금은 <b>매물장에 연락처가 적힌 분</b>만 등록돼 있습니다. ' +
+    '임대인 명부 4,075명 전체는 아직 옮기지 않았습니다(대표님 지시).</div>';
+  if(!ps.length) return h + '<div class="card"><div class="empty">아직 등록된 사람이 없습니다.</div></div>';
+  h += '<div class="card"><div class="tblwrap"><table><thead><tr>' +
+    '<th>이름</th><th>연락처</th><th class="num">연결</th><th>출처</th><th>연락상태</th>' +
+    '</tr></thead><tbody>';
+  ps.forEach(function(x){
+    var n = perLinks(x.id).length;
+    h += '<tr class="bld-row' + (PER_SEL === String(x.id) ? ' on' : '') +
+      '" style="cursor:pointer" onclick="perPick(\'' + String(x.id) + '\')">' +
+      '<td><b>' + esc(String(x.name || '(이름없음)')) + '</b> <span class="mono" style="color:var(--t3)">' +
+        esc(String(x.id)) + '</span></td>' +
+      '<td class="mono">' + esc(phMask(String(x.phone || ''))) + '</td>' +
+      '<td class="num">' + n + '</td>' +
+      '<td>' + esc(String(x.source || '')) + '</td>' +
+      '<td>' + esc(String(x.contactStatus || '-')) + '</td></tr>';
+  });
+  h += '</tbody></table></div></div>';
+  var sel = ps.filter(function(x){ return String(x.id) === PER_SEL; })[0];
+  if(sel) h += perPanel(sel);
+  return h;
+}
+function perPanel(p){
+  var h = '<div class="card" id="per-panel"><div class="h1row">' +
+    '<h1 style="font-size:16px">' + esc(String(p.name || '(이름없음)')) + '</h1>' +
+    '<button class="btn btn-xs" onclick="perPick(\'\')">닫기</button></div>';
+  h += '<div class="tabs">';
+  PER_TABS.forEach(function(t){
+    h += '<button class="tb' + (t === PER_TAB ? ' on' : '') + '" onclick="perTab(\'' + t + '\')">' + esc(t) + '</button>';
+  });
+  h += '</div>';
+  var lk = perLinks(p.id);
+  var uids = lk.filter(function(x){ return String(x.scope) === 'unit'; })
+               .map(function(x){ return String(x.targetId); });
+  if(PER_TAB === '연결호실'){
+    if(!uids.length) h += '<div class="empty">연결된 호실이 없습니다.</div>';
+    else{
+      h += '<div class="tblwrap"><table><thead><tr><th>호실</th><th>건물</th><th>역할</th><th>근거</th></tr></thead><tbody>';
+      uids.forEach(function(uid){
+        var u = (DB.units || []).filter(function(x){ return String(x.id) === uid; })[0] || {};
+        var b = (DB.buildings || []).filter(function(x){ return String(x.id) === String(u.buildingId); })[0] || {};
+        var L = lk.filter(function(x){ return String(x.targetId) === uid; })[0] || {};
+        h += '<tr><td><b>' + esc(String(u.ho || uid)) + '</b></td><td>' + esc(String(b.name || '')) +
+          '</td><td>' + esc(String(L.role || '')) + '</td><td style="font-size:12px;color:var(--t3)">' +
+          esc(String(L.roleEvidence || '')) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+  }else if(PER_TAB === '연결건물'){
+    var bids = {};
+    uids.forEach(function(uid){
+      var u = (DB.units || []).filter(function(x){ return String(x.id) === uid; })[0];
+      if(u) bids[String(u.buildingId)] = 1;
+    });
+    lk.filter(function(x){ return String(x.scope) === 'building'; })
+      .forEach(function(x){ bids[String(x.targetId)] = 1; });
+    var ks = Object.keys(bids);
+    if(!ks.length) h += '<div class="empty">연결된 건물이 없습니다.</div>';
+    else{
+      h += '<div class="tblwrap"><table><thead><tr><th>건물</th><th>주소</th><th class="num">이 사람 호실</th></tr></thead><tbody>';
+      ks.forEach(function(bid){
+        var b = (DB.buildings || []).filter(function(x){ return String(x.id) === bid; })[0] || {};
+        var n = uids.filter(function(uid){
+          var u = (DB.units || []).filter(function(x){ return String(x.id) === uid; })[0];
+          return u && String(u.buildingId) === bid; }).length;
+        h += '<tr><td><b>' + esc(String(b.name || bid)) + '</b></td><td class="mono">' +
+          esc(String(b.addrKey || '')) + '</td><td class="num">' + n + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+  }else if(PER_TAB === '역할'){
+    if(!lk.length) h += '<div class="empty">역할이 아직 없습니다.</div>';
+    else{
+      h += '<div class="tblwrap"><table><thead><tr><th>역할</th><th>대상</th><th>근거</th><th>상태</th></tr></thead><tbody>';
+      lk.forEach(function(x){
+        h += '<tr><td><b>' + esc(String(x.role || '')) + '</b></td><td class="mono">' +
+          esc(String(x.scope) + ' ' + String(x.targetId)) + '</td><td style="font-size:12px">' +
+          esc(String(x.roleEvidence || '')) + '</td><td>' + esc(String(x.status || '')) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+      h += '<div class="note">🔴 역할은 <b>근거가 있는 것만</b> 적습니다. ' +
+        '매물장에 적힌 연락처를 소유자로 단정하지 않습니다.</div>';
+    }
+  }else if(PER_TAB === '계약이력'){
+    h += '<div class="note b">계약은 지금 <b>0건</b>입니다. 계약이 쌓이면 여기에 보입니다 — ' +
+      '없는 계약을 만들어 보여 주지 않습니다.</div>';
+  }else if(PER_TAB === '상담이력'){
+    h += '<div class="soonbox"><b>준비 중입니다</b><div>인입함·통화 기록을 이 사람에게 묶는 일이 남아 있습니다. ' +
+      '가짜 이력을 만들지 않으려고 비워 둡니다.</div></div>';
+  }else{
+    h += '<div class="soonbox"><b>준비 중입니다</b><div>다음 연락일은 아직 이 표에 넣지 않았습니다.</div></div>';
+  }
+  h += '</div>';
+  return h;
+}
 function viewBldg(){
   var head = crumb() + '<div class="h1row"><h1>건물·대장</h1>';
   if(DB.err) return head + '</div>' + keyBox();
+  /* 🔴 이 화면에 필요한 것만 그때 읽는다(첫 화면 속도에 영향 0) */
+  if(DB.buildings === null || DB.units === null){
+    loadMasters(['buildings', 'units']);
+    if(DB.listings === null) return head + '</div>' + mstWait('건물·호실 자료');
+  }
   /* 🔴 못 읽음(null)과 진짜 0건을 구분한다 */
   if(DB.listings === null)
     return head + '</div>' +
@@ -8633,7 +9124,7 @@ function viewBldg(){
 
   h += '<div class="card"><div class="tblwrap"><table><thead><tr>' +
        '<th>건물명</th><th>읍면동 · 지번</th><th class="num">호실</th>' +
-       '<th class="num">거래가능</th><th>상태 내역</th></tr></thead><tbody>';
+       '<th class="num">거래가능</th><th>상태 내역</th><th>확인</th></tr></thead><tbody>';
   gs.forEach(function(b){
     /* 건물명이 여러 개면 그대로 나열한다(합치거나 고르지 않는다) */
     var nm = b.nameList.length ? b.nameList.join(' / ') : '(건물명 없음)';
@@ -8654,6 +9145,7 @@ function viewBldg(){
       '<td class="num"><b>' + b.units + '</b></td>' +
       '<td class="num">' + (b.live ? '<b class="hot">' + b.live + '</b>' : '<span style="color:var(--t3)">0</span>') + '</td>' +
       '<td style="font-size:12.5px;color:var(--t2)">' + esc(stTxt) + '</td>' +
+      '<td>' + bldTodoBadge(b) + '</td>' +
       '</tr>';
   });
   h += '</tbody></table></div></div>';
@@ -8907,7 +9399,7 @@ function vacRecalc(){
 
 function route(){
   var m = document.getElementById('main');
-  if(SEARCH){ m.innerHTML = viewSearch(SEARCH); bindBar(); return; }
+  if(SEARCH){ m.innerHTML = mstSearchHtml(SEARCH) + viewSearch(SEARCH); bindBar(); return; }
   if(DB.loading && !DB.inbox){ m.innerHTML = crumb() + '<div class="card"><div class="empty">불러오는 중…</div></div>'; return; }
   if(CUR.m2 === 'today') m.innerHTML = viewToday();
   else if(CUR.m2 === 'inbox') m.innerHTML = viewInbox();
@@ -8919,6 +9411,7 @@ function route(){
   else if(CUR.m2 === 'auto') m.innerHTML = viewAuto();
   else if(CUR.m2 === 'stat') m.innerHTML = viewData();
   else if(CUR.m2 === 'bldg') m.innerHTML = viewBldg();   /* 🏢 건물·대장 2026-09-13 */
+  else if(CUR.m2 === 'person') m.innerHTML = viewPerson();  /* 👤 사람 2026-09-14 */
   else if(CUR.m2 === 'gw') m.innerHTML = viewGroup();
   else if(CUR.m2 === 'academy') m.innerHTML = viewAcademy();
   else if(CUR.m2 === 'mkt') m.innerHTML = viewMkt();
