@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.19.0';
+var ERP_VER = '1.20.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -1327,6 +1327,153 @@ function keyBox(){
 }
 
 /* ── 오늘업무 ── */
+/* ══ 5단계 2026-09-14 — 오늘 할 일 4칸 ══════════════════════════
+   첫 화면 맨 위에 네 가지만 둔다. 숫자를 누르면 그 목록으로 간다.
+   🔴 "새 공실" 은 **허락받은 것만** 센다 — 후보는 따로 센다. ══ */
+function todayFour(){
+  var out = { call:[], vac:[], need:[], apv:[], cand:[] };
+  var today = todayStr();
+  /* ① 오늘 연락할 고객 — 다음 연락일이 오늘이거나 지난 것 */
+  (DB.customers || []).forEach(function(c){
+    var d = String(c.nextAction || '').slice(0, 10);
+    if(!d) return;
+    if(String(c.progressStatus || '') === '종료') return;
+    if(d <= today) out.call.push(c);
+  });
+  /* ② 새 공실 — 🔴 허락받은 수집 + 오늘 접수된 매물 */
+  (COL_ROWS || []).forEach(function(r){
+    if(colState(r.id).code === '허락') out.vac.push(r);
+  });
+  (DB.listings || []).forEach(function(o){
+    if(String(o.status || '') !== '접수') return;
+    if(String(o.recvDate || '').slice(0, 10) === today) out.vac.push(o);
+  });
+  /* 후보(아직 허락 안 받은 것) — 따로 센다 */
+  (COL_ROWS || []).forEach(function(r){
+    var st = colState(r.id);
+    if(st.code !== '허락' && st.code !== '거절') out.cand.push(r);
+  });
+  /* ③ 확인필요 — 인입 미처리 + 광고 못 올리는 것 */
+  (DB.inbox || []).forEach(function(r){
+    if(!r.reg && inbRecent(r, 7) && inbTabOf(r) !== '광고·스팸') out.need.push(r);
+  });
+  /* ④ 승인대기 — 결재함 '요청' */
+  ((typeof APV_ROWS !== 'undefined' && APV_ROWS) || []).forEach(function(a){
+    if(String(a.status || '요청') === '요청') out.apv.push(a);
+  });
+  return out;
+}
+function todayFourHtml(){
+  if(COL_ROWS === null && DB.ready) colLoad();
+  if(APV_ROWS === null && DB.ready) adApvLoad();
+  var f = todayFour();
+  function box(label, n, why, onclick, tone){
+    return '<div class="kpi ' + (tone || '') + '"' +
+      (onclick ? (' onclick="' + onclick + '" style="cursor:pointer"') : '') + '>' +
+      '<div class="kl">' + esc(label) + '</div>' +
+      '<div class="kv">' + (n === null ? '?' : n) + '</div>' +
+      '<div style="font-size:11px;color:var(--t3);margin-top:2px">' + esc(why) + '</div></div>';
+  }
+  return '<div class="card" style="margin:0 0 14px"><div class="sbody" style="padding:13px 15px">' +
+    '<h4 style="margin:0 0 9px;font-size:15px">오늘 할 일</h4>' +
+    '<div class="kpis">' +
+      box('오늘 연락할 고객', (DB.customers === null ? null : f.call.length),
+          '다음 연락일이 오늘까지', "go('crm','cust')", f.call.length ? 'w' : '') +
+      box('새 공실', (COL_ROWS === null ? null : f.vac.length),
+          '허락받은 것 + 오늘 접수', "COL_TAB='신규후보';go('data','collect')", f.vac.length ? 'g' : '') +
+      box('확인필요', (DB.inbox === null ? null : f.need.length),
+          '최근 7일 미처리 인입', "INB_TAB='매물문의';go('crm','inbox')", f.need.length ? 'b' : '') +
+      box('승인대기', (APV_ROWS === null ? null : f.apv.length),
+          '결재함에서 기다리는 것', "go('ops','base')", f.apv.length ? 'w' : '') +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--t3);margin-top:8px">' +
+    '🔴 <b>새 공실</b> 은 허락받은 것만 셉니다. 아직 확인 안 한 <b>후보 ' +
+    (COL_ROWS === null ? '?' : f.cand.length) + '건</b> 은 수집매물 화면에 있습니다.</div>' +
+    '</div></div>';
+}
+
+/* ══ 7단계 2026-09-14 — 호실 상태 전환 ══════════════════════════
+   [접수 → 광고중 → 상담중 → 임대중]
+   🔴 자동 전환 금지. 누르고 확인해야 바뀐다.
+   🔴 바꾼 것은 변경이력에 남는다(GAS logChange 가 upsert 때 남긴다). ══ */
+var ST_FLOW = ['접수', '광고중', '상담중', '임대중'];
+var ST_BUSY = false;
+function stNext(cur){
+  var i = ST_FLOW.indexOf(String(cur || ''));
+  return (i >= 0 && i < ST_FLOW.length - 1) ? ST_FLOW[i + 1] : '';
+}
+function stPrev(cur){
+  var i = ST_FLOW.indexOf(String(cur || ''));
+  return (i > 0) ? ST_FLOW[i - 1] : '';
+}
+function stBarHtml(o){
+  if(!o) return '';
+  var cur = String(o.status || '');
+  var h = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px">' +
+    '<b>상태</b> ' +
+    ST_FLOW.map(function(s){
+      var on = (s === cur);
+      return '<span class="pill' + (on ? ' p-good' : '') + '"' +
+        (on ? '' : ' style="opacity:.45"') + '>' + esc(s) + '</span>';
+    }).join(' → ');
+  var nx = stNext(cur), pv = stPrev(cur);
+  if(nx) h += ' <button class="btn sm pri" onclick="stSet(&#39;' + esc(String(o.id)) +
+    '&#39;,&#39;' + esc(nx) + '&#39;)">' + esc(nx) + ' 로</button>';
+  if(pv) h += ' <button class="btn sm" onclick="stSet(&#39;' + esc(String(o.id)) +
+    '&#39;,&#39;' + esc(pv) + '&#39;)">' + esc(pv) + ' 로 되돌리기</button>';
+  if(ST_FLOW.indexOf(cur) < 0)
+    h += ' <span style="color:var(--t3)">(' + esc(cur || '상태 없음') + ' — 이 흐름 밖입니다)</span>';
+  h += '</div>';
+  return h;
+}
+async function stSet(id, to){
+  var nl = String.fromCharCode(10);
+  if(ST_BUSY){ alert('저장 중입니다'); return; }
+  var o = (DB.listings || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  if(!o){ alert('매물을 찾지 못했습니다.'); return; }
+  if(ST_FLOW.indexOf(String(to)) < 0){ alert('그 상태로는 바꾸지 않습니다.'); return; }
+  /* 🔴 계약완료는 이 버튼으로 만들지 않는다 — 계약은 따로 등록한다 */
+  var from = String(o.status || '');
+  var warn = '';
+  if(to === '임대중') warn = '🔴 임대중으로 바꾸면 광고 대상에서 빠집니다. 광고가 올라가 있으면 먼저 내려 주세요.';
+  if(!confirm(['매물 상태를 바꿉니다 — 이대로 할까요?', '',
+    '매물   ' + o.id + '  ' + (o.apt || '') + ' ' + (o.addr2 || ''),
+    '상태   ' + (from || '(없음)') + '  →  ' + to,
+    warn ? ('' + nl + warn) : '',
+    '', '🔴 이 버튼은 계약완료로 바꾸지 않습니다. 문자도 나가지 않습니다.',
+    '🔴 바꾼 기록은 변경이력에 남습니다.'].filter(function(x){ return x !== ''; }).join(nl))) return;
+
+  ST_BUSY = true;
+  try{
+    /* 저장 직전에 다시 읽어 그 사이 바뀌었는지 본다 */
+    var g = await jget({ action:'getAll', type:'listings' });
+    var fresh = (g.data || g.result || []).map(adsRestore);
+    var cur = fresh.filter(function(x){ return String(x.id) === String(id); })[0];
+    if(!cur){ ST_BUSY = false; alert('매물을 찾지 못했습니다 — 바꾸지 않았습니다.'); return; }
+    if(String(cur.status || '') !== from){
+      ST_BUSY = false;
+      alert('그 사이 상태가 ' + from + ' → ' + (cur.status || '') + ' 로 바뀌었습니다.' + nl +
+            '화면을 새로 읽고 다시 하세요.');
+      return;
+    }
+    var obj = JSON.parse(JSON.stringify(cur));
+    obj.status = String(to);
+    obj.updatedAt = new Date().toISOString();
+    adsFlatten(obj); delete obj.ads; delete obj.adsOff;
+    await erpUpsert('listings', obj);
+    var g2 = await jget({ action:'getAll', type:'listings' });
+    DB.listings = (g2.data || g2.result || []).map(adsRestore);
+    var now = (DB.listings || []).filter(function(x){ return String(x.id) === String(id); })[0];
+    ST_BUSY = false;
+    route();
+    alert([(now && String(now.status) === String(to)) ? '바꿨습니다 ✓'
+           : '🔴 다시 읽었더니 그대로입니다 — 확인이 필요합니다', '',
+      o.id + ' · ' + (from || '(없음)') + ' → ' + (now ? now.status : to)].join(nl));
+  }catch(e){
+    ST_BUSY = false; route();
+    alert('바꾸지 못했습니다 — 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
 function viewToday(){
   /* 🆕 2026-09-14 — 새 경로(건물마스터·호실마스터·사람마스터)가 쓰일 화면이다.
      🔴 첫 적재가 **끝난 뒤에만** 읽는다 — 같이 읽으면 첫 화면이 다시 느려진다.
@@ -1354,6 +1501,7 @@ function viewToday(){
       ? ('<br><span style="color:var(--bad);font-size:12px">🔴 ' +
          esc(homeMissing().join('·')) + ' 자료를 아직 못 읽었습니다 — <b>0건이 아니라 모르는 것</b>입니다</span>')
       : '') + '</span></div>' +
+  todayFourHtml() +
   homeLoadBox() +
   phIdxBox('촬영 필요') +
   briefCard() + boardCard() +
@@ -4853,7 +5001,11 @@ function viewAd(){
         '<td><span class="pill">' + esc(x.status) + '</span></td>' +
         '<td><div style="font-size:12.5px">' + esc(x.one) + '</div>' +
           (x.warn.length ? ('<div style="font-size:11.5px;color:var(--t3);margin-top:3px">' +
-             esc(x.warn.join(' · ')) + '</div>') : '') + '</td>' +
+             esc(x.warn.join(' · ')) + '</div>') : '') +
+          /* 🆕 7단계 — 상태 전환 */
+          '<div style="margin-top:6px">' + stBarHtml(
+            (DB.listings || []).filter(function(o){ return String(o.id) === x.id; })[0]) + '</div>' +
+          '</td>' +
         '<td>' +
           (st === '승인' ? '<span class="pill p-good">승인됨</span>'
            : st === '요청' ? '<span class="pill p-warn">결재 대기</span>'
@@ -6705,6 +6857,15 @@ function cuSpecs(c){
   if(cuNum(c.budget)) n++;
   return n;
 }
+/* 매물 주소에서 동·읍·면·리를 뽑는다 (2026-09-14 — 지역을 동 단위로 맞추려고) */
+function cuDongOf(l){
+  var a = String((l && l.addr) || '');
+  var out = '';
+  a.replace(/[(),]/g, ' ').split(/\s+/).forEach(function(t){
+    if(/^[가-힣]{1,6}(동|읍|면|리)$/.test(t)) out = t;
+  });
+  return out;
+}
 function cuMatch(c){
   var wantType = String(c.type||'').trim();
   var wantKind = String(c.propType||'').trim();
@@ -6725,28 +6886,93 @@ function cuMatch(c){
     if(!cuIsBiz(wantKind) && cuIsBiz(l.kind)) return null;
     /* 종류를 적었으면 그 종류만 — '원룸'은 '오픈형 원룸'에 들어가므로 통과한다 */
     if(wantKind && String(l.kind||'').indexOf(wantKind) < 0) return null;
-    /* ④ 지역을 적었으면 그 지역만 */
+    /* ④ 지역 — 🔴 2026-09-14: **동 단위로 정확히** 맞춰야 한다.
+       종전에는 주소 글자에 들어 있기만 하면 통과라, '연동' 을 찾는 고객에게
+       '연동로' 같은 다른 동 매물이 섞일 수 있었다. */
     if(regions.length){
-      var addr = String(l.addr||'') + ' ' + String(l.apt||'') + ' ' + String(l.addr2||'');
-      var hit = regions.some(function(r){ return addr.indexOf(r) >= 0; });
+      var lDong = cuDongOf(l);
+      var hit = regions.some(function(r){
+        var rd = String(r).replace(/\s+/g, '');
+        if(!rd) return false;
+        if(lDong && (lDong === rd || lDong === rd + '동' || lDong + '동' === rd)) return true;
+        /* 동을 못 읽었을 때만 옛 방식(글자 들어 있나)으로 봐 준다 */
+        if(!lDong){
+          var addr = String(l.addr||'') + ' ' + String(l.apt||'') + ' ' + String(l.addr2||'');
+          return addr.indexOf(rd) >= 0;
+        }
+        return false;
+      });
       if(!hit) return null;
     }
 
-    /* ── 점수: 🔴 고객이 적은 조건만 분모에 넣는다 ── */
+    /* ── 점수 (2026-09-14 개편) ────────────────────────────────
+       🔴 거래유형·종류·지역은 **필터로만** 쓴다. 점수에 넣지 않는다.
+          여기까지 온 매물은 그 셋을 이미 만족한다 — 점수에 넣으면 전부 만점이라
+          변별력이 0이 된다(알려진 결함이었다).
+       🔴 점수는 **얼마나 가까운가**로만 매긴다: 예산 40 · 면적 25 · 층 15 · 입주일 20.
+       🔴 고객이 안 적은 것은 분모에도 넣지 않는다(안 적었다고 감점하지 않는다). */
     var got = 0, max = 0, why = [];
-    if(wantType){ max += 30; got += 30; why.push('거래유형 ' + wantType); }
-    if(wantKind){ max += 20; got += 20; why.push('종류 ' + wantKind); }
-    if(regions.length){ max += 25; got += 25; why.push('지역 맞음'); }
+    var cost = cuCost(l);
     if(budget){
+      max += 40;
+      if(!cost){ got += 8; why.push('🔴 가격이 비어 있어 예산을 못 봅니다'); }
+      else if(cost <= budget * 0.9){ got += 40; why.push('예산보다 쌈'); }
+      else if(cost <= budget){ got += 36; why.push('예산 안'); }
+      else if(cost <= budget * 1.1){ got += 22; why.push('예산보다 조금 비쌈(10% 안)'); }
+      else if(cost <= budget * 1.2){ got += 10; why.push('예산보다 비쌈(20% 안)'); }
+      else return null;                    /* 20% 넘게 비싸면 제안하지 않는다 */
+    }
+    var wantArea = cuNum(c.areaSize);
+    if(wantArea){
       max += 25;
-      var cost = cuCost(l);
-      if(!cost){ got += 6; why.push('🔴 가격이 비어 있어 예산을 못 봅니다'); }
-      else if(cost <= budget){ got += 25; why.push('예산 안'); }
-      else if(cost <= budget * 1.2){ got += 12; why.push('예산보다 조금 비쌈'); }
-      else return null;                    /* ② 20% 넘게 비싸면 제안하지 않는다 */
+      var ar = parseFloat(String(l.area || '').replace(/[^0-9.]/g, '')) || 0;
+      if(!ar){ got += 5; why.push('🔴 면적이 비어 있습니다'); }
+      else {
+        var gap = Math.abs(ar - wantArea) / wantArea;
+        if(gap <= 0.05){ got += 25; why.push('면적 딱 맞음'); }
+        else if(gap <= 0.15){ got += 18; why.push('면적 비슷함'); }
+        else if(gap <= 0.3){ got += 8; why.push('면적 차이 있음'); }
+        else why.push('면적이 많이 다름');
+      }
+    }
+    var wantFloor = cuNum(c.conFloor);
+    if(wantFloor){
+      max += 15;
+      var fl = parseInt(String(l.floor || '').replace(/[^0-9]/g, ''), 10) || 0;
+      if(!fl){ got += 3; why.push('🔴 층이 비어 있습니다'); }
+      else {
+        var fg = Math.abs(fl - wantFloor);
+        if(fg === 0){ got += 15; why.push('원하는 층'); }
+        else if(fg <= 2){ got += 10; why.push('층이 가까움'); }
+        else if(fg <= 5){ got += 5; why.push('층 차이 있음'); }
+        else why.push('층이 많이 다름');
+      }
+    }
+    var wantIn = String(c.conMoveIn || '').slice(0, 10);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(wantIn)){
+      max += 20;
+      var av = String(l.availDate || '').slice(0, 10);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(av)){ got += 4; why.push('🔴 입주가능일이 비어 있습니다'); }
+      else {
+        var dd = Math.round((new Date(av + 'T00:00:00') - new Date(wantIn + 'T00:00:00')) / 86400000);
+        if(dd <= 0){ got += 20; why.push('바로 입주 가능'); }
+        else if(dd <= 14){ got += 15; why.push('2주 안 입주'); }
+        else if(dd <= 30){ got += 9; why.push('한 달 안 입주'); }
+        else why.push('입주가 늦음(' + dd + '일)');
+      }
+    }
+    /* 🔴 점수를 매길 근거가 하나도 없으면 점수를 만들지 않는다 — "예산 없음" 으로 둔다 */
+    if(max === 0){
+      return { l:l, pct: null, noScore: true,
+               why: ['예산 없음 — 점수를 매길 조건이 없어 최신순으로 보여 드립니다'] };
     }
     return { l:l, pct: Math.round(got * 100 / max), why: why };
   }).filter(Boolean).sort(function(a, b){
+    /* 🔴 점수가 없는 것끼리는 **최신순** */
+    if(a.pct === null && b.pct === null)
+      return String(b.l.recvDate || '').localeCompare(String(a.l.recvDate || ''));
+    if(a.pct === null) return 1;
+    if(b.pct === null) return -1;
     if(b.pct !== a.pct) return b.pct - a.pct;
     return cuCost(a.l) - cuCost(b.l);       /* 같은 점수면 싼 것 먼저 */
   });
