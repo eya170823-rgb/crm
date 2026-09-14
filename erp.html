@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.18.1';
+var ERP_VER = '1.19.0';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -307,7 +307,7 @@ var MENU = [
   ['ad','광고·마케팅',[['admgr','광고관리',1],['mkt','마케팅',1],['adstat','광고 성과',0]]],
   ['deal','계약·정산',[['contract','계약',1],['settle','수납·정산',1],['doc','공부·서류',0]]],
   ['group','그룹웨어',[['gw','업무·결재',1],['academy','아카데미',1],['board','공지',0]]],
-  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',0],['bldg','건물·대장',1],['person','사람',1]]],
+  ['data','데이터센터',[['stat','현황·품질',1],['collect','수집매물',1],['bldg','건물·대장',1],['person','사람',1]]],
   ['admin','관리부',[['base','기본관리',1],['auto','자동화관리',1],['staff','직원·권한',1],['log','변경이력',0]]]
 ];
 var CUR = { m1:'today', m2:'today' };
@@ -3387,6 +3387,412 @@ async function vacNewBldg(row){
     alert('결재함에 올렸습니다 ✓' + nl + nl + '🔴 건물마스터는 아직 바뀌지 않았습니다.');
     await adApvLoad(true); route();
   }catch(e){ alert('올리지 못했습니다: ' + String(e && e.message || e)); }
+}
+/* ══ 3단계 2026-09-14 — 크롤링 연결 (수집매물 → 공실확인 → 허락 → 매물장) ══
+   🔴 크롤링은 **후보**다. 대표님이 연락해 **허락받은 것만** 매물장에 들어간다.
+   🔴 허락 전에는 [매물로 접수] 버튼이 아예 없다.
+   🔴 문자는 자동으로 나가지 않는다.
+   🔴 수집매물 원본은 읽기만 한다 — 고치지 않는다.
+   🔴 새 저장소를 만들지 않는다: 확인상태는 **기존 결재함(approvals)** 에 둔다. ══ */
+var COL_ROWS = null;            /* 수집매물 — 이 화면을 열 때만 읽는다 */
+var COL_ERR = '';
+var COL_TAB = '신규후보';
+var COL_TABS = ['신규후보', '우리매물 겹침', '타사매물', '확인필요'];
+var COL_DAYS = 30;
+var COL_OPEN = '';
+var COL_BUSY = false;
+var COL_LOADING = false;
+var COL_SMS = null;             /* 문자 초안 */
+
+async function colLoad(force){
+  if(COL_LOADING) return;
+  if(COL_ROWS && !force) return;
+  COL_LOADING = true; COL_ERR = '';
+  try{
+    var j = await jgetTry({ action:'gatherList', limit:3000 }, 0, true);
+    COL_ROWS = j.data || j.result || [];
+  }catch(e){
+    COL_ROWS = null;
+    COL_ERR = '수집매물을 읽지 못했습니다: ' + String(e && e.message || e);
+  }
+  COL_LOADING = false;
+  try{ route(); }catch(e2){}
+}
+function colRecent(r){
+  var t = String((r && r.seenAt) || '').slice(0, 10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(t)) return true;
+  var d = new Date(t + 'T00:00:00');
+  if(isNaN(d.getTime())) return true;
+  return (Date.now() - d.getTime()) <= COL_DAYS * 86400000;
+}
+/* 수집 한 건 판정 — 🔴 기존 matchBuildingMaster·matchUnitMaster 를 그대로 쓴다 */
+function colJudge(r){
+  var out = { code:'확인필요', why:'', bm:null, unitId:'', listing:null, changes:[] };
+  if(String(r.writer || '') === '중개'){
+    out.code = '타사매물';
+    out.why = '중개업소가 올린 글입니다 — 우리가 등록할 매물이 아닙니다';
+    return out;
+  }
+  var fake = { text: [r.apt, r.addr, r.kind].filter(Boolean).join(' '),
+               name:'', bld:'', phone:String(r.phone || '') };
+  out.bm = matchBuildingMaster(fake, {});
+  if(!out.bm){
+    out.code = '신규후보';
+    out.why = '우리 건물마스터에 없는 건물입니다';
+    return out;
+  }
+  var ho = vacHo(String(r.apt || '') + ' ' + String(r.addr || ''));
+  if(ho){
+    var mu = matchUnitMaster(out.bm.id, ho + '호');
+    if(mu){
+      out.unitId = mu.unitId;
+      out.listing = (mu.listings || [])[0] || null;
+    }
+  }
+  if(out.listing){
+    var chg = [];
+    var dep = String(r.deposit || '').replace(/[^0-9]/g, '');
+    var rn = String(r.rent || '').replace(/[^0-9]/g, '');
+    if(dep && String(out.listing.price || '') !== dep)
+      chg.push('보증금 ' + (out.listing.price || '(없음)') + ' → ' + dep);
+    if(rn && String(out.listing.rentAmt || '') !== rn)
+      chg.push('월세 ' + (out.listing.rentAmt || '(없음)') + ' → ' + rn);
+    out.changes = chg;
+    out.code = '우리매물 겹침';
+    out.why = chg.length ? ('우리 매물 ' + out.listing.id + ' 과 값이 다릅니다: ' + chg.join(' · '))
+                         : ('우리 매물 ' + out.listing.id + ' 과 같습니다');
+    return out;
+  }
+  out.code = '신규후보';
+  out.why = '건물은 있고(' + out.bm.name + ') 그 호실 매물은 없습니다' +
+            (out.unitId ? (' — 호실은 대장에 있습니다(' + out.unitId + ')') : '');
+  return out;
+}
+/* 확인상태 — 🔴 결재함에서 읽는다(새 저장소를 만들지 않는다) */
+function colState(id){
+  var a = ((typeof APV_ROWS !== 'undefined' && APV_ROWS) || []).filter(function(x){
+    return String(x.kind) === '공실확인' && String(x.targetType) === 'collect' &&
+           String(x.targetId) === String(id); })[0];
+  if(!a) return { code:'', label:'확인 전', at:'' };
+  var st = String(a.status || '요청');
+  if(st === '승인') return { code:'허락', label:'허락', at:String(a.decidedAt || ''), a:a };
+  if(st === '반려') return { code:'거절', label:'거절', at:String(a.decidedAt || ''), a:a };
+  return { code:'문자발송', label:'문자 보냄', at:String(a.requestedAt || ''), a:a };
+}
+function colRows(tab){
+  var rows = (COL_ROWS || []).filter(colRecent);
+  rows = rows.filter(function(r){ return !String(r.dup || '').trim(); });   /* 중복은 뺀다 */
+  if(tab) rows = rows.filter(function(r){ return colJudge(r).code === tab; });
+  if(UI.qq){
+    var q = UI.qq.toLowerCase();
+    rows = rows.filter(function(r){
+      return [r.apt, r.addr, r.dong, r.nick, r.phone].join(' ').toLowerCase().indexOf(q) >= 0; });
+  }
+  rows.sort(function(a, b){ return String(b.seenAt || '').localeCompare(String(a.seenAt || '')); });
+  return rows;
+}
+function colCount(tab){ return colRows(tab).length; }
+function colFind(id){
+  return (COL_ROWS || []).filter(function(r){ return String(r.id) === String(id); })[0] || null;
+}
+function colOpen(id){
+  COL_OPEN = (String(COL_OPEN) === String(id)) ? '' : String(id);
+  COL_SMS = null; route();
+}
+function colMoney(r){
+  var d = String(r.deposit || '').replace(/[^0-9]/g, '');
+  var rn = String(r.rent || '').replace(/[^0-9]/g, '');
+  if(String(r.trade || '') === '매매') return (r.price ? (Math.round(r.price / 1) + '만') : '');
+  return (d || '?') + '/' + (rn || '?');
+}
+
+/* ── [공실확인 문자] — 초안만 만든다. 🔴 보내지 않는다 ── */
+function colSmsDraft(id){
+  var r = colFind(id);
+  if(!r){ alert('그 줄을 찾지 못했습니다.'); return; }
+  if(!String(r.phone || '').trim()){
+    alert('이 글에는 연락처가 없습니다 — 문자를 만들 수 없습니다.'); return; }
+  var nl = String.fromCharCode(10);
+  var where = [String(r.dong || ''), String(r.apt || '')].filter(Boolean).join(' ');
+  /* 문구 규칙은 기존 공실확인 문자와 같은 뜻으로 — 짧고, 광고가 아니고, 거절하기 쉽게 */
+  COL_SMS = { id:String(id), phone:String(r.phone || ''),
+    text: ['안녕하세요, 브리즈부동산중개입니다.',
+           where + ' 매물 글 보고 연락드립니다.',
+           '아직 거래 가능하시면 저희가 손님께 안내드려도 될까요?',
+           '원치 않으시면 회신 주시면 더 연락드리지 않겠습니다.'].join(nl) };
+  route();
+}
+/* 🔴 실제 발송 — 대표님이 눌러야만 나간다 */
+async function colSmsSend(){
+  var nl = String.fromCharCode(10);
+  if(COL_BUSY){ alert('처리 중입니다'); return; }
+  if(!COL_SMS) return;
+  var r = colFind(COL_SMS.id);
+  if(!r) return;
+  if(!confirm(['🔴 문자를 **실제로 보냅니다.**', '',
+    '받는 사람 ' + phMask(COL_SMS.phone),
+    '', COL_SMS.text, '',
+    '보낸 뒤에는 되돌릴 수 없습니다. 보낼까요?'].join(nl))) return;
+  COL_BUSY = true;
+  try{
+    /* 기존 발송 경로를 그대로 쓴다 — 새 통로를 만들지 않는다 */
+    await erpPost({ action:'smsSend', phone:String(COL_SMS.phone), text:String(COL_SMS.text) });
+    /* 보낸 사실을 결재함에 남긴다(확인상태 = 문자발송) */
+    await erpPost({ action:'approvalAdd', kind:'공실확인', targetType:'collect',
+      targetId:String(COL_SMS.id), dept:'운영',
+      title:'공실확인 — ' + String(r.dong || '') + ' ' + String(r.apt || '') + ' (' + r.src + ')',
+      note:'문자 보냄 ' + todayStr() + ' · ' + phMask(COL_SMS.phone) + nl +
+           '허락을 받으면 [허락받음] 을 눌러 주세요. 그때만 매물장에 들어갑니다.' });
+    await adApvLoad(true);
+    COL_BUSY = false; COL_SMS = null; route();
+    alert('보냈습니다 ✓' + nl + nl + '허락을 받으시면 [허락받음] 을 눌러 주세요.');
+  }catch(e){
+    COL_BUSY = false; route();
+    alert('보내지 못했습니다: ' + String(e && e.message || e));
+  }
+}
+/* [허락받음] / [거절] / [무시] — 🔴 상태만 바꾼다. 매물장은 아직 그대로 */
+async function colMark(id, what){
+  var nl = String.fromCharCode(10);
+  if(COL_BUSY){ alert('처리 중입니다'); return; }
+  var r = colFind(id);
+  if(!r) return;
+  var st = colState(id);
+  var msg = { '허락':'임대인에게 **허락을 받았다**고 표시합니다.' + nl +
+                     '그때부터 [매물로 접수] 를 쓸 수 있습니다.',
+              '거절':'거절로 표시합니다 — 다시 올라오지 않습니다.',
+              '무시':'스팸·중복으로 표시합니다.' }[what] || '';
+  if(!confirm([msg, '', String(r.dong || '') + ' ' + String(r.apt || ''), '',
+    '🔴 매물장은 아직 바뀌지 않습니다.'].join(nl))) return;
+  COL_BUSY = true;
+  try{
+    if(!st.a){
+      /* 문자를 안 보냈어도 상태를 남길 수 있게 결재 건을 먼저 만든다 */
+      var add = await erpPost({ action:'approvalAdd', kind:'공실확인', targetType:'collect',
+        targetId:String(id), dept:'운영',
+        title:'공실확인 — ' + String(r.dong || '') + ' ' + String(r.apt || '') + ' (' + r.src + ')',
+        note:'문자 없이 ' + what + ' 로 표시' });
+      await adApvLoad(true);
+      st = colState(id);
+    }
+    if(st.a){
+      await erpPost({ action:'approvalDecide', id:String(st.a.id),
+        status:(what === '허락' ? '승인' : '반려'),
+        reason:(what === '허락' ? '임대인 허락 확인' : (what + ' 로 표시')) });
+      await adApvLoad(true);
+    }
+    COL_BUSY = false; route();
+    alert(what + ' 로 표시했습니다 ✓' +
+      (what === '허락' ? (nl + nl + '이제 [매물로 접수] 를 쓸 수 있습니다.') : ''));
+  }catch(e){
+    COL_BUSY = false; route();
+    alert('표시하지 못했습니다: ' + String(e && e.message || e));
+  }
+}
+/* 🔴 [매물로 접수] — **허락받은 것만**. 허락 전에는 버튼이 아예 없다. */
+async function colToListing(id){
+  var nl = String.fromCharCode(10);
+  if(COL_BUSY){ alert('처리 중입니다'); return; }
+  var r = colFind(id);
+  if(!r){ alert('그 줄을 찾지 못했습니다.'); return; }
+  var st = colState(id);
+  if(st.code !== '허락'){
+    alert('🔴 허락받은 것만 매물장에 넣을 수 있습니다.' + nl +
+          '지금 상태: ' + st.label); return; }
+  if(String(r.writer || '') === '중개'){
+    alert('🔴 중개업소 글입니다 — 등록하지 않습니다.'); return; }
+  var j = colJudge(r);
+  if(!j.bm){ alert('건물을 못 찾았습니다 — 건물부터 확인해야 합니다.'); return; }
+  var ho = vacHo(String(r.apt || '') + ' ' + String(r.addr || ''));
+  if(!ho){ alert('호실을 읽지 못했습니다 — 수집 글에 호실이 없습니다.'); return; }
+  if(VAC_LOCK.indexOf(ho) >= 0){ alert('🔴 ' + ho + '호는 저장하지 않기로 한 호실입니다.'); return; }
+  if(!j.unitId && VAC_NO_NEW.indexOf(ho) >= 0){
+    alert('🔴 ' + ho + '호는 새로 만들지 않기로 한 호실입니다.'); return; }
+
+  var uid = j.unitId || (j.bm.id + '-' + uHoKey(ho + '호'));
+  var dep = String(r.deposit || '').replace(/[^0-9]/g, '');
+  var rn = String(r.rent || '').replace(/[^0-9]/g, '');
+  if(!confirm(['허락받은 매물을 매물장에 넣습니다 — 이대로 할까요?', '',
+    '건물   ' + j.bm.name, '호실   ' + ho + '호  (' + uid + ')',
+    '값     ' + (dep || '(비움)') + '/' + (rn || '(비움)'),
+    '출처   수집매물 ' + r.src + ' ' + r.id + ' · 허락 ' + (st.at || todayStr()),
+    '', '🔴 접수 상태로만 넣습니다. 문자는 나가지 않습니다.'].join(nl))) return;
+
+  COL_BUSY = true;
+  try{
+    var g = await jget({ action:'getAll', type:'listings' });
+    var fresh = (g.data || g.result || []).map(adsRestore);
+    if(!j.unitId){
+      await erpUpsert('units', {
+        id: uid, buildingId: j.bm.id, ho: ho + '호', hoKey: uHoKey(ho + '호'),
+        floor: String(r.floor || ''), area: String(r.area || ''),
+        rooms: '', baths: '', direction: '', structure: '',
+        note: '수집매물 ' + r.src + ' ' + r.id + ' 에서 접수(허락 받음)',
+        updatedAt: new Date().toISOString()
+      });
+    }
+    var obj = {
+      id: vacNewId(fresh), apt: String(j.bm.name || ''), addr: String(j.bm.addr || ''),
+      addr2: ho + '호', status: '접수', type: String(r.trade || '월세'),
+      price: dep, rentAmt: rn, area: String(r.area || ''), floor: String(r.floor || ''),
+      kind: String(r.kind || ''), unitId: uid, recvDate: todayStr(),
+      note: ['[수집매물 ' + r.src + ' ' + r.id + ']',
+             '허락 ' + (st.at || todayStr()) + ' — 임대인 확인 뒤 접수',
+             String(r.url || ''),
+             '작성 ' + String(r.writer || '') + ' ' + String(r.nick || '')].filter(Boolean).join(nl).slice(0, 1000),
+      updatedAt: new Date().toISOString()
+    };
+    await erpUpsert('listings', obj);
+    /* 연락처 → 사람마스터에 있으면 '접수연락처' 로만 */
+    var pr = personByPhone(r.phone);
+    if(pr && !pr.many){
+      var lid = 'L-' + String(pr.id).replace('P-', '') + '-' + uHoKey(ho + '호') + '-접수';
+      var has = (DB.roleLinks || []).some(function(x){ return String(x.id) === lid; });
+      if(!has){
+        await erpUpsert('roleLinks', {
+          id: lid, personId: String(pr.id), scope: 'unit', targetId: uid,
+          role: '접수연락처', since: todayStr(), until: '',
+          evidence: '수집매물 ' + r.src + ' ' + r.id, note: '수집 글의 연락처 — 소유자로 확인된 것이 아닙니다',
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+    var g2 = await jget({ action:'getAll', type:'listings' });
+    DB.listings = (g2.data || g2.result || []).map(adsRestore);
+    DB.units = null; DB.roleLinks = null;
+    await loadMasters(['units', 'roleLinks']);
+    var now = (DB.listings || []).filter(function(x){ return String(x.id) === String(obj.id); })[0];
+    COL_BUSY = false; COL_OPEN = ''; route();
+    alert([now ? '매물장에 넣었습니다 ✓' : '🔴 다시 읽었더니 안 보입니다 — 확인이 필요합니다', '',
+      obj.id + ' · ' + obj.apt + ' ' + obj.addr2, '호실 ' + uid].join(nl));
+  }catch(e){
+    COL_BUSY = false; route();
+    alert('넣지 못했습니다 — 자료는 그대로입니다.' + nl + String(e && e.message || e));
+  }
+}
+/* 3-6 답장 — 그 번호로 온 인입이 있으면 알린다. 🔴 자동으로 허락 처리하지 않는다 */
+function colReply(r){
+  if(!r || !String(r.phone || '').trim()) return null;
+  var st = colState(r.id);
+  if(!st.at) return null;
+  var since = String(st.at).slice(0, 10);
+  var hit = (DB.inbox || []).filter(function(x){
+    if(!phHas(x.phone, r.phone)) return false;
+    return String(x.when || '').slice(0, 10) >= since;
+  });
+  return hit.length ? { n:hit.length, last:hit[0] } : null;
+}
+/* ══ 3단계 화면 — 데이터센터 > 수집매물 ══ */
+function viewCollect(){
+  var head = crumb() + '<div class="h1row"><h1>수집매물</h1>';
+  if(COL_ROWS === null && !COL_ERR){ colLoad(); }
+  if(COL_ERR) return head + '</div>' + loadErrBox(COL_ERR, '수집매물', 'COL_ROWS=null;COL_ERR=&#39;&#39;;colLoad(true)');
+  if(COL_ROWS === null)
+    return head + '</div><div class="card"><div class="soonbox"><b>수집매물을 읽고 있습니다…</b>' +
+      '<div>0건이 아니라 <b>아직 읽는 중</b>입니다.</div></div></div>';
+  if(APV_ROWS === null) adApvLoad();
+
+  var all = colRows('');
+  var h = head + '<span class="cnt">최근 ' + COL_DAYS + '일 <b>' + all.length + '</b>건 (중복 제외)</span></div>';
+  h += '<div class="note b">🔴 수집은 <b>후보</b>입니다. 대표님이 연락해 <b>허락받은 것만</b> 매물장에 들어갑니다. ' +
+       '허락 전에는 [매물로 접수] 단추가 아예 나오지 않습니다. 문자도 누르셔야 나갑니다.</div>';
+  h += '<div class="kpis">' +
+    COL_TABS.map(function(t){
+      return kpi(t, colCount(t), (COL_TAB === t ? 'b' : ''),
+        "COL_TAB='" + t + "';COL_OPEN='';route()");
+    }).join('') + '</div>';
+
+  var rows = colRows(COL_TAB);
+  h += '<div class="card"><div class="sbody" style="padding:12px 14px">' +
+    '<h4 style="margin:0 0 8px;font-size:15px">' + esc(COL_TAB) + ' ' + rows.length + '건</h4>';
+  if(!rows.length){
+    h += '<div class="empty" style="padding:18px">최근 ' + COL_DAYS + '일 안에 ' + esc(COL_TAB) +
+         ' 가 없습니다. <b>0건이 아니라 이 기간에 없는 것</b>입니다.</div>';
+  } else {
+    h += '<div class="tblwrap"><table><colgroup><col style="width:92px"><col style="width:62px">' +
+      '<col><col style="width:74px"><col style="width:92px"><col style="width:108px">' +
+      '<col style="width:96px"><col style="width:70px"></colgroup>' +
+      '<thead><tr><th>수집일</th><th>채널</th><th>건물</th><th>호실</th><th>값</th>' +
+      '<th>연락처</th><th>확인상태</th><th></th></tr></thead><tbody>';
+    rows.slice(0, 200).forEach(function(r){
+      var j = colJudge(r), st = colState(r.id), open = String(COL_OPEN) === String(r.id);
+      var ho = vacHo(String(r.apt || '') + ' ' + String(r.addr || ''));
+      h += '<tr>' +
+        '<td class="mono">' + esc(String(r.seenAt || '').slice(0, 10)) + '</td>' +
+        '<td>' + esc(String(r.src || '')) + '</td>' +
+        '<td><span class="ell">' + esc([r.dong, r.apt].filter(Boolean).join(' ')) + '</span></td>' +
+        '<td>' + esc(ho ? (ho + '호') : '-') + '</td>' +
+        '<td class="mono">' + esc(colMoney(r)) + '</td>' +
+        '<td class="mono">' + esc(r.phone ? phMask(r.phone) : '-') + '</td>' +
+        '<td><span class="pill ' +
+          (st.code === '허락' ? 'p-good' : (st.code === '거절' ? 'p-bad' : (st.code ? 'p-warn' : ''))) +
+          '">' + esc(st.label) + '</span></td>' +
+        '<td><button class="btn sm" onclick="colOpen(&#39;' + esc(String(r.id)) + '&#39;)">' +
+          (open ? '닫기' : '열기') + '</button></td></tr>';
+      if(open) h += '<tr><td colspan="8" style="padding:0 0 10px">' + colPanel(r, j, st) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    if(rows.length > 200) h += '<div style="font-size:12px;color:var(--t3);margin-top:6px">🔴 ' +
+      rows.length + '건 중 200건만 보여 줍니다.</div>';
+  }
+  h += '</div></div>';
+  return h;
+}
+function colPanel(r, j, st){
+  var h = '<div class="card" style="margin:0 0 10px;border-color:var(--pri)">' +
+    '<div class="sbody" style="padding:12px 14px">';
+  h += '<div style="font-size:12.5px"><b>판정</b> <span class="pill">' + esc(j.code) + '</span> ' +
+       esc(j.why) + '</div>';
+  h += '<div style="margin-top:8px;font-size:12.5px">' +
+    '<b>수집 원문</b><br>' +
+    '채널 ' + esc(String(r.src || '')) + ' · 종류 ' + esc(String(r.kind || '')) +
+    ' · 거래 ' + esc(String(r.trade || '')) + ' · 값 ' + esc(colMoney(r)) +
+    '<br>주소 ' + esc(String(r.addr || '')) +
+    '<br>작성 ' + esc(String(r.writer || '')) + ' ' + esc(String(r.nick || '')) +
+    (r.url ? ('<br><a href="' + esc(String(r.url)) + '" target="_blank" rel="noopener">원글 열기</a>') : '') +
+    '</div>';
+  if(j.listing){
+    h += '<div style="margin-top:8px;font-size:12.5px;background:var(--bg2);padding:9px 11px;border-radius:6px">' +
+      '<b>우리 매물과 비교</b> ' + esc(String(j.listing.id)) + ' · ' +
+      esc(String(j.listing.price || '-')) + '/' + esc(String(j.listing.rentAmt || '-')) +
+      (j.changes.length ? ('<br>🔴 ' + esc(j.changes.join(' · '))) : '<br>값이 같습니다') + '</div>';
+  }
+  var rep = colReply(r);
+  if(rep) h += '<div class="note b" style="margin-top:8px">📩 <b>답장이 왔습니다</b> — ' +
+    '이 번호로 문자 보낸 뒤 인입 ' + rep.n + '건. ' +
+    '🔴 자동으로 허락 처리하지 않습니다. 읽어 보시고 [허락받음] 을 눌러 주세요.</div>';
+  /* 버튼 */
+  h += '<div style="margin-top:12px">';
+  if(!String(r.phone || '').trim()){
+    h += '<span style="font-size:12px;color:var(--t3)">연락처가 없어 문자를 만들 수 없습니다. </span>';
+  } else {
+    h += '<button class="btn sm" onclick="colSmsDraft(&#39;' + esc(String(r.id)) +
+         '&#39;)">공실확인 문자</button> ';
+  }
+  h += '<button class="btn sm" onclick="colMark(&#39;' + esc(String(r.id)) + '&#39;,&#39;허락&#39;)">허락받음</button> ' +
+       '<button class="btn sm" onclick="colMark(&#39;' + esc(String(r.id)) + '&#39;,&#39;거절&#39;)">거절</button> ' +
+       '<button class="btn sm" onclick="colMark(&#39;' + esc(String(r.id)) + '&#39;,&#39;무시&#39;)">무시</button>';
+  /* 🔴 허락받은 것만 이 단추가 나온다 */
+  if(st.code === '허락' && String(r.writer || '') !== '중개'){
+    h += ' <button class="btn sm pri" onclick="colToListing(&#39;' + esc(String(r.id)) +
+         '&#39;)">매물로 접수</button>';
+  }
+  h += '</div>';
+  if(COL_SMS && String(COL_SMS.id) === String(r.id)){
+    h += '<div class="card" style="margin:12px 0 0;border-color:var(--warn)">' +
+      '<div class="sbody" style="padding:12px 14px">' +
+      '<h4 style="margin:0 0 6px;font-size:14px">문자 초안 — 🔴 아직 보내지 않았습니다</h4>' +
+      '<div style="white-space:pre-wrap;font-size:13px;background:var(--bg2);padding:10px;border-radius:6px">' +
+      esc(COL_SMS.text) + '</div>' +
+      '<div style="margin-top:8px;font-size:12px;color:var(--t3)">받는 사람 ' +
+      esc(phMask(COL_SMS.phone)) + '</div>' +
+      '<div style="margin-top:10px">' +
+      '<button class="btn sm pri" onclick="colSmsSend()">이대로 보내기</button> ' +
+      '<button class="btn sm" onclick="COL_SMS=null;route()">취소</button></div>' +
+      '</div></div>';
+  }
+  h += '</div></div>';
+  return h;
 }
 function viewInbox(){
   if(DB.err) return crumb() + '<div class="h1row"><h1>통합 인입함</h1></div>' + keyBox();
@@ -10590,6 +10996,7 @@ function route(){
   else if(CUR.m2 === 'base') m.innerHTML = viewAdmin();
   else if(CUR.m2 === 'auto') m.innerHTML = viewAuto();
   else if(CUR.m2 === 'stat') m.innerHTML = viewData();
+  else if(CUR.m2 === 'collect') m.innerHTML = viewCollect();   /* 🆕 3단계 수집매물 */
   else if(CUR.m2 === 'bldg') m.innerHTML = viewBldg();   /* 🏢 건물·대장 2026-09-13 */
   else if(CUR.m2 === 'person') m.innerHTML = viewPerson();  /* 👤 사람 2026-09-14 */
   else if(CUR.m2 === 'gw') m.innerHTML = viewGroup();
