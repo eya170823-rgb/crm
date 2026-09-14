@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.20.0';
+var ERP_VER = '1.20.1';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -6866,6 +6866,14 @@ function cuDongOf(l){
   });
   return out;
 }
+/* 적은 지역이 동·읍·면·리 단위인가 (2026-09-14) */
+function cuRegionDong(rd){
+  return /(동|읍|면|리)$/.test(String(rd || ''));
+}
+/* '서귀포시' → '서귀포' 처럼 넓은 단위 꼬리를 뗀다 (2026-09-14) */
+function cuRegionWide(rd){
+  return String(rd || '').replace(/(특별자치도|특별시|광역시|시|군|구|도)$/, '');
+}
 function cuMatch(c){
   var wantType = String(c.type||'').trim();
   var wantKind = String(c.propType||'').trim();
@@ -6891,16 +6899,20 @@ function cuMatch(c){
        '연동로' 같은 다른 동 매물이 섞일 수 있었다. */
     if(regions.length){
       var lDong = cuDongOf(l);
+      var lAddr = String(l.addr||'') + ' ' + String(l.apt||'') + ' ' + String(l.addr2||'');
       var hit = regions.some(function(r){
         var rd = String(r).replace(/\s+/g, '');
         if(!rd) return false;
-        if(lDong && (lDong === rd || lDong === rd + '동' || lDong + '동' === rd)) return true;
-        /* 동을 못 읽었을 때만 옛 방식(글자 들어 있나)으로 봐 준다 */
-        if(!lDong){
-          var addr = String(l.addr||'') + ' ' + String(l.apt||'') + ' ' + String(l.addr2||'');
-          return addr.indexOf(rd) >= 0;
+        /* 🔴 2026-09-14 고침 — 적은 지역이 **동 단위인지 넓은 단위인지**를 먼저 가른다.
+           1.20.0 은 전부 동으로만 맞춰서 '서귀포시'·'제주시' 를 적은 고객이
+           추천 0건이 됐다(검산 day2 C4-fix2 실측). */
+        if(cuRegionDong(rd)){
+          if(lDong) return (lDong === rd || lDong === rd + '동' || lDong + '동' === rd);
+          return lAddr.indexOf(rd) >= 0;   /* 동을 못 읽은 매물만 글자로 봐 준다 */
         }
-        return false;
+        /* 시·군·구·도 단위 — 주소에 그 이름이 들어 있으면 맞다 */
+        var wide = cuRegionWide(rd);
+        return lAddr.indexOf(rd) >= 0 || (wide.length >= 2 && lAddr.indexOf(wide) >= 0);
       });
       if(!hit) return null;
     }
