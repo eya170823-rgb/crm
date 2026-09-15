@@ -272,7 +272,7 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
    데이터는 전부 기존 CRM 시트/GAS 를 그대로 읽는다(action=inboxList · getAll).
    🔴 이 화면은 아직 아무것도 저장하지 않는다(쓰기 0).
    ═══════════════════════════════════════════════════════════════════ */
-var ERP_VER = '1.27.0';
+var ERP_VER = '1.27.1';
 var ERP_BUILD = '2026-09-12 18:14';
 var REPO = 'eya170823-rgb/crm';
 
@@ -940,7 +940,9 @@ function bldgTokens(s){
   var t = String(s||'');
   var out = { name:'', jibun:'', dong:'' };
   var j = t.match(/(\d{1,5}-\d{1,4})/); if(j) out.jibun = j[1];
-  var d = t.match(/([가-힣]{2,6}(동|리))/); if(d) out.dong = d[1];
+  /* 🔴 2026-09-15 (지시 1-1) — 연동(연+동)·도련1동 처럼 **두 글자 동·숫자 낀 동**을 못 읽었다.
+     첫 자는 한글, 그 뒤는 한글·숫자로 통일한다(server.py JIBUN_RE 와 같은 잣대). */
+  var d = t.match(/([가-힣][가-힣0-9]{0,7}(동|리))/); if(d) out.dong = d[1];
   var n = t.replace(/[^가-힣A-Za-z0-9]/g,'');
   out.name = n;
   return out;
@@ -8041,7 +8043,7 @@ function colAddrKeyish(addr){
   var t = String(addr || '');
   var dong = '', jib = '';
   t.replace(/[(),]/g, ' ').split(/\s+/).forEach(function(x){
-    if(/^[가-힣]{1,6}(동|읍|면|리)$/.test(x)) dong = x;
+    if(/^[가-힣][가-힣0-9]{0,7}(동|읍|면|리)$/.test(x)) dong = x;   /* 🔴 1-1 숫자 낀 동 */
     if(/^\d+(-\d+)?$/.test(x)) jib = x;
   });
   return (dong + ' ' + jib).trim();
@@ -8754,7 +8756,7 @@ function cuDongOf(l){
   var a = String((l && l.addr) || '');
   var out = '';
   a.replace(/[(),]/g, ' ').split(/\s+/).forEach(function(t){
-    if(/^[가-힣]{1,6}(동|읍|면|리)$/.test(t)) out = t;
+    if(/^[가-힣][가-힣0-9]{0,7}(동|읍|면|리)$/.test(t)) out = t;   /* 🔴 1-1 숫자 낀 동 */
   });
   return out;
 }
@@ -8991,7 +8993,8 @@ function inqRegionSet(){
   if(INQ_REG && INQ_REG.nS === nS && INQ_REG.nL === nL) return INQ_REG.list;
   var m = {};
   function eat(v){
-    var d = String(v || '').match(/[가-힣]{2,6}(?:동|리|읍|면)/g);
+    /* 🔴 1-1 — {2,6} 이라 '연동'(연+동)·'도련1동' 이 지역 목록에서 빠져 있었다 */
+    var d = String(v || '').match(/[가-힣][가-힣0-9]{0,5}(?:동|리|읍|면)/g);
     if(d) d.forEach(function(x){ m[x] = 1; });
   }
   (DB.listings || []).forEach(function(l){ eat(l.addr); });
