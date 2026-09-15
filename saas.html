@@ -633,7 +633,9 @@ table td,table th{font-size:12.5px}
 #listing-cards button[onclick^="priceCheckOpen"],
 #listing-cards button[onclick^="deleteListing"]{display:none!important}
 /* 🗺 매물별 [지도] 는 되살린다 (2026-09-09 대표: "매물 옆에 지도로 보기 추가") */
-#listing-cards button[onclick*="showListingMap"]{display:inline-block!important}
+/* 🔴 2026-09-15 ERP-LISTING-UI-02 — [지도로 보기] 를 매물장에서 뺀다.
+   2026-09-09 에 대표 지시로 되살렸던 단추다. 되돌리려면 none 을 inline-block 으로. */
+#listing-cards button[onclick*="showListingMap"]{display:none!important}
 /* 🧹 매물장 카드 2차 정리 (2026-09-09 대표: "아직까지 복잡함")
    자리를 가장 많이 먹던 5단계 진행바와, 옆 배지와 겹치는 수명주기를 감춘다.
    진행 단계는 [수정] 창에서 그대로 볼 수 있다. */
@@ -866,6 +868,137 @@ body{padding-bottom:46px}
 @media(max-width:768px){.kpi-row{grid-template-columns:repeat(2,1fr)}.fl-grid{grid-template-columns:1fr}.sx-btn{display:none}}
 @media(max-width:520px){.mine-grid{grid-template-columns:1fr}}
 </style>
+<style>
+/* ═══ 🧭 ERP-UI-CONSOLIDATE-01 — 4영역 구조 (2026-09-15) ══════════════════
+   🔴 기존 규칙을 고치지 않는다. **새 규칙만 더한다.**
+      .sx-rail 은 왼쪽 세로였던 것을 .bz-rail-top 이 붙었을 때만 가로로 바꾼다.
+      원래 규칙은 그대로 있어서, 클래스만 떼면 예전 모습으로 돌아간다. */
+
+/* ── 대분류를 상단 가로로 ── */
+.sx-rail.bz-rail-top {
+  flex-direction: row;
+  gap: 2px;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  align-items: center;
+}
+.sx-rail.bz-rail-top .sx-rail-b {
+  flex-direction: row;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  min-width: auto;
+}
+.sx-rail.bz-rail-top .sx-rail-b i,
+.sx-rail.bz-rail-top .sx-rail-b svg { width: 17px; height: 17px; }
+.sx-rail.bz-rail-top .sx-rail-b span { font-size: 12.5px; }
+.sx-rail.bz-rail-top .sx-rail-b.on { background: rgba(255, 255, 255, .16); color: #fff; }
+
+/* ── 오른쪽 공통도구 ── */
+.bz-tools {
+  position: fixed;
+  right: 0;
+  top: var(--shell-h, 52px);
+  bottom: 0;
+  width: 62px;
+  background: #fff;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  z-index: 90;
+  transition: width .15s;
+}
+.bz-tools.off { width: 22px; }
+.bz-tools.off .bz-tool { display: none; }
+.bz-tool {
+  width: 54px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 7px 2px;
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: var(--t2);
+}
+.bz-tool:hover { background: #F1F5F9; color: var(--navy); }
+.bz-tool i { font-style: normal; font-size: 16px; line-height: 1; }
+.bz-tool span { font-size: 10px; }
+.bz-fold {
+  width: 20px;
+  height: 26px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--t3);
+  font-size: 14px;
+  align-self: flex-start;
+  margin-left: 1px;
+}
+.bz-flyout {
+  position: absolute;
+  right: 64px;
+  top: 6px;
+  width: 340px;
+  max-width: 78vw;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .13);
+  padding: 11px 13px 13px;
+  display: none;
+}
+.bz-flyout.on { display: block; }
+.bz-fly-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.bz-fly-h button { background: none; border: 0; cursor: pointer; color: var(--t3); font-size: 13px; }
+/* 옮겨 온 검색칸이 좁은 자리에서도 제대로 보이게 */
+#bz-search-slot .sx-search { width: 100%; max-width: none; margin: 0; }
+#bz-search-slot .sx-search input { width: 100%; }
+#bz-search-slot .sx-res { position: static; width: 100%; margin-top: 6px; max-height: 46vh; overflow-y: auto; }
+
+/* 중앙 업무영역이 오른쪽 패널에 가리지 않게 */
+.main { padding-right: 78px; }
+.bz-tools.off ~ .layout .main { padding-right: 38px; }
+
+/* 폰에서는 오른쪽 패널을 아래 가로줄로 */
+@media (max-width: 860px) {
+  .bz-tools {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 54px;
+    flex-direction: row;
+    justify-content: space-around;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .bz-tools.off { width: auto; height: 22px; }
+  .bz-tool { width: auto; }
+  .bz-fold { align-self: center; }
+  .bz-flyout { right: 8px; left: 8px; bottom: 58px; top: auto; width: auto; max-width: none; }
+  .main { padding-right: 24px; padding-bottom: 66px; }
+}
+
+</style>
 </head>
 <body>
 
@@ -1054,7 +1187,7 @@ body{padding-bottom:46px}
       <button class="sx-rail-b" data-co="head" data-dept="관리부" data-home="contract" onclick="sxRail('관리부')" title="관리부 · 계약·인사·회계·결재">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg></i><span>관리부</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="운영부" data-home="listing" onclick="sxRail('운영부')" title="운영부 · 매물·광고·고객·임대인">
+      <button class="sx-rail-b" data-co="head" data-dept="운영부" data-home="bldg" onclick="sxRail('운영부')" title="운영부 · 건물 · 매물 · 고객 · 광고 · 계약">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V7l7-3v17"/><path d="M11 21V10l9 3v8"/><path d="M7 10h1M7 14h1M15 15h1"/></svg></i><span>운영부</span>
       </button>
       <button class="sx-rail-b" data-co="head" data-dept="마케팅부" data-home="chan" onclick="sxRail('마케팅부')" title="마케팅부 · 노출 채널 · 자동화">
@@ -1110,21 +1243,12 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="approval" onclick="sxGo('approval',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>승인·보고함</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="운영부">
-        <div class="sx-grp-h">운영부<em>매물·광고·고객·임대인</em></div>
-          <div class="sx-sub" data-co="head" data-grp="운영부">매물</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p1" title="매일 여는 것">1</span>매물장<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">광고</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고 관리</button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">사진</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')"><span class="sx-pri p3" title="필요할 때">3</span>매물 사진<span class="sx-tag ref">참조</span></button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="chanGo('thumb')"><span class="sx-pri p3" title="필요할 때">3</span>사진 편집기</button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">고객</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임대인')"><span class="sx-pri p3" title="필요할 때">3</span>매도·임대인</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('임차인')"><span class="sx-pri p3" title="필요할 때">3</span>매수·임차인</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="" onclick="custRole('문의')"><span class="sx-pri p3" title="필요할 때">3</span>문의 고객</button>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')">고객 명부<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
-          <div class="sx-sub" data-co="head" data-grp="운영부">임대인</div>
-          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="landlord" onclick="sxGo('landlord',0,'운영부')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>임대인 명부<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
+        <div class="sx-grp-h">운영부<em>건물 · 매물 · 고객 · 광고 · 계약</em></div>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="bldg" onclick="sxGo('bldg',0,'운영부')">건물관리</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="listing" onclick="sxGo('listing',0,'운영부')">매물관리</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="customer" onclick="sxGo('customer',0,'운영부')">고객관리</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="ads" onclick="sxGo('ads',0,'운영부')">광고관리</button>
+          <button class="sx-item" data-co="head" data-grp="운영부" data-menu="contract" onclick="sxGo('contract',0,'운영부')">계약관리<span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="마케팅부">
         <div class="sx-grp-h">마케팅부<em>노출 채널 · 자동화</em></div>
@@ -1263,18 +1387,37 @@ body{padding-bottom:46px}
 
     <!-- 그룹웨어 메인포털 -->
     <div class="panel" id="p-home">
+      <!-- 🏠 ERP-HOME-04 — 안내 멘트·부제·본문 검색창을 뺐다.
+           검색은 상단 공통바의 통합검색(#sx-q) 하나만 쓴다. -->
       <div class="hm-hero">
         <div class="hm-hi" id="hm-hi"></div>
-        <div class="hm-sub">필요한 것만 두었습니다</div>
-        <div class="hm-search"><input id="hm-q" placeholder="매물 · 고객 · 임대인 · 계약 찾기" autocomplete="off"
-          oninput="sxSearch(this.value)" onfocus="document.getElementById('sx-q').value=this.value">
-          </div>
-        <div class="hm-quick" id="hm-quick"></div>
       </div>
       <div class="hm-wrap">
         <div class="hm-grid" id="hm-body"></div>
         <div class="hm-sidecol" id="hm-side"></div>
       </div>
+      <!-- 바로가기 — 화면 중간 한 줄 -->
+      <div class="hm-quick" id="hm-quick"></div>
+      <!-- 구글 캘린더 — 맨 아래 -->
+      <div id="hm-cal" style="margin-top:14px"></div>
+    </div>
+
+    <!-- ═══ 🏢 건물관리 (2026-09-15) — 운영부 독립 메뉴 ═══════════════════════
+         대표 확정: 건물관리 ≠ 매물관리. 건물을 먼저 등록하고, 매물은 그 건물을 고른다.
+         🔴 새 시트를 만들지 않는다 — 건물마스터 · 건물보안 을 그대로 쓴다.
+         🔴 공동현관·공실 비밀번호는 건물보안에만 저장한다(getAll 로 안 나간다). -->
+    <div class="panel" id="p-bldg">
+      <div class="page-hd">
+        <div>
+          <div class="page-title">건물관리</div>
+          <div class="page-sub" id="bm-sub">건물을 먼저 등록하면, 매물은 호실 정보만 넣으면 됩니다</div>
+        </div>
+        <div class="row" style="gap:6px">
+          <button class="btn btn-sm" id="bm-back" style="display:none" onclick="bmGo('list')">← 목록</button>
+          <button class="btn btn-g btn-sm" onclick="bmGo('new')">+ 건물등록</button>
+        </div>
+      </div>
+      <div id="bm-body"></div>
     </div>
 
     <!-- 오늘의 영업 8단계 -->
@@ -2747,9 +2890,11 @@ body{padding-bottom:46px}
     </div>
 
     <!-- 매물사진 (2026-08-27) — 올리면 구글드라이브 '원본'으로 가고, 사진보정 프로그램이 워터마크를 찍습니다 -->
-    <div class="form-section">📷 매물사진</div>
+    <!-- 🔴 2026-09-15 ERP-PHOTO-01 — 사진 저장·편집은 ERP 밖에서 한다.
+         칸과 코드는 그대로 두고 보이지만 않게 했다(photo-panel 을 찾는 코드가 있다). -->
+    <div class="form-section" style="display:none">📷 매물사진</div>
     <div class="form-group">
-      <div id="photo-panel" style="font-size:12px">불러오는 중…</div>
+      <div id="photo-panel" style="font-size:12px;display:none">불러오는 중…</div>
     </div>
 
     <!-- 첨부파일 -->
@@ -8238,6 +8383,7 @@ function go(id){
   // 🧩 2026-09-08 지시어 6건 + 📘 가이드
   if(id==='map')           mapRender();
   if(id==='audit')         auditRender();
+  if(id==='bldg')          bldgRender();   /* 🏢 2026-09-15 건물관리 */
   if(id==='links')         linksRender();
   if(id==='guide')         guideRender();
   closeMobile();
@@ -11482,7 +11628,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"listing","items":[{"sub":"매물"},{"label":"매물장","id":"listing"},{"sub":"광고"},{"label":"광고 관리","id":"ads"},{"sub":"사진"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","act":"chanGo('thumb')"},{"sub":"고객"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 명부","id":"customer"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"공부 발급","id":"docreq"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"설정","act":"openGsSetup()"},{"label":"앱 설치 방법","act":"showPwaGuide()"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"건물 · 매물 · 고객 · 광고 · 계약","home":"bldg","items":[{"label":"건물관리","id":"bldg"},{"label":"매물관리","id":"listing"},{"label":"고객관리","id":"customer"},{"label":"광고관리","id":"ads"},{"label":"계약관리","id":"contract","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"공부 발급","id":"docreq"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"설정","act":"openGsSetup()"},{"label":"앱 설치 방법","act":"showPwaGuide()"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -12455,14 +12601,11 @@ function decideHtml(){
    false 로 바꾸면 종전 홈(카드 10개 + 숫자 위젯 4개)이 그대로 돌아온다. */
 const HOME_SIMPLE = true;
 /* 홈 머리에 남길 바로가기 — 대표 선택(매물·고객·문자·계약) */
-const HOME_QUICK_KEEP = ['listing', 'customer', 'sms', 'contract'];
-function homeSimpleHtml(){
-  return '<div class="hm-card" style="grid-column:1 / -1">'
-    + '<div class="hm-t">왼쪽 메뉴에서 할 일을 고르세요</div>'
-    + '<div class="hm-s" style="margin-top:6px">홈은 일부러 비워 두었습니다. '
-    + '쓰시다가 <b>여기 있으면 좋겠다</b> 싶은 것을 말씀해 주시면 그때 하나씩 꺼내 드립니다.<br>'
-    + '숨긴 것은 지운 것이 아니라 <b>그대로 남아 있습니다</b>.</div></div>';
-}
+/* 🏠 ERP-HOME-04 — 바로가기(실제 있는 화면만).
+   대표 후보 6개 중 [건물]은 단독 화면이 없어 뺐다. 그 자리에 매일 쓰는 [문자]를 둔다. */
+const HOME_QUICK_KEEP = ['listing', 'customer', 'sms', 'contract', 'ads', 'csched'];
+/* 🏠 ERP-HOME-04 — 홈 안내 멘트를 없앤다(업무와 관계없는 문구는 두지 않는다) */
+function homeSimpleHtml(){ return ''; }
 const HOME_QUICK = [
   { id: 'listing',  n: '매물',   d: '<path d="M3 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/>' },
   { id: 'customer', n: '고객',   d: '<circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/>' },
@@ -12470,6 +12613,7 @@ const HOME_QUICK = [
   { id: 'sms',      n: '문자',   d: '<rect x="3" y="5" width="18" height="13" rx="3"/><path d="M4 7l8 6 8-6"/>' },
   { id: 'visit',    n: '임장',   d: '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/>' },
   { id: 'contract', n: '계약',   d: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>' },
+  { id: 'csched',   n: '일정',   d: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
   { id: 'ads',      n: '광고',   d: '<path d="M4 10v4h4l6 4V6l-6 4H4z"/><path d="M18 9a4 4 0 0 1 0 6"/>' },
   { id: 'audit',    n: '검수',   d: '<path d="M20 6 9 17l-5-5"/>' },
 ];
@@ -17883,6 +18027,67 @@ function todayFill(){
     }).catch(() => put('tt-doc', '확인 필요', 'off'));
 }
 
+
+/* ── 📆 ERP-HOME-04 — 홈 맨 아래 구글 캘린더 ──────────────────────
+   🔴 새 캘린더 시스템을 만들지 않았다. 이미 있는 것만 쓴다:
+        쓰기 = GAS scheduleAdd_ → CalendarApp.getDefaultCalendar().createEvent
+        읽기 = GAS action=scheduleList (일정알림 시트)
+   🔴 구글 캘린더에서 **직접** 만든 일정은 CRM 이 읽는 길이 없다 — 그 사실을 적는다.
+   🔴 가짜 일정·샘플을 만들지 않는다. 0건이면 0건이라고 쓴다. */
+function hmCalTime(v){
+  var s = String(v == null ? "" : v);
+  var i = s.indexOf(":");
+  if(i < 2) return "";
+  /* 시트에서 시간칸이 1899년 날짜 문자열로 올 때가 있다 — HH:MM 만 뽑는다 */
+  var h = s.slice(i - 2, i), m = s.slice(i + 1, i + 3);
+  if(!/^[0-9][0-9]$/.test(h) || !/^[0-9][0-9]$/.test(m)) return "";
+  return h + ":" + m;
+}
+async function hmCalRender(){
+  var el = document.getElementById("hm-cal"); if(!el) return;
+  var head = '<div class="hm-t">구글 캘린더</div>';
+  var url = (typeof getGsUrl === "function") ? getGsUrl() : "";
+  if(!url){
+    el.innerHTML = '<div class="hm-card">' + head
+      + '<div class="hm-s">연결 필요 — 이 기기에 CRM 주소·토큰이 없습니다.</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="hm-card">' + head + '<div class="hm-s">불러오는 중…</div></div>';
+  var items = null, why = "";
+  try{
+    var q = (typeof tokQ === "function") ? tokQ() : "";
+    var r = await fetch(url + "?action=scheduleList&t=" + Date.now() + q);
+    var j = await r.json();
+    if(j && j.ok !== false){ items = ((j.result || {}).items) || []; }
+    else { why = String((j && j.error) || "응답 오류"); }
+  }catch(e){ why = String((e && e.message) || e); }
+
+  if(items === null){
+    el.innerHTML = '<div class="hm-card">' + head
+      + '<div class="hm-s">일정을 불러오지 못했습니다 — ' + gEsc(why) + '</div></div>';
+    return;
+  }
+  var today = (typeof todayStr === "function") ? todayStr() : "";
+  var up = items.filter(function(x){ return String(x.date || "") >= today; }).slice(0, 6);
+  var body = "";
+  if(!up.length){
+    body = '<div class="hm-s">예정된 일정이 없습니다.</div>';
+  } else {
+    body = up.map(function(x){
+      var d = String(x.date || "");
+      var when = (d === today ? "오늘" : d.slice(5).split("-").join("/"));
+      var tm = hmCalTime(x.time);
+      return '<div style="display:flex;gap:10px;align-items:baseline;padding:5px 0">'
+        + '<b style="font-size:12px;min-width:76px">' + gEsc(when + (tm ? " " + tm : "")) + '</b>'
+        + '<span style="font-size:12.5px">' + gEsc(String(x.kind || "") + " " + String(x.name || "")) + '</span>'
+        + (x.status ? '<span style="font-size:11px;color:var(--t2)">' + gEsc(x.status) + '</span>' : "")
+        + '</div>';
+    }).join("");
+  }
+  el.innerHTML = '<div class="hm-card">' + head + body
+    + '<div class="hm-s" style="margin-top:8px">CRM 에서 저장한 일정이 구글 캘린더에도 함께 등록됩니다. '
+    + '구글 캘린더에서 직접 만든 일정은 여기 나오지 않습니다.</div></div>';
+}
 function homeRender(){
   const el = document.getElementById('hm-body'); if(!el) return;
   const t = todayStr();
@@ -17892,6 +18097,7 @@ function homeRender(){
   const K = ddArr('contracts');
   const who = (typeof crmWho === 'function') ? crmWho() : '';
   const hi = document.getElementById('hm-hi'); if(hi) hi.textContent = who + '님, 안녕하세요';
+  try{ hmCalRender(); }catch(e){}   /* 📆 ERP-HOME-04 */
 
   // 바로가기
   const q = document.getElementById('hm-quick');
@@ -20672,7 +20878,6 @@ function prCards(){
     + '🔴 남의 사진에서 워터마크를 지우는 것은 저작권 문제가 될 수 있습니다. '
     + '우리가 찍었거나 임대인에게 받은 사진에만 쓰세요.</div></div>'
     + ddLink([
-        { n: '사진 편집기', w: '썸네일·워터마크 프로그램', go: 'chan', dept: '운영부' },
         { n: '메모·요구사항', w: '새 프롬프트 적어 두기', go: 'memo', dept: '개발부' },
         { n: '브랜드 스튜디오', w: '쓸 수 있는 이미지', go: 'brand', dept: '마케팅부' },
       ]);
@@ -21279,6 +21484,966 @@ function sxInit(){
 })();
 setTimeout(sxInit, 700);
 setTimeout(function(){ try{ sxRole(); sxNotiBadge(); }catch(e){} }, 2600);   // 서버 ping 으로 역할이 확정된 뒤 한 번 더
+
+
+/* ── 🥕 수집은 ERP 화면에 없다 (2026-09-15 SPLIT-DECISION-01) ──
+   수집은 GAS 가 24시간 그대로 돈다. 여기서는 길만 막는다. */
+(function bzGatherOut(){
+  function strip(){
+    try{
+      var m = document.querySelectorAll("[data-menu=\"gather\"]");
+      for(var i=0;i<m.length;i++){ if(m[i].parentNode) m[i].parentNode.removeChild(m[i]); }
+      var p = document.getElementById("p-gather");
+      if(p && p.parentNode) p.parentNode.removeChild(p);
+    }catch(e){}
+  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", strip);
+  else strip();
+  setTimeout(strip, 1200); setTimeout(strip, 4000);
+  /* 주소창·뒤로가기·코드 어느 쪽으로 불러도 수집 화면으로 가지 않는다 */
+  try{
+    var _go = window.go;
+    if(typeof _go === "function"){
+      window.go = function(id){
+        if(String(id) === "gather"){ return _go("home"); }
+        return _go.apply(this, arguments);
+      };
+    }
+  }catch(e){}
+})();
+
+/* ── 🧾 매물장 보조기능 숨김 (2026-09-15 ERP-LISTING-UI-02) ──
+   대표 결정: 매물장은 건물 → 매물 에 집중한다.
+   🔴 기능은 그대로 살아 있다 — sxGo("paste") · sxGo("map") · sxGo("apt") ·
+      exportListingsExcel() · openUploadModal() · 공실대조 함수 전부 그대로다.
+      여기서는 매물장 화면의 **단추만** 없앤다. */
+(function bzListingTidy(){
+  var WORDS = ["붙여넣어 만들기", "공실 문자에서 매물 만들기", "공실문자에서 매물 만들기",
+               "지도로 보기", "시세 조회", "시세조회",
+               "엑셀 다운로드", "엑셀 업로드", "공실 대조", "공실대조", "더보기", "접기"];
+  function clean(s){
+    var t = String(s || "");
+    [10, 13, 9].forEach(function(cc){ t = t.split(String.fromCharCode(cc)).join(" "); });
+    while(t.indexOf("  ") >= 0) t = t.split("  ").join(" ");
+    return t.trim();
+  }
+  function strip(){
+    try{
+      /* 보조 버튼줄 두 덩어리를 통째로 없앤다 */
+      ["pz-mount", "lx-more"].forEach(function(id){
+        var e = document.getElementById(id);
+        if(e && e.parentNode) e.parentNode.removeChild(e);
+      });
+      /* 더보기로 옮겨지기 전에 머리줄에 남아 있을 수 있는 원본 단추도 같이 없앤다 */
+      var host = document.getElementById("p-listing");
+      if(host){
+        Array.prototype.forEach.call(host.querySelectorAll("button"), function(b){
+          var tx = clean(b.textContent);
+          for(var i = 0; i < WORDS.length; i++){
+            if(tx.indexOf(WORDS[i]) >= 0){ if(b.parentNode) b.parentNode.removeChild(b); return; }
+          }
+        });
+      }
+    }catch(e){}
+  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", strip);
+  else strip();
+  [800, 2000, 4000, 7000].forEach(function(ms){ setTimeout(strip, ms); });
+  /* 매물장을 열 때마다 다시 그려지므로, 열릴 때 한 번 더 훑는다 */
+  try{
+    var _g = window.go;
+    if(typeof _g === "function"){
+      window.go = function(id){
+        var r = _g.apply(this, arguments);
+        if(String(id) === "listing"){ setTimeout(strip, 60); setTimeout(strip, 500); setTimeout(strip, 1500); }
+        return r;
+      };
+    }
+  }catch(e){}
+})();
+
+/* ═══ 🏢 건물관리 (2026-09-15) ═══════════════════════════════════════════════
+   대표 확정 구조 — 건물관리는 매물관리와 **별개 메뉴**다.
+     건물관리 : 건물등록 · 건물목록 · 건물상세 · 공공데이터 조회 · 관리정보 · 입주조건 · 보안정보
+     매물관리 : 등록된 건물을 골라서 호실 정보만 넣는다
+
+   🔴 새 시트를 만들지 않는다 — 건물마스터(buildings) · 건물보안(bldgSec) 그대로 쓴다.
+   🔴 비밀번호는 건물마스터에 넣지 않는다. 건물보안에만 넣는다(getAll 로 안 나간다).
+   🔴 저장은 단건 upsert 만. saveAll 쓰지 않는다.
+   🔴 공공데이터에 없는 값을 지어내지 않는다 — 못 가져오면 '확인필요' 로 둔다.
+   🔴 기존 매물은 건드리지 않는다. buildingId 자동매핑도 하지 않는다. */
+
+var BM = { view: 'list', rows: null, listings: null, cand: [], pub: null, sec: null, cur: null, busy: false, unitsOf: null, tab: 'all' };
+
+function bmEsc(v) {
+  return String(v == null ? '' : v)
+    .split('&').join('&amp;').split('<').join('&lt;')
+    .split('>').join('&gt;').split('"').join('&quot;');
+}
+function bmVal(id) {
+  var e = document.getElementById(id);
+  return e ? String(e.value || '').trim() : '';
+}
+function bmSet(id, v) {
+  var e = document.getElementById(id);
+  if (e) e.value = (v == null ? '' : String(v));
+}
+/* 값이 없으면 '확인필요' 로 보여 준다 — 🔴 지어내지 않는다 */
+function bmShow(v) {
+  var t = String(v == null ? '' : v).trim();
+  return t ? bmEsc(t) : '<span style="color:var(--t3)">확인필요</span>';
+}
+function bmNow() {
+  var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function bmAdmin() {
+  var r = (typeof bzRole === 'function') ? bzRole() : '';
+  return r === 'admin' || r === 'representative';
+}
+/* 주소 비교용 — 띄어쓰기·괄호를 걷어낸 열쇠 */
+function bmKey(v) {
+  var t = String(v == null ? '' : v).trim();
+  [' ', '(', ')', ',', '-'].forEach(function (c) { t = t.split(c).join(''); });
+  return t;
+}
+
+/* ── 건물 목록 읽기 (buildings 는 평소에 안 읽으므로 여기서 직접) ── */
+async function bmLoad(force) {
+  if (BM.rows && !force) return BM.rows;
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { BM.rows = []; return BM.rows; }
+  try {
+    var q = (typeof tokQ === 'function') ? tokQ() : '';
+    var r = await fetch(url + '?action=getAll&type=buildings&t=' + Date.now() + q);
+    var j = await r.json();
+    BM.rows = (j && (j.data || j.rows)) || [];
+  } catch (e) { BM.rows = null; throw e; }
+  return BM.rows;
+}
+
+/* 🔴 매물도 이 화면이 직접 한 번 읽어 둔다 — 전역 동기화가 늦거나 안 돌아도
+   건물별 매물 수가 0 으로 보이지 않게. 읽기만 하고 아무것도 고치지 않는다. */
+async function bmLoadListings(force) {
+  if (BM.listings && !force) return BM.listings;
+  var have = (typeof ddArr === 'function') ? (ddArr('listings') || []) : [];
+  if (have.length && !force) { BM.listings = have; return BM.listings; }
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { BM.listings = have; return BM.listings; }
+  try {
+    var q = (typeof tokQ === 'function') ? tokQ() : '';
+    var r = await fetch(url + '?action=getAll&type=listings&t=' + Date.now() + q);
+    var j = await r.json();
+    BM.listings = (j && (j.data || j.rows)) || have;
+  } catch (e) { BM.listings = have; }
+  return BM.listings;
+}
+
+function bmGo(view, id) {
+  BM.view = view;
+  BM.cur = id || null;
+  var b = document.getElementById('bm-back');
+  if (b) b.style.display = (view === 'list') ? 'none' : '';
+  bldgRender();
+}
+
+function bldgRender() {
+  var el = document.getElementById('bm-body');
+  if (!el) return;
+  if (BM.view === 'new') { bmNewHtml(el); return; }
+  if (BM.view === 'detail') { bmDetailHtml(el); return; }
+  bmListHtml(el);
+}
+
+/* ══ ① 건물목록 ══════════════════════════════════════════════════════════ */
+async function bmListHtml(el) {
+  el.innerHTML = '<div class="card">불러오는 중…</div>';
+  var rows;
+  /* 🔴 건물부터 먼저 그린다. 매물은 뒤따라 읽고 숫자만 다시 채운다 —
+     둘 다 기다리면 화면이 늦게 뜬다(실측). */
+  try { rows = await bmLoad(true); }
+  catch (e) {
+    el.innerHTML = '<div class="card">건물 목록을 불러오지 못했습니다 — ' + bmEsc(e && e.message) + '</div>';
+    return;
+  }
+  if (rows === null) { el.innerHTML = '<div class="card">건물 목록을 읽지 못했습니다.</div>'; return; }
+
+  var sub = document.getElementById('bm-sub');
+  if (sub) sub.textContent = '등록된 건물 ' + rows.length + '곳';
+
+  var h = '<div class="card" style="margin-bottom:12px">'
+    + '<input id="bm-find" placeholder="건물명 · 주소 · 단지코드로 찾기" autocomplete="off"'
+    + ' oninput="bmListDraw()" style="width:100%;height:36px;border-radius:8px;border:1px solid var(--border);padding:0 12px;font-size:13px">'
+    + '</div><div id="bm-list"></div>';
+  el.innerHTML = h;
+  bmListDraw();
+  /* 매물은 뒤따라 읽고, 다 읽으면 건물별 건수만 다시 그린다 */
+  bmLoadListings(false).then(function () {
+    if (BM.view === 'list') bmListDraw();
+  });
+}
+
+function bmListDraw() {
+  var box = document.getElementById('bm-list');
+  if (!box) return;
+  var rows = BM.rows || [];
+  var q = bmKey(bmVal('bm-find'));
+  if (q) {
+    rows = rows.filter(function (b) {
+      return bmKey(b.name).indexOf(q) >= 0 || bmKey(b.addr).indexOf(q) >= 0
+        || bmKey(b.roadAddr).indexOf(q) >= 0 || bmKey(b.complexCode).indexOf(q) >= 0;
+    });
+  }
+  if (!rows.length) {
+    box.innerHTML = '<div class="card" style="color:var(--t2)">'
+      + (q ? '찾는 건물이 없습니다.' : '아직 등록된 건물이 없습니다. 오른쪽 위 [+ 건물등록] 으로 시작하세요.')
+      + '</div>';
+    return;
+  }
+  box.innerHTML = rows.map(function (b) {
+    var code = String(b.complexCode || '').trim();
+    var u = bmUnitsOf(b);
+    var vac = u.filter(function (x) { return String(x.status || '') === '접수'; }).length;
+    return '<div class="card" style="margin-bottom:8px;cursor:pointer" onclick="bmGo(&#39;detail&#39;,&#39;'
+      + bmEsc(b.id) + '&#39;)">'
+      + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">'
+      + '<div style="font-weight:700;font-size:14px">' + bmEsc(b.name || '(이름 없음)') + '</div>'
+      + '<div style="font-size:11px;color:var(--t3)">' + bmEsc(code || b.id) + '</div></div>'
+      + '<div style="font-size:12px;color:var(--t2);margin-top:4px">' + bmEsc(b.addr || '') + '</div>'
+      + (b.roadAddr ? '<div style="font-size:11.5px;color:var(--t3)">' + bmEsc(b.roadAddr) + '</div>' : '')
+      + '<div style="font-size:12px;margin-top:6px">전체 <b>' + u.length + '</b>건'
+      + ' · 현재공실 <b style="color:#0F6E56">' + vac + '</b>건</div>'
+      + '</div>';
+  }).join('');
+}
+
+
+/* ── 🔗 건물에 딸린 매물 고르기 ───────────────────────────────────────
+   🔴 지금 매물 61건 전부 buildingId 가 비어 있다(실측). 대표 지시대로
+      **자동으로 채워 넣지 않는다.** 화면에서 건물명·주소로 묶어 보여 주기만 한다.
+      신규 등록분부터 buildingId 가 제대로 들어간다. */
+function bmUnitsOf(b) {
+  /* 🔴 전역 동기화(ddArr)가 아직 안 끝났을 수 있다 — 실측으로 0건이 나왔다.
+     그때는 이 화면이 직접 읽어 둔 것(BM.listings)을 쓴다. */
+  var L = (typeof ddArr === 'function') ? (ddArr('listings') || []) : [];
+  if (!L.length && BM.listings && BM.listings.length) L = BM.listings;
+  var nm = bmKey(b.name), ad = bmKey(b.addr);
+  return (L || []).filter(function (x) {
+    if (String(x.buildingId || '') && String(x.buildingId) === String(b.id)) return true;
+    if (nm && bmKey(x.apt) === nm) return true;
+    if (ad && bmKey(x.addr) === ad) return true;
+    return false;
+  });
+}
+/* 신규 판정 — 🔴 기준을 지어내지 않는다.
+   실측: recvDate 는 19건만 차 있고 updatedAt 은 51건이 차 있다.
+   접수일이 있으면 그것을, 없으면 마지막 수정일을 쓴다. 기준일은 화면에 적는다. */
+var BM_NEW_DAYS = 7;
+function bmWhen(x) {
+  var a = String(x.recvDate || '').trim();
+  if (a) return a.slice(0, 10);
+  var b = String(x.updatedAt || '').trim();
+  return b ? b.slice(0, 10) : '';
+}
+function bmIsNew(x) {
+  var d = bmWhen(x);
+  if (!d) return false;
+  var t = new Date(d + 'T00:00:00');
+  if (isNaN(t.getTime())) return false;
+  return (Date.now() - t.getTime()) <= BM_NEW_DAYS * 86400000;
+}
+/* 대표가 고른 알약 — 🔴 실제 status 값만 쓴다(실측: 접수·임대중·보류·빈값) */
+var BM_TABS = [
+  { k: 'all', n: '전체' },
+  { k: 'new', n: '신규' },
+  { k: 'vac', n: '현재공실' },
+  { k: 'rent', n: '임대중' },
+  { k: 'ing', n: '계약진행' },
+  { k: 'done', n: '계약완료' },
+  { k: 'own', n: '개인매물' }
+];
+function bmTabHit(k, x) {
+  var st = String(x.status || '').trim();
+  if (k === 'all') return true;
+  if (k === 'new') return bmIsNew(x);
+  if (k === 'vac') return st === '접수';
+  if (k === 'rent') return st === '임대중';
+  if (k === 'ing') return st === '상담중' || st === '계약진행';
+  if (k === 'done') return st === '계약완료' || st === '거래완료';
+  if (k === 'own') return String(x.dealRel || '') === '개인직접' || String(x.dealRel || '') === '개인매물';
+  return true;
+}
+
+/* ══ ② 건물등록 ══════════════════════════════════════════════════════════ */
+function bmNewHtml(el) {
+  BM.cand = []; BM.pub = null;
+  el.innerHTML =
+    '<div class="card" style="margin-bottom:12px">'
+    + '<div class="form-section">🔎 건물 찾기</div>'
+    + '<div style="font-size:11.5px;color:var(--t2);margin:2px 0 8px">'
+    + '단지코드 · 단지명 · 지번주소 · 도로명주소 중 하나만 넣으면 됩니다.</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<input id="bm-q" placeholder="예) 일도수선화아파트 · 일도이동 113-1 · 연삼로 560-1" autocomplete="off"'
+    + ' style="flex:1;min-width:220px;height:38px;border-radius:8px;border:1px solid var(--border);padding:0 12px;font-size:13px"'
+    + ' onkeydown="if(event.key===&#39;Enter&#39;)bmSearch()">'
+    + '<button class="btn btn-g btn-sm" onclick="bmSearch()">공공데이터 조회</button>'
+    + '</div><div id="bm-cand" style="margin-top:10px"></div></div>'
+
+    + '<div class="card" style="margin-bottom:12px">'
+    + '<div class="form-section">🏛 건물 기본정보 <span style="font-size:10.5px;font-weight:400;color:var(--t3)">— 공공데이터 자동조회</span></div>'
+    + '<div id="bm-pub" style="font-size:12.5px;color:var(--t2)">위에서 건물을 먼저 고르세요.</div></div>'
+
+    + bmManualHtml()
+
+    + '<div class="row" style="gap:8px;justify-content:flex-end;margin:14px 0 4px">'
+    + '<button class="btn btn-sm" onclick="bmGo(&#39;list&#39;)">취소</button>'
+    + '<button class="btn btn-g btn-sm" id="bm-save" onclick="bmSave()">건물 저장</button></div>'
+    + '<div id="bm-msg" style="text-align:right;font-size:12px;margin-top:6px"></div>';
+}
+
+/* 브리즈가 직접 넣는 칸 — 등록·상세에서 같이 쓴다 */
+function bmManualHtml() {
+  var sel = function (id, label, opts) {
+    return '<div class="form-group"><label>' + label + '</label><select id="' + id + '">'
+      + opts.map(function (o) { return '<option value="' + o + '">' + (o || '(비움)') + '</option>'; }).join('')
+      + '</select></div>';
+  };
+  var txt = function (id, label, ph) {
+    return '<div class="form-group"><label>' + label + '</label>'
+      + '<input id="' + id + '" autocomplete="off" placeholder="' + (ph || '') + '"></div>';
+  };
+  var YN4 = ['확인필요', '가능', '불가능', '조건부'];
+  var YN3 = ['확인필요', '가능', '불가능'];
+
+  var h = '<div class="card" style="margin-bottom:12px">'
+    + '<div class="form-section">☎️ 관리정보 <span style="font-size:10.5px;font-weight:400;color:var(--t3)">— 브리즈가 직접 확인한 내용</span></div>'
+    + txt('bm-mgmtOffice', '관리사무소명')
+    + txt('bm-mgmtPhone', '관리사무소 대표번호')
+    + txt('bm-mgmtPerson', '담당자')
+    + txt('bm-mgmtPersonPhone', '담당자 휴대폰')
+    + txt('bm-mgmtFax', '관리사무소 팩스')
+    + txt('bm-vacPerson', '공실문의 담당자')
+    + txt('bm-vacPhone', '공실문의 연락처')
+    + txt('bm-mgmtNote', '관리 메모')
+    + '</div>'
+
+    + '<div class="card" style="margin-bottom:12px">'
+    + '<div class="form-section">🔑 입주조건 <span style="font-size:10.5px;font-weight:400;color:var(--t3)">— 이 건물 공통. 호실이 다르면 매물에서 예외로 적습니다</span></div>'
+    + sel('bm-moveIn', '전입 가능여부', YN3)
+    + sel('bm-pets', '반려동물', YN4)
+    + sel('bm-foreigner', '외국인', YN4)
+    + txt('bm-cleanFee', '퇴실청소비', '예) 10만원')
+    + txt('bm-cleanNote', '청소비 기준·메모')
+    + txt('bm-feeOne', '기본 관리비', '예) 5만원')
+    + txt('bm-feeItems', '관리비 포함항목', '예) 수도·청소·인터넷')
+    + txt('bm-options', '기본 옵션', '예) 에어컨·냉장고·세탁기')
+    + txt('bm-parkNote', '주차 추가조건', '예) 세대당 1대, 추가 월 3만원')
+    + txt('bm-etcCond', '기타 건물 공통조건')
+    + '</div>';
+
+  if (bmAdmin()) {
+    h += '<div class="card" style="margin-bottom:12px;border-color:#D97706">'
+      + '<div class="form-section">🔒 보안정보 <span style="font-size:10.5px;font-weight:400;color:#D97706">— 건물보안에만 저장됩니다. 광고·문자·외부 응답에 절대 나가지 않습니다</span></div>'
+      + txt('bm-gateCode', '공동현관 비밀번호')
+      + txt('bm-entryHow', '공실 출입방법')
+      + txt('bm-unitCode', '공실 현관 비밀번호')
+      + txt('bm-keyPos', '열쇠 위치')
+      + txt('bm-secNote', '출입 메모')
+      + '</div>';
+  }
+  return h;
+}
+
+/* ── 공공데이터 후보 찾기 (🔴 자동선택 하지 않는다) ── */
+async function bmSearch() {
+  var q = bmVal('bm-q');
+  var box = document.getElementById('bm-cand');
+  if (!q) { if (box) box.innerHTML = '<div style="font-size:12px;color:#B91C1C">찾을 말을 넣어 주세요.</div>'; return; }
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { if (box) box.innerHTML = '<div style="font-size:12px;color:#B91C1C">이 기기에 CRM 주소·토큰이 없습니다.</div>'; return; }
+  if (box) box.innerHTML = '<div style="font-size:12px;color:var(--t2)">찾는 중…</div>';
+  try {
+    var tq = (typeof tokQ === 'function') ? tokQ() : '';
+    var r = await fetch(url + '?action=bldgSearch&q=' + encodeURIComponent(q) + '&t=' + Date.now() + tq);
+    var j = await r.json();
+    var res = (j && j.result) || {};
+    BM.cand = res.rows || [];
+  } catch (e) {
+    if (box) box.innerHTML = '<div style="font-size:12px;color:#B91C1C">조회 실패 — ' + bmEsc(e && e.message) + '</div>';
+    return;
+  }
+  if (!BM.cand.length) {
+    box.innerHTML = '<div style="font-size:12px;color:var(--t2)">'
+      + '찾은 것이 없습니다. 지번주소(예: 일도이동 113-1)로 다시 해 보세요.<br>'
+      + '공공데이터에 없는 건물이면 아래 칸을 직접 채우고 저장하셔도 됩니다.</div>';
+    return;
+  }
+  /* 🔴 여러 개면 대표가 고른다 — 코드가 고르지 않는다 */
+  box.innerHTML = '<div style="font-size:11.5px;color:var(--t2);margin-bottom:6px">'
+    + '후보 ' + BM.cand.length + '곳 — 맞는 것을 고르세요</div>'
+    + BM.cand.map(function (c, i) {
+      return '<div style="border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:6px;'
+        + 'display:flex;justify-content:space-between;gap:10px;align-items:center">'
+        + '<div><div style="font-weight:600;font-size:13px">' + bmEsc(c.bdNm || '(건물명 없음)') + '</div>'
+        + '<div style="font-size:11.5px;color:var(--t2)">' + bmEsc(c.jibun) + '</div>'
+        + '<div style="font-size:11px;color:var(--t3)">' + bmEsc(c.road) + '</div></div>'
+        + '<button class="btn btn-sm" onclick="bmPick(' + i + ')">선택</button></div>';
+    }).join('');
+}
+
+/* ── 고른 후보로 건축물대장 읽기 ── */
+async function bmPick(i) {
+  var c = BM.cand[i];
+  if (!c) return;
+  var box = document.getElementById('bm-pub');
+  if (box) box.innerHTML = '건축물대장을 읽는 중…';
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  var got = {};
+  try {
+    var tq = (typeof tokQ === 'function') ? tokQ() : '';
+    var qs = '?action=bldgFull&sigunguCd=' + encodeURIComponent(c.sigunguCd)
+      + '&bjdongCd=' + encodeURIComponent(c.bjdongCd)
+      + '&platGbCd=' + (c.mtYn === '1' ? '1' : '0')
+      + '&bun=' + encodeURIComponent(c.bun) + '&ji=' + encodeURIComponent(c.ji)
+      + '&t=' + Date.now() + tq;
+    var r = await fetch(url + qs);
+    var j = await r.json();
+    got = (j && j.data) || {};
+  } catch (e) { got = { _err: String((e && e.message) || e) }; }
+
+  BM.pub = {
+    name: c.bdNm || got.bldNm || '',
+    addr: c.jibun || '',
+    roadAddr: c.road || '',
+    sido: c.sido || '', sigungu: c.sigungu || '', dong: c.dong || '', ri: c.ri || '',
+    jibun: c.bun + (String(c.ji || '0') !== '0' ? ('-' + c.ji) : ''),
+    totalFloor: got.totalFloor || '',
+    ugFloor: got.ugFloor || '',
+    aprDate: got.aprDate || '',
+    strct: got.strct || '',
+    bldgUse: got.use || '',
+    hhldCnt: got.hhldCnt || '',
+    parkTotal: got.parkTotal || '',
+    elevator: got.elvtCnt || '',
+    err: got._err || ''
+  };
+  bmPubDraw();
+}
+
+function bmPubDraw() {
+  var box = document.getElementById('bm-pub');
+  if (!box) return;
+  var p = BM.pub;
+  if (!p) { box.innerHTML = '위에서 건물을 먼저 고르세요.'; return; }
+  var row = function (k, v) {
+    return '<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px">'
+      + '<div style="min-width:104px;color:var(--t3)">' + k + '</div><div>' + bmShow(v) + '</div></div>';
+  };
+  var h = row('건물명', p.name) + row('지번주소', p.addr) + row('도로명주소', p.roadAddr)
+    + row('시도', p.sido) + row('시군구', p.sigungu) + row('읍면동', p.dong) + row('리', p.ri)
+    + row('지번', p.jibun)
+    + row('사용승인일', p.aprDate) + row('최고층', p.totalFloor) + row('지하층수', p.ugFloor)
+    + row('건물구조', p.strct) + row('주용도', p.bldgUse)
+    + row('세대수', p.hhldCnt) + row('총 주차대수', p.parkTotal) + row('승강기', p.elevator);
+
+  h += '<div style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--border);font-size:11.5px;color:var(--t2)">'
+    + '🔴 아래 항목은 <b>공동주택 기본정보</b> 공공데이터에서 오는데, 지금 계정에 그 서비스 이용신청이 안 돼 있어 <b>가져올 수 없습니다</b>.<br>'
+    + '단지코드 · 분양형태 · 동수 · 난방방식 · 복도유형 · 시공사 · 시행사 · 관리주체 · 관리사무소 연락처 · 부대복리시설<br>'
+    + '없는 값을 지어내지 않습니다 — 아시는 것은 아래 칸에 직접 넣어 주세요.</div>';
+
+  if (p.err) h += '<div style="margin-top:6px;font-size:11.5px;color:#B91C1C">대장 조회 중 문제: ' + bmEsc(p.err) + '</div>';
+  h += '<div style="margin-top:6px;font-size:11px;color:var(--t3)">공공데이터 자동조회 · 최종조회 ' + bmNow() + '</div>';
+  h += '<div class="form-group" style="margin-top:10px"><label>단지코드 (아시면 직접)</label>'
+    + '<input id="bm-complexCode" autocomplete="off" placeholder="예) A10021363"></div>';
+  box.innerHTML = h;
+}
+
+/* ── 저장 (🔴 중복이면 만들지 않는다 · 단건 upsert 만) ── */
+async function bmSave() {
+  if (BM.busy) return;
+  var msg = document.getElementById('bm-msg');
+  var say = function (t, bad) {
+    if (msg) { msg.innerHTML = t; msg.style.color = bad ? '#B91C1C' : 'var(--t2)'; }
+  };
+  var p = BM.pub || {};
+  var name = String(p.name || '').trim();
+  var addr = String(p.addr || '').trim();
+  var road = String(p.roadAddr || '').trim();
+  var code = bmVal('bm-complexCode');
+
+  if (!name && !addr) { say('건물명이나 주소가 있어야 저장할 수 있습니다. 위에서 건물을 골라 주세요.', 1); return; }
+
+  /* 🔴 중복검사 — ① 단지코드 ② 도로명 ③ 지번 ④ 이름+주소 */
+  var rows = BM.rows || [];
+  var dup = null, why = '';
+  for (var i = 0; i < rows.length; i++) {
+    var b = rows[i];
+    if (code && bmKey(b.complexCode) && bmKey(b.complexCode) === bmKey(code)) { dup = b; why = '단지코드'; break; }
+    if (road && bmKey(b.roadAddr) && bmKey(b.roadAddr) === bmKey(road)) { dup = b; why = '도로명주소'; break; }
+    if (addr && bmKey(b.addr) && bmKey(b.addr) === bmKey(addr)) { dup = b; why = '지번주소'; break; }
+    if (name && addr && bmKey(b.name) === bmKey(name) && bmKey(b.addr) === bmKey(addr)) { dup = b; why = '건물명+주소'; break; }
+  }
+  if (dup) {
+    say('이미 등록된 건물입니다 (' + bmEsc(why) + ' 같음) — '
+      + '<b>' + bmEsc(dup.name || dup.id) + '</b> '
+      + '<button class="btn btn-xs" onclick="bmGo(&#39;detail&#39;,&#39;' + bmEsc(dup.id) + '&#39;)">기존 건물 열기</button>', 1);
+    return;
+  }
+
+  BM.busy = true;
+  var btn = document.getElementById('bm-save');
+  if (btn) btn.disabled = true;
+  say('저장 중…');
+
+  /* 🔴 단지코드가 있으면 그것을 건물ID 로 쓴다. 없으면 브리즈 내부 ID 를 자동 발급한다.
+     사용자가 ID 를 직접 넣지 않는다. */
+  var id = code;
+  if (!id) {
+    var mx = 10000000;
+    rows.forEach(function (b) {
+      var s = String(b.id || '');
+      if (s.charAt(0) === 'B' && s.length >= 2) {
+        var n = parseInt(s.substring(1), 10);
+        if (!isNaN(n) && n > mx) mx = n;
+      }
+    });
+    id = 'B' + (mx + 1);
+  }
+
+  var row = {
+    id: id, name: name, addr: addr, roadAddr: road,
+    complexCode: code,
+    sido: p.sido || '', sigungu: p.sigungu || '', dong: p.dong || '', ri: p.ri || '',
+    jibun: p.jibun || '',
+    totalFloor: p.totalFloor || '', ugFloor: p.ugFloor || '', aprDate: p.aprDate || '',
+    strct: p.strct || '', bldgUse: p.bldgUse || '',
+    hhldCnt: p.hhldCnt || '', parkTotal: p.parkTotal || '', elevator: p.elevator || '',
+    mgmtOffice: bmVal('bm-mgmtOffice'), mgmtPhone: bmVal('bm-mgmtPhone'),
+    mgmtPerson: bmVal('bm-mgmtPerson'), mgmtPersonPhone: bmVal('bm-mgmtPersonPhone'),
+    mgmtFax: bmVal('bm-mgmtFax'), vacPerson: bmVal('bm-vacPerson'), vacPhone: bmVal('bm-vacPhone'),
+    mgmtNote: bmVal('bm-mgmtNote'),
+    moveIn: bmVal('bm-moveIn'), pets: bmVal('bm-pets'), foreigner: bmVal('bm-foreigner'),
+    cleanFee: bmVal('bm-cleanFee'), cleanNote: bmVal('bm-cleanNote'),
+    feeOne: bmVal('bm-feeOne'), feeItems: bmVal('bm-feeItems'),
+    options: bmVal('bm-options'), parkNote: bmVal('bm-parkNote'), etcCond: bmVal('bm-etcCond'),
+    pubAt: bmNow(), manAt: bmNow(), updatedAt: bmNow()
+  };
+
+  try {
+    var ok1 = await bmUpsert('buildings', row);
+    if (!ok1.ok) { say('저장 실패 — ' + bmEsc(ok1.why), 1); BM.busy = false; if (btn) btn.disabled = false; return; }
+
+    /* 🔒 보안정보는 건물보안에만 (대표·관리자만 화면에 나온다) */
+    if (bmAdmin()) {
+      var gate = bmVal('bm-gateCode'), unit = bmVal('bm-unitCode'),
+        how = bmVal('bm-entryHow'), key = bmVal('bm-keyPos'), note = bmVal('bm-secNote');
+      if (gate || unit || how || key || note) {
+        await bmUpsert('bldgSec', {
+          id: 'S-' + id, scope: 'building', targetId: id,
+          gateCode: gate, unitCode: unit,
+          entryHow: [how, key ? ('열쇠: ' + key) : '', note].filter(Boolean).join(' / '),
+          updatedBy: (typeof crmWho === 'function' ? crmWho() : ''), updatedAt: bmNow()
+        });
+      }
+    }
+    BM.rows = null;
+    say('저장했습니다 — ' + bmEsc(name || id));
+    setTimeout(function () { bmGo('detail', id); }, 700);
+  } catch (e) {
+    say('저장 실패 — ' + bmEsc(e && e.message), 1);
+  }
+  BM.busy = false;
+  if (btn) btn.disabled = false;
+}
+
+/* 🔴 단건 upsert 만 쓴다. saveAll 은 쓰지 않는다. */
+async function bmUpsert(type, data) {
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) return { ok: false, why: '이 기기에 CRM 주소·토큰이 없습니다' };
+  var tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  try {
+    var r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'upsert', type: type, data: data, token: tok })
+    });
+    var j = await r.json();
+    if (j && j.ok) return { ok: true };
+    return { ok: false, why: String((j && j.error) || '알 수 없는 오류') };
+  } catch (e) { return { ok: false, why: String((e && e.message) || e) }; }
+}
+
+/* ══ ③ 건물상세 ══════════════════════════════════════════════════════════ */
+async function bmDetailHtml(el) {
+  el.innerHTML = '<div class="card">불러오는 중…</div>';
+  var rows;
+  try { await bmLoadListings(false); rows = await bmLoad(false); } catch (e) { rows = []; }
+  var b = (rows || []).filter(function (x) { return String(x.id) === String(BM.cur); })[0];
+  if (!b) { el.innerHTML = '<div class="card">그 건물을 찾지 못했습니다.</div>'; return; }
+
+  var sub = document.getElementById('bm-sub');
+  if (sub) sub.textContent = b.name || b.id;
+
+  var row = function (k, v) {
+    return '<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px">'
+      + '<div style="min-width:112px;color:var(--t3)">' + k + '</div><div>' + bmShow(v) + '</div></div>';
+  };
+  var fold = function (id, title, inner, open) {
+    return '<div class="card" style="margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer"'
+      + ' onclick="bmFold(&#39;' + id + '&#39;)">'
+      + '<div class="form-section" style="margin:0">' + title + '</div>'
+      + '<span id="' + id + '-c" style="font-size:12px;color:var(--t3)">' + (open ? '접기' : '펼치기') + '</span></div>'
+      + '<div id="' + id + '" style="margin-top:8px;' + (open ? '' : 'display:none') + '">' + inner + '</div></div>';
+  };
+
+  var uAll = bmUnitsOf(b);
+  var uVac = uAll.filter(function (x) { return String(x.status || '') === '접수'; }).length;
+  var head = '<div class="card" style="margin-bottom:12px">'
+    + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">'
+    + '<div><div style="font-weight:700;font-size:16px">' + bmEsc(b.name || '(이름 없음)') + '</div>'
+    + '<div style="font-size:12px;color:var(--t2);margin-top:5px">' + bmEsc(b.addr || '') + '</div>'
+    + (b.roadAddr ? '<div style="font-size:12px;color:var(--t2)">' + bmEsc(b.roadAddr) + '</div>' : '')
+    + '<div style="font-size:11.5px;color:var(--t3);margin-top:6px">건물ID ' + bmEsc(b.id)
+    + ' · 단지코드 ' + (String(b.complexCode || '').trim() ? bmEsc(b.complexCode) : '확인필요') + '</div></div>'
+    + '<button class="btn btn-g btn-sm" onclick="bmAddUnit(&#39;' + bmEsc(b.id) + '&#39;)">+ 매물등록</button>'
+    + '</div>'
+    + '<div style="font-size:13px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)">'
+    + '전체 <b>' + uAll.length + '</b>건 &nbsp;|&nbsp; 공실 <b style="color:#0F6E56">' + uVac + '</b>건</div>'
+    + '</div>';
+
+  var pub = row('사용승인일', b.aprDate) + row('최고층', b.totalFloor) + row('지하층수', b.ugFloor)
+    + row('건물구조', b.strct) + row('주용도', b.bldgUse) + row('세대수', b.hhldCnt)
+    + row('총 주차대수', b.parkTotal) + row('승강기', b.elevator)
+    + row('시도', b.sido) + row('시군구', b.sigungu) + row('읍면동', b.dong) + row('리', b.ri)
+    + row('분양형태', b.saleType) + row('동수', b.dongCnt) + row('난방방식', b.heatType)
+    + row('복도유형', b.hallType) + row('시공사', b.builder) + row('시행사', b.developer)
+    + row('관리주체', b.mgmtType) + row('부대복리시설', b.welfare)
+    + '<div style="margin-top:8px;font-size:11px;color:var(--t3)">최종조회 ' + bmEsc(b.pubAt || '-') + '</div>';
+
+  var mgmt = row('관리사무소', b.mgmtOffice) + row('대표번호', b.mgmtPhone)
+    + row('담당자', b.mgmtPerson) + row('담당자 휴대폰', b.mgmtPersonPhone)
+    + row('팩스', b.mgmtFax) + row('공실문의 담당자', b.vacPerson)
+    + row('공실문의 연락처', b.vacPhone) + row('관리 메모', b.mgmtNote);
+
+  var cond = row('전입', b.moveIn) + row('반려동물', b.pets) + row('외국인', b.foreigner)
+    + row('퇴실청소비', b.cleanFee) + row('청소비 메모', b.cleanNote)
+    + row('기본 관리비', b.feeOne) + row('관리비 포함항목', b.feeItems)
+    + row('기본 옵션', b.options) + row('주차 추가조건', b.parkNote)
+    + row('기타 공통조건', b.etcCond);
+
+  var h = head
+    + fold('bm-f1', '🏛 건물 기본정보 (공공데이터)', pub, false)
+    + fold('bm-f2', '☎️ 관리정보', mgmt, true)
+    + fold('bm-f3', '🔑 입주조건', cond, true);
+
+  if (bmAdmin()) {
+    h += fold('bm-f4', '🔒 보안정보 <span style="font-size:10.5px;font-weight:400;color:#D97706">대표·관리자만</span>',
+      '<div id="bm-sec">불러오는 중…</div>', false);
+  }
+  h += '<div class="card"><div class="form-section">🏠 이 건물의 매물</div>'
+    + '<div id="bm-tabs" style="display:flex;gap:5px;flex-wrap:wrap;margin:8px 0"></div>'
+    + '<input id="bm-uq" placeholder="호실 · 거래유형 · 가격으로 찾기" autocomplete="off" oninput="bmUnitsDraw()"'
+    + ' style="width:100%;height:34px;border-radius:8px;border:1px solid var(--border);padding:0 11px;font-size:12.5px;margin-bottom:8px">'
+    + '<div id="bm-units">세는 중…</div></div>';
+  el.innerHTML = h;
+
+  if (bmAdmin()) bmSecLoad(b.id);
+  BM.unitsOf = b;
+  BM.tab = 'all';
+  bmTabsDraw();
+  bmUnitsDraw();
+}
+
+function bmFold(id) {
+  var e = document.getElementById(id), c = document.getElementById(id + '-c');
+  if (!e) return;
+  var open = e.style.display !== 'none';
+  e.style.display = open ? 'none' : '';
+  if (c) c.textContent = open ? '펼치기' : '접기';
+}
+
+/* 🔒 보안정보는 전용 조회로만 (getAll 에 안 들어 있다) */
+async function bmSecLoad(id) {
+  var box = document.getElementById('bm-sec');
+  if (!box) return;
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { box.textContent = '주소·토큰이 없습니다.'; return; }
+  try {
+    var tq = (typeof tokQ === 'function') ? tokQ() : '';
+    var r = await fetch(url + '?action=bldgSecList&scope=building&targetId='
+      + encodeURIComponent(id) + '&t=' + Date.now() + tq);
+    var j = await r.json();
+    var rows = ((j && j.result) || {}).rows || [];
+    if (!rows.length) { box.innerHTML = '<div style="font-size:12.5px;color:var(--t2)">적어 둔 출입정보가 없습니다.</div>'; return; }
+    box.innerHTML = rows.map(function (s) {
+      return '<div style="font-size:12.5px;padding:3px 0">'
+        + '<div>공동현관 · <b>' + bmEsc(s.gateCode || '-') + '</b></div>'
+        + '<div>공실 현관 · <b>' + bmEsc(s.unitCode || '-') + '</b></div>'
+        + '<div>출입방법 · ' + bmEsc(s.entryHow || '-') + '</div>'
+        + '<div style="font-size:11px;color:var(--t3);margin-top:3px">'
+        + bmEsc(s.updatedBy || '') + ' ' + bmEsc(s.updatedAt || '') + '</div></div>';
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div style="font-size:12px;color:#B91C1C">보안정보를 읽지 못했습니다 — '
+      + bmEsc(e && e.message) + '</div>';
+  }
+}
+
+/* ── 🏠 건물의 매물 목록 (필터 알약 + 검색) ───────────────────────────
+   🔴 여기서 매물을 고치지 않는다. 행을 누르면 **기존 매물 수정창**을 연다.
+   🔴 buildingId 를 자동으로 채워 저장하지 않는다 — 화면에서 묶어 보여줄 뿐이다. */
+function bmTabsDraw() {
+  var box = document.getElementById('bm-tabs');
+  if (!box || !BM.unitsOf) return;
+  var all = bmUnitsOf(BM.unitsOf);
+  box.innerHTML = BM_TABS.map(function (t) {
+    var n = all.filter(function (x) { return bmTabHit(t.k, x); }).length;
+    var on = (BM.tab === t.k);
+    return '<button class="btn btn-xs" onclick="bmTab(&#39;' + t.k + '&#39;)" style="'
+      + (on ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '')
+      + 'border-radius:14px;padding:4px 11px">' + t.n + ' ' + n + '</button>';
+  }).join('');
+}
+function bmTab(k) { BM.tab = k; bmTabsDraw(); bmUnitsDraw(); }
+
+function bmMoney(v) {
+  var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
+  if (isNaN(n) || n <= 0) return '';
+  if (n >= 10000) {
+    var eok = Math.floor(n / 10000), rest = n % 10000;
+    return eok + '억' + (rest ? (' ' + rest) : '');
+  }
+  return String(n);
+}
+
+function bmUnitsDraw() {
+  var box = document.getElementById('bm-units');
+  if (!box || !BM.unitsOf) return;
+  var b = BM.unitsOf;
+  var rows = bmUnitsOf(b).filter(function (x) { return bmTabHit(BM.tab || 'all', x); });
+  var q = bmKey(bmVal('bm-uq'));
+  if (q) {
+    rows = rows.filter(function (x) {
+      return bmKey(x.addr2).indexOf(q) >= 0 || bmKey(x.type).indexOf(q) >= 0
+        || bmKey(x.kind).indexOf(q) >= 0 || bmKey(x.price).indexOf(q) >= 0
+        || bmKey(x.rentAmt).indexOf(q) >= 0 || bmKey(x.id).indexOf(q) >= 0;
+    });
+  }
+  rows.sort(function (a, c) { return bmWhen(c).localeCompare(bmWhen(a)); });   /* 최근 등록순 */
+
+  var note = '<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.7">'
+    + '※ 신규 = 최근 ' + BM_NEW_DAYS + '일 (접수일이 없으면 마지막 수정일 기준)<br>'
+    + '※ 이 건물의 매물은 <b>건물명·주소로 묶어</b> 보여 줍니다 — 기존 매물에 건물ID를 임의로 채우지 않았습니다.'
+    + '</div>';
+
+  if (!rows.length) {
+    box.innerHTML = '<div style="font-size:12.5px;color:var(--t2);padding:6px 0">해당하는 매물이 없습니다.</div>' + note;
+    return;
+  }
+  var head = '<div style="display:flex;gap:6px;font-size:11px;color:var(--t3);padding:5px 0;border-bottom:1px solid var(--border)">'
+    + '<div style="min-width:62px">호실</div><div style="min-width:48px">거래</div>'
+    + '<div style="min-width:82px">보증금</div><div style="min-width:64px">월세</div>'
+    + '<div style="min-width:88px">구조</div><div style="min-width:44px">층</div>'
+    + '<div style="min-width:78px">입주</div><div style="min-width:56px">상태</div>'
+    + '<div style="min-width:74px">수정일</div></div>';
+
+  box.innerHTML = '<div style="overflow-x:auto">' + head + rows.map(function (x) {
+    return '<div style="display:flex;gap:6px;font-size:12px;padding:5px 0;border-bottom:1px solid #F1F5F9;cursor:pointer"'
+      + ' onclick="bmOpenUnit(&#39;' + bmEsc(x.id) + '&#39;)">'
+      + '<div style="min-width:62px;font-weight:600">' + bmEsc(x.addr2 || '-') + '</div>'
+      + '<div style="min-width:48px">' + bmEsc(x.type || '') + '</div>'
+      + '<div style="min-width:82px">' + bmEsc(bmMoney(x.price)) + '</div>'
+      + '<div style="min-width:64px">' + bmEsc(bmMoney(x.rentAmt)) + '</div>'
+      + '<div style="min-width:88px;color:var(--t2)">' + bmEsc(x.kind || '') + '</div>'
+      + '<div style="min-width:44px">' + bmEsc(x.floor || '') + '</div>'
+      + '<div style="min-width:78px;color:var(--t2)">' + bmEsc(String(x.availDate || x.moveDate || '').slice(0, 10)) + '</div>'
+      + '<div style="min-width:56px">' + bmEsc(x.status || '-') + '</div>'
+      + '<div style="min-width:74px;color:var(--t3)">' + bmEsc(bmWhen(x)) + '</div>'
+      + '</div>';
+  }).join('') + '</div>' + note;
+}
+
+/* 행을 누르면 기존 매물 수정창을 연다 — 새 상세화면을 중복해서 만들지 않는다 */
+function bmOpenUnit(id) {
+  try { openModal('listing', id); }
+  catch (e) { try { sxGo('listing', 0, '운영부'); } catch (e2) {} }
+}
+
+/* [+ 매물등록] — 🔴 지금 보고 있는 건물이 미리 채워진 채로 열린다.
+   건물명·주소를 다시 입력하지 않는다. */
+function bmAddUnit(bid) {
+  var b = (BM.rows || []).filter(function (x) { return String(x.id) === String(bid); })[0];
+  try { openModal('listing', null); } catch (e) { return; }
+  setTimeout(function () {
+    if (!b) return;
+    bmSet('l-apt', b.name);
+    bmSet('l-addr', b.addr);
+    if (b.totalFloor) bmSet('l-total-floor', b.totalFloor);
+    if (b.bldgUse) bmSet('l-bldg-use', b.bldgUse);
+    if (b.aprDate) bmSet('l-apr-date', b.aprDate);
+    var e = document.getElementById('l-addr2');
+    if (e) e.focus();
+  }, 350);
+}
+
+
+/* ═══ 🧭 ERP-UI-CONSOLIDATE-01 (2026-09-15) — 화면 구조 통합 ══════════════════
+   대표 확정 4영역:
+     상단  = 브랜드 + 대분류(홈·그룹웨어·관리부·운영부·마케팅부·법무팀·개발부)
+     왼쪽  = 고른 대분류의 하위메뉴만
+     중앙  = 업무화면
+     오른쪽 = 공통도구(검색·빠른등록·녹음·메모·계산기·문자발송)
+
+   🔴 기능을 지우지 않는다. **자리만 옮긴다.**
+      검색칸(#sx-q)·빠른등록(#sx-new)·녹음(recToggle)·메모(#sx-memo)는 있던 것을 그대로 쓴다.
+   🔴 권한 없는 도구는 회색·자물쇠가 아니라 아예 그리지 않는다.
+   🔴 계산기는 ERP 안에 아직 없다 — 자리만 두고 그대로 말한다(없는 것을 있다고 하지 않는다). */
+
+(function bzShell() {
+
+  /* ── ① 대분류 레일을 상단으로 ───────────────────────────── */
+  function railUp() {
+    var top = document.querySelector('.sx-top');
+    var rail = document.querySelector('.sx-rail');
+    if (!top || !rail) return;
+    if (rail.parentNode === top) return;
+    rail.classList.add('bz-rail-top');
+    var co = top.querySelector('.sx-co');
+    if (co && co.nextSibling) top.insertBefore(rail, co.nextSibling);
+    else top.appendChild(rail);
+  }
+
+  /* ── ② 상단에서 공통도구 빼기 (기능은 오른쪽으로 옮겨 간다) ── */
+  function topTidy() {
+    var top = document.querySelector('.sx-top');
+    if (!top) return;
+    /* 검색칸은 지우지 않는다 — 오른쪽 패널 안으로 옮겨 그대로 쓴다 */
+    var search = top.querySelector('.sx-search');
+    var slot = document.getElementById('bz-search-slot');
+    if (search && slot && search.parentNode !== slot) slot.appendChild(search);
+
+    /* 빠른등록 · 홈 · 녹음 · 메모 단추는 상단에서 없앤다 */
+    var out = ['빠른등록', '녹음', '메모'];
+    Array.prototype.forEach.call(top.querySelectorAll('.sx-right .sx-btn'), function (b) {
+      var t = String(b.textContent || '').replace(/\s+/g, ' ').trim();
+      if (b.id === 'sx-rec-b') { b.style.display = 'none'; return; }
+      if (t === '홈') { b.style.display = 'none'; return; }
+      for (var i = 0; i < out.length; i++) {
+        if (t.indexOf(out[i]) >= 0) { b.style.display = 'none'; return; }
+      }
+    });
+  }
+
+  /* ── ③ 오른쪽 공통도구 패널 ─────────────────────────────── */
+  var TOOLS = [
+    { k: 'search', n: '검색', i: '🔍' },
+    { k: 'new', n: '빠른등록', i: '＋' },
+    { k: 'rec', n: '녹음', i: '🎙' },
+    { k: 'memo', n: '메모', i: '📝' },
+    { k: 'calc', n: '계산기', i: '🧮' },
+    { k: 'sms', n: '문자발송', i: '✉' }
+  ];
+
+  function toolsBuild() {
+    if (document.getElementById('bz-tools')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'bz-tools';
+    wrap.className = 'bz-tools';
+    var h = '<button class="bz-fold" id="bz-fold" onclick="bzToolsFold()" title="접기/펼치기">›</button>';
+    h += TOOLS.map(function (t) {
+      return '<button class="bz-tool" data-tool="' + t.k + '" onclick="bzTool(&#39;' + t.k + '&#39;)" title="' + t.n + '">'
+        + '<i>' + t.i + '</i><span>' + t.n + '</span></button>';
+    }).join('');
+    h += '<div class="bz-flyout" id="bz-flyout"><div class="bz-fly-h">'
+      + '<span id="bz-fly-t"></span>'
+      + '<button onclick="bzFlyClose()" title="닫기">✕</button></div>'
+      + '<div id="bz-fly-b"></div>'
+      + '<div id="bz-search-slot"></div></div>';
+    wrap.innerHTML = h;
+    document.body.appendChild(wrap);
+  }
+
+  /* 권한 없는 도구는 아예 지운다 (회색·자물쇠로 두지 않는다) */
+  function toolsPerm() {
+    var wrap = document.getElementById('bz-tools');
+    if (!wrap) return;
+    var role = (typeof bzRole === 'function') ? bzRole() : 'staff';
+    /* 지금은 여섯 도구 모두 전 계정이 쓴다. 나중에 권한이 갈리면 여기서 지운다. */
+    var deny = [];
+    if (role === 'staff' || role === 'manager') deny = [];
+    deny.forEach(function (k) {
+      var b = wrap.querySelector('[data-tool="' + k + '"]');
+      if (b && b.parentNode) b.parentNode.removeChild(b);
+    });
+  }
+
+  window.bzToolsFold = function () {
+    var w = document.getElementById('bz-tools');
+    if (!w) return;
+    w.classList.toggle('off');
+    var f = document.getElementById('bz-fold');
+    if (f) f.textContent = w.classList.contains('off') ? '‹' : '›';
+    try { localStorage.setItem('bz_tools_off', w.classList.contains('off') ? '1' : '0'); } catch (e) {}
+  };
+
+  window.bzFlyClose = function () {
+    var f = document.getElementById('bz-flyout');
+    if (f) f.classList.remove('on');
+  };
+
+  window.bzTool = function (k) {
+    var fly = document.getElementById('bz-flyout');
+    var tt = document.getElementById('bz-fly-t');
+    var bb = document.getElementById('bz-fly-b');
+    var slot = document.getElementById('bz-search-slot');
+    if (slot) slot.style.display = 'none';
+    if (bb) bb.innerHTML = '';
+
+    if (k === 'search') {
+      if (tt) tt.textContent = '통합검색';
+      if (slot) slot.style.display = '';
+      if (fly) fly.classList.add('on');
+      setTimeout(function () {
+        var q = document.getElementById('sx-q');
+        if (q) { q.focus(); q.select(); }
+      }, 60);
+      return;
+    }
+    if (k === 'new') { bzFlyClose(); try { sxPop('sx-new'); } catch (e) {} return; }
+    if (k === 'rec') { bzFlyClose(); try { recToggle(); } catch (e) {} return; }
+    if (k === 'memo') { bzFlyClose(); try { sxPop('sx-memo'); } catch (e) {} return; }
+    if (k === 'sms') { bzFlyClose(); try { sxGo('sms'); } catch (e) { try { go('sms'); } catch (e2) {} } return; }
+    if (k === 'calc') {
+      /* 🔴 ERP 안에는 계산기가 없다. 있는 척하지 않는다. */
+      if (tt) tt.textContent = '계산기';
+      if (bb) bb.innerHTML = '<div style="font-size:12.5px;line-height:1.6">'
+        + 'ERP 안에는 계산기가 <b>아직 없습니다.</b><br>'
+        + '중개보수·월세환산 계산기는 <b>따로 있는 프로그램</b>이고 ERP 와 연결돼 있지 않습니다.<br>'
+        + '<span style="color:var(--t3)">자리만 만들어 두었습니다 — 붙일지는 대표님이 정하시면 그때 합니다.</span></div>';
+      if (fly) fly.classList.add('on');
+      return;
+    }
+  };
+
+  function boot() {
+    toolsBuild();
+    railUp();
+    topTidy();
+    toolsPerm();
+    try {
+      if (localStorage.getItem('bz_tools_off') === '1') {
+        var w = document.getElementById('bz-tools');
+        if (w) { w.classList.add('off'); var f = document.getElementById('bz-fold'); if (f) f.textContent = '‹'; }
+      }
+    } catch (e) {}
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  [400, 1200, 3000, 6000].forEach(function (ms) { setTimeout(boot, ms); });
+})();
 
 </script>
 </body>
