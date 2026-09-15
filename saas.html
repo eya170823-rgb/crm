@@ -870,101 +870,91 @@ body{padding-bottom:46px}
 <body>
 
 <!-- ═══ 비밀번호 잠금 화면 ═══ -->
-<div id="lock-screen" style="position:fixed;inset:0;background:linear-gradient(135deg,#0F6E56,#185FA5);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column">
-  <div style="background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;margin:16px">
-    <div style="font-size:48px;margin-bottom:10px">🏡</div>
-    <div style="font-size:18px;font-weight:700;color:#1A1D21;margin-bottom:4px">브리즈부동산중개 CRM</div>
-    <div style="font-size:12px;color:#9AA3AF;margin-bottom:24px">비밀번호를 입력하세요</div>
-    <input id="lock-pw-input" type="password" placeholder="비밀번호 입력"
-      style="width:100%;padding:12px 16px;border-radius:10px;border:1.5px solid #E2E6EA;font-size:16px;text-align:center;outline:none;margin-bottom:10px;letter-spacing:6px;box-sizing:border-box">
-    <div id="lock-error" style="font-size:12px;color:#A32D2D;margin-bottom:10px;display:none;background:#FCEBEB;padding:8px;border-radius:6px">⚠️ 비밀번호가 올바르지 않습니다</div>
-    <button id="lock-btn" style="width:100%;padding:13px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px">🔓 접속</button>
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <button id="lock-master-btn" style="background:none;border:none;font-size:11px;color:#9AA3AF;cursor:pointer;text-decoration:underline">🔧 비밀번호 관리</button>
-      <button id="lock-reset-btn" style="background:none;border:none;font-size:10px;color:#CDD2D8;cursor:pointer">초기화</button>
-    </div>
+<div id="lock-screen" style="position:fixed;inset:0;background:linear-gradient(135deg,#0F6E56,#185FA5);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:20px;padding:34px 30px;width:100%;max-width:330px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;margin:16px">
+    <div style="font-size:42px;margin-bottom:8px">🏡</div>
+    <div style="font-size:17px;font-weight:800;color:#1A1D21;margin-bottom:22px">브리즈부동산중개</div>
+    <select id="bz-acct" style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid #E2E6EA;font-size:15px;outline:none;margin-bottom:9px;box-sizing:border-box;background:#fff;color:#1A1D21">
+      <option value="">아이디 선택</option>
+      <option value="ceo">대표</option>
+      <option value="manager">팀장</option>
+      <option value="staff">직원</option>
+      <option value="admin">관리자</option>
+    </select>
+    <input id="lock-pw-input" type="password" placeholder="비밀번호"
+      style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid #E2E6EA;font-size:15px;text-align:center;outline:none;margin-bottom:10px;letter-spacing:4px;box-sizing:border-box">
+    <div id="lock-error" style="font-size:12px;color:#A32D2D;margin-bottom:10px;display:none;background:#FCEBEB;padding:8px;border-radius:6px"></div>
+    <button id="lock-btn" style="width:100%;padding:13px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">로그인</button>
   </div>
 </div>
 
-<!-- 잠금화면 전용 스크립트 (다른 JS와 독립) -->
+<!-- 잠금화면 전용 스크립트 (다른 JS 와 독립) -->
 <script>
 (function(){
-  var DEFPW  = '1234';
-  var DEFMST = 'admin1234';
-  var PW_KEY = 'crm_pw';
-  var MST_KEY= 'crm_master_pw';
-  var SES_KEY= 'crm_session';
+  /* 🔐 계정 4개 — 초기 비밀번호는 모두 1234. 비밀번호를 바꾸면 crm_pw_<키> 에 남는다. */
+  var ACCTS = {
+    ceo:     { id:'breeze_ceo',     label:'대표',   role:'representative', who:'대표' },
+    manager: { id:'breeze_manager', label:'팀장',   role:'manager',        who:'팀장' },
+    staff:   { id:'breeze_staff',   label:'직원',   role:'staff',          who:'직원' },
+    admin:   { id:'breeze_admin',   label:'관리자', role:'admin',          who:'관리자' }
+  };
+  var DEFPW = '1234';
+  var SES_KEY = 'crm_session', ACCT_KEY = 'crm_acct';
   var SESSION_HRS = 8;
-
-  function getPw()  { return localStorage.getItem(PW_KEY)  || DEFPW;  }
-  function getMst() { return localStorage.getItem(MST_KEY) || DEFMST; }
-
-  function unlock() {
-    document.getElementById('lock-screen').style.display = 'none';
-    localStorage.setItem(SES_KEY, Date.now());
+  function pwOf(k){ try{ return localStorage.getItem("crm_pw_" + k) || DEFPW; }catch(e){ return DEFPW; } }
+  function say(m){ var e = document.getElementById("lock-error"); if(!e) return;
+    e.textContent = m; e.style.display = m ? "block" : "none"; }
+  function apply(k){
+    var A = ACCTS[k]; if(!A) return;
+    window.__bzAcct = k; window.__bzAcctInfo = A;
+    /* 🔴 기존 역할 칸을 그대로 쓴다 — 관리자는 admin, 나머지는 각자 역할 */
+    window.__crmRole = (A.role === "admin") ? "admin" : (A.role === "representative" ? "admin" : "staff");
+    window.__bzRole = A.role;
+    window.__crmWho = A.who;
+    try{
+      localStorage.setItem(ACCT_KEY, k);
+      localStorage.setItem("crm_role", window.__crmRole);
+      localStorage.setItem("crm_who", A.who);
+    }catch(e){}
   }
-
-  function tryLogin() {
-    var input = document.getElementById('lock-pw-input').value;
-    var err   = document.getElementById('lock-error');
-    if (!input) {
-      err.textContent = '⚠️ 비밀번호를 입력해주세요';
-      err.style.display = 'block';
-      return;
-    }
-    if (input === getPw() || input === getMst()) {
-      err.style.display = 'none';
-      document.getElementById('lock-pw-input').value = '';
-      unlock();
-    } else {
-      err.textContent = '⚠️ 비밀번호가 올바르지 않습니다';
-      err.style.display = 'block';
-      document.getElementById('lock-pw-input').value = '';
-      document.getElementById('lock-pw-input').focus();
-    }
+  function unlock(k){
+    apply(k);
+    try{ localStorage.setItem(SES_KEY, Date.now()); }catch(e){}
+    var ls = document.getElementById("lock-screen"); if(ls) ls.style.display = "none";
+    try{ if(typeof bzRoleApply === "function") bzRoleApply(); }catch(e){}
   }
-
-  // 버튼 이벤트 연결
-  document.getElementById('lock-btn').addEventListener('click', tryLogin);
-  document.getElementById('lock-pw-input').addEventListener('keydown', function(e){
-    if (e.key === 'Enter') tryLogin();
-  });
-  document.getElementById('lock-reset-btn').addEventListener('click', function(){
-    var mst = prompt('비밀번호 초기화에는 마스터 비밀번호가 필요합니다.\n마스터 비밀번호를 입력하세요:');
-    if (mst === null) return;
-    if (mst !== getMst()) { alert('마스터 비밀번호가 올바르지 않습니다.'); return; }
-    if (confirm('접속 비밀번호를 초기값(1234)으로 되돌립니까?\n저장된 데이터와 마스터 비밀번호는 유지됩니다.')) {
-      localStorage.removeItem(PW_KEY);
-      localStorage.removeItem(SES_KEY);
-      location.reload();
-    }
-  });
-  document.getElementById('lock-master-btn').addEventListener('click', function(){
-    // 마스터 모달은 메인 JS 로딩 후 사용 가능
-    if (typeof showMasterSetting === 'function') {
-      showMasterSetting();
-    } else {
-      alert('페이지 로딩 후 다시 시도해주세요.');
-    }
-  });
-
-  // 세션 확인 (8시간 유지)
-  var session = localStorage.getItem(SES_KEY);
-  if (session && (Date.now() - parseInt(session)) < SESSION_HRS * 3600000) {
-    unlock();
+  function tryLogin(){
+    var k = (document.getElementById("bz-acct")||{}).value || "";
+    var pw = (document.getElementById("lock-pw-input")||{}).value || "";
+    if(!k){ say("아이디를 골라 주세요"); return; }
+    if(!pw){ say("비밀번호를 입력해 주세요"); return; }
+    if(pw !== pwOf(k)){ say("비밀번호가 올바르지 않습니다");
+      document.getElementById("lock-pw-input").value = "";
+      document.getElementById("lock-pw-input").focus(); return; }
+    say("");
+    document.getElementById("lock-pw-input").value = "";
+    unlock(k);
+  }
+  document.getElementById("lock-btn").addEventListener("click", tryLogin);
+  document.getElementById("lock-pw-input").addEventListener("keydown", function(e){
+    if(e.key === "Enter") tryLogin(); });
+  document.getElementById("bz-acct").addEventListener("change", function(){ say(""); });
+  /* 세션이 살아 있으면 그 계정으로 이어 간다(8시간) */
+  var ses = null, was = null;
+  try{ ses = localStorage.getItem(SES_KEY); was = localStorage.getItem(ACCT_KEY); }catch(e){}
+  if(ses && was && ACCTS[was] && (Date.now() - parseInt(ses)) < SESSION_HRS * 3600000){
+    unlock(was);
   } else {
-    // 자동 포커스
-    setTimeout(function(){
-      var el = document.getElementById('lock-pw-input');
-      if (el) el.focus();
-    }, 100);
+    try{ localStorage.removeItem(SES_KEY); localStorage.removeItem(ACCT_KEY); }catch(e){}
+    setTimeout(function(){ var el = document.getElementById("bz-acct"); if(el) el.focus(); }, 100);
   }
-
-  // 전역에서도 호출 가능하도록 노출
-  window.checkPassword    = tryLogin;
+  window.BZ_ACCTS = ACCTS;
+  window.bzAcctKey = function(){ try{ return localStorage.getItem(ACCT_KEY) || ""; }catch(e){ return ""; } };
+  window.bzRole = function(){ return window.__bzRole || (ACCTS[window.bzAcctKey()] || {}).role || "staff"; };
+  window.bzLabel = function(){ return (ACCTS[window.bzAcctKey()] || {}).label || "사용자"; };
+  window.checkPassword = tryLogin;
   window.lockScreenUnlock = unlock;
-})();
-</script>
+})();</script>
 
 <!-- 마스터 비밀번호 관리 모달 -->
 <div id="master-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:none;align-items:center;justify-content:center">
@@ -1015,7 +1005,7 @@ body{padding-bottom:46px}
       <span class="sx-rec-dot"></span><span id="sx-rec-t">녹음</span>
     </button>
     <button class="sx-btn" onclick="sxPop('sx-memo')" title="메모 — 생각나면 바로 적기">메모</button>
-    <button class="sx-btn" id="sx-deploy-b" data-admin="1" onclick="sxGo('deploy')" title="배포 관리 — 지금 버전과 배포 절차 보기">배포</button>
+    <button class="sx-btn" id="sx-deploy-b" data-admin="1" data-sys="1" onclick="sxGo('deploy')" title="배포 관리 — 지금 버전과 배포 절차 보기">배포</button>
     <button class="sx-ico" onclick="sxPop('sx-noti')" title="알림">🔔<span class="sx-dot" id="sx-noti-n" style="display:none">0</span></button>
     <div class="sx-me" onclick="sxPop('sx-acc')"><div class="sx-av" id="sx-av">브</div>
       <div><b id="sx-who">대표</b><br><span id="sx-role">대표 계정</span></div></div>
@@ -1073,7 +1063,7 @@ body{padding-bottom:46px}
       <button class="sx-rail-b" data-co="head" data-dept="법무팀" data-home="contract-writer" onclick="sxRail('법무팀')" title="법무팀 · 계약·보증금·위험">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v15"/><path d="M6 8h12"/><path d="M6 8 4 13h4Z"/><path d="M18 8l-2 5h4Z"/></svg></i><span>법무팀</span>
       </button>
-      <button class="sx-rail-b" data-co="head" data-dept="개발부" data-admin="1" data-home="memo" onclick="sxRail('개발부')" title="개발부 · 설계·개발·운영">
+      <button class="sx-rail-b" data-co="head" data-dept="개발부" data-admin="1" data-sys="1" data-home="memo" onclick="sxRail('개발부')" title="개발부 · 설계·개발·운영">
         <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8 5 12l4 4"/><path d="M15 8l4 4-4 4"/></svg></i><span>개발부</span>
       </button>
       <button class="sx-rail-b" data-co="design" data-dept="디자인영업" data-home="" onclick="sxRail('디자인영업')" title="디자인영업 · 상담·견적·수주">
@@ -1151,17 +1141,17 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>등기 변동 확인</button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>문서 작성 · 브리핑</button>
       </div>
-      <div class="sx-grp" data-co="head" data-dept="개발부" data-admin="1">
+      <div class="sx-grp" data-co="head" data-dept="개발부" data-admin="1" data-sys="1">
         <div class="sx-grp-h">개발부<em>설계·개발·운영</em></div>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">메모 · 요구사항</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'개발부')">매물 수집</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">자동화 현황</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="openGsSetup()">설정</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="showPwaGuide()">앱 설치 방법</button>
-          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="location.href='index.html'">기존 화면으로</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="memo" data-admin="1" onclick="sxGo('memo',0,'개발부')">메모 · 요구사항</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="audit" data-admin="1" onclick="sxGo('audit',0,'개발부')">오류·데이터 검수</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="gather" data-admin="1" onclick="sxGo('gather',0,'개발부')">매물 수집</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="ops" data-admin="1" onclick="sxGo('ops',0,'개발부')">자동화 현황</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="" data-admin="1" onclick="openGsSetup()">설정</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="" data-admin="1" onclick="showPwaGuide()">앱 설치 방법</button>
+          <button class="sx-item" data-co="head" data-sys="1" data-grp="개발부" data-menu="" data-admin="1" onclick="location.href='index.html'">기존 화면으로</button>
       </div>
       <div class="sx-grp" data-co="design" data-dept="디자인영업">
         <div class="sx-grp-h">디자인영업<em>상담·견적·수주</em></div>
@@ -11518,7 +11508,11 @@ function sxAdminId(id){
 }
 function sxGo(id, fromPop, dept){
   // 🔴 직원은 대표 전용 화면을 열 수 없다 — 아이콘·주소창·뒤로가기 어느 쪽으로 와도 막는다
-  if(sxAdminId(id) && !sxAdmin()){
+  /* 🔐 ERP-AUTH-02 — 시스템 화면은 관리자만. 주소창·뒤로가기 어느 쪽으로 와도 막는다. */
+  var _r = (typeof bzRole === "function") ? bzRole() : "staff";
+  var SYS_ID = ['memo','audit','gather','ops','changelog','deploy'];
+  if(SYS_ID.indexOf(id) >= 0 && _r !== 'admin'){ showToast('관리자 전용 화면입니다'); return; }
+  if(sxAdminId(id) && _r !== 'admin' && _r !== 'representative'){
     showToast('대표 전용 화면입니다');
     return;
   }
@@ -11570,12 +11564,39 @@ function sxCompany(co){
   const first = document.querySelector('.sx-grp.on .sx-item[data-co="' + co + '"][data-menu]:not([data-menu=""])');
   if(first) sxGo(first.getAttribute('data-menu'));
 }
+function bzRoleApply(){
+  /* 🔐 ERP-AUTH-02·03 — 역할별로 화면을 만든다.
+     🔴 disabled·회색이 아니라 **DOM 에서 없앤다**. 로그아웃하면 새로 읽으므로 되살아난다.
+       data-sys  = 시스템 기술설정 → 관리자만 (대표에게도 안 보인다)
+       data-admin= 경영급        → 관리자·대표 */
+  var role = (typeof bzRole === "function") ? bzRole() : "staff";
+  var isAdmin = (role === "admin");
+  var isBoss  = (role === "admin" || role === "representative");
+  document.querySelectorAll('[data-sys="1"]').forEach(function(el){
+    if(!isAdmin && el.parentNode) el.parentNode.removeChild(el); });
+  if(!isBoss){
+    document.querySelectorAll('[data-admin="1"]').forEach(function(el){
+      if(el.parentNode) el.parentNode.removeChild(el); });
+  }
+  /* 🔴 지금 열려 있는 화면이 권한 밖이면 홈으로 되돌린다.
+     관리자로 열어 둔 화면이 다른 계정에서 그대로 보이던 것을 막는다(실측). */
+  var SYSP = ["deploy","memo","audit","gather","ops","changelog"];
+  var BOSSP = ["staff","stats"];
+  function _shown(id){ var p = document.getElementById("p-" + id);
+    return !!(p && p.offsetParent !== null); }
+  var _kick = false;
+  if(!isAdmin) SYSP.forEach(function(id){ if(_shown(id)) _kick = true; });
+  if(!isBoss)  BOSSP.forEach(function(id){ if(_shown(id)) _kick = true; });
+  if(_kick){ try{ go("home"); }catch(e){} }
+  try{ sxRole(); }catch(e){}
+}
 function sxRole(){
   const admin = sxAdmin();
   const who = (typeof crmWho === 'function') ? crmWho() : '사용자';
   const w = document.getElementById('sx-who'), r = document.getElementById('sx-role'), a = document.getElementById('sx-av');
   if(w) w.textContent = who;
-  if(r) r.textContent = admin ? '대표 계정' : '직원 계정';
+  /* 🔐 ERP-AUTH-02 — 로그인한 계정 이름을 그대로 쓴다 */
+  if(r) r.textContent = ((typeof bzLabel === "function") ? bzLabel() : (admin ? "대표" : "직원")) + " 계정";
   if(a) a.textContent = (who || '브').charAt(0);
   document.querySelectorAll('[data-admin="1"]').forEach(el => {
     const coOk = el.getAttribute('data-co') === sxCo;
@@ -11632,8 +11653,13 @@ function sxNotiBadge(){
 function sxAccRender(){
   const b = document.getElementById('sx-acc-body'); if(!b) return;
   const admin = sxAdmin();
-  b.innerHTML = '<a style="color:var(--t3)">' + gEsc(crmWho()) + ' · ' + (admin ? '대표(모든 부서)' : '직원(운영부 중심)') + '</a>'
-        + '<button onclick="sxGo(\'guide\');sxPop(\'sx-acc\')">이용 가이드</button>'
+  /* 🔐 ERP-AUTH-02 — 현재 계정 · 권한 · 로그아웃만. 관리자에게만 나머지를 남긴다. */
+  var _role = (typeof bzRole === "function") ? bzRole() : (admin ? "admin" : "staff");
+  var _lab  = (typeof bzLabel === "function") ? bzLabel() : (admin ? "대표" : "직원");
+  var _isAdmin = (_role === "admin");
+  b.innerHTML = '<a style="color:var(--t3)">현재 계정 · <b>' + gEsc(_lab) + '</b></a>'
+    + '<a style="color:var(--t3)">권한 · ' + gEsc(_role) + '</a>'
+        + (_isAdmin ? '<button onclick="sxGo(\'guide\');sxPop(\'sx-acc\')">이용 가이드</button>' : '')
     + '<button onclick="sxGo(\'pref\');sxPop(\'sx-acc\')">화면 설정 (색·바로가기)</button>'
     + '<button onclick="sxGo(\'ver\');sxPop(\'sx-acc\')">버전 정보 · ' + gEsc(((document.getElementById('appVer')||{}).textContent||'').trim()) + '</button>'
     + (admin ? '<button onclick="sxGo(\'staff\');sxPop(\'sx-acc\')">직원 계정 관리</button>' : '')
@@ -11645,6 +11671,20 @@ function sxAi(){
   else showToast('AI 직원은 대표만 봅니다. 부서 AI 는 연결 전이라 실행되지 않습니다');
 }
 function sxLogout(){
+  /* 🔐 ERP-AUTH-02 — 세션·계정·역할을 모두 지운다. 새로 읽으므로 뒤로가기로도 못 들어온다. */
+  if(!confirm("로그아웃할까요?")) return;
+  try{
+    localStorage.removeItem("crm_session");
+    localStorage.removeItem("crm_acct");
+    localStorage.removeItem("crm_role");
+    localStorage.removeItem("crm_who");
+  }catch(e){}
+  window.__crmRole = undefined; window.__bzRole = undefined;
+  window.__crmWho = undefined; window.__bzAcct = undefined;
+  try{ location.replace(location.pathname); }catch(e){ location.reload(); }
+  return;
+}
+function sxLogoutOld(){
   if(!confirm('로그아웃할까요? 다시 들어올 때 비밀번호를 입력해야 합니다.')) return;
   try{ localStorage.removeItem('crm_session'); }catch(e){}
   location.reload();
