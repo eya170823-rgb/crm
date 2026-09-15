@@ -1109,7 +1109,6 @@ body{padding-bottom:46px}
       <div class="sx-grp" data-co="head" data-dept="그룹웨어">
         <div class="sx-grp-h">그룹웨어<em>회의록·자료실</em></div>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="minutes" onclick="sxGo('minutes',0,'그룹웨어')">회의록</button>
-          <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="" onclick="showPwaGuide()">매뉴얼</button>
           <button class="sx-item" data-co="head" data-grp="그룹웨어" data-menu="ref" onclick="sxGo('ref',0,'그룹웨어')">자료실</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
@@ -1161,6 +1160,7 @@ body{padding-bottom:46px}
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="changelog" data-admin="1" onclick="sxGo('changelog',0,'개발부')">변경 이력</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="deploy" data-admin="1" onclick="sxGo('deploy',0,'개발부')">배포 관리</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="openGsSetup()">설정</button>
+          <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="showPwaGuide()">앱 설치 방법</button>
           <button class="sx-item" data-co="head" data-grp="개발부" data-menu="" data-admin="1" onclick="location.href='index.html'">기존 화면으로</button>
       </div>
       <div class="sx-grp" data-co="design" data-dept="디자인영업">
@@ -11492,7 +11492,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"매뉴얼","act":"showPwaGuide()"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"listing","items":[{"sub":"매물"},{"label":"매물장","id":"listing"},{"sub":"광고"},{"label":"광고 관리","id":"ads"},{"sub":"사진"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","act":"chanGo('thumb')"},{"sub":"고객"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 명부","id":"customer"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"공부 발급","id":"docreq"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"설정","act":"openGsSetup()"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"매물·광고·고객·임대인","home":"listing","items":[{"sub":"매물"},{"label":"매물장","id":"listing"},{"sub":"광고"},{"label":"광고 관리","id":"ads"},{"sub":"사진"},{"label":"매물 사진","id":"listing","ref":true},{"label":"사진 편집기","act":"chanGo('thumb')"},{"sub":"고객"},{"label":"매도·임대인","act":"custRole('임대인')"},{"label":"매수·임차인","act":"custRole('임차인')"},{"label":"문의 고객","act":"custRole('문의')"},{"label":"고객 명부","id":"customer"},{"sub":"임대인"},{"label":"임대인 명부","id":"landlord"}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"공부 발급","id":"docreq"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"설정","act":"openGsSetup()"},{"label":"앱 설치 방법","act":"showPwaGuide()"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -11633,8 +11633,7 @@ function sxAccRender(){
   const b = document.getElementById('sx-acc-body'); if(!b) return;
   const admin = sxAdmin();
   b.innerHTML = '<a style="color:var(--t3)">' + gEsc(crmWho()) + ' · ' + (admin ? '대표(모든 부서)' : '직원(운영부 중심)') + '</a>'
-    + '<button onclick="openGsSetup();sxPop(\'sx-acc\')">연동·토큰 설정</button>'
-    + '<button onclick="sxGo(\'guide\');sxPop(\'sx-acc\')">이용 가이드</button>'
+        + '<button onclick="sxGo(\'guide\');sxPop(\'sx-acc\')">이용 가이드</button>'
     + '<button onclick="sxGo(\'pref\');sxPop(\'sx-acc\')">화면 설정 (색·바로가기)</button>'
     + '<button onclick="sxGo(\'ver\');sxPop(\'sx-acc\')">버전 정보 · ' + gEsc(((document.getElementById('appVer')||{}).textContent||'').trim()) + '</button>'
     + (admin ? '<button onclick="sxGo(\'staff\');sxPop(\'sx-acc\')">직원 계정 관리</button>' : '')
@@ -20697,7 +20696,6 @@ function prefRender(){
     + '화면 색과 바로가기는 이 컴퓨터·이 폰에만 남습니다. 다른 기기에서 열면 기본 화면으로 시작합니다. '
     + '자료(매물·고객·계약)는 서버에 있으므로 그대로입니다.</div></div>'
     + ddLink([
-        { n: '연동·토큰 설정', w: '자료를 불러오는 열쇠', go: 'pref', dept: '관리부' },
         { n: '이용 가이드', w: '화면 사용법', go: 'guide', dept: '그룹웨어' },
         { n: '메모·요구사항', w: '바꾸고 싶은 것 적기', go: 'memo', dept: '개발부' },
       ]);
@@ -21106,7 +21104,7 @@ function verCard(){
     + '<div class="card"><div class="card-title">서버(구글 시트) 연결</div>'
     + '<div style="font-size:12.5px;color:var(--t2);line-height:1.9">기기마다 토큰을 한 번 넣어야 자료를 불러옵니다. '
     + '불러오기가 0건이면 대부분 이 토큰이 비어 있는 경우입니다.</div>'
-    + '<button class="dd-go" style="margin-top:9px" onclick="openGsSetup()">연동·토큰 설정 →</button></div>';
+    + '<div class="s" style="margin-top:9px">토큰은 <b>개발부 &gt; 설정</b> 에서 넣습니다(대표 전용).</div></div>';
 }
 function verLive(){
   fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(j => {
