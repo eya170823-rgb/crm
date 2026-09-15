@@ -1275,7 +1275,7 @@ body{padding-bottom:46px}
     <div class="panel" id="p-home">
       <div class="hm-hero">
         <div class="hm-hi" id="hm-hi"></div>
-        <div class="hm-sub">오늘 할 일과 우리 회사 상황을 한 화면에</div>
+        <div class="hm-sub">필요한 것만 두었습니다</div>
         <div class="hm-search"><input id="hm-q" placeholder="매물 · 고객 · 임대인 · 계약 찾기" autocomplete="off"
           oninput="sxSearch(this.value)" onfocus="document.getElementById('sx-q').value=this.value">
           </div>
@@ -12412,6 +12412,18 @@ function decideHtml(){
    참조 화면(대표 제공)에서 확인한 배치: 가운데 인사말 + 통합검색 + 바로가기 아이콘 줄,
    그 아래 업무 카드 격자(각 카드 = 라벨 + 한 줄 요약 + 숫자/진행바 + 행동 버튼), 오른쪽에 작은 위젯 열.
    🔴 숫자는 전부 지금 불러온 실제 자료. 없는 것은 '미연결'로 적는다. 버튼은 기존 기능만 부른다. */
+/* 🏠 2026-09-15 ERP-UI-01 — 홈 단순화 스위치.
+   false 로 바꾸면 종전 홈(카드 10개 + 숫자 위젯 4개)이 그대로 돌아온다. */
+const HOME_SIMPLE = true;
+/* 홈 머리에 남길 바로가기 — 대표 선택(매물·고객·문자·계약) */
+const HOME_QUICK_KEEP = ['listing', 'customer', 'sms', 'contract'];
+function homeSimpleHtml(){
+  return '<div class="hm-card" style="grid-column:1 / -1">'
+    + '<div class="hm-t">왼쪽 메뉴에서 할 일을 고르세요</div>'
+    + '<div class="hm-s" style="margin-top:6px">홈은 일부러 비워 두었습니다. '
+    + '쓰시다가 <b>여기 있으면 좋겠다</b> 싶은 것을 말씀해 주시면 그때 하나씩 꺼내 드립니다.<br>'
+    + '숨긴 것은 지운 것이 아니라 <b>그대로 남아 있습니다</b>.</div></div>';
+}
 const HOME_QUICK = [
   { id: 'listing',  n: '매물',   d: '<path d="M3 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/>' },
   { id: 'customer', n: '고객',   d: '<circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/>' },
@@ -17844,7 +17856,9 @@ function homeRender(){
 
   // 바로가기
   const q = document.getElementById('hm-quick');
-  if(q) q.innerHTML = HOME_QUICK.map(x => '<button class="hm-q" onclick="sxGo(&#39;' + x.id + '&#39;)"><i>' + homeIcon(x.d) + '</i><span>' + gEsc(x.n) + '</span></button>').join('');
+  if(q) q.innerHTML = HOME_QUICK.filter(function(x){
+    return !HOME_SIMPLE || HOME_QUICK_KEEP.indexOf(x.id) >= 0;   /* 🏠 ERP-UI-01 */
+  }).map(x => '<button class="hm-q" onclick="sxGo(&#39;' + x.id + '&#39;)"><i>' + homeIcon(x.d) + '</i><span>' + gEsc(x.n) + '</span></button>').join('');
 
   // 1) 오늘 일정 — 근태 대신(폰으로 되는 일이라 회사 화면에 둘 필요가 없다, 2026-09-08 대표 지시)
   const d7 = new Date(new Date(t + 'T00:00:00').getTime() + 7 * 86400000).toISOString().slice(0, 10);
@@ -17931,11 +17945,15 @@ function homeRender(){
       + '<button class="dd-lkb" onclick="sxGo(&#39;memo&#39;,0,&#39;개발부&#39;)"><b>개발부</b><em>메모·검수·배포</em></button>'
       + '</div></div>'
     : '';
-  el.innerHTML = todayCard() + todayCallsCard() + todayPhotoCard() + c1 + c2 + c3 + c4 + c5 + c6 + chiefLink;
+  /* 🏠 ERP-UI-01 — 카드는 그대로 만들어 두고 화면에만 안 올린다(되돌리기 한 줄) */
+  el.innerHTML = HOME_SIMPLE ? homeSimpleHtml()
+    : (todayCard() + todayCallsCard() + todayPhotoCard() + c1 + c2 + c3 + c4 + c5 + c6 + chiefLink);
   try{ todayFill(); }catch(e){}
 
   // 오른쪽 위젯
   const w = document.getElementById('hm-side');
+  if(w && HOME_SIMPLE){ w.innerHTML = ''; }   /* 🏠 ERP-UI-01 — 숫자 위젯 숨김 */
+  else
   if(w){
     const exp = (typeof get6m === 'function') ? get6m() : [];
     const noti = (typeof sxNotiList === 'function') ? sxNotiList() : [];
