@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-16 09:12</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-16 09:39</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -21606,7 +21606,13 @@ setTimeout(function(){ try{ sxRole(); sxNotiBadge(); }catch(e){} }, 2600);   // 
    🔴 공공데이터에 없는 값을 지어내지 않는다 — 못 가져오면 '확인필요' 로 둔다.
    🔴 기존 매물은 건드리지 않는다. buildingId 자동매핑도 하지 않는다. */
 
-var BM = { view: 'list', rows: null, listings: null, cand: [], pub: null, sec: null, cur: null, busy: false, unitsOf: null, tab: 'all' };
+var BM = { view: 'list', rows: null, listings: null, cand: [], pub: null, sec: null, cur: null,
+           busy: false, unitsOf: null, tab: 'all', xl: null, seq: 0 };
+
+/* 🔴 2026-09-16 — 화면을 옮기는 동안 앞 화면의 늦은 응답이 돌아와 덮어쓰는 일이 있었다(실측).
+   화면을 옮길 때마다 번호를 올리고, 늦게 온 응답은 번호가 다르면 그냥 버린다. */
+function bmSeq() { return BM.seq; }
+function bmStale(n) { return n !== BM.seq; }
 
 function bmEsc(v) {
   return String(v == null ? '' : v)
@@ -21674,6 +21680,7 @@ async function bmLoadListings(force) {
 }
 
 function bmGo(view, id) {
+  BM.seq++;                      /* 🔴 화면을 옮겼다 — 앞 화면의 늦은 응답은 이제 무효 */
   BM.view = view;
   BM.cur = id || null;
   var b = document.getElementById('bm-back');
@@ -21691,6 +21698,7 @@ function bldgRender() {
 
 /* ══ ① 건물목록 ══════════════════════════════════════════════════════════ */
 async function bmListHtml(el) {
+  var myq = bmSeq();
   el.innerHTML = '<div class="card">불러오는 중…</div>';
   var rows;
   /* 🔴 건물부터 먼저 그린다. 매물은 뒤따라 읽고 숫자만 다시 채운다 —
@@ -21700,6 +21708,7 @@ async function bmListHtml(el) {
     el.innerHTML = '<div class="card">건물 목록을 불러오지 못했습니다 — ' + bmEsc(e && e.message) + '</div>';
     return;
   }
+  if (bmStale(myq)) return;                      /* 그 사이 다른 화면으로 갔다 — 덮어쓰지 않는다 */
   if (rows === null) { el.innerHTML = '<div class="card">건물 목록을 읽지 못했습니다.</div>'; return; }
 
   var sub = document.getElementById('bm-sub');
@@ -21708,12 +21717,19 @@ async function bmListHtml(el) {
   var h = '<div class="card" style="margin-bottom:12px">'
     + '<input id="bm-find" placeholder="건물명 · 주소 · 단지코드로 찾기" autocomplete="off"'
     + ' oninput="bmListDraw()" style="width:100%;height:36px;border-radius:8px;border:1px solid var(--border);padding:0 12px;font-size:13px">'
+    /* 📗 2026-09-16 — 건물마스터 엑셀. 🔴 보안 3칸은 싣지 않는다 */
+    + '<div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">'
+    + '<button class="btn btn-sm" onclick="bmXlDown()">Excel 다운로드</button>'
+    + '<button class="btn btn-sm" onclick="bmXlPick()">Excel 업로드</button>'
+    + '<input type="file" id="bm-xl-file" accept=".xlsx,.xls" style="display:none" onchange="bmXlRead(event)">'
+    + '</div>'
+    + '<div id="bm-xl-box" style="margin-top:10px"></div>'
     + '</div><div id="bm-list"></div>';
   el.innerHTML = h;
   bmListDraw();
   /* 매물은 뒤따라 읽고, 다 읽으면 건물별 건수만 다시 그린다 */
   bmLoadListings(false).then(function () {
-    if (BM.view === 'list') bmListDraw();
+    if (!bmStale(myq) && BM.view === 'list') bmListDraw();
   });
 }
 
@@ -22107,11 +22123,90 @@ async function bmUpsert(type, data) {
   } catch (e) { return { ok: false, why: String((e && e.message) || e) }; }
 }
 
+
+/* ── 🏛 2026-09-16 공공데이터 다시 조회 ───────────────────────────────────
+   왜 필요한가(실측): 기존 건물 13곳 모두 공공데이터 칸이 **전부 비어 있었다.**
+     칸은 어제 만들었는데 그 건물들은 등록 당시 대장을 안 받았고,
+     건물상세에 **다시 조회할 길이 없어서** 채울 방법이 없었다.
+   🔴 키 만료·일일 한도·산 표기·파싱 문제가 아니다 — 주소로 조회하면 13/13 된다(실측).
+   🔴 대표가 단추를 눌렀을 때만 돈다. 저절로 돌지 않는다.
+   🔴 대표가 직접 적어 넣은 칸(관리정보·입주조건)은 건드리지 않는다. */
+async function bmRefetch(bid) {
+  var b = (BM.rows || []).filter(function (x) { return String(x.id) === String(bid); })[0];
+  if (!b) return;
+  var box = document.getElementById('bm-f1');
+  if (box) {
+    box.style.display = '';
+    var c = document.getElementById('bm-f1-c');
+    if (c) c.textContent = '접기';
+    box.innerHTML = '<div style="font-size:12.5px">건축물대장을 읽는 중…</div>';
+  }
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { if (box) box.innerHTML = '이 기기에 CRM 주소·토큰이 없습니다.'; return; }
+  var tq = (typeof tokQ === 'function') ? tokQ() : '';
+  try {
+    /* 🔴 주소로 찾는다. 건물명으로는 주소 API 가 못 찾는다(실측: 에코 드 파리·퀸하우스 0건) */
+    var q = String(b.addr || '').trim() || String(b.roadAddr || '').trim() || String(b.name || '').trim();
+    var r = await fetch(url + '?action=bldgSearch&q=' + encodeURIComponent(q) + '&t=' + Date.now() + tq);
+    var j = await r.json();
+    var rows = ((j && j.result) || {}).rows || [];
+    if (!rows.length) {
+      if (box) box.innerHTML = '<div style="font-size:12.5px;color:#B91C1C">'
+        + '주소로 찾지 못했습니다 — <b>' + bmEsc(q) + '</b><br>'
+        + '<span style="color:var(--t2)">주소 칸을 지번주소(예: 제주시 연동 260-15)로 고치고 다시 눌러 주세요.</span></div>';
+      return;
+    }
+    var a = rows[0];
+    var r2 = await fetch(url + '?action=bldgFull&sigunguCd=' + encodeURIComponent(a.sigunguCd)
+      + '&bjdongCd=' + encodeURIComponent(a.bjdongCd)
+      + '&platGbCd=' + (a.mtYn === '1' ? '1' : '0')
+      + '&bun=' + encodeURIComponent(a.bun) + '&ji=' + encodeURIComponent(a.ji)
+      + '&t=' + Date.now() + tq);
+    var j2 = await r2.json();
+    var d = (j2 && j2.data) || {};
+
+    /* 🔴 공공데이터 칸만 채운다. 대표가 적은 칸은 손대지 않는다.
+       이미 값이 있으면 덮지 않는다(빈 칸만 채운다). */
+    var patch = { id: b.id, updatedAt: bmNow(), pubAt: bmNow() };
+    var put = function (k, v) {
+      var nv = String(v == null ? '' : v).trim();
+      if (!nv) return;
+      if (String(b[k] || '').trim()) return;     /* 있는 값은 덮지 않는다 */
+      patch[k] = nv;
+    };
+    put('roadAddr', a.road); put('sido', a.sido); put('sigungu', a.sigungu);
+    put('dong', a.dong); put('ri', a.ri);
+    put('jibun', a.bun + (String(a.ji || '0') !== '0' ? ('-' + a.ji) : ''));
+    put('aprDate', d.aprDate); put('totalFloor', d.totalFloor); put('ugFloor', d.ugFloor);
+    put('strct', d.strct); put('bldgUse', d.use); put('hhldCnt', d.hhldCnt);
+    put('parkTotal', d.parkTotal); put('elevator', d.elvtCnt);
+
+    var got = Object.keys(patch).filter(function (k) { return k !== 'id' && k !== 'updatedAt' && k !== 'pubAt'; });
+    if (!got.length) {
+      if (box) box.innerHTML = '<div style="font-size:12.5px;color:var(--t2)">'
+        + '대장에서 새로 채울 것이 없습니다(이미 다 차 있거나 대장에 값이 없습니다).</div>';
+      return;
+    }
+    var ok = await bmUpsert('buildings', patch);
+    if (!ok.ok) {
+      if (box) box.innerHTML = '<div style="font-size:12.5px;color:#B91C1C">저장 실패 — ' + bmEsc(ok.why) + '</div>';
+      return;
+    }
+    BM.rows = null;
+    if (typeof showToast === 'function') showToast('공공데이터 ' + got.length + '칸을 채웠습니다');
+    bmGo('detail', b.id);
+  } catch (e) {
+    if (box) box.innerHTML = '<div style="font-size:12.5px;color:#B91C1C">조회 실패 — ' + bmEsc(e && e.message) + '</div>';
+  }
+}
+
 /* ══ ③ 건물상세 ══════════════════════════════════════════════════════════ */
 async function bmDetailHtml(el) {
+  var myq = bmSeq();
   el.innerHTML = '<div class="card">불러오는 중…</div>';
   var rows;
   try { await bmLoadListings(false); rows = await bmLoad(false); } catch (e) { rows = []; }
+  if (bmStale(myq)) return;                      /* 그 사이 화면이 바뀌었다 */
   var b = (rows || []).filter(function (x) { return String(x.id) === String(BM.cur); })[0];
   if (!b) { el.innerHTML = '<div class="card">그 건물을 찾지 못했습니다.</div>'; return; }
 
@@ -22140,7 +22235,10 @@ async function bmDetailHtml(el) {
     + (b.roadAddr ? '<div style="font-size:12px;color:var(--t2)">' + bmEsc(b.roadAddr) + '</div>' : '')
     + '<div style="font-size:11.5px;color:var(--t3);margin-top:6px">건물ID ' + bmEsc(b.id)
     + ' · 단지코드 ' + (String(b.complexCode || '').trim() ? bmEsc(b.complexCode) : '확인필요') + '</div></div>'
-    + '<button class="btn btn-g btn-sm" onclick="bmAddUnit(&#39;' + bmEsc(b.id) + '&#39;)">+ 매물등록</button>'
+    /* 🔴 2026-09-16 대표 지시 — 건물관리에 [매물 추가] 를 두지 않는다.
+       매물 등록은 매물장에서만 한다. 건물관리는 건물 정보 보기·수정·대장 조회만.
+       (bmAddUnit 함수는 지우지 않고 남겨 둔다 — 부르는 곳이 없을 뿐이다) */
+    + '<button class="btn btn-sm" onclick="bmRefetch(&#39;' + bmEsc(b.id) + '&#39;)">공공데이터 다시 조회</button>'
     + '</div>'
     + '<div style="font-size:13px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)">'
     + '전체 <b>' + uAll.length + '</b>건 &nbsp;|&nbsp; 공실 <b style="color:#0F6E56">' + uVac + '</b>건</div>'
@@ -22319,6 +22417,242 @@ function bmAddUnit(bid) {
     var e = document.getElementById('l-addr2');
     if (e) e.focus();
   }, 350);
+}
+
+/* ═══ 📗 2026-09-16 건물 엑셀 — 다운로드 / 업로드 ═══════════════════════════
+   대표 지시:
+     · 다운로드: 지금 목록을 **건물마스터 칸 그대로** xlsx
+     · 업로드: 같은 양식 → 검증(지번 중복·필수칸) → 미리보기 → **대표 확인 뒤** 단건 upsert
+     · 신규 추가 가능. 기존 건물은 **빈 칸만 채우고, 값 있는 칸은 덮지 않는다**(덮으려면 체크)
+   🔴 보안 3칸(공동현관 비번·공실 비번·출입방법)은 다운로드·업로드 **양쪽 다 제외**한다.
+      그 값은 건물보안 탭에만 있고 이 파일에는 절대 실리지 않는다.
+   🔴 saveAll 을 쓰지 않는다. 한 건씩 upsert 한다.
+   🔴 대표가 [적용] 을 누르기 전에는 아무것도 저장하지 않는다. */
+
+/* 엑셀에 실을 칸 — 건물마스터 칸 그대로. 🔴 보안 칸은 애초에 여기 없다(건물보안 탭 소관) */
+var BM_XL_COLS = [
+  ['id', '건물ID'], ['complexCode', '단지코드'], ['name', '건물명'],
+  ['addr', '지번주소'], ['roadAddr', '도로명주소'],
+  ['sido', '시도'], ['sigungu', '시군구'], ['dong', '읍면동'], ['ri', '리'], ['jibun', '지번'],
+  ['aprDate', '사용승인일'], ['totalFloor', '최고층'], ['ugFloor', '지하층수'],
+  ['strct', '건물구조'], ['bldgUse', '건물용도'], ['hhldCnt', '세대수'],
+  ['parkTotal', '총주차대수'], ['elevator', '승강기'],
+  ['saleType', '분양형태'], ['dongCnt', '동수'], ['heatType', '난방방식'], ['hallType', '복도유형'],
+  ['builder', '시공사'], ['developer', '시행사'], ['mgmtType', '관리주체'], ['welfare', '부대복리시설'],
+  ['mgmtOffice', '관리사무소명'], ['mgmtPhone', '관리사무소 대표번호'],
+  ['mgmtPerson', '담당자'], ['mgmtPersonPhone', '담당자 휴대폰'], ['mgmtFax', '관리사무소 팩스'],
+  ['vacPerson', '공실문의 담당자'], ['vacPhone', '공실문의 연락처'], ['mgmtNote', '관리 메모'],
+  ['moveIn', '전입'], ['pets', '반려동물'], ['foreigner', '외국인'],
+  ['cleanFee', '퇴실청소비'], ['cleanNote', '청소비 메모'],
+  ['feeOne', '기본 관리비'], ['feeSep', '분리형 관리비'], ['feeItems', '관리비 포함항목'],
+  ['options', '기본 옵션'], ['park', '주차'], ['parkMode', '주차방식'], ['parkNote', '주차 추가조건'],
+  ['etcCond', '기타 공통조건'], ['note', '메모'], ['pubAt', '공공데이터 조회'], ['manAt', '직접입력 수정']
+];
+/* 🔴 이 칸들은 엑셀에 싣지 않는다 — 건물보안 탭 소관 */
+var BM_XL_NEVER = ['gateCode', 'unitCode', 'entryHow', 'keyPos', 'secNote'];
+
+function bmXlDown() {
+  if (!window.XLSX) { if (typeof showToast === 'function') showToast('엑셀 라이브러리 로딩 중입니다.'); return; }
+  var rows = BM.rows || [];
+  if (!rows.length) { if (typeof showToast === 'function') showToast('내려받을 건물이 없습니다.'); return; }
+  var head = BM_XL_COLS.map(function (c) { return c[1]; });
+  var body = rows.map(function (b) {
+    return BM_XL_COLS.map(function (c) { return String(b[c[0]] == null ? '' : b[c[0]]); });
+  });
+  var ws = XLSX.utils.aoa_to_sheet([head].concat(body));
+  ws['!cols'] = BM_XL_COLS.map(function (c) { return { wch: Math.max(10, c[1].length + 4) }; });
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '건물마스터');
+  var d = bmNow().slice(0, 10);
+  XLSX.writeFile(wb, '브리즈_건물마스터_' + d + '_' + rows.length + '곳.xlsx');
+  if (typeof showToast === 'function') showToast('건물 ' + rows.length + '곳을 내려받았습니다 (보안 칸 제외)');
+}
+
+function bmXlPick() {
+  var f = document.getElementById('bm-xl-file');
+  if (f) f.click();
+}
+
+/* 파일을 읽어 **미리보기만** 만든다. 🔴 여기서는 아무것도 저장하지 않는다. */
+async function bmXlRead(ev) {
+  var box = document.getElementById('bm-xl-box');
+  var file = ev && ev.target && ev.target.files && ev.target.files[0];
+  if (!file) return;
+  if (!window.XLSX) { if (box) box.innerHTML = '엑셀 라이브러리 로딩 중입니다.'; return; }
+  if (box) box.innerHTML = '<div style="font-size:12.5px">파일을 읽는 중…</div>';
+  try {
+    var buf = await file.arrayBuffer();
+    var wb = XLSX.read(buf, { type: 'array' });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    if (!aoa.length) { if (box) box.innerHTML = '빈 파일입니다.'; return; }
+
+    /* 머리글 → 칸 이름 */
+    var head = aoa[0].map(function (x) { return String(x == null ? '' : x).trim(); });
+    var map = [];
+    head.forEach(function (h, i) {
+      var hit = BM_XL_COLS.filter(function (c) { return c[1] === h || c[0] === h; })[0];
+      map[i] = hit ? hit[0] : '';
+    });
+    if (!map.filter(Boolean).length) {
+      if (box) box.innerHTML = '<div style="font-size:12.5px;color:#B91C1C">'
+        + '아는 칸이 하나도 없습니다. <b>[Excel 다운로드]</b> 로 받은 양식을 쓰세요.</div>';
+      return;
+    }
+
+    var cur = BM.rows || [];
+    var plan = [], bad = [], seen = {};
+    for (var r = 1; r < aoa.length; r++) {
+      var raw = aoa[r];
+      if (!raw || !raw.length) continue;
+      var o = {};
+      for (var i2 = 0; i2 < map.length; i2++) {
+        if (!map[i2]) continue;
+        if (BM_XL_NEVER.indexOf(map[i2]) >= 0) continue;   /* 🔴 보안 칸은 읽어도 버린다 */
+        o[map[i2]] = String(raw[i2] == null ? '' : raw[i2]).trim();
+      }
+      var nm = String(o.name || '').trim(), ad = String(o.addr || '').trim();
+      if (!nm && !ad) continue;
+      if (!nm || !ad) { bad.push({ line: r + 1, why: '건물명·지번주소가 둘 다 있어야 합니다', nm: nm || ad }); continue; }
+
+      var key = bmKey(ad);
+      if (seen[key]) { bad.push({ line: r + 1, why: '이 파일 안에서 지번주소가 겹칩니다(' + seen[key] + '줄과 같음)', nm: nm }); continue; }
+      seen[key] = r + 1;
+
+      /* 기존 건물 찾기 — 건물ID → 단지코드 → 지번 → 도로명 */
+      var old = null;
+      if (o.id) old = cur.filter(function (x) { return String(x.id) === String(o.id); })[0] || null;
+      if (!old && o.complexCode) old = cur.filter(function (x) { return bmKey(x.complexCode) && bmKey(x.complexCode) === bmKey(o.complexCode); })[0] || null;
+      if (!old) old = cur.filter(function (x) { return bmKey(x.addr) && bmKey(x.addr) === key; })[0] || null;
+      if (!old && o.roadAddr) old = cur.filter(function (x) { return bmKey(x.roadAddr) && bmKey(x.roadAddr) === bmKey(o.roadAddr); })[0] || null;
+
+      plan.push({ line: r + 1, row: o, old: old });
+    }
+    BM.xl = { plan: plan, bad: bad };
+    bmXlPreview();
+  } catch (e) {
+    if (box) box.innerHTML = '<div style="font-size:12.5px;color:#B91C1C">파일을 읽지 못했습니다 — ' + bmEsc(e && e.message) + '</div>';
+  }
+  try { ev.target.value = ''; } catch (e2) {}
+}
+
+function bmXlPreview() {
+  var box = document.getElementById('bm-xl-box');
+  if (!box || !BM.xl) return;
+  var plan = BM.xl.plan, bad = BM.xl.bad;
+  var isNew = plan.filter(function (p) { return !p.old; });
+  var isUpd = plan.filter(function (p) { return !!p.old; });
+
+  var h = '<div style="font-size:13px;font-weight:700;margin-bottom:6px">미리보기 — 아직 아무것도 저장하지 않았습니다</div>'
+    + '<div style="font-size:12.5px;margin-bottom:8px">'
+    + '새 건물 <b>' + isNew.length + '</b>곳 · 기존 건물 <b>' + isUpd.length + '</b>곳'
+    + (bad.length ? ' · <span style="color:#B91C1C">못 쓰는 줄 <b>' + bad.length + '</b></span>' : '')
+    + '</div>';
+
+  if (bad.length) {
+    h += '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 10px;margin-bottom:9px">'
+      + bad.slice(0, 10).map(function (x) {
+        return '<div style="font-size:12px">' + x.line + '줄 · ' + bmEsc(x.nm) + ' — ' + bmEsc(x.why) + '</div>';
+      }).join('')
+      + (bad.length > 10 ? '<div style="font-size:11px;color:var(--t3)">외 ' + (bad.length - 10) + '줄</div>' : '')
+      + '</div>';
+  }
+
+  h += '<label style="display:flex;gap:7px;align-items:center;font-size:12.5px;margin-bottom:9px">'
+    + '<input type="checkbox" id="bm-xl-over"> '
+    + '<span>기존 건물의 <b>값이 있는 칸도 덮어쓰기</b> '
+    + '<span style="color:var(--t3)">(체크 안 하면 빈 칸만 채웁니다)</span></span></label>';
+
+  if (plan.length) {
+    h += '<div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px">'
+      + plan.slice(0, 60).map(function (p) {
+        var tag = p.old
+          ? '<span style="color:#B45309">기존</span>'
+          : '<span style="color:#0F6E56">새로</span>';
+        return '<div style="display:flex;gap:8px;font-size:12px;padding:4px 9px;border-bottom:1px solid #F1F5F9">'
+          + '<div style="min-width:34px;color:var(--t3)">' + p.line + '</div>'
+          + '<div style="min-width:34px">' + tag + '</div>'
+          + '<div style="min-width:120px;font-weight:600">' + bmEsc(p.row.name) + '</div>'
+          + '<div style="color:var(--t2)">' + bmEsc(p.row.addr) + '</div></div>';
+      }).join('')
+      + '</div>'
+      + (plan.length > 60 ? '<div style="font-size:11px;color:var(--t3);margin-top:5px">※ 60줄까지만 보여 줍니다(적용은 전부 됩니다)</div>' : '');
+  }
+
+  h += '<div style="display:flex;gap:7px;justify-content:flex-end;margin-top:10px">'
+    + '<button class="btn btn-sm" onclick="bmXlCancel()">취소</button>'
+    + '<button class="btn btn-g btn-sm" id="bm-xl-go" onclick="bmXlApply()"'
+    + (plan.length ? '' : ' disabled') + '>' + plan.length + '곳 적용</button></div>'
+    + '<div id="bm-xl-msg" style="font-size:12px;margin-top:7px"></div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:7px">'
+    + '※ 공동현관·공실 비밀번호·출입방법은 이 파일에 들어가지도, 나가지도 않습니다(건물보안 소관).</div>';
+  box.innerHTML = h;
+}
+
+function bmXlCancel() {
+  BM.xl = null;
+  var box = document.getElementById('bm-xl-box');
+  if (box) box.innerHTML = '';
+}
+
+/* 🔴 여기서 처음으로 저장한다. 단건 upsert 만. */
+async function bmXlApply() {
+  if (!BM.xl || BM.busy) return;
+  var over = !!(document.getElementById('bm-xl-over') || {}).checked;
+  var msg = document.getElementById('bm-xl-msg');
+  var btn = document.getElementById('bm-xl-go');
+  var say = function (t, isBad) { if (msg) { msg.innerHTML = t; msg.style.color = isBad ? '#B91C1C' : 'var(--t2)'; } };
+  BM.busy = true;
+  if (btn) btn.disabled = true;
+
+  var plan = BM.xl.plan, okN = 0, fail = [];
+  /* 새 건물 ID 는 여기서 이어서 발급한다(사용자가 안 넣는다) */
+  var mx = 10000000;
+  (BM.rows || []).forEach(function (b) {
+    var s = String(b.id || '');
+    if (s.charAt(0) === 'B') { var n = parseInt(s.substring(1), 10); if (!isNaN(n) && n > mx) mx = n; }
+  });
+
+  for (var i = 0; i < plan.length; i++) {
+    var p = plan[i], row = {}, o = p.row;
+    say('적용 중… ' + (i + 1) + ' / ' + plan.length);
+    if (p.old) {
+      row.id = p.old.id;
+      for (var a = 0; a < BM_XL_COLS.length; a++) {
+        var k = BM_XL_COLS[a][0];
+        if (k === 'id') continue;
+        var nv = String(o[k] == null ? '' : o[k]).trim();
+        if (!nv) continue;
+        var ov = String(p.old[k] == null ? '' : p.old[k]).trim();
+        if (ov && !over) continue;        /* 값이 있으면 덮지 않는다(체크했을 때만 덮는다) */
+        row[k] = nv;
+      }
+      if (Object.keys(row).length <= 1) { okN++; continue; }   /* 바꿀 것이 없다 */
+    } else {
+      mx += 1;
+      row.id = String(o.complexCode || '').trim() || ('B' + mx);
+      for (var a2 = 0; a2 < BM_XL_COLS.length; a2++) {
+        var k2 = BM_XL_COLS[a2][0];
+        if (k2 === 'id') continue;
+        var nv2 = String(o[k2] == null ? '' : o[k2]).trim();
+        if (nv2) row[k2] = nv2;
+      }
+    }
+    row.manAt = bmNow();
+    row.updatedAt = bmNow();
+    var res = await bmUpsert('buildings', row);
+    if (res.ok) okN++; else fail.push(p.line + '줄 ' + (o.name || '') + ' — ' + res.why);
+  }
+
+  BM.busy = false;
+  BM.rows = null;
+  if (fail.length) {
+    say(okN + '곳 적용 · <b>실패 ' + fail.length + '곳</b><br>'
+      + fail.slice(0, 6).map(bmEsc).join('<br>'), true);
+  } else {
+    say(okN + '곳 적용 완료');
+  }
+  setTimeout(function () { BM.xl = null; bmGo('list'); }, 1600);
 }
 
 
