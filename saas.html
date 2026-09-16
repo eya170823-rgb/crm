@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-16 10:17</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-16 10:44</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -22701,19 +22701,16 @@ async function blLoadSms() {
   } catch (e) { BL.sms = []; }
   return BL.sms;
 }
-/* 그 건물 번호와 마지막으로 주고받은 날짜 */
+/* 🔴 결정2(2026-09-16) — 마지막컨택일은 **인입함 + 공실확인발송 + 문자수신함**
+   셋 중 가장 최근 날짜다. 근거(어느 탭에서 나왔는지)도 함께 돌려준다.
+   셋 다 없으면 빈 값 — 지어내지 않는다. */
 function blLastContact(b) {
-  var ph = blPhones(b);
-  if (!ph.length || !BL.sms || !BL.sms.length) return '';
-  var best = '';
-  BL.sms.forEach(function (s) {
-    var p = blPhoneKey(s['번호'] || s.phone || s.sender || '');
-    if (!p) return;
-    if (ph.indexOf(p) < 0) return;
-    var d = String(s['수신시각'] || s.at || s.when || '').slice(0, 10);
-    if (d && d > best) best = d;
-  });
-  return best;
+  var r = (typeof ezLastContact === 'function') ? ezLastContact(blPhones(b)) : { d: '', src: '' };
+  return r.d || '';
+}
+function blLastSrc(b) {
+  var r = (typeof ezLastContact === 'function') ? ezLastContact(blPhones(b)) : { d: '', src: '' };
+  return r.src || '';
 }
 
 function blSortBy(k) {
@@ -22806,11 +22803,11 @@ function blDrawTable() {
         + '<td style="font-size:11px;white-space:nowrap;color:var(--b);font-weight:600">' + bmEsc(code) + '</td>'
         + '<td style="font-size:12px">' + bmEsc(b.addr || '-') + '</td>'
         + '<td style="font-weight:600">' + bmEsc(b.name || '-') + '</td>'
-        + '<td>' + (b.__ph
-          ? ('<span style="color:var(--b);cursor:pointer;text-decoration:underline" title="누르면 문자 화면으로 갑니다"'
-            + ' onclick="event.stopPropagation();blSms(&quot;' + bmEsc(b.__ph) + '&quot;,&quot;' + bmEsc(b.name || '') + '&quot;)">'
-            + bmEsc(b.__ph) + '</span>')
-          : '<span style="color:var(--t3)">-</span>') + '</td>'
+        /* 🔴 22번 — 연락처 칸은 어디서나 같은 모양(번호 + 📞 + 💬).
+           직원 화면에서 가려진 번호는 아이콘도 만들지 않는다. */
+        + '<td>' + ((typeof ezPhoneCell === 'function')
+          ? ezPhoneCell(b.__ph, (b.name || '') + ' 관리사무소', !ezBoss())
+          : (b.__ph ? bmEsc(b.__ph) : '-')) + '</td>'
         + '<td style="text-align:center">' + b.__all + '</td>'
         + '<td style="text-align:center;font-weight:700;color:' + (b.__vac ? '#0F6E56' : 'var(--t3)') + '">'
         + b.__vac + '</td>'
@@ -22819,7 +22816,7 @@ function blDrawTable() {
     }).join('')
     + '</tbody></table></div>'
     + '<div style="font-size:11px;color:var(--t3);margin-top:7px;line-height:1.7">'
-    + '※ 마지막컨택일은 <b>문자수신함</b>에서 이 건물 연락처와 주고받은 마지막 날짜입니다. '
+    + '※ 마지막컨택일은 <b>인입함 · 공실확인발송 · 문자수신함</b> 셋 중 가장 최근 날짜입니다. '
     + '기록이 없으면 “-” 로 둡니다(지어내지 않습니다).<br>'
     + '※ 전체·공실 건수는 건물명·주소로 묶은 값입니다 — 기존 매물에 건물ID를 임의로 채우지 않았습니다.'
     + '</div>';
@@ -22864,7 +22861,9 @@ function blFilterBar() {
       blDrawTable();
     };
     /* 문자수신함은 한 번만 읽고, 읽히면 다시 그린다 */
-    blLoadSms().then(function () {
+    /* 🔴 인입함·공실확인발송·문자수신함을 함께 읽는다(결정2) */
+    var load = (typeof ezLoadContact === 'function') ? ezLoadContact() : blLoadSms();
+    Promise.resolve(load).then(function () {
       if (BM && BM.view === 'list') { try { blDrawTable(); } catch (e) {} }
     });
   }
@@ -23751,6 +23750,631 @@ function bzSheetPerm() {
   }
   hookRole();
   [400, 1200, 3000].forEach(function (ms) { setTimeout(hookRole, ms); });
+})();
+
+
+/* ═══ 2026-09-16 · 결정1·2 + 18~24 ═══════════════════════════════════════
+   🔴 기능을 지우지 않는다. 부르는 자리만 바꾸거나, 있는 것을 고쳐 쓴다.
+   🔴 saveAll 쓰지 않는다. 저장은 단건 upsert 만.
+   🔴 번호는 화면이 만들지 않는다 — 서버(GAS nextId)가 준다.
+   🔴 직원 화면에서 연락처·보안 경로가 하나도 남지 않게 한다. */
+
+/* ── 공통 도우미 ─────────────────────────────────────────────────────── */
+function ezEsc(v) {
+  return String(v == null ? '' : v)
+    .split('&').join('&amp;').split('<').join('&lt;')
+    .split('>').join('&gt;').split('"').join('&quot;');
+}
+function ezBoss() {
+  try {
+    var r = (typeof bzRole === 'function') ? bzRole() : '';
+    return r === 'admin' || r === 'representative';
+  } catch (e) { return false; }
+}
+function ezLoggedIn() {
+  try { return !!(typeof bzAcctKey === 'function' && bzAcctKey()); } catch (e) { return false; }
+}
+function ezPhoneDigits(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
+function ezMobile() {
+  try { return window.matchMedia && window.matchMedia('(max-width: 860px)').matches; } catch (e) { return false; }
+}
+
+/* ── 21. 번호는 서버가 준다 ──────────────────────────────────────────── */
+/* 🔴 화면에서 순번을 만들지 않는다. 두 사람이 같은 순간에 저장하면 겹치기 때문이다.
+   GAS 가 withWriteLock_ 안에서 오늘 마지막 순번 +1 을 돌려준다. */
+async function ezNextId(type, prefix) {
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) throw new Error('이 기기에 CRM 주소·토큰이 없습니다');
+  var q = (typeof tokQ === 'function') ? tokQ() : '';
+  var u = url + '?action=nextId&type=' + encodeURIComponent(type)
+    + (prefix ? ('&prefix=' + encodeURIComponent(prefix)) : '')
+    + '&t=' + Date.now() + q;
+  var r = await fetch(u);
+  var j = await r.json();
+  var res = (j && j.result) || {};
+  if (!res.id) throw new Error(String(res.error || (j && j.error) || '번호를 받지 못했습니다'));
+  return res.id;
+}
+
+/* 매물 저장 직전에 번호를 서버에서 받아 끼워 넣는다 — 기존 genListingNo 는 남겨 둔다 */
+(function ezIdHook() {
+  function hook() {
+    if (typeof window.genListingNo !== 'function' || window.__ezIdHooked) return;
+    window.__ezIdHooked = true;
+    window.__genListingNoLocal = window.genListingNo;   /* 옛 방식은 여기 남는다 */
+    /* 🔴 동기 함수라 서버를 기다릴 수 없다 — 저장 직전에 갈아끼우는 것은 saveListing 쪽에서 한다.
+       여기서는 "화면이 만든 번호"임을 표시만 해 둔다. */
+    window.genListingNo = function (kind) {
+      var v = window.__genListingNoLocal(kind);
+      window.__ezLocalNo = v;
+      return v;
+    };
+  }
+  function hookSave() {
+    if (typeof window.saveListing !== 'function' || window.__ezSaveHooked) return;
+    window.__ezSaveHooked = true;
+    var orig = window.saveListing;
+    window.saveListing = async function () {
+      /* 새 매물일 때만 서버 번호로 바꾼다(수정은 번호를 건드리지 않는다) */
+      try {
+        var ed = document.getElementById('l-edit-id');
+        var isNew = !(ed && String(ed.value || '').trim());
+        if (isNew) {
+          var kindEl = document.getElementById('l-kind');
+          var kind = kindEl ? String(kindEl.value || '') : '';
+          var pre = (typeof KIND_CODE === 'object' && KIND_CODE[kind]) ? KIND_CODE[kind] : 'R';
+          var sid = await ezNextId('listings', pre);
+          window.__ezServerNo = sid;                  /* saveListing 안에서 쓰도록 */
+        } else {
+          window.__ezServerNo = '';
+        }
+      } catch (e) {
+        window.__ezServerNo = '';
+        if (typeof showToast === 'function') showToast('번호를 서버에서 받지 못했습니다 — ' + (e && e.message));
+      }
+      return orig.apply(this, arguments);
+    };
+  }
+  function boot() { hook(); hookSave(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  [400, 1500, 4000].forEach(function (ms) { setTimeout(boot, ms); });
+})();
+
+/* ── 20. 고객번호 C + 접수일 6자리 + 순번 2자리 ───────────────────────── */
+async function ezCustomerId() { return ezNextId('customers'); }
+
+/* ── 22. 연락처 클릭 (건물·매물·고객·인입함 공통) ────────────────────── */
+/* PC : 클릭 → 문자발송 화면, 수신자 칸에 번호
+   폰 : 클릭 → 전화(tel:) / 길게 → 문자(sms:)
+   🔴 직원 화면에서 가려진 연락처는 아이콘도 만들지 않는다. */
+function ezPhoneCell(phone, who, masked) {
+  var d = ezPhoneDigits(phone);
+  if (!d || masked) return '<span style="color:var(--t3)">-</span>';
+  var p = ezEsc(String(phone));
+  var w = ezEsc(String(who || ''));
+  return '<span class="ez-ph" data-ph="' + p + '" data-who="' + w + '"'
+    + ' style="white-space:nowrap">'
+    + '<span style="color:var(--b);cursor:pointer;text-decoration:underline"'
+    + ' onclick="event.stopPropagation();ezPhoneGo(&quot;' + p + '&quot;,&quot;' + w + '&quot;)">' + p + '</span>'
+    + ' <span title="전화" style="cursor:pointer;margin-left:3px"'
+    + ' onclick="event.stopPropagation();ezCall(&quot;' + p + '&quot;)">📞</span>'
+    + ' <span title="문자" style="cursor:pointer;margin-left:1px"'
+    + ' onclick="event.stopPropagation();ezSmsTo(&quot;' + p + '&quot;,&quot;' + w + '&quot;)">💬</span>'
+    + '</span>';
+}
+function ezCall(p) {
+  var d = ezPhoneDigits(p);
+  if (!d) return;
+  if (ezMobile()) { try { location.href = 'tel:' + d; } catch (e) {} return; }
+  ezPhoneGo(p, '');
+}
+function ezSmsTo(p, who) {
+  var d = ezPhoneDigits(p);
+  if (!d) return;
+  if (ezMobile()) { try { location.href = 'sms:' + d; } catch (e) {} return; }
+  ezPhoneGo(p, who);
+}
+/* 결정 1 — 문자발송 화면 [수신자] 칸에 번호를 채운 채로 연다 */
+function ezPhoneGo(p, who) {
+  var d = String(p || '').trim();
+  try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(d); } catch (e) {}
+  try { sxGo('sms', 0, '운영부'); } catch (e) { try { go('sms'); } catch (e2) {} }
+  setTimeout(function () {
+    ezSmsBar();
+    var el = document.getElementById('ez-sms-to');
+    if (el) { el.value = d; el.focus(); }
+    if (typeof showToast === 'function') {
+      showToast((who ? (who + ' ') : '') + d + ' — 수신자 칸에 넣고 번호를 복사했습니다');
+    }
+  }, 420);
+}
+
+/* 결정 1 — 문자발송 화면에 [수신자] 칸과 [목록에서 선택] 을 만든다.
+   🔴 보내는 것은 기존 문자 기능이 한다. 여기서는 받는 사람만 정한다.
+   🔴 자동 발송하지 않는다. */
+function ezSmsBar() {
+  var host = document.getElementById('p-sms');
+  if (!host || document.getElementById('ez-sms-bar')) return;
+  var hd = host.querySelector('.page-hd');
+  var d = document.createElement('div');
+  d.id = 'ez-sms-bar';
+  d.className = 'card';
+  d.style.cssText = 'margin:0 0 12px';
+  d.innerHTML = '<div class="form-section" style="margin:0 0 7px">받는 사람</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<input id="ez-sms-to" placeholder="번호를 직접 넣으세요. 여러 명이면 쉼표로 (010-1111-2222, 010-3333-4444)"'
+    + ' autocomplete="off" style="flex:1;min-width:240px;height:36px;border-radius:8px;'
+    + 'border:1px solid var(--border);padding:0 12px;font-size:13px">'
+    + '<button class="btn btn-sm" onclick="ezPickFrom()">목록에서 선택</button>'
+    + '<button class="btn btn-sm" onclick="ezCopyTo()">번호 복사</button>'
+    + '</div>'
+    + '<div id="ez-sms-pick" style="margin-top:9px"></div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:7px">'
+    + '※ 여기서는 받는 사람만 정합니다. 보내기는 아래 문자 기능이 합니다 — 저절로 나가지 않습니다.</div>';
+  if (hd && hd.nextSibling) host.insertBefore(d, hd.nextSibling);
+  else host.insertBefore(d, host.firstChild);
+}
+function ezCopyTo() {
+  var el = document.getElementById('ez-sms-to');
+  if (!el) return;
+  try { navigator.clipboard.writeText(String(el.value || '')); } catch (e) {}
+  if (typeof showToast === 'function') showToast('수신자 번호를 복사했습니다');
+}
+/* 목록에서 고르기 — 고객·임대인·건물 연락처에서 */
+function ezPickFrom() {
+  var box = document.getElementById('ez-sms-pick');
+  if (!box) return;
+  var boss = ezBoss();
+  var rows = [];
+  try {
+    (ddArr('customers') || []).forEach(function (c) {
+      if (c.phone) rows.push({ n: c.name || '(이름 없음)', p: c.phone, k: '고객' });
+    });
+  } catch (e) {}
+  try {
+    (ddArr('landlords') || []).forEach(function (l) {
+      if (l.phone) rows.push({ n: l.name || '(이름 없음)', p: l.phone, k: '임대인' });
+    });
+  } catch (e) {}
+  try {
+    ((window.BM && BM.rows) || []).forEach(function (b) {
+      var p = b.mgmtPhone || b.vacPhone;
+      if (p) rows.push({ n: (b.name || '') + ' 관리사무소', p: p, k: '건물' });
+    });
+  } catch (e) {}
+
+  if (!boss) {
+    box.innerHTML = '<div style="font-size:12.5px;color:var(--t2)">'
+      + '직원 화면에서는 목록에서 번호를 고를 수 없습니다. 담당자에게 문의하세요.</div>';
+    return;
+  }
+  if (!rows.length) { box.innerHTML = '<div style="font-size:12.5px;color:var(--t2)">고를 번호가 없습니다.</div>'; return; }
+  box.innerHTML = '<input id="ez-pick-q" placeholder="이름·번호로 찾기" autocomplete="off" oninput="ezPickDraw()"'
+    + ' style="width:100%;height:32px;border-radius:8px;border:1px solid var(--border);padding:0 11px;font-size:12.5px">'
+    + '<div id="ez-pick-list" style="max-height:220px;overflow:auto;margin-top:7px"></div>';
+  window.__ezPick = rows;
+  ezPickDraw();
+}
+function ezPickDraw() {
+  var box = document.getElementById('ez-pick-list');
+  if (!box) return;
+  var q = String((document.getElementById('ez-pick-q') || {}).value || '').trim();
+  var rows = (window.__ezPick || []).filter(function (x) {
+    if (!q) return true;
+    return String(x.n).indexOf(q) >= 0 || ezPhoneDigits(x.p).indexOf(ezPhoneDigits(q)) >= 0;
+  }).slice(0, 80);
+  box.innerHTML = rows.map(function (x) {
+    return '<div style="display:flex;gap:9px;font-size:12.5px;padding:4px 0;border-bottom:1px solid #F1F5F9">'
+      + '<div style="min-width:52px;color:var(--t3)">' + ezEsc(x.k) + '</div>'
+      + '<div style="min-width:110px;font-weight:600">' + ezEsc(x.n) + '</div>'
+      + '<div style="min-width:118px;color:var(--b)">' + ezEsc(x.p) + '</div>'
+      + '<button class="btn btn-xs" onclick="ezPickAdd(&quot;' + ezEsc(x.p) + '&quot;)">넣기</button>'
+      + '</div>';
+  }).join('') || '<div style="font-size:12.5px;color:var(--t2)">찾는 번호가 없습니다.</div>';
+}
+function ezPickAdd(p) {
+  var el = document.getElementById('ez-sms-to');
+  if (!el) return;
+  var cur = String(el.value || '').trim();
+  var list = cur ? cur.split(',').map(function (x) { return x.trim(); }).filter(Boolean) : [];
+  if (list.indexOf(p) < 0) list.push(p);
+  el.value = list.join(', ');
+  if (typeof showToast === 'function') showToast(p + ' 넣었습니다');
+}
+
+/* ═══ 18 · 19 · 23 · 24 + 결정2 (2026-09-16) ═══════════════════════════ */
+
+/* ── 결정 2. 마지막컨택일 = 인입함 + 공실확인발송 + 문자수신함 중 최근 ──────
+   🔴 근거를 화면에 적는다. 셋 다 없으면 '-'. 지어내지 않는다. */
+var EZ_CONTACT = { inbox: null, vac: null, sms: null, ready: false };
+
+async function ezLoadContact() {
+  if (EZ_CONTACT.ready) return EZ_CONTACT;
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { EZ_CONTACT.ready = true; return EZ_CONTACT; }
+  var q = (typeof tokQ === 'function') ? tokQ() : '';
+  var grab = async function (act, extra) {
+    try {
+      var r = await fetch(url + '?action=' + act + (extra || '') + '&t=' + Date.now() + q);
+      var j = await r.json();
+      var v = (j && (j.result || j.data)) || [];
+      if (v && v.rows) v = v.rows;
+      if (v && v.items) v = v.items;
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  };
+  EZ_CONTACT.inbox = await grab('inboxList', '&limit=500');
+  EZ_CONTACT.sms = await grab('smsQueueList', '&limit=500');
+  EZ_CONTACT.vac = await grab('vacSmsList', '&limit=500');
+  EZ_CONTACT.ready = true;
+  return EZ_CONTACT;
+}
+
+/* 한 줄에서 번호와 날짜를 뽑는다 — 탭마다 칸 이름이 달라 여러 이름을 본다 */
+function ezRowPhone(r) {
+  return ezPhoneDigits(r['번호'] || r.phone || r.sender || r['연락처'] || r.to || '');
+}
+function ezRowDate(r) {
+  var v = r['수신시각'] || r['시각'] || r.at || r.when || r['발송시각'] || r['날짜'] || r.date || '';
+  return String(v).slice(0, 10);
+}
+/* 그 번호들과 마지막으로 주고받은 날짜 + 근거 */
+function ezLastContact(phones) {
+  var ph = (phones || []).map(ezPhoneDigits).filter(function (x) { return x.length >= 8; });
+  if (!ph.length) return { d: '', src: '' };
+  var best = '', src = '';
+  var scan = function (rows, label) {
+    (rows || []).forEach(function (r) {
+      var p = ezRowPhone(r);
+      if (!p || ph.indexOf(p) < 0) return;
+      var d = ezRowDate(r);
+      if (d && d > best) { best = d; src = label; }
+    });
+  };
+  scan(EZ_CONTACT.inbox, '인입함');
+  scan(EZ_CONTACT.vac, '공실확인발송');
+  scan(EZ_CONTACT.sms, '문자수신함');
+  return { d: best, src: src };
+}
+
+/* ── 18. 고객관리에서 인입함 원문을 빼고, 등록된 고객만 보여 준다 ────────
+   🔴 인입함 기능·데이터는 그대로 있다. 고객관리 화면에서 부르는 자리만 없앤다.
+   🔴 인입함 → 고객은 인입함 화면의 [고객으로 접수] 로만 한다. */
+function ezCustTidy() {
+  var host = document.getElementById('p-customer');
+  if (!host) return;
+  /* 고객관리 머리줄에서 [인입함 불러오기] 를 없앤다 */
+  Array.prototype.forEach.call(host.querySelectorAll('button'), function (b) {
+    var t = String(b.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t.indexOf('인입함') >= 0) { if (b.parentNode) b.parentNode.removeChild(b); }
+  });
+  /* 화면 안에 인입함 원문 목록이 그려져 있으면 감춘다(코드는 그대로) */
+  var inb = host.querySelector('#inbox-list');
+  if (inb) inb.style.display = 'none';
+  var bulk = host.querySelector('#inbox-bulkbar');
+  if (bulk) bulk.style.display = 'none';
+}
+
+/* ── 19. 고객 행 [추천매물] · [수정][삭제] 제거 ─────────────────────── */
+/* 🔴 고객 표의 몸통은 #cust-tbody 다(실측). #p-customer table tbody 로는 못 찾는다. */
+function ezCustBody() { return document.getElementById('cust-tbody'); }
+function ezCustRows() {
+  var t = ezCustBody();
+  return t ? Array.prototype.slice.call(t.querySelectorAll('tr')) : [];
+}
+function ezFindCust(id) {
+  var C = (typeof ddArr === 'function') ? (ddArr('customers') || []) : [];
+  return C.filter(function (x) { return String(x.id) === String(id); })[0] || null;
+}
+
+/* 적합도 — 🔴 기존 매칭 함수가 있으면 그것을 쓴다. 없으면 여기서 값만 견준다.
+   지어낸 점수를 쓰지 않도록, 무엇으로 맞췄는지 함께 적는다. */
+function ezMatch(c, l) {
+  var why = [], score = 0, max = 0;
+  var num = function (v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? null : n;
+  };
+  /* 지역 */
+  max += 30;
+  var want = String(c.region || c.wantRegion || '').trim();
+  if (want) {
+    var hay = String(l.addr || '') + ' ' + String(l.apt || '');
+    if (hay.indexOf(want) >= 0) { score += 30; why.push('지역'); }
+  } else { score += 15; why.push('지역 미기재'); }
+  /* 거래유형 */
+  max += 20;
+  var ty = String(c.propType || c.type || '').trim();
+  if (ty) { if (String(l.type || '') === ty) { score += 20; why.push('거래유형'); } }
+  else { score += 10; why.push('거래유형 미기재'); }
+  /* 보증금 */
+  max += 30;
+  var bud = num(c.budget || c.price);
+  var pr = num(l.price);
+  if (bud != null && pr != null) {
+    if (pr <= bud) { score += 30; why.push('보증금'); }
+    else if (pr <= bud * 1.15) { score += 15; why.push('보증금 15% 초과'); }
+  } else { score += 15; why.push('보증금 미기재'); }
+  /* 월세 */
+  max += 20;
+  var rb = num(c.rentBudget || c.rentAmt);
+  var rl = num(l.rentAmt);
+  if (rb != null && rl != null) {
+    if (rl <= rb) { score += 20; why.push('월세'); }
+    else if (rl <= rb * 1.15) { score += 10; why.push('월세 15% 초과'); }
+  } else { score += 10; why.push('월세 미기재'); }
+
+  return { pct: Math.round(score * 100 / Math.max(1, max)), why: why.join('·') };
+}
+
+function ezRecommend(id) {
+  var c = ezFindCust(id);
+  if (!c) return;
+  var L = (typeof ddArr === 'function') ? (ddArr('listings') || []) : [];
+  /* 🔴 거래 가능한 것만 본다(계약완료·임대중은 뺀다) */
+  var live = L.filter(function (l) { return String(l.status || '') === '접수'; });
+  var boss = ezBoss();
+  var rows = live.map(function (l) {
+    var m = ezMatch(c, l);
+    return { l: l, pct: m.pct, why: m.why };
+  }).sort(function (a, b) { return b.pct - a.pct; }).slice(0, 12);
+
+  var body = rows.length
+    ? '<div style="max-height:400px;overflow:auto">' + rows.map(function (x) {
+      var l = x.l;
+      var mine = !boss;   /* 직원 화면 */
+      return '<div style="display:flex;gap:9px;font-size:12.5px;padding:6px 0;border-bottom:1px solid #F1F5F9;align-items:baseline">'
+        + '<div style="min-width:46px;font-weight:700;color:' + (x.pct >= 70 ? '#0F6E56' : 'var(--t2)') + '">' + x.pct + '%</div>'
+        + '<div style="min-width:104px;color:var(--t3)">' + ezEsc(l.id) + '</div>'
+        + '<div style="min-width:150px;font-weight:600">' + ezEsc((l.apt || '') + ' ' + (l.addr2 || '')) + '</div>'
+        + '<div style="min-width:120px">' + ezEsc((l.type || '') + ' ' + (l.price || '') + (l.rentAmt ? ' / ' + l.rentAmt : '')) + '</div>'
+        + '<div style="min-width:120px;color:var(--t3);font-size:11.5px">' + ezEsc(x.why) + '</div>'
+        + (mine
+          ? ('<div style="min-width:86px;color:var(--t2);font-size:11.5px">담당 ' + ezEsc(l.agent || '-')
+            + ' <button class="btn btn-xs" onclick="ezCoBroker(&quot;' + ezEsc(l.id) + '&quot;)">공동중개 요청</button></div>')
+          : ('<div style="min-width:86px">' + ezPhoneCell(l.cphone, l.cname, false) + '</div>'))
+        + '</div>';
+    }).join('') + '</div>'
+    : '<div style="font-size:12.5px;color:var(--t2)">지금 거래 가능한 매물이 없습니다.</div>';
+
+  var note = '<div style="font-size:11px;color:var(--t3);margin-top:9px;line-height:1.7">'
+    + '※ 사무실 <b>전체 매물장</b>에서 상태가 ‘접수’ 인 것만 견주었습니다.<br>'
+    + '※ 적합도는 지역·거래유형·보증금·월세 네 가지로만 냅니다. 고객 조건이 비어 있으면 그만큼 낮게 잡습니다.'
+    + (boss ? '' : '<br>※ 직원 화면에서는 연락처가 보이지 않습니다 — 담당자에게 공동중개를 요청하세요.')
+    + '</div>';
+  bzModal('추천매물 — ' + ezEsc(c.name || id), body + note);
+}
+function ezCoBroker(lid) {
+  if (typeof showToast === 'function') showToast(lid + ' 담당자에게 공동중개를 요청했습니다(기록만 남습니다)');
+}
+
+/* 고객 표 손보기 — [수정][삭제] 없애고 [추천매물] 넣기, 이름 클릭 → 상세 */
+function ezCustTable() {
+  var body = ezCustBody();
+  if (!body) return;
+  var tb = body.closest ? body.closest('table') : null;
+  if (tb) {
+    var thr = tb.querySelector('thead tr');
+    if (thr && tb.getAttribute('data-ezh') !== '1') {
+      var ths = Array.prototype.slice.call(thr.querySelectorAll('th'));
+      var last = ths[ths.length - 1];
+      var lt = last ? String(last.textContent || '').trim() : '';
+      if (last && (lt.indexOf('관리') >= 0 || lt.indexOf('수정') >= 0 || lt === '')) last.textContent = '추천매물';
+      else { var th = document.createElement('th'); th.textContent = '추천매물'; thr.appendChild(th); }
+      tb.setAttribute('data-ezh', '1');
+    }
+  }
+
+  ezCustRows().forEach(function (tr) {
+    if (tr.getAttribute('data-ez') === '1') return;
+    var tds = tr.querySelectorAll('td');
+    if (!tds.length) return;
+    /* 고객 id 는 행 안 단추의 onclick 에서 뽑는다 */
+    var id = '';
+    Array.prototype.forEach.call(tr.querySelectorAll('button'), function (b) {
+      var oc = String(b.getAttribute('onclick') || '');
+      var m = oc.match(/openModal\(\s*['"]customer['"]\s*,\s*['"]([^'"]+)['"]/)
+        || oc.match(/deleteCustomer\(\s*['"]([^'"]+)['"]/);
+      if (!id && m) id = m[1];
+    });
+    /* 🔴 [수정][삭제] 를 없앤다 — 상세에서만 고치고 지운다(삭제는 휴지통 30일) */
+    var cell = tds[tds.length - 1];
+    if (cell) {
+      cell.innerHTML = id
+        ? ('<button class="btn btn-xs" onclick="event.stopPropagation();ezRecommend(&quot;'
+          + ezEsc(id) + '&quot;)">추천매물</button>')
+        : '';
+    }
+    /* 고객번호·이름 칸을 눌러 상세로 */
+    if (id) {
+      [tds[0], tds[1]].forEach(function (td) {
+        if (!td) return;
+        td.style.cursor = 'pointer';
+        td.title = '누르면 고객 상세가 열립니다';
+        td.onclick = function () { try { openModal('customer', id); } catch (e) {} };
+      });
+    }
+    tr.setAttribute('data-ez', '1');
+  });
+}
+
+/* ── 23. 광고관리 정리 ────────────────────────────────────────────────
+   🔴 단추만 감춘다. 함수·route·GAS 는 그대로 둔다. */
+var EZ_AD_HIDE = ['당근 엑셀', '당근엑셀', '등록완료 표시', '등록완료표기',
+  '당근 등록목록 동기화', '당근등록목록동기화', '네이버용 복사',
+  '대장 일괄보충', '대장일괄고침', '광고 점검표', '광고점검표', '당근광고준비', '당근 광고 준비'];
+var EZ_AD_SITES = [
+  { k: 'daangn', n: '당근', u: 'https://realty.daangn.com/ceo/articles/new' },
+  { k: 'naver', n: '네이버', u: 'https://new.land.naver.com/' },
+  { k: 'isj', n: '매경이실장', u: 'https://www.aipartner.com/offerings/ad_regist' },
+  { k: 'zigbang', n: '직방', u: 'https://ceo.zigbang.com/' },
+  { k: 'dabang', n: '다방', u: 'https://www.dabangapp.com/agent' },
+  { k: 'peterpan', n: '피터팬', u: 'https://www.peterpanz.com/' }
+];
+function ezAdUrl(k) {
+  try {
+    var v = localStorage.getItem('crm_adurl_' + k);
+    if (v) return v;
+  } catch (e) {}
+  var f = EZ_AD_SITES.filter(function (x) { return x.k === k; })[0];
+  return f ? f.u : '';
+}
+function ezAdGo(k) {
+  var u = ezAdUrl(k);
+  if (!u) { if (typeof showToast === 'function') showToast('그 채널의 광고 올리는 주소가 설정돼 있지 않습니다'); return; }
+  try { window.open(u, '_blank'); } catch (e) {}
+}
+function ezAdTidy() {
+  var host = document.getElementById('p-ads');
+  if (!host) return;
+  /* 단추 감추기 */
+  Array.prototype.forEach.call(host.querySelectorAll('button'), function (b) {
+    var t = String(b.textContent || '').replace(/\s+/g, ' ').trim();
+    for (var i = 0; i < EZ_AD_HIDE.length; i++) {
+      if (t.indexOf(EZ_AD_HIDE[i]) >= 0) { b.style.display = 'none'; return; }
+    }
+    /* 블로그 → 마케팅부로 옮긴다(여기서는 감춘다) */
+    if (t.indexOf('블로그') >= 0) b.style.display = 'none';
+  });
+  /* 플랫폼별 보기 줄 */
+  if (!document.getElementById('ez-ad-sites')) {
+    var hd = host.querySelector('.page-hd');
+    var d = document.createElement('div');
+    d.id = 'ez-ad-sites';
+    d.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px';
+    d.innerHTML = EZ_AD_SITES.map(function (x) {
+      return '<button class="btn btn-sm" title="' + ezEsc(x.n) + ' 광고 올리는 페이지를 새 탭으로"'
+        + ' onclick="ezAdGo(&quot;' + x.k + '&quot;)">' + ezEsc(x.n) + '</button>';
+    }).join('')
+      + '<span style="font-size:11px;color:var(--t3);align-self:center;margin-left:4px">'
+      + '누르면 그 채널 광고 올리는 페이지가 새 탭으로 열립니다</span>';
+    if (hd && hd.nextSibling) host.insertBefore(d, hd.nextSibling);
+    else host.insertBefore(d, host.firstChild);
+  }
+  /* 총주차대수 열 감추기 + 문구 클릭 */
+  var tb = host.querySelector('table');
+  if (tb && tb.getAttribute('data-ez') !== '1') {
+    var thr = tb.querySelector('thead tr');
+    if (thr) {
+      var ths = Array.prototype.map.call(thr.querySelectorAll('th'),
+        function (x) { return String(x.textContent || '').trim(); });
+      var pk = -1;
+      ths.forEach(function (t, i) { if (t.indexOf('주차') >= 0) pk = i; });
+      if (pk >= 0) {
+        thr.querySelectorAll('th')[pk].style.display = 'none';
+        Array.prototype.forEach.call(tb.querySelectorAll('tbody tr'), function (tr) {
+          var td = tr.querySelectorAll('td')[pk];
+          if (td) td.style.display = 'none';
+        });
+      }
+      var dc = -1;
+      ths.forEach(function (t, i) { if (t.indexOf('문구') >= 0) dc = i; });
+      if (dc >= 0) {
+        Array.prototype.forEach.call(tb.querySelectorAll('tbody tr'), function (tr) {
+          var td = tr.querySelectorAll('td')[dc];
+          if (!td) return;
+          var full = String(td.textContent || '');
+          td.style.cursor = 'pointer';
+          td.title = '누르면 전체를 봅니다';
+          td.onclick = function (e) {
+            e.stopPropagation();
+            bzModal('광고 문구', '<textarea readonly style="width:100%;height:220px;border:1px solid var(--border);'
+              + 'border-radius:8px;padding:10px;font-size:12.5px;line-height:1.7">' + ezEsc(full) + '</textarea>'
+              + '<div style="text-align:right;margin-top:8px">'
+              + '<button class="btn btn-sm" onclick="ezCopyText()">복사</button></div>');
+          };
+        });
+      }
+    }
+    tb.setAttribute('data-ez', '1');
+  }
+}
+function ezCopyText() {
+  var t = document.querySelector('#bz-modal textarea');
+  if (!t) return;
+  try { t.select(); navigator.clipboard.writeText(t.value); } catch (e) {}
+  if (typeof showToast === 'function') showToast('문구를 복사했습니다');
+}
+
+/* ── 24. 계약관리 — 계약번호는 서버가 준다 ───────────────────────────── */
+async function ezContractId() { return ezNextId('contracts'); }
+
+(function ezContractHook() {
+  function hook() {
+    if (typeof window.saveContract !== 'function' || window.__ezKHooked) return;
+    window.__ezKHooked = true;
+    var orig = window.saveContract;
+    window.saveContract = async function () {
+      try {
+        var ed = document.getElementById('k-edit-id') || document.getElementById('c-edit-id');
+        var isNew = !(ed && String(ed.value || '').trim());
+        window.__ezContractNo = isNew ? await ezContractId() : '';
+      } catch (e) {
+        window.__ezContractNo = '';
+        if (typeof showToast === 'function') showToast('계약번호를 서버에서 받지 못했습니다 — ' + (e && e.message));
+      }
+      return orig.apply(this, arguments);
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hook);
+  else hook();
+  [500, 1600, 4000].forEach(function (ms) { setTimeout(hook, ms); });
+})();
+
+/* ── 돌리기 ──────────────────────────────────────────────────────────── */
+(function ezTick() {
+  function tick() {
+    if (!ezLoggedIn()) return;          /* 🔴 로그인 전에는 아무것도 하지 않는다 */
+    try { ezCustTidy(); } catch (e) {}
+    try { ezCustTable(); } catch (e) {}
+    try { ezAdTidy(); } catch (e) {}
+    try { ezSmsBar(); } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tick);
+  else tick();
+  [700, 2000, 4500, 9000].forEach(function (ms) { setTimeout(tick, ms); });
+  try {
+    var _g = window.go;
+    if (typeof _g === 'function') {
+      window.go = function (id) {
+        var r = _g.apply(this, arguments);
+        setTimeout(tick, 90); setTimeout(tick, 700); setTimeout(tick, 1800);
+        return r;
+      };
+    }
+  } catch (e) {}
+  function hookRole() {
+    if (typeof window.bzRoleApply !== 'function' || window.__ezRoleHooked) return;
+    window.__ezRoleHooked = true;
+    var _r = window.bzRoleApply;
+    window.bzRoleApply = function () {
+      var out = _r.apply(this, arguments);
+      setTimeout(tick, 60); setTimeout(tick, 600);
+      return out;
+    };
+  }
+  hookRole();
+  [400, 1200, 3000].forEach(function (ms) { setTimeout(hookRole, ms); });
+})();
+
+
+/* 고객 표를 다시 그릴 때마다 손본다 */
+(function ezCustHook() {
+  function hook() {
+    if (typeof window.renderCustomers !== 'function' || window.__ezCustHooked) return;
+    window.__ezCustHooked = true;
+    var orig = window.renderCustomers;
+    window.renderCustomers = function () {
+      var r = orig.apply(this, arguments);
+      setTimeout(function () { try { ezCustTable(); } catch (e) {} }, 20);
+      setTimeout(function () { try { ezCustTable(); } catch (e) {} }, 350);
+      return r;
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hook);
+  else hook();
+  [500, 1600, 4000].forEach(function (ms) { setTimeout(hook, ms); });
 })();
 
 </script>
