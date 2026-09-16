@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-16 09:39</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-16 10:17</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -22655,6 +22655,224 @@ async function bmXlApply() {
   setTimeout(function () { BM.xl = null; bmGo('list'); }, 1600);
 }
 
+/* ── 11. 건물관리 — 카드 → 한 줄 표 (2026-09-16) ─────────────────────────
+   대표 지시 열: 건물번호 | 구주소(지번) | 건물명 | 연락처 | 전체 N건 | 현재공실 N건 | 마지막컨택일
+   상단 필터 3개: 동네 / 공실건수 / 마지막컨택일. 열 머리 눌러 정렬.
+   연락처를 누르면 문자 화면으로 간다.
+   🔴 마지막컨택일 근거 — **문자수신함(smsQueueList)** 에서 그 건물 연락처와
+      주고받은 마지막 날짜다. 인입함 전용 탭이 따로 없어 이것을 쓴다(지어내지 않는다).
+      못 찾으면 '-' 로 둔다. */
+
+var BL = { sort: 'name', dir: 1, dong: '', vac: '', contact: '', sms: null };
+
+function blPhoneKey(v) {
+  return String(v == null ? '' : v).replace(/\D/g, '');
+}
+/* 이 건물에 딸린 번호들 — 관리사무소·담당자·공실문의 */
+function blPhones(b) {
+  return [b.mgmtPhone, b.mgmtPersonPhone, b.vacPhone]
+    .map(blPhoneKey).filter(function (x) { return x.length >= 8; });
+}
+function blMainPhone(b) {
+  return String(b.mgmtPhone || b.vacPhone || b.mgmtPersonPhone || '').trim();
+}
+/* 동네 — 건물마스터의 dong 칸, 없으면 주소에서 뽑는다 */
+function blDong(b) {
+  var d = String(b.dong || '').trim();
+  if (d) return d;
+  var m = String(b.addr || '').match(/([가-힣][가-힣0-9]{0,7}(?:동|읍|면|리))/);
+  return m ? m[1] : '';
+}
+
+/* 문자수신함을 한 번 읽어 둔다 — 읽기만 한다 */
+async function blLoadSms() {
+  if (BL.sms) return BL.sms;
+  BL.sms = [];
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) return BL.sms;
+  try {
+    var q = (typeof tokQ === 'function') ? tokQ() : '';
+    var r = await fetch(url + '?action=smsQueueList&limit=500&t=' + Date.now() + q);
+    var j = await r.json();
+    var rows = (j && (j.result || j.data)) || [];
+    if (rows && rows.rows) rows = rows.rows;
+    if (rows && rows.items) rows = rows.items;
+    BL.sms = Array.isArray(rows) ? rows : [];
+  } catch (e) { BL.sms = []; }
+  return BL.sms;
+}
+/* 그 건물 번호와 마지막으로 주고받은 날짜 */
+function blLastContact(b) {
+  var ph = blPhones(b);
+  if (!ph.length || !BL.sms || !BL.sms.length) return '';
+  var best = '';
+  BL.sms.forEach(function (s) {
+    var p = blPhoneKey(s['번호'] || s.phone || s.sender || '');
+    if (!p) return;
+    if (ph.indexOf(p) < 0) return;
+    var d = String(s['수신시각'] || s.at || s.when || '').slice(0, 10);
+    if (d && d > best) best = d;
+  });
+  return best;
+}
+
+function blSortBy(k) {
+  if (BL.sort === k) BL.dir = -BL.dir; else { BL.sort = k; BL.dir = 1; }
+  bmListDraw();
+}
+
+/* 연락처를 누르면 문자 화면으로.
+   🔴 문자 화면에는 번호를 바로 넣는 칸이 없다(실측) — 번호를 복사해 주고 화면을 연다. */
+function blSms(phone, name) {
+  var p = String(phone || '').trim();
+  if (!p) return;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(p);
+  } catch (e) {}
+  try { sxGo('sms', 0, '운영부'); } catch (e) { try { go('sms'); } catch (e2) {} }
+  if (typeof showToast === 'function') {
+    showToast(name + ' ' + p + ' — 번호를 복사했습니다');
+  }
+}
+
+/* 🔴 건물목록을 표로 그린다 — 기존 bmListDraw 를 갈아끼운다(카드 코드는 남는다) */
+function blDrawTable() {
+  var box = document.getElementById('bm-list');
+  if (!box) return;
+  var rows = (BM.rows || []).slice();
+
+  /* 찾기 */
+  var q = bmKey(bmVal('bm-find'));
+  if (q) {
+    rows = rows.filter(function (b) {
+      return bmKey(b.name).indexOf(q) >= 0 || bmKey(b.addr).indexOf(q) >= 0
+        || bmKey(b.roadAddr).indexOf(q) >= 0 || bmKey(b.complexCode).indexOf(q) >= 0
+        || bmKey(b.id).indexOf(q) >= 0;
+    });
+  }
+  /* 값 미리 계산 */
+  rows.forEach(function (b) {
+    var u = bmUnitsOf(b);
+    b.__all = u.length;
+    b.__vac = u.filter(function (x) { return String(x.status || '') === '접수'; }).length;
+    b.__dong = blDong(b);
+    b.__ph = blMainPhone(b);
+    b.__last = blLastContact(b);
+  });
+
+  /* 필터 3개 */
+  if (BL.dong) rows = rows.filter(function (b) { return b.__dong === BL.dong; });
+  if (BL.vac === 'has') rows = rows.filter(function (b) { return b.__vac > 0; });
+  else if (BL.vac === 'none') rows = rows.filter(function (b) { return b.__vac === 0; });
+  if (BL.contact === 'has') rows = rows.filter(function (b) { return !!b.__last; });
+  else if (BL.contact === 'none') rows = rows.filter(function (b) { return !b.__last; });
+
+  /* 정렬 */
+  var K = BL.sort, D = BL.dir;
+  rows.sort(function (a, b) {
+    var va, vb;
+    if (K === 'all' || K === 'vac') { va = a['__' + K]; vb = b['__' + K]; return (va - vb) * D; }
+    if (K === 'id') { va = String(a.id || ''); vb = String(b.id || ''); }
+    else if (K === 'addr') { va = String(a.addr || ''); vb = String(b.addr || ''); }
+    else if (K === 'last') { va = String(a.__last || ''); vb = String(b.__last || ''); }
+    else { va = String(a.name || ''); vb = String(b.name || ''); }
+    return va.localeCompare(vb) * D;
+  });
+
+  if (!rows.length) {
+    box.innerHTML = '<div class="card" style="color:var(--t2)">조건에 맞는 건물이 없습니다.</div>';
+    return;
+  }
+
+  var arrow = function (k) { return BL.sort === k ? (BL.dir > 0 ? ' ▲' : ' ▼') : ''; };
+  var th = function (k, label, w) {
+    return '<th style="cursor:pointer;white-space:nowrap' + (w ? (';min-width:' + w) : '') + '"'
+      + ' onclick="blSortBy(&quot;' + k + '&quot;)">' + label + arrow(k) + '</th>';
+  };
+
+  box.innerHTML = '<div class="listing-table-wrap"><table>'
+    + '<thead><tr>'
+    + th('id', '건물번호', '84px')
+    + th('addr', '구주소(지번)', '190px')
+    + th('name', '건물명', '120px')
+    + '<th style="min-width:118px">연락처</th>'
+    + th('all', '전체', '56px')
+    + th('vac', '현재공실', '70px')
+    + th('last', '마지막컨택', '92px')
+    + '</tr></thead><tbody>'
+    + rows.map(function (b) {
+      var code = String(b.complexCode || '').trim() || String(b.id || '');
+      return '<tr style="cursor:pointer" onclick="bmGo(&quot;detail&quot;,&quot;' + bmEsc(b.id) + '&quot;)">'
+        + '<td style="font-size:11px;white-space:nowrap;color:var(--b);font-weight:600">' + bmEsc(code) + '</td>'
+        + '<td style="font-size:12px">' + bmEsc(b.addr || '-') + '</td>'
+        + '<td style="font-weight:600">' + bmEsc(b.name || '-') + '</td>'
+        + '<td>' + (b.__ph
+          ? ('<span style="color:var(--b);cursor:pointer;text-decoration:underline" title="누르면 문자 화면으로 갑니다"'
+            + ' onclick="event.stopPropagation();blSms(&quot;' + bmEsc(b.__ph) + '&quot;,&quot;' + bmEsc(b.name || '') + '&quot;)">'
+            + bmEsc(b.__ph) + '</span>')
+          : '<span style="color:var(--t3)">-</span>') + '</td>'
+        + '<td style="text-align:center">' + b.__all + '</td>'
+        + '<td style="text-align:center;font-weight:700;color:' + (b.__vac ? '#0F6E56' : 'var(--t3)') + '">'
+        + b.__vac + '</td>'
+        + '<td style="font-size:11.5px;color:var(--t2);white-space:nowrap">' + bmEsc(b.__last || '-') + '</td>'
+        + '</tr>';
+    }).join('')
+    + '</tbody></table></div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:7px;line-height:1.7">'
+    + '※ 마지막컨택일은 <b>문자수신함</b>에서 이 건물 연락처와 주고받은 마지막 날짜입니다. '
+    + '기록이 없으면 “-” 로 둡니다(지어내지 않습니다).<br>'
+    + '※ 전체·공실 건수는 건물명·주소로 묶은 값입니다 — 기존 매물에 건물ID를 임의로 채우지 않았습니다.'
+    + '</div>';
+}
+
+/* 필터 줄을 찾기칸 옆에 붙인다 */
+function blFilterBar() {
+  var find = document.getElementById('bm-find');
+  if (!find || document.getElementById('bl-filters')) return;
+  var dongs = {};
+  (BM.rows || []).forEach(function (b) { var d = blDong(b); if (d) dongs[d] = 1; });
+  var list = Object.keys(dongs).sort();
+
+  var d = document.createElement('div');
+  d.id = 'bl-filters';
+  d.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-wrap:wrap';
+  d.innerHTML =
+    '<select id="bl-f-dong" onchange="BL.dong=this.value;bmListDraw()" style="height:32px;border-radius:8px;border:1px solid var(--border);padding:0 9px;font-size:12.5px">'
+    + '<option value="">동네 전체</option>'
+    + list.map(function (x) { return '<option value="' + x + '">' + x + '</option>'; }).join('')
+    + '</select>'
+    + '<select id="bl-f-vac" onchange="BL.vac=this.value;bmListDraw()" style="height:32px;border-radius:8px;border:1px solid var(--border);padding:0 9px;font-size:12.5px">'
+    + '<option value="">공실 전체</option><option value="has">공실 있음</option><option value="none">공실 없음</option>'
+    + '</select>'
+    + '<select id="bl-f-last" onchange="BL.contact=this.value;bmListDraw()" style="height:32px;border-radius:8px;border:1px solid var(--border);padding:0 9px;font-size:12.5px">'
+    + '<option value="">컨택 전체</option><option value="has">컨택 기록 있음</option><option value="none">기록 없음</option>'
+    + '</select>';
+  find.parentNode.insertBefore(d, find.nextSibling);
+  var s1 = document.getElementById('bl-f-dong'); if (s1) s1.value = BL.dong;
+  var s2 = document.getElementById('bl-f-vac'); if (s2) s2.value = BL.vac;
+  var s3 = document.getElementById('bl-f-last'); if (s3) s3.value = BL.contact;
+}
+
+/* 🔴 카드로 그리던 bmListDraw 를 표로 바꾼다. 카드 코드는 지우지 않는다. */
+(function blSwap() {
+  function swap() {
+    if (typeof window.bmListDraw !== 'function' || window.__blSwapped) return;
+    window.__blSwapped = true;
+    window.__bmListDrawCard = window.bmListDraw;   /* 옛 카드 방식은 여기 남겨 둔다 */
+    window.bmListDraw = function () {
+      blFilterBar();
+      blDrawTable();
+    };
+    /* 문자수신함은 한 번만 읽고, 읽히면 다시 그린다 */
+    blLoadSms().then(function () {
+      if (BM && BM.view === 'list') { try { blDrawTable(); } catch (e) {} }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', swap);
+  else swap();
+  [500, 1600, 4000].forEach(function (ms) { setTimeout(swap, ms); });
+})();
+
 
 /* ═══ 🧭 ERP-UI-CONSOLIDATE-01 (2026-09-15) — 화면 구조 통합 ══════════════════
    대표 확정 4영역:
@@ -22810,6 +23028,729 @@ async function bmXlApply() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
   [400, 1200, 3000, 6000].forEach(function (ms) { setTimeout(boot, ms); });
+})();
+
+
+/* ═══ 📋 2026-09-16 매물장·매물추가 손보기 (10~16번) ═══════════════════════
+   🔴 기능을 지우지 않는다. 있는 것을 고쳐 쓰거나 부르는 자리만 바꾼다.
+   🔴 saveAll 쓰지 않는다. 저장은 단건 upsert 만.
+   🔴 원본 사진을 고치거나 지우지 않는다. */
+
+/* ── 14. 대장 조회 예비길 ────────────────────────────────────────────
+   실측: bldgAutoFill 은 **카카오 지도 SDK** 로 주소 → 법정동코드를 얻는다.
+   헤드리스·도메인 미등록·할당량 같은 이유로 카카오가 막히면 **조회가 통째로 죽는다**
+   (검사에서 층·총층·면적이 전부 빈 채로 나왔다).
+   🔴 우리에겐 이미 되는 길이 있다 — 건물관리가 쓰는 JUSO(action=bldgSearch).
+      13개 건물에서 13/13 성공한 그 길이다. 카카오가 실패하면 이쪽으로 넘어간다.
+   🔴 상세주소(호실) 칸은 건드리지 않는다. 조회 전 값을 기억해 두고, 조회가 끝나면
+      비어 있을 때만 되돌려 놓는다(지워지는 일이 없게). */
+(function bzBldgFallback() {
+  function wrap() {
+    if (typeof window.bldgAutoFill !== 'function' || window.__bzBldgWrapped) return;
+    window.__bzBldgWrapped = true;
+    var orig = window.bldgAutoFill;
+
+    window.bldgAutoFill = async function (silent) {
+      var a2 = document.getElementById('l-addr2');
+      var keep = a2 ? String(a2.value || '') : '';      /* 🔴 호실을 기억해 둔다 */
+      var got = function () {
+        return ['l-total-floor', 'l-apr-date', 'l-floor', 'l-area'].filter(function (id) {
+          var e = document.getElementById(id);
+          return e && String(e.value || '').trim();
+        }).length;
+      };
+      var before = got();
+      try { await orig.apply(this, arguments); } catch (e) {}
+
+      /* 호실이 사라졌으면 되돌린다 */
+      if (a2 && keep && !String(a2.value || '').trim()) a2.value = keep;
+
+      if (got() > before) return;                        /* 카카오로 잘 됐다 */
+
+      /* ── 예비길: JUSO 로 법정동코드를 얻어 대장을 다시 부른다 ── */
+      var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+      if (!url) return;
+      var addr = (document.getElementById('l-addr') || {}).value || '';
+      addr = String(addr).trim();
+      if (!addr) return;
+      try {
+        var tq = (typeof tokQ === 'function') ? tokQ() : '';
+        var r = await fetch(url + '?action=bldgSearch&q=' + encodeURIComponent(addr) + '&t=' + Date.now() + tq);
+        var j = await r.json();
+        var rows = ((j && j.result) || {}).rows || [];
+        if (!rows.length) {
+          if (!silent && typeof showToast === 'function') showToast('주소로도 대장을 찾지 못했습니다 — 지번주소를 확인해 주세요');
+          return;
+        }
+        var c = rows[0];
+        /* 호실·동은 화면 값 그대로 쓴다 */
+        var ho = '', dong = '';
+        var v = String((a2 && a2.value) || keep || '');
+        var mh = v.match(/(\d+)\s*호/); if (mh) ho = mh[1];
+        var md = v.match(/(\d+)\s*동/); if (md) dong = md[1];
+        if (!ho) { var nums = v.replace(/\d+\s*동/g, ' ').match(/\d+/g) || []; if (nums.length) ho = nums[nums.length - 1]; }
+
+        var qs = '?action=bldg&sigunguCd=' + encodeURIComponent(c.sigunguCd)
+          + '&bjdongCd=' + encodeURIComponent(c.bjdongCd)
+          + '&platGbCd=' + (c.mtYn === '1' ? '1' : '0')
+          + '&bun=' + encodeURIComponent(c.bun) + '&ji=' + encodeURIComponent(c.ji)
+          + '&dong=' + encodeURIComponent(dong) + '&ho=' + encodeURIComponent(ho)
+          + '&t=' + Date.now() + tq;
+        var r2 = await fetch(url + qs);
+        var j2 = await r2.json();
+        var d = (j2 && j2.data) || {};
+        var setIf = function (id, val) {
+          var e = document.getElementById(id);
+          if (e && val && !String(e.value || '').trim()) e.value = val;
+        };
+        setIf('l-total-floor', d.totalFloor); setIf('l-apr-date', d.aprDate);
+        setIf('l-floor', d.floor); setIf('l-area', d.area); setIf('l-bldg-use', d.use);
+
+        /* 🔴 호실은 끝까지 지키다 */
+        if (a2 && keep && !String(a2.value || '').trim()) a2.value = keep;
+
+        var n = got() - before;
+        if (typeof showToast === 'function') {
+          showToast(n > 0 ? ('대장 조회 완료 (주소 API 로) · ' + n + '개 자동입력')
+            : '대장에 그 호실 정보가 없습니다 — 값을 직접 넣어 주세요');
+        }
+      } catch (e) {
+        if (a2 && keep && !String(a2.value || '').trim()) a2.value = keep;
+      }
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wrap);
+  else wrap();
+  [600, 2000, 5000].forEach(function (ms) { setTimeout(wrap, ms); });
+})();
+
+
+/* ── 16. [테이블 보기 / 카드 보기] 드롭다운 제거 ─────────────────────────
+   대표 지시: 테이블 고정. 🔴 카드 코드는 지우지 않고 **부르는 길만** 끊는다.
+   listingViewGet() 이 늘 'table' 을 돌려주게 하고, 드롭다운은 화면에서 없앤다. */
+(function bzViewFix() {
+  function fix() {
+    try {
+      if (typeof window.listingViewGet === 'function' && !window.__bzViewFixed) {
+        window.__bzViewFixed = true;
+        window.listingViewGet = function () {
+          var sel = document.getElementById('l-view');
+          if (sel && sel.value !== 'table') sel.value = 'table';
+          return 'table';          /* 🔴 늘 테이블. 카드 코드는 그대로 남아 있다 */
+        };
+      }
+      var sel = document.getElementById('l-view');
+      if (sel && sel.parentNode) sel.parentNode.removeChild(sel);
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fix);
+  else fix();
+  [500, 1500, 4000].forEach(function (ms) { setTimeout(fix, ms); });
+  try {
+    var _g = window.go;
+    if (typeof _g === 'function') {
+      window.go = function (id) {
+        var r = _g.apply(this, arguments);
+        if (String(id) === 'listing') { setTimeout(fix, 60); setTimeout(fix, 600); }
+        return r;
+      };
+    }
+  } catch (e) {}
+})();
+
+/* ── 12. 매물 표 정리 — [수정] 제거 · 채널 아이콘 · 이력 ─────────────────
+   대표 지시:
+     · [수정] 버튼 제거. 매물번호·매물명을 누르면 상세(수정창)로
+     · 오른쪽에 당근 / 네이버 / 직방 아이콘 — 게시중이면 색, 아니면 회색. 누르면 게시 URL
+     · 제일 오른쪽 [이력] — 같은 호실의 이전 매물번호를 시간순으로
+   🔴 표를 새로 그리지 않는다. 이미 그려진 표를 **손본다**(기존 renderListings 유지).
+   🔴 매물번호는 거래 건마다 새로 발급하는 그대로. 묶는 것은 호실(unitKey) 로만 한다. */
+
+var BZ_CH = [
+  { k: 'daangn', n: '당근', c: '#FF6F0F', t: '당' },
+  { k: 'naver', n: '네이버', c: '#03C75A', t: 'N' },
+  { k: 'zigbang', n: '직방', c: '#0B63F6', t: 'Z' }
+];
+
+function bzEsc(v) {
+  return String(v == null ? '' : v)
+    .split('&').join('&amp;').split('<').join('&lt;')
+    .split('>').join('&gt;').split('"').join('&quot;');
+}
+function bzListRows() {
+  var t = document.querySelector('#listing-cards table tbody');
+  return t ? Array.prototype.slice.call(t.querySelectorAll('tr')) : [];
+}
+/* 행에서 매물번호 뽑기 — 첫 칸이 매물번호다 */
+function bzRowId(tr) {
+  var td = tr.querySelector('td');
+  if (!td) return '';
+  return String(td.textContent || '').replace(/\s+/g, ' ').trim().split(' ')[0];
+}
+function bzFindListing(id) {
+  var L = (typeof ddArr === 'function') ? (ddArr('listings') || []) : [];
+  return L.filter(function (x) { return String(x.id) === String(id); })[0] || null;
+}
+
+/* 같은 호실의 거래 이력 — 🔴 화면에서 묶기만 한다. 데이터를 고치지 않는다 */
+function bzUnitHistory(id) {
+  var L = (typeof ddArr === 'function') ? (ddArr('listings') || []) : [];
+  var me = L.filter(function (x) { return String(x.id) === String(id); })[0];
+  if (!me) return [];
+  if (typeof unitKey !== 'function') return [me];
+  var key = unitKey(me);
+  /* 동·호가 없으면 묶을 근거가 없다 — 자기 자신만 */
+  if (!key || key.split('|').slice(2).join('') === '') return [me];
+  return L.filter(function (x) { return unitKey(x) === key; })
+    .sort(function (a, b) {
+      return String(a.recvDate || a.updatedAt || '').localeCompare(String(b.recvDate || b.updatedAt || ''));
+    });
+}
+
+function bzHistOpen(id) {
+  var rows = bzUnitHistory(id);
+  var me = bzFindListing(id);
+  var body = rows.length
+    ? rows.map(function (x) {
+      var when = String(x.recvDate || x.updatedAt || '').slice(0, 10);
+      var mine = String(x.id) === String(id);
+      return '<div style="display:flex;gap:9px;font-size:12.5px;padding:5px 0;border-bottom:1px solid #F1F5F9'
+        + (mine ? ';background:#F8FAFC' : '') + '">'
+        + '<div style="min-width:84px;color:var(--t3)">' + bzEsc(when || '-') + '</div>'
+        + '<div style="min-width:112px;font-weight:600">' + bzEsc(x.id)
+        + (mine ? ' <span style="font-size:10px;color:var(--b)">지금</span>' : '') + '</div>'
+        + '<div style="min-width:70px">' + bzEsc(x.status || '-') + '</div>'
+        + '<div style="color:var(--t2)">'
+        + bzEsc((x.type || '') + ' ' + (x.price || '') + (x.rentAmt ? ' / ' + x.rentAmt : '')) + '</div>'
+        + '</div>';
+    }).join('')
+    : '<div style="font-size:12.5px;color:var(--t2)">이력을 찾지 못했습니다.</div>';
+
+  var ph = me ? (parseInt(me.photoCnt, 10) || 0) : 0;
+  var head = me ? (bzEsc(me.apt || '') + ' ' + bzEsc(me.addr2 || '')) : '';
+  var note = '<div style="font-size:11.5px;color:var(--t3);margin-top:9px;line-height:1.7">'
+    + '※ 같은 호실(주소 + 동 + 호)로 묶었습니다. 매물번호는 거래 건마다 새로 발급됩니다.<br>'
+    + (ph ? ('※ 이 호실 사진 ' + ph + '장 (이전 매물에서 이어짐)')
+      : '※ 이 호실에 등록된 사진이 없습니다.')
+    + '</div>';
+
+  bzModal('호실 거래 이력 — ' + head, body + note);
+}
+
+/* 작은 겹창 — 새 화면을 만들지 않고 이것만 쓴다 */
+function bzModal(title, html) {
+  bzModalClose();
+  var d = document.createElement('div');
+  d.id = 'bz-modal';
+  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:10050;'
+    + 'display:flex;align-items:center;justify-content:center;padding:18px';
+  d.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:620px;width:100%;'
+    + 'max-height:82vh;overflow:auto;padding:16px 18px;box-shadow:0 18px 44px rgba(0,0,0,.2)">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    + '<div style="font-weight:700;font-size:14px">' + title + '</div>'
+    + '<button onclick="bzModalClose()" style="background:none;border:0;cursor:pointer;font-size:15px;color:var(--t3)">✕</button>'
+    + '</div>' + html + '</div>';
+  d.onclick = function (e) { if (e.target === d) bzModalClose(); };
+  document.body.appendChild(d);
+}
+function bzModalClose() {
+  var d = document.getElementById('bz-modal');
+  if (d && d.parentNode) d.parentNode.removeChild(d);
+}
+
+function bzChOpen(url) {
+  if (!url) return;
+  try { window.open(url, '_blank'); } catch (e) {}
+}
+
+/* 표를 손본다 — 머리글을 바꾸고, 각 행에 채널·이력을 붙이고, [수정]을 없앤다 */
+function bzRowTidy() {
+  var tb = document.querySelector('#listing-cards table');
+  if (!tb || tb.getAttribute('data-bz') === '1') return;
+  var thr = tb.querySelector('thead tr');
+  if (!thr) return;
+
+  var ths = Array.prototype.slice.call(thr.querySelectorAll('th'));
+  var last = ths[ths.length - 1];
+  if (last && String(last.textContent || '').trim() === '수정') {
+    last.textContent = '게시';
+    var th2 = document.createElement('th');
+    th2.textContent = '이력';
+    thr.appendChild(th2);
+  }
+
+  bzListRows().forEach(function (tr) {
+    var id = bzRowId(tr);
+    if (!id) return;
+    var o = bzFindListing(id);
+    var tds = tr.querySelectorAll('td');
+    if (!tds.length) return;
+
+    /* 매물번호·매물명을 눌러 상세로 */
+    var open = function (td) {
+      if (!td) return;
+      td.style.cursor = 'pointer';
+      td.title = '누르면 매물 상세가 열립니다';
+      td.onclick = function () { try { openModal('listing', id); } catch (e) {} };
+    };
+    open(tds[0]);
+    open(tds[2]);
+
+    /* 마지막 칸(수정) → 채널 아이콘. 🔴 [수정] 단추는 여기서 사라진다 */
+    var cell = tds[tds.length - 1];
+    if (cell) {
+      cell.innerHTML = BZ_CH.map(function (c) {
+        var a = (o && typeof ad === 'function') ? ad(o, c.k) : null;
+        var on = !!(a && a.on);
+        var url = (a && a.url) ? String(a.url) : '';
+        var style = 'display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;'
+          + 'border-radius:6px;font-size:10.5px;font-weight:700;margin-right:3px;'
+          + (on ? ('background:' + c.c + ';color:#fff;') : 'background:#E5E7EB;color:#9CA3AF;')
+          + ((on && url) ? 'cursor:pointer' : 'cursor:default');
+        var tip = c.n + (on ? (url ? ' — 누르면 게시글로' : ' 게시중(주소가 적혀 있지 않습니다)') : ' 게시 안 함');
+        return '<span class="bz-ch" data-ch="' + c.k + '" title="' + bzEsc(tip) + '" style="' + style + '"'
+          + ((on && url) ? (' onclick="event.stopPropagation();bzChOpen(&quot;' + bzEsc(url) + '&quot;)"') : '')
+          + '>' + c.t + '</span>';
+      }).join('');
+    }
+
+    /* 이력 칸 */
+    if (!tr.querySelector('.bz-hist')) {
+      var td = document.createElement('td');
+      td.innerHTML = '<button class="btn btn-xs bz-hist" title="이 호실의 거래 이력"'
+        + ' onclick="event.stopPropagation();bzHistOpen(&quot;' + bzEsc(id) + '&quot;)">이력</button>';
+      tr.appendChild(td);
+    }
+  });
+
+  tb.setAttribute('data-bz', '1');
+}
+
+/* renderListings 가 표를 다시 그릴 때마다 손본다 */
+(function bzHookRender() {
+  function hook() {
+    if (typeof window.renderListings !== 'function' || window.__bzRenderHooked) return;
+    window.__bzRenderHooked = true;
+    var orig = window.renderListings;
+    window.renderListings = function () {
+      var r = orig.apply(this, arguments);
+      setTimeout(bzRowTidy, 20);
+      setTimeout(bzRowTidy, 320);
+      return r;
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hook);
+  else hook();
+  [500, 1500, 4000].forEach(function (ms) { setTimeout(hook, ms); });
+})();
+
+/* ═══ 13 · 15 · 10 (2026-09-16) ═══════════════════════════════════════════
+   13. 매물 표 [첨부] 칸에서 바로 사진 올리기 (기존 photoPanel·drivePut 재사용)
+   15. 매물 Excel 다운로드 / 업로드
+   10. 직원 계정에는 구글 시트 관련 표시를 보이지 않는다
+   🔴 원본 사진을 고치거나 지우지 않는다. 올리기만 한다.
+   🔴 saveAll 쓰지 않는다. 저장은 단건 upsert 만.
+   🔴 대표가 [적용] 을 누르기 전에는 아무것도 저장하지 않는다. */
+
+/* ── 13. 사진 첨부 ───────────────────────────────────────────────────── */
+function bzPhotoOpen(id) {
+  var o = bzFindListing(id);
+  var n = o ? (parseInt(o.photoCnt, 10) || 0) : 0;
+  var title = (o ? (bzEsc(o.apt || '') + ' ' + bzEsc(o.addr2 || '')) : id) + ' — 사진';
+
+  var body = '<div style="font-size:12.5px;margin-bottom:9px">'
+    + (n ? ('이 호실 사진 <b>' + n + '장</b>') : '아직 사진이 없습니다.')
+    + '</div>'
+    + '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px">'
+    + '<button class="btn btn-sm" onclick="bzPhotoPick(&quot;' + bzEsc(id) + '&quot;,0)">파일 선택</button>'
+    + '<button class="btn btn-sm" onclick="bzPhotoPick(&quot;' + bzEsc(id) + '&quot;,1)">폰 카메라</button>'
+    + '<input type="file" id="bz-ph-file" accept="image/*" multiple style="display:none">'
+    + '<input type="file" id="bz-ph-cam" accept="image/*" capture="environment" style="display:none">'
+    + '</div>'
+    + '<div id="bz-ph-box" style="font-size:12.5px;color:var(--t2)">사진 현황을 보는 중…</div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:9px;line-height:1.7">'
+    + '※ 올린 사진은 그 호실 <b>원본 폴더</b>로 들어갑니다. 원본은 고치지 않습니다.<br>'
+    + '※ 워터마크는 사진보정 프로그램이 뒤이어 찍습니다 — 잠시 뒤 장수가 바뀝니다.<br>'
+    + '※ 다른 호실에서 가져온 것은 <b>참고</b> 로 표시됩니다.'
+    + '</div>';
+  bzModal(title, body);
+  bzPhotoRefresh(id);
+}
+
+/* 기존 사진 현황 조회를 그대로 쓴다 — 새로 만들지 않는다 */
+async function bzPhotoRefresh(id) {
+  var box = document.getElementById('bz-ph-box');
+  if (!box) return;
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { box.textContent = '이 기기에 CRM 주소·토큰이 없습니다.'; return; }
+  try {
+    var q = (typeof tokQ === 'function') ? tokQ() : '';
+    var r = await fetch(url + '?action=photoList&listingId=' + encodeURIComponent(id) + '&t=' + Date.now() + q);
+    var j = await r.json();
+    var d = (j && (j.result || j.data)) || {};
+    var files = d.files || d.photos || d.rows || [];
+    if (!files.length) {
+      box.innerHTML = '<div style="color:var(--t2)">올라간 사진이 없습니다.</div>';
+      return;
+    }
+    box.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+      + files.slice(0, 30).map(function (f) {
+        var nm = String(f.name || f.title || '');
+        var ref = (nm.indexOf('참고') >= 0) || f.ref === true;
+        var u = String(f.thumb || f.url || '');
+        return '<div style="width:74px">'
+          + (u ? ('<img src="' + bzEsc(u) + '" style="width:74px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">')
+            : '<div style="width:74px;height:56px;border-radius:6px;background:#F1F5F9"></div>')
+          + '<div style="font-size:10px;color:' + (ref ? '#B45309' : 'var(--t3)') + ';margin-top:2px">'
+          + (ref ? '참고' : bzEsc(nm.slice(0, 10))) + '</div></div>';
+      }).join('') + '</div>'
+      + (files.length > 30 ? '<div style="font-size:11px;color:var(--t3);margin-top:5px">외 ' + (files.length - 30) + '장</div>' : '');
+  } catch (e) {
+    box.innerHTML = '<div style="color:var(--t3)">사진 현황을 읽지 못했습니다 — ' + bzEsc(e && e.message) + '</div>';
+  }
+}
+
+function bzPhotoPick(id, cam) {
+  var f = document.getElementById(cam ? 'bz-ph-cam' : 'bz-ph-file');
+  if (!f) return;
+  f.onchange = function (ev) { bzPhotoUp(id, ev); };
+  f.click();
+}
+
+/* 🔴 원본 폴더로 올리기만 한다. 기존 drivePut 경로를 그대로 쓴다. */
+async function bzPhotoUp(id, ev) {
+  var box = document.getElementById('bz-ph-box');
+  var files = (ev && ev.target && ev.target.files) ? Array.prototype.slice.call(ev.target.files) : [];
+  if (!files.length) return;
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { if (box) box.textContent = '이 기기에 CRM 주소·토큰이 없습니다.'; return; }
+  var tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  var okN = 0, bad = [];
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    if (box) box.innerHTML = '올리는 중… ' + (i + 1) + ' / ' + files.length + ' (' + bzEsc(f.name) + ')';
+    try {
+      var b64 = await new Promise(function (res, rej) {
+        var rd = new FileReader();
+        rd.onload = function () { res(String(rd.result || '').split(',')[1] || ''); };
+        rd.onerror = function () { rej(new Error('파일을 읽지 못했습니다')); };
+        rd.readAsDataURL(f);
+      });
+      var r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'drivePut', token: tok, listingId: id,
+          name: f.name, mime: f.type || 'image/jpeg', data: b64
+        })
+      });
+      var j = await r.json();
+      if (j && j.ok) okN++; else bad.push(f.name + ' — ' + String((j && j.error) || '실패'));
+    } catch (e) { bad.push(f.name + ' — ' + String(e && e.message)); }
+  }
+  if (box) {
+    box.innerHTML = '<div style="font-size:12.5px">' + okN + '장 올렸습니다.'
+      + (bad.length ? ('<br><span style="color:#B91C1C">실패 ' + bad.length + '장</span><br>'
+        + bad.slice(0, 4).map(bzEsc).join('<br>')) : '')
+      + '<br><span style="color:var(--t3)">워터마크가 찍히면 장수가 바뀝니다 — 잠시 뒤 다시 보세요.</span></div>';
+  }
+  try { ev.target.value = ''; } catch (e2) {}
+  setTimeout(function () { bzPhotoRefresh(id); }, 15000);
+  if (typeof showToast === 'function') showToast(okN + '장 올렸습니다 — 워터마크는 잠시 뒤에 찍힙니다');
+}
+
+/* 매물 표의 [첨부] 칸을 사진 열기로 바꾼다 */
+function bzPhotoCell() {
+  var tb = document.querySelector('#listing-cards table');
+  if (!tb) return;
+  var thr = tb.querySelector('thead tr');
+  if (!thr) return;
+  var ths = Array.prototype.map.call(thr.querySelectorAll('th'),
+    function (x) { return String(x.textContent || '').trim(); });
+  var idx = ths.indexOf('첨부');
+  if (idx < 0) return;
+  Array.prototype.forEach.call(tb.querySelectorAll('tbody tr'), function (tr) {
+    var tds = tr.querySelectorAll('td');
+    if (tds.length <= idx) return;
+    var td = tds[idx];
+    if (td.getAttribute('data-bzph') === '1') return;
+    var id = bzRowId(tr);
+    var o = bzFindListing(id);
+    var n = o ? (parseInt(o.photoCnt, 10) || 0) : 0;
+    td.innerHTML = '<button class="btn btn-xs" title="사진 보기·올리기"'
+      + ' onclick="event.stopPropagation();bzPhotoOpen(&quot;' + bzEsc(id) + '&quot;)">'
+      + (n ? ('사진 ' + n + '장') : '사진없음') + '</button>';
+    td.setAttribute('data-bzph', '1');
+  });
+}
+
+/* ── 15. 매물 Excel ──────────────────────────────────────────────────── */
+/* 🔴 연락처는 뒤 4자리만 내보낸다. 비밀번호류는 애초에 매물관리에 없다. */
+var BZ_L_COLS = [
+  ['id', '매물번호'], ['recvDate', '접수일'], ['status', '상태'],
+  ['apt', '건물명'], ['addr', '주소(지번)'], ['addr2', '호수'],
+  ['type', '거래유형'], ['kind', '물건유형'],
+  ['price', '보증금/매매가'], ['rentAmt', '월세'], ['premium', '권리금'],
+  ['area', '면적'], ['floor', '해당층'], ['totalFloor', '총층'],
+  ['rooms', '방수'], ['baths', '욕실수'], ['direction', '방향'],
+  ['availDate', '입주가능일'], ['moveDate', '이사희망일'],
+  ['feeAmt', '관리비'], ['feeItems', '관리비 포함'], ['options', '옵션'],
+  ['parking', '주차'], ['pets', '반려동물'],
+  ['cname', '고객명'], ['cphone', '연락처'],
+  ['agent', '담당'], ['note', '메모'], ['updatedAt', '수정일']
+];
+var BZ_L_MASK = ['cphone'];      /* 뒤 4자리만 */
+
+function bzTail4(v) {
+  var d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (d.length < 4) return '';
+  return '****' + d.slice(-4);
+}
+
+function bzLxDown() {
+  if (!window.XLSX) { if (typeof showToast === 'function') showToast('엑셀 라이브러리 로딩 중입니다.'); return; }
+  /* 🔴 지금 화면에 보이는 것(필터 적용분)만 내보낸다 */
+  var rows = [];
+  try { rows = getFilteredListings() || []; } catch (e) { rows = (typeof ddArr === 'function') ? (ddArr('listings') || []) : []; }
+  if (!rows.length) { if (typeof showToast === 'function') showToast('내려받을 매물이 없습니다.'); return; }
+  var head = BZ_L_COLS.map(function (c) { return c[1]; });
+  var body = rows.map(function (o) {
+    return BZ_L_COLS.map(function (c) {
+      var v = o[c[0]];
+      if (BZ_L_MASK.indexOf(c[0]) >= 0) return bzTail4(v);
+      return String(v == null ? '' : v);
+    });
+  });
+  var ws = XLSX.utils.aoa_to_sheet([head].concat(body));
+  ws['!cols'] = BZ_L_COLS.map(function (c) { return { wch: Math.max(10, c[1].length + 4) }; });
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '매물관리');
+  var d = new Date();
+  var p = function (n) { return (n < 10 ? '0' : '') + n; };
+  XLSX.writeFile(wb, '브리즈_매물_' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + '_' + rows.length + '건.xlsx');
+  if (typeof showToast === 'function') showToast(rows.length + '건 내려받았습니다 (연락처는 뒤 4자리)');
+}
+
+function bzLxPick() { var f = document.getElementById('bz-lx-file'); if (f) f.click(); }
+
+async function bzLxRead(ev) {
+  var file = ev && ev.target && ev.target.files && ev.target.files[0];
+  if (!file) return;
+  if (!window.XLSX) { bzModal('매물 업로드', '엑셀 라이브러리 로딩 중입니다.'); return; }
+  bzModal('매물 업로드', '<div id="bz-lx-box" style="font-size:12.5px">파일을 읽는 중…</div>');
+  var box = document.getElementById('bz-lx-box');
+  try {
+    var buf = await file.arrayBuffer();
+    var wb = XLSX.read(buf, { type: 'array' });
+    var aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: false });
+    if (!aoa.length) { box.innerHTML = '빈 파일입니다.'; return; }
+    var head = aoa[0].map(function (x) { return String(x == null ? '' : x).trim(); });
+    var map = head.map(function (h) {
+      var hit = BZ_L_COLS.filter(function (c) { return c[1] === h || c[0] === h; })[0];
+      return hit ? hit[0] : '';
+    });
+    if (!map.filter(Boolean).length) {
+      box.innerHTML = '<span style="color:#B91C1C">아는 칸이 없습니다. [Excel 다운로드] 양식을 쓰세요.</span>';
+      return;
+    }
+    var cur = (typeof ddArr === 'function') ? (ddArr('listings') || []) : [];
+    var blds = (window.BM && BM.rows) ? BM.rows : [];
+    var plan = [], bad = [], hold = [], seen = {};
+    for (var r = 1; r < aoa.length; r++) {
+      var raw = aoa[r];
+      if (!raw || !raw.length) continue;
+      var o = {};
+      for (var i = 0; i < map.length; i++) {
+        if (!map[i]) continue;
+        if (BZ_L_MASK.indexOf(map[i]) >= 0) continue;   /* 🔴 가려진 연락처는 되돌려 넣지 않는다 */
+        o[map[i]] = String(raw[i] == null ? '' : raw[i]).trim();
+      }
+      var apt = String(o.apt || '').trim(), ad = String(o.addr || '').trim(), ho = String(o.addr2 || '').trim();
+      if (!apt && !ad && !ho) continue;
+      if (!ad || !ho) { bad.push({ line: r + 1, nm: apt || ad, why: '주소와 호수가 둘 다 있어야 합니다' }); continue; }
+      var key = bmKey(ad) + '|' + bmKey(ho);
+      if (seen[key]) { bad.push({ line: r + 1, nm: apt, why: '이 파일 안에서 주소+호수가 겹칩니다(' + seen[key] + '줄)' }); continue; }
+      seen[key] = r + 1;
+      var old = o.id ? (cur.filter(function (x) { return String(x.id) === String(o.id); })[0] || null) : null;
+      if (!old) old = cur.filter(function (x) { return bmKey(x.addr) === bmKey(ad) && bmKey(x.addr2) === bmKey(ho); })[0] || null;
+      /* 🔴 새 매물은 그 건물이 건물마스터에 있어야 한다 */
+      if (!old) {
+        var has = blds.filter(function (b) {
+          return (bmKey(b.addr) && bmKey(b.addr) === bmKey(ad)) || (apt && bmKey(b.name) === bmKey(apt));
+        })[0];
+        if (!has) { hold.push({ line: r + 1, nm: apt || ad, why: '건물 먼저 등록' }); continue; }
+      }
+      plan.push({ line: r + 1, row: o, old: old });
+    }
+    window.BZLX = { plan: plan, bad: bad, hold: hold };
+    bzLxPreview();
+  } catch (e) {
+    if (box) box.innerHTML = '<span style="color:#B91C1C">파일을 읽지 못했습니다 — ' + bzEsc(e && e.message) + '</span>';
+  }
+  try { ev.target.value = ''; } catch (e2) {}
+}
+
+function bzLxPreview() {
+  var box = document.getElementById('bz-lx-box');
+  if (!box || !window.BZLX) return;
+  var P = BZLX.plan, B = BZLX.bad, H = BZLX.hold;
+  var isNew = P.filter(function (x) { return !x.old; }), isUpd = P.filter(function (x) { return !!x.old; });
+  var h = '<div style="font-weight:700;margin-bottom:6px">미리보기 — 아직 아무것도 저장하지 않았습니다</div>'
+    + '<div style="margin-bottom:8px">새 매물 <b>' + isNew.length + '</b> · 기존 <b>' + isUpd.length + '</b>'
+    + (H.length ? ' · <span style="color:#B45309">보류 <b>' + H.length + '</b></span>' : '')
+    + (B.length ? ' · <span style="color:#B91C1C">못 쓰는 줄 <b>' + B.length + '</b></span>' : '') + '</div>';
+  if (H.length) {
+    h += '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px 10px;margin-bottom:8px">'
+      + '<b style="font-size:12px">건물 먼저 등록해야 하는 줄</b>'
+      + H.slice(0, 8).map(function (x) { return '<div style="font-size:12px">' + x.line + '줄 · ' + bzEsc(x.nm) + '</div>'; }).join('')
+      + '</div>';
+  }
+  if (B.length) {
+    h += '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 10px;margin-bottom:8px">'
+      + B.slice(0, 8).map(function (x) { return '<div style="font-size:12px">' + x.line + '줄 · ' + bzEsc(x.nm) + ' — ' + bzEsc(x.why) + '</div>'; }).join('')
+      + '</div>';
+  }
+  h += '<label style="display:flex;gap:7px;align-items:center;font-size:12.5px;margin-bottom:9px">'
+    + '<input type="checkbox" id="bz-lx-over"><span>기존 매물의 <b>값이 있는 칸도 덮어쓰기</b> '
+    + '<span style="color:var(--t3)">(체크 안 하면 빈 칸만 채웁니다)</span></span></label>'
+    + '<div style="display:flex;gap:7px;justify-content:flex-end">'
+    + '<button class="btn btn-sm" onclick="bzModalClose()">취소</button>'
+    + '<button class="btn btn-g btn-sm" id="bz-lx-go" onclick="bzLxApply()"' + (P.length ? '' : ' disabled') + '>'
+    + P.length + '건 적용</button></div>'
+    + '<div id="bz-lx-msg" style="font-size:12px;margin-top:7px"></div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:7px">'
+    + '※ 연락처는 뒤 4자리로만 내보내며, 업로드할 때 되돌려 넣지 않습니다.</div>';
+  box.innerHTML = h;
+}
+
+async function bzLxApply() {
+  if (!window.BZLX || window.__bzLxBusy) return;
+  window.__bzLxBusy = true;
+  var over = !!(document.getElementById('bz-lx-over') || {}).checked;
+  var msg = document.getElementById('bz-lx-msg');
+  var say = function (t, bad) { if (msg) { msg.innerHTML = t; msg.style.color = bad ? '#B91C1C' : 'var(--t2)'; } };
+  var btn = document.getElementById('bz-lx-go'); if (btn) btn.disabled = true;
+  var P = BZLX.plan, okN = 0, fail = [];
+  for (var i = 0; i < P.length; i++) {
+    var p = P[i], o = p.row, row = {};
+    say('적용 중… ' + (i + 1) + ' / ' + P.length);
+    if (p.old) {
+      row.id = p.old.id;
+      for (var a = 0; a < BZ_L_COLS.length; a++) {
+        var k = BZ_L_COLS[a][0];
+        if (k === 'id' || BZ_L_MASK.indexOf(k) >= 0) continue;
+        var nv = String(o[k] == null ? '' : o[k]).trim();
+        if (!nv) continue;
+        if (String(p.old[k] == null ? '' : p.old[k]).trim() && !over) continue;
+        row[k] = nv;
+      }
+      if (Object.keys(row).length <= 1) { okN++; continue; }
+    } else {
+      row.id = String(o.id || '').trim();
+      if (!row.id) { fail.push(p.line + '줄 — 매물번호가 없습니다(매물번호는 화면에서 발급합니다)'); continue; }
+      for (var a2 = 0; a2 < BZ_L_COLS.length; a2++) {
+        var k2 = BZ_L_COLS[a2][0];
+        if (k2 === 'id' || BZ_L_MASK.indexOf(k2) >= 0) continue;
+        var nv2 = String(o[k2] == null ? '' : o[k2]).trim();
+        if (nv2) row[k2] = nv2;
+      }
+    }
+    var res = await bmUpsert('listings', row);
+    if (res.ok) okN++; else fail.push(p.line + '줄 ' + (o.apt || '') + ' — ' + res.why);
+  }
+  window.__bzLxBusy = false;
+  say(okN + '건 적용' + (fail.length ? (' · <b>실패 ' + fail.length + '건</b><br>' + fail.slice(0, 5).map(bzEsc).join('<br>')) : ' 완료'), fail.length > 0);
+  setTimeout(function () { window.BZLX = null; bzModalClose(); try { renderListings(); } catch (e) {} }, 1600);
+}
+
+/* 매물장 머리에 엑셀 단추 두 개를 붙인다 */
+function bzLxBar() {
+  var host = document.getElementById('p-listing');
+  if (!host || document.getElementById('bz-lx-bar')) return;
+  var search = host.querySelector('.listing-search-bar');
+  if (!search) return;
+  var d = document.createElement('div');
+  d.id = 'bz-lx-bar';
+  d.style.cssText = 'display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap';
+  d.innerHTML = '<button class="btn btn-sm" onclick="bzLxDown()">Excel 다운로드</button>'
+    + '<button class="btn btn-sm" onclick="bzLxPick()">Excel 업로드</button>'
+    + '<input type="file" id="bz-lx-file" accept=".xlsx,.xls" style="display:none" onchange="bzLxRead(event)">';
+  search.parentNode.insertBefore(d, search);
+}
+
+/* ── 10. 직원 계정 — 구글 시트 관련 숨김 ───────────────────────────── */
+function bzSheetPerm() {
+  /* 🔴 로그인 **전에는 아무것도 하지 않는다.**
+     실측 사고: 화면이 뜨자마자 돌면 bzRole() 이 기본값 'staff' 를 돌려줘서
+     대표가 로그인하기도 전에 시트 단추를 지워 버렸다(왼쪽 하단 검사 6건 실패).
+     계정을 고른 뒤에만 판단한다. */
+  var who = '';
+  try { who = (typeof bzAcctKey === 'function') ? String(bzAcctKey() || '') : ''; } catch (e) {}
+  if (!who) return;
+
+  var boss = false;
+  try {
+    var r = (typeof bzRole === 'function') ? bzRole() : '';
+    boss = (r === 'admin' || r === 'representative');
+  } catch (e) {}
+  if (boss) return;
+  /* 🔴 직원 화면에서는 아예 지운다(회색·자물쇠로 두지 않는다).
+     저장·조회는 지금처럼 GAS 를 거친다 — 기능은 그대로다. */
+  try {
+    var st = document.getElementById('gs-sync-status');
+    if (st && st.parentNode) st.parentNode.removeChild(st);
+    var foot = document.querySelector('.sb-footer') || document.querySelector('.sidebar');
+    if (foot) {
+      Array.prototype.forEach.call(foot.querySelectorAll('button,a'), function (b) {
+        var t = String(b.textContent || '').replace(/\s+/g, ' ').trim();
+        var oc = String(b.getAttribute('onclick') || '') + String(b.getAttribute('href') || '');
+        if (t.indexOf('시트에서 불러오기') >= 0 || t.indexOf('구글 시트') >= 0
+          || oc.indexOf('gsEnrichAndLoad') >= 0 || oc.indexOf('docs.google.com/spreadsheets') >= 0
+          || oc.indexOf('gsSyncAllGuarded') >= 0) {
+          if (b.parentNode) b.parentNode.removeChild(b);
+        }
+      });
+    }
+  } catch (e) {}
+}
+
+/* 표를 다시 그릴 때마다 첨부칸·엑셀바를 손본다 */
+(function bzPhotoExcelHook() {
+  function tick() {
+    try { bzPhotoCell(); } catch (e) {}
+    try { bzLxBar(); } catch (e) {}
+    try { bzSheetPerm(); } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tick);
+  else tick();
+  [600, 1800, 4000, 8000].forEach(function (ms) { setTimeout(tick, ms); });
+  try {
+    var _g = window.go;
+    if (typeof _g === 'function') {
+      window.go = function (id) {
+        var r = _g.apply(this, arguments);
+        setTimeout(tick, 80); setTimeout(tick, 700); setTimeout(tick, 1800);
+        return r;
+      };
+    }
+  } catch (e) {}
+  /* 🔴 로그인이 끝난 바로 뒤에 한 번 더 — 그때서야 계정을 알 수 있다.
+     로그인은 화면 안쪽 unlock() 이 처리하고, 그 안에서 bzRoleApply() 를 부른다.
+     (lockScreenUnlock 을 감싸는 것으로는 안 걸린다 — 실측) */
+  function hookRole() {
+    if (typeof window.bzRoleApply !== 'function' || window.__bzSheetHooked) return;
+    window.__bzSheetHooked = true;
+    var _r = window.bzRoleApply;
+    window.bzRoleApply = function () {
+      var out = _r.apply(this, arguments);
+      setTimeout(tick, 50);
+      setTimeout(tick, 500);
+      return out;
+    };
+  }
+  hookRole();
+  [400, 1200, 3000].forEach(function (ms) { setTimeout(hookRole, ms); });
 })();
 
 </script>
