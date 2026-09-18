@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:27</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:46</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -25589,6 +25589,235 @@ function bzExpBtns() {
   function tick() { try { bzExpBtns(); } catch (e) {} }
   setTimeout(tick, 1900);
   setInterval(tick, 2500);
+})();
+
+/* ═══ 🏢 2026-09-18 대표 지시 — 건물관리도 매물관리와 같은 모양으로 ══════════
+   "건물관리도 주소 건물명 연락처 나오고 제일 마지막엔 지도 /
+    그리고 펼치기 했을때 그 내용이 나오게 추가는 매물관리랑 같도록"
+
+   · 카드 더미 → **표**로 바꾼다. 칸: 주소 · 건물명 · 연락처 · 전체 · 공실 · 지도(맨 끝)
+   · ▸ 를 누르면 그 줄 아래가 열린다 — 건물 정보 + 그 건물의 호실 목록.
+   · 목록 맨 아래에 **빈 한 줄**. 건물명·주소만 치면 바로 등록(매물관리와 같은 방식).
+   🔴 연락처 칸은 지어내지 않는다 — 그 건물 매물들에 적힌 연락처 중 **가장 많이 나오는 번호**를
+      보여 주고, 없으면 '-'. (건물마스터에는 연락처 칸이 없다 — 실측)
+   🔴 저장·중복검사는 기존 것을 그대로 쓴다(bmSave 규칙과 같은 눈으로 본다).
+   🔴 보안 3칸(공동현관·비번·출입방법)은 여기 그리지 않는다.                          */
+
+function bzBmEsc(v) {
+  return String(v == null ? '' : v)
+    .split('&').join('&amp;').split('<').join('&lt;')
+    .split('>').join('&gt;').split('"').join('&quot;');
+}
+
+/* 그 건물 매물들에서 가장 많이 나오는 연락처 — 없으면 '' */
+function bzBmPhone(b) {
+  var u = (typeof bmUnitsOf === 'function') ? bmUnitsOf(b) : [];
+  var tally = {}, best = '', bestN = 0;
+  for (var i = 0; i < u.length; i++) {
+    var raw = String(u[i].cphone || '').trim();
+    if (!raw) continue;
+    var m = raw.match(/0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}/);
+    var p = m ? m[0] : raw;
+    tally[p] = (tally[p] || 0) + 1;
+    if (tally[p] > bestN) { bestN = tally[p]; best = p; }
+  }
+  return best;
+}
+
+function bzBmClose(id) {
+  var r = document.getElementById('bz-bm-exp-' + id);
+  if (r && r.parentNode) r.parentNode.removeChild(r);
+  var b = document.querySelector('.bz-bm-btn[data-id="' + id + '"]');
+  if (b) b.textContent = '▸';
+}
+
+function bzBmToggle(ev, id) {
+  try { if (ev && ev.stopPropagation) ev.stopPropagation(); } catch (e) {}
+  if (document.getElementById('bz-bm-exp-' + id)) { bzBmClose(id); return; }
+  bzBmOpen(id);
+}
+
+function bzBmFind(id) {
+  var rows = (typeof BM !== 'undefined' && BM && BM.rows) ? BM.rows : [];
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].id) === String(id)) return rows[i];
+  }
+  return null;
+}
+
+function bzBmOpen(id) {
+  var b = bzBmFind(id);
+  if (!b) return;
+  var tr = document.getElementById('bz-bm-row-' + id);
+  if (!tr) return;
+  bzBmClose(id);
+  var n = document.querySelectorAll('#bm-list thead th').length || 6;
+  var row = document.createElement('tr');
+  row.id = 'bz-bm-exp-' + id;
+  var td = document.createElement('td');
+  td.colSpan = n;
+  td.style.cssText = 'background:#F8FAFC;padding:10px 14px;border-top:2px solid var(--b)';
+  row.appendChild(td);
+  if (tr.nextSibling) tr.parentNode.insertBefore(row, tr.nextSibling);
+  else tr.parentNode.appendChild(row);
+
+  var u = (typeof bmUnitsOf === 'function') ? bmUnitsOf(b) : [];
+  function line(k, v) {
+    return '<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px">'
+      + '<div style="min-width:82px;color:var(--t3)">' + bzBmEsc(k) + '</div>'
+      + '<div style="font-weight:500">' + (String(v || '').trim() ? bzBmEsc(v) : '-') + '</div></div>';
+  }
+  var units = u.length
+    ? u.map(function (x) {
+      return '<div style="display:flex;gap:9px;font-size:12.5px;padding:3px 0;border-bottom:1px solid #F1F5F9">'
+        + '<div style="min-width:62px;font-weight:600">' + bzBmEsc(x.addr2 || '-') + '</div>'
+        + '<div style="min-width:58px">' + bzBmEsc(x.status || '-') + '</div>'
+        + '<div style="min-width:112px;color:var(--t2)">' + bzBmEsc(String(x.type || '')
+          + ' ' + String(x.price || '') + (x.rentAmt ? (' / ' + x.rentAmt) : '')) + '</div>'
+        + '<div style="color:var(--t3)">' + bzBmEsc(x.id || '') + '</div></div>';
+    }).join('')
+    : '<div style="font-size:12.5px;color:var(--t2)">이 건물로 등록된 매물이 없습니다.</div>';
+
+  td.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+    + '<div style="font-weight:700;font-size:13.5px">' + bzBmEsc(b.name || '(이름 없음)') + '</div>'
+    + '<div style="font-size:12px;color:var(--t3)">' + bzBmEsc(b.complexCode || b.id) + '</div>'
+    + '<button class="btn btn-xs" style="margin-left:auto;background:#fff;border:1px solid var(--border);'
+    + 'border-radius:8px;padding:4px 12px;cursor:pointer" onclick="bzBmClose(&#39;' + bzBmEsc(id)
+    + '&#39;)">▴ 접기</button></div>'
+    + '<div style="display:flex;gap:18px;flex-wrap:wrap"><div style="min-width:240px">'
+    + line('지번주소', b.addr) + line('도로명', b.roadAddr)
+    + line('동 / 지번', String(b.dong || '-') + ' / ' + String(b.jibun || '-'))
+    + line('총층', b.totalFloor) + line('세대수', b.hhldCnt)
+    + line('연락처', bzBmPhone(b))
+    + '</div><div style="flex:1;min-width:260px">'
+    + '<div style="font-size:12px;color:var(--t3);margin-bottom:3px">이 건물의 호실 ' + u.length + '건</div>'
+    + units + '</div></div>'
+    + '<div style="margin-top:9px"><button class="btn btn-sm" onclick="bmGo(&#39;detail&#39;,&#39;'
+    + bzBmEsc(id) + '&#39;)">건물 상세 열기 →</button></div>';
+  var btn = document.querySelector('.bz-bm-btn[data-id="' + id + '"]');
+  if (btn) btn.textContent = '▾';
+}
+
+/* 표로 그린다 — 기존 bmListDraw 를 갈아끼운다 */
+function bzBmDraw() {
+  var box = document.getElementById('bm-list');
+  if (!box) return;
+  var rows = (typeof BM !== 'undefined' && BM && BM.rows) ? BM.rows : [];
+  var q = (typeof bmKey === 'function' && typeof bmVal === 'function') ? bmKey(bmVal('bm-find')) : '';
+  if (q) {
+    rows = rows.filter(function (b) {
+      return bmKey(b.name).indexOf(q) >= 0 || bmKey(b.addr).indexOf(q) >= 0
+        || bmKey(b.roadAddr).indexOf(q) >= 0 || bmKey(b.complexCode).indexOf(q) >= 0;
+    });
+  }
+  var head = '<div class="listing-table-wrap"><table><thead><tr>'
+    + '<th>주소</th><th>건물명</th><th>연락처</th><th>전체</th><th>공실</th><th>지도</th>'
+    + '</tr></thead><tbody>';
+  var body = rows.map(function (b) {
+    var u = (typeof bmUnitsOf === 'function') ? bmUnitsOf(b) : [];
+    var vac = u.filter(function (x) { return String(x.status || '') === '접수'; }).length;
+    var ph = bzBmPhone(b);
+    var id = String(b.id || '');
+    var addr = String(b.addr || b.roadAddr || '');
+    return '<tr id="bz-bm-row-' + bzBmEsc(id) + '">'
+      + '<td style="font-size:12px">'
+      + '<button class="btn btn-xs bz-bm-btn" data-id="' + bzBmEsc(id) + '" title="펼쳐 보기"'
+      + ' style="padding:0 5px;margin-right:4px;border:1px solid var(--border);border-radius:5px;'
+      + 'background:#fff;cursor:pointer" onclick="bzBmToggle(event,&#39;' + bzBmEsc(id) + '&#39;)">▸</button>'
+      + bzBmEsc(addr || '-') + '</td>'
+      + '<td style="font-weight:600;white-space:nowrap;cursor:pointer"'
+      + ' onclick="bmGo(&#39;detail&#39;,&#39;' + bzBmEsc(id) + '&#39;)">' + bzBmEsc(b.name || '(이름 없음)') + '</td>'
+      + '<td style="color:var(--b);white-space:nowrap;font-size:12px">' + (ph ? bzBmEsc(ph) : '-') + '</td>'
+      + '<td style="text-align:center">' + u.length + '</td>'
+      + '<td style="text-align:center;color:#0F6E56;font-weight:700">' + vac + '</td>'
+      + '<td>' + (addr
+        ? ('<a class="btn btn-xs" target="_blank" rel="noopener" style="text-decoration:none"'
+          + ' href="https://map.naver.com/p/search/' + encodeURIComponent(addr) + '">📍</a>')
+        : '-') + '</td></tr>';
+  }).join('');
+  var foot = '</tbody></table></div>';
+  if (!rows.length) {
+    box.innerHTML = '<div class="card" style="color:var(--t2)">'
+      + (q ? '찾는 건물이 없습니다.' : '아직 등록된 건물이 없습니다.') + '</div>'
+      + head + foot;
+  } else {
+    box.innerHTML = head + body + foot;
+  }
+  bzBmNewRow();
+}
+
+/* 맨 아래 한 줄 — 매물관리와 같은 방식 */
+function bzBmNewRow() {
+  var tb = document.querySelector('#bm-list table tbody');
+  if (!tb || document.getElementById('bz-bm-new')) return;
+  var tr = document.createElement('tr');
+  tr.id = 'bz-bm-new';
+  tr.style.background = '#F4F9FF';
+  tr.innerHTML = '<td><input id="bz-bm-addr" placeholder="주소(지번)" style="width:180px;font-size:12px;'
+    + 'padding:3px 5px;border:1px solid var(--border);border-radius:6px"></td>'
+    + '<td><input id="bz-bm-name" placeholder="건물명" style="width:110px;font-size:12px;'
+    + 'padding:3px 5px;border:1px solid var(--border);border-radius:6px"></td>'
+    + '<td colspan="4"><button class="btn btn-g btn-xs" style="font-weight:700" onclick="bzBmSave()">저장</button>'
+    + ' <span id="bz-bm-msg" style="font-size:11px;color:var(--t3);margin-left:6px"></span></td>';
+  tb.appendChild(tr);
+  ['bz-bm-addr', 'bz-bm-name'].forEach(function (id) {
+    var e = document.getElementById(id);
+    if (e) e.onkeydown = function (ev) { if (ev && ev.key === 'Enter') bzBmSave(); };
+  });
+}
+
+async function bzBmSave() {
+  function v(id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+  var addr = v('bz-bm-addr'), name = v('bz-bm-name');
+  var msg = document.getElementById('bz-bm-msg');
+  function say(t) { if (msg) msg.textContent = t || ''; }
+  if (!name && !addr) { say('건물명이나 주소를 넣어 주세요'); return; }
+
+  /* 🔴 중복검사는 기존 bmSave 와 같은 눈으로 본다 */
+  var rows = (typeof BM !== 'undefined' && BM && BM.rows) ? BM.rows : [];
+  for (var i = 0; i < rows.length; i++) {
+    var b = rows[i];
+    var same = (addr && bmKey(b.addr) && bmKey(b.addr) === bmKey(addr))
+      || (addr && bmKey(b.roadAddr) && bmKey(b.roadAddr) === bmKey(addr))
+      || (name && addr && bmKey(b.name) === bmKey(name) && bmKey(b.addr) === bmKey(addr));
+    if (same) { say('이미 등록된 건물입니다 — ' + (b.name || b.id)); return; }
+  }
+
+  say('저장 중…');
+  var mx = 10000000;
+  for (var k = 0; k < rows.length; k++) {
+    var num = parseInt(String(rows[k].id || '').replace(/\D/g, ''), 10);
+    if (num && num > mx) mx = num;
+  }
+  var id = String(mx + 1);
+  var row = { id: id, name: name, addr: addr,
+              updatedAt: (typeof bzNowStamp === 'function') ? bzNowStamp() : '' };
+  try {
+    await gsUpsertOne('buildings', row);           /* 기존 단건 저장 경로 */
+    rows.push(row);
+    say('');
+    if (typeof showToast === 'function') showToast('건물 ' + (name || addr) + ' 을(를) 등록했습니다');
+    var e1 = document.getElementById('bz-bm-addr'); if (e1) e1.value = '';
+    var e2 = document.getElementById('bz-bm-name'); if (e2) e2.value = '';
+    bzBmDraw();
+  } catch (e) {
+    say('저장 실패: ' + String(e && e.message || e).slice(0, 50));
+  }
+}
+
+/* 기존 bmListDraw 를 갈아끼운다 — 부르는 자리는 그대로 두고 그리는 방식만 바꾼다 */
+(function bzBmHook() {
+  function hook() {
+    if (typeof window.bmListDraw !== 'function' || window.__bzBmHooked) return;
+    window.__bzBmHooked = true;
+    window.__bmListDrawOld = window.bmListDraw;     /* 옛 카드 보기는 여기 남는다 */
+    window.bmListDraw = function () {
+      try { bzBmDraw(); } catch (e) { window.__bmListDrawOld(); }
+    };
+  }
+  hook();
+  setTimeout(hook, 1200);
+  setInterval(hook, 3000);
 })();
 
 
