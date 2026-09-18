@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 18:05</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 18:11</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -9950,6 +9950,8 @@ function listingLocked(l){ return window.__crmRole !== 'admin' && auditStamped()
 function maskNameUI(s){ s = String(s||'').trim(); return s ? s.charAt(0) + '*'.repeat(Math.max(1, s.length - 1)) : '-'; }
 function maskPhoneUI(p){ const d = String(p||'').replace(/\D/g,''); return d.length >= 7 ? d.slice(0,3) + '-****-' + d.slice(-4) : (p ? '***' : '-'); }
 function auditBadge(l){
+  /* 🔴 2026-09-18 대표 지시 — 매물장에 검증 딱지를 그리지 않는다(bzAuditBadgeOff) */
+  return "";
   if(AUDIT_DONE_RE.test(String(l.status||''))) return '';
   if(String(l.verified||'') === 'Y') return ' <span class="badge" style="background:#DCFCE7;color:#166534;font-size:10px" title="검수 통과 ' + gEsc(l.verifiedAt||'') + '">✅ 검증</span>';
   if(listingLocked(l)) return ' <span class="badge" style="background:#FEE2E2;color:#991B1B;font-size:10px" title="' + gEsc(l.auditNote||'') + ' — 연락처가 가려집니다">🔒 미검증</span>';
@@ -25184,33 +25186,53 @@ async function bzSecSave(id, val) {
   return j;
 }
 
-/* ═══ ➕ 2026-09-18 대표 지시 — 매물추가를 창 대신 목록 맨 아래 한 줄로 ══════════
-   "매물추가를 창을 다 띄우지 말고 지금 리스트 밑에 한 줄 넣을 수 있도록,
-    그리고 펼치기를 누르면 내용이 다 나오도록"
+/* ═══ ➕ 2026-09-18 대표 지시 — 매물추가는 목록 맨 아래 줄에서, 엑셀처럼 ══════════
+   "매물추가를 창을 다 띄우지 말고 지금 리스트 밑에 한 줄 넣을 수 있도록"
+   "새 매물은 방향 입력칸 입주가능일 등등이 없는데 그냥 그 줄을 다 열어서 엑셀 입력하듯이"
 
-   · 목록 맨 아래에 **빈 한 줄**이 늘 있다. 거기에 바로 치고 [저장] 을 누르면 들어간다.
-   · 꼭 필요한 것만 받는다 — 건물명 · 호수 · 거래유형 · 보증금 · 월세.
-     나머지(면적·층·향…)는 [펼치기] 로 기존 입력창을 열어 채운다.
+   · 목록 맨 아래 줄의 **모든 칸이 입력칸**이다. Tab 으로 옆 칸, Enter 로 저장.
+   · 머리 이름을 보고 그 칸에 맞는 입력칸을 넣는다 — 칸 순서가 바뀌어도 따라간다.
    🔴 매물번호는 **서버가 준다**(ezNextId). 화면이 순번을 만들지 않는다 —
       두 사람이 같은 순간에 저장하면 번호가 겹치기 때문이다(기존 규칙 그대로).
-   🔴 저장은 기존 save('listings') 경로 — gsAutoSync 가 바뀐 한 건만 upsert 한다.
+   🔴 저장은 기존 save('listings') — gsAutoSync 가 바뀐 한 건만 upsert 한다.
    🔴 건물명·호수가 비면 저장하지 않는다. 지어내지 않는다.
-   🔴 같은 건물·같은 호수가 이미 있으면 **묻는다**(공실이 여러 개인 것은 정상이므로 막지는 않는다). */
+   🔴 같은 건물·같은 호수가 이미 있으면 묻는다(한 건물에 공실이 여럿인 것은 정상이라 막지 않는다). */
 
 var BZ_NEW_ID = 'bz-newrow';
+var BZ_NEW_KIND = ['오픈형 원룸', '분리형 원룸', '빌라(투룸 이상)', '아파트', '오피스텔',
+                   '주택', '상가', '사무실', '건물', '공장/창고', '토지'];
+var BZ_NEW_DIR = ['남향', '동향', '서향', '북향', '남동향', '남서향', '북동향', '북서향'];
+var BZ_NEW_TYPE = ['월세', '전세', '매매', '연세', '단기임대'];
+var BZ_NEW_STATUS = ['접수', '상담중', '보류'];
 
 function bzNewOff() {
   var r = document.getElementById(BZ_NEW_ID);
   if (r && r.parentNode) r.parentNode.removeChild(r);
+  var m = document.getElementById('bz-n-msgrow');
+  if (m && m.parentNode) m.parentNode.removeChild(m);
 }
 
-/* 표 맨 아래에 입력 줄을 하나 둔다 — 없으면 만들고, 있으면 그대로 둔다 */
+function bzNewInp(id, ph, w) {
+  return '<input id="' + id + '" placeholder="' + ph + '" style="width:' + w
+    + 'px;font-size:12px;padding:3px 4px;border:1px solid var(--border);border-radius:6px">';
+}
+
+function bzNewSel(id, list, w, blank) {
+  var o = blank ? '<option value=""></option>' : '';
+  for (var i = 0; i < list.length; i++) {
+    o += '<option value="' + list[i] + '">' + list[i] + '</option>';
+  }
+  return '<select id="' + id + '" style="width:' + w
+    + 'px;font-size:12px;padding:3px 2px;border:1px solid var(--border);border-radius:6px">'
+    + o + '</select>';
+}
+
+/* 표 맨 아래 입력 줄 — 머리 칸에 맞춰 **모든 칸**을 입력칸으로 만든다 */
 function bzNewRow() {
   var tb = document.querySelector('#listing-cards table tbody');
   if (!tb) {
-    /* 🔴 2026-09-18 — 목록이 비면 표가 아예 안 그려져 입력 줄도 없었다.
-       오른쪽 위 [+ 매물 추가] 를 없앴으므로(대표 지시) **빈 화면에서도 넣을 길**이 있어야 한다.
-       머리만 있는 빈 표를 만들어 그 아래에 입력 줄을 붙인다. */
+    /* 🔴 목록이 비면 표가 안 그려져 입력 줄도 없었다. 오른쪽 위 [+ 매물 추가] 를 없앴으므로
+       빈 화면에서도 넣을 길이 있어야 한다 — 머리만 있는 빈 표를 만든다. */
     var host = document.getElementById('listing-cards');
     if (!host) { bzNewOff(); return; }
     if (host.querySelector('table')) return;
@@ -25224,56 +25246,81 @@ function bzNewRow() {
     if (!tb) { bzNewOff(); return; }
   }
   if (document.getElementById(BZ_NEW_ID)) return;
-  var ths = document.querySelectorAll('#listing-cards thead th');
-  var n = ths.length || 16;
+
+  var heads = Array.prototype.map.call(document.querySelectorAll('#listing-cards thead th'),
+    function (t) { return String(t.textContent || '').trim(); });
+  var n = heads.length || 16;
+  var today = (typeof fmtDate === 'function') ? fmtDate() : '';
+
+  /* 머리 이름 → 그 칸에 넣을 것. 모르는 칸은 비워 둔다(칸 수는 늘 머리와 같다). */
+  var MAP = {
+    '매물번호': '<span style="font-size:11px;color:var(--b);font-weight:700">＋새 매물</span>',
+    '접수일': bzNewInp('bz-n-recv', '오늘', 74),
+    '매물명': bzNewInp('bz-n-apt', '건물명', 84) + ' ' + bzNewInp('bz-n-ho', '호수', 46),
+    '물건유형': bzNewSel('bz-n-kind', BZ_NEW_KIND, 92, true),
+    '거래유형': bzNewSel('bz-n-type', BZ_NEW_TYPE, 70, false),
+    '거래가': bzNewInp('bz-n-price', '보증금', 56) + '/' + bzNewInp('bz-n-rent', '월세', 46),
+    '방향': bzNewSel('bz-n-dir', BZ_NEW_DIR, 72, true),
+    '입주가능일': bzNewInp('bz-n-avail', '즉시입주', 78),
+    '고객명': bzNewInp('bz-n-cname', '이름', 66),
+    '연락처': bzNewInp('bz-n-cphone', '010-', 104),
+    '상태': bzNewSel('bz-n-status', BZ_NEW_STATUS, 66, false),
+    '메모': bzNewInp('bz-n-note', '기타사항', 104),
+    '🔒출입': '<span style="font-size:11px;color:var(--t3)">저장 뒤</span>',
+    '첨부': '<span style="font-size:11px;color:var(--t3)">-</span>',
+    '게시': '<span style="font-size:11px;color:var(--t3)">-</span>',
+    '지도': '<button class="btn btn-g btn-xs" style="font-weight:700" onclick="bzNewSave()">저장</button>'
+  };
 
   var tr = document.createElement('tr');
   tr.id = BZ_NEW_ID;
   tr.style.background = '#F4F9FF';
-
-  function cell(html, span) {
-    var td = document.createElement('td');
-    if (span) td.colSpan = span;
-    td.innerHTML = html;
-    tr.appendChild(td);
-    return td;
+  var html = '';
+  for (var i = 0; i < n; i++) {
+    var key = heads[i];
+    html += '<td style="white-space:nowrap">' + (MAP[key] !== undefined ? MAP[key] : '') + '</td>';
   }
-  function inp(id, ph, w) {
-    return '<input id="' + id + '" placeholder="' + ph + '" style="width:' + w
-      + 'px;font-size:12px;padding:3px 5px;border:1px solid var(--border);border-radius:6px">';
-  }
-
-  cell('<span style="font-size:11px;color:var(--b);font-weight:700">＋새 매물</span>');
-  cell('<span style="font-size:11px;color:var(--t3)">오늘</span>');
-  cell(inp('bz-n-apt', '건물명', 90) + ' ' + inp('bz-n-ho', '호수', 52));
-  cell('<span style="font-size:11px;color:var(--t3)">펼치기에서</span>');          /* 물건유형 */
-  cell('<select id="bz-n-type" style="font-size:12px;padding:3px;border:1px solid var(--border);border-radius:6px">'
-    + '<option value="월세">월세</option><option value="전세">전세</option>'
-    + '<option value="매매">매매</option><option value="연세">연세</option>'
-    + '<option value="단기임대">단기임대</option></select>');
-  cell(inp('bz-n-price', '보증금', 62) + ' / ' + inp('bz-n-rent', '월세', 50));
-  /* 남은 칸은 한 칸으로 묶어 단추를 넣는다 — 머리 칸 수와 합이 같아야 표가 안 밀린다 */
-  var rest = n - 6;
-  cell('<button class="btn btn-g btn-xs" onclick="bzNewSave()" style="font-weight:700">저장</button>'
-    + ' <button class="btn btn-xs" onclick="bzNewExpand()">펼치기</button>'
-    + ' <span id="bz-n-msg" style="font-size:11px;color:var(--t3);margin-left:6px"></span>',
-    rest > 0 ? rest : 1);
+  tr.innerHTML = html;
   tb.appendChild(tr);
 
-  /* 엔터로 저장 */
-  ['bz-n-apt', 'bz-n-ho', 'bz-n-price', 'bz-n-rent'].forEach(function (id) {
-    var e = document.getElementById(id);
+  var rv = document.getElementById('bz-n-recv');
+  if (rv && today) rv.value = today;
+
+  /* 어느 칸에서든 Enter 로 저장 */
+  var ids = ['bz-n-recv', 'bz-n-apt', 'bz-n-ho', 'bz-n-price', 'bz-n-rent',
+             'bz-n-avail', 'bz-n-cname', 'bz-n-cphone', 'bz-n-note'];
+  for (var k = 0; k < ids.length; k++) {
+    var e = document.getElementById(ids[k]);
     if (e) e.onkeydown = function (ev) { if (ev && ev.key === 'Enter') bzNewSave(); };
-  });
+  }
+
+  /* 안내·결과는 줄 바로 아래에 띄운다(칸을 늘리지 않는다) */
+  if (!document.getElementById('bz-n-msgrow')) {
+    var mr = document.createElement('tr');
+    mr.id = 'bz-n-msgrow';
+    mr.innerHTML = '<td colspan="' + n + '" style="padding:2px 8px;background:#F4F9FF">'
+      + '<span id="bz-n-msg" style="font-size:11.5px;color:var(--t3)">'
+      + '칸마다 치고 Enter — 면적·층·관리비는 '
+      + '<b style="cursor:pointer;color:var(--b)" onclick="bzNewExpand()">[자세히]</b> 에서'
+      + '</span></td>';
+    tb.appendChild(mr);
+  }
+}
+
+function bzNewVal(id) {
+  var e = document.getElementById(id);
+  return e ? String(e.value || '').trim() : '';
 }
 
 function bzNewVals() {
-  function v(id) {
-    var e = document.getElementById(id);
-    return e ? String(e.value || '').trim() : '';
-  }
-  return { apt: v('bz-n-apt'), ho: v('bz-n-ho'), type: v('bz-n-type'),
-           price: v('bz-n-price'), rent: v('bz-n-rent') };
+  return {
+    recv: bzNewVal('bz-n-recv'), apt: bzNewVal('bz-n-apt'), ho: bzNewVal('bz-n-ho'),
+    kind: bzNewVal('bz-n-kind'), type: bzNewVal('bz-n-type'),
+    price: bzNewVal('bz-n-price'), rent: bzNewVal('bz-n-rent'),
+    dir: bzNewVal('bz-n-dir'), avail: bzNewVal('bz-n-avail'),
+    cname: bzNewVal('bz-n-cname'), cphone: bzNewVal('bz-n-cphone'),
+    status: bzNewVal('bz-n-status'), note: bzNewVal('bz-n-note')
+  };
 }
 
 function bzNewMsg(t) {
@@ -25281,7 +25328,7 @@ function bzNewMsg(t) {
   if (e) e.textContent = t || '';
 }
 
-/* [펼치기] — 지금까지 친 것을 기존 입력창에 그대로 옮겨 담고 연다 */
+/* [자세히] — 면적·층·관리비처럼 표에 없는 칸은 기존 입력창에서 채운다 */
 function bzNewExpand() {
   var v = bzNewVals();
   if (typeof openModal !== 'function') { bzNewMsg('입력창을 찾지 못했습니다'); return; }
@@ -25291,12 +25338,10 @@ function bzNewExpand() {
       var e = document.getElementById(id);
       if (e && val) { e.value = val; }
     }
-    set('l-apt', v.apt);
-    set('l-addr2', v.ho);
-    set('l-type', v.type);
-    set('l-price', v.price);
-    set('l-rent', v.rent);
-    /* 🔴 주소는 건물명으로 지어내지 않는다 — 입력창의 기존 채움 기능에 맡긴다 */
+    set('l-apt', v.apt); set('l-addr2', v.ho); set('l-type', v.type);
+    set('l-price', v.price); set('l-rent', v.rent); set('l-kind', v.kind);
+    set('l-direction', v.dir); set('l-avail-date', v.avail);
+    set('l-cname', v.cname); set('l-cphone', v.cphone);
   }, 220);
 }
 
@@ -25305,7 +25350,6 @@ async function bzNewSave() {
   if (!v.apt || !v.ho) { bzNewMsg('건물명과 호수를 넣어 주세요'); return; }
   var list = (typeof listings !== 'undefined' && listings) ? listings : [];
 
-  /* 같은 건물·같은 호수가 이미 있으면 묻는다(공실이 여러 개인 것은 정상이라 막지 않는다) */
   var same = [];
   for (var i = 0; i < list.length; i++) {
     var o = list[i];
@@ -25326,19 +25370,22 @@ async function bzNewSave() {
   try {
     id = await ezNextId('listings', 'R');          /* 🔴 번호는 서버가 준다 */
   } catch (e) {
-    bzNewMsg('번호를 못 받았습니다: ' + String(e && e.message || e).slice(0, 40));
+    bzNewMsg('번호를 못 받았습니다: ' + String(e && e.message || e).slice(0, 44));
     return;
   }
 
-  var today = (typeof fmtDate === 'function') ? fmtDate() : '';
   var row = {
-    id: id, apt: v.apt, addr2: v.ho, type: v.type,
+    id: id, apt: v.apt, addr2: v.ho,
+    kind: v.kind, type: v.type || '월세',
     price: v.price, rentAmt: v.rent,
-    status: '접수',                                  /* 거래 가능 상태 */
-    recvDate: today,
+    direction: v.dir, availDate: v.avail,
+    cname: v.cname, cphone: v.cphone,
+    note: v.note,
+    status: v.status || '접수',
+    recvDate: v.recv || ((typeof fmtDate === 'function') ? fmtDate() : ''),
     updatedAt: (typeof bzNowStamp === 'function') ? bzNowStamp() : ''
   };
-  /* 🏢 건물명이 건물마스터/기존 매물에 있으면 주소를 가져온다 — 지어내지 않는다 */
+  /* 🏢 건물명이 기존 매물에 있으면 주소를 가져온다 — 지어내지 않는다 */
   for (var k = 0; k < list.length; k++) {
     var p = list[k];
     if (p && String(p.apt || '').trim() === v.apt && String(p.addr || '').trim()) {
@@ -25350,7 +25397,7 @@ async function bzNewSave() {
   try {
     save('listings', list);
     if (typeof showToast === 'function') {
-      showToast('새 매물 ' + id + ' 을(를) 만들었습니다 — ' + v.apt + ' ' + v.ho);
+      showToast('새 매물 ' + id + ' — ' + v.apt + ' ' + v.ho + ' 을(를) 만들었습니다');
     }
   } catch (e) {
     bzNewMsg('저장 실패: ' + e.message);
@@ -25360,18 +25407,7 @@ async function bzNewSave() {
   if (typeof renderListings === 'function') renderListings();
 }
 
-/* 표를 다시 그릴 때마다 입력 줄을 다시 붙인다 */
-(function bzNewHook() {
-  function tick() { try { bzNewRow(); } catch (e) {} }
-  setTimeout(tick, 1800);
-  setInterval(tick, 2500);
-})();
-
-
-/* ➕ 2026-09-18 — "매물장에서 신규 버튼 없어짐"(대표)
-   입력 줄은 **목록 맨 아래**에 있다(대표 지시). 그런데 매물이 63건이라 한참 내려야 보여서
-   없어진 것처럼 보였다. 위쪽에 눈에 띄는 [＋ 새 매물] 을 두고, 누르면 그 줄로 데려간다.
-   🔴 입력 줄을 위로 옮기지 않는다 — 자리는 대표가 정한 그대로 둔다. */
+/* 위쪽 [＋ 새 매물] — 목록이 길어 맨 아래 줄이 안 보일 때 데려간다 */
 function bzNewJump() {
   bzNewRow();
   var r = document.getElementById(BZ_NEW_ID);
@@ -25381,13 +25417,15 @@ function bzNewJump() {
   }
   var e = document.getElementById('bz-n-apt');
   if (e) { try { e.focus(); } catch (e3) {} }
-  /* 잠깐 깜빡여 어디인지 눈에 띄게 한다 */
   var old = r.style.background;
   r.style.background = '#FFE9A8';
   setTimeout(function () { r.style.background = old || '#F4F9FF'; }, 900);
 }
 
-(function bzNewTopBtn() {
+(function bzNewHook() {
+  function tick() { try { bzNewRow(); } catch (e) {} }
+  setTimeout(tick, 1800);
+  setInterval(tick, 2500);
   function put() {
     var host = document.getElementById('p-listing');
     if (!host || document.getElementById('bz-new-top')) return;
@@ -25395,7 +25433,7 @@ function bzNewJump() {
     b.id = 'bz-new-top';
     b.className = 'btn btn-sm';
     b.textContent = '＋ 새 매물';
-    b.title = '목록 맨 아래 입력 줄로 갑니다 — 건물명·호수만 치면 등록됩니다';
+    b.title = '목록 맨 아래 입력 줄로 갑니다 — 그 줄에서 엑셀처럼 칸마다 치면 됩니다';
     b.style.cssText = 'background:#0F6E56;color:#fff;border:0;border-radius:8px;'
       + 'padding:6px 14px;font-weight:700;cursor:pointer;margin:0 6px 10px 0';
     b.onclick = bzNewJump;
