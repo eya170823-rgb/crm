@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 16:40</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 16:48</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -5007,7 +5007,7 @@ function renderListings(){
       <thead><tr>
         <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>방향</th><th>거래유형</th><th>거래가</th>
         <th>입주가능일</th><th>고객명</th><th>연락처</th>
-        <th>상태</th><th>지도</th><th>첨부</th><th>수정</th>
+        <th>상태</th><th>메모</th><th>🔒출입</th><th>지도</th><th>첨부</th><th>수정</th>
       </tr></thead>
       <tbody>${list.map(l=>{
         const dN=dup.no.has(String(l.id||'').trim());
@@ -5023,7 +5023,7 @@ function renderListings(){
         <td style="white-space:nowrap">${l.availDate||moveBadge(l.moveDate)||`<span style="color:var(--t3);font-size:11px">${l.moveDate||'-'}</span>`}</td>
         <td style="font-weight:500">${lk?maskNameUI(l.cname):(l.cname||'-')}</td>
         <td style="color:var(--b);white-space:nowrap">${lk?maskPhoneUI(l.cphone):(l.cphone||'-')}</td>
-        <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td>
+        <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td><td>${bzNoteCell(l)}</td><td>${bzSecCell(l)}</td>
         <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
         <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}${noPhoto?` <span class="badge bgr" style="font-size:9px;padding:2px 6px" title="사진 미등록">📷사진없음</span>`:''}</td>
         <td><button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈</button><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td>
@@ -24849,6 +24849,258 @@ async function bzPullListings(quiet) {
   setTimeout(put, 1500);
   setInterval(put, 3000);
 })();
+
+/* ═══ 📝🔒 2026-09-18 대표 지시 — 매물장 목록에 메모칸 ═══════════════════════
+   "메모칸도 추가해주게. 비번이나 기타사항을 넣을 거임"
+
+   🔴 그런데 **비번을 메모에 쓰면 메모가 통째로 날아간다.** 실측(2026-09-18):
+      메모에 "현관 비밀번호 1234* 입니다. 주차는 앞마당." 을 넣고 저장했더니
+      되읽은 값이 `[보안줄 제외]` 하나뿐이었다 — 같이 쓴 주차 얘기까지 사라졌다.
+      서버(GAS)가 비번처럼 보이는 글을 광고문구·문자로 새지 않게 막기 때문이다(의도된 안전장치).
+
+   그래서 칸을 **두 개**로 나눈다.
+     📝 메모   — 기타사항. 시트 listings.note 에 그대로 저장된다(광고·문자에 실릴 수 있다).
+                 🔴 비번처럼 보이는 글이 들어오면 **저장하지 않고** 🔒 칸으로 보낸다.
+     🔒 출입   — 공동현관·호실 비번·출입방법. **건물보안(bldgSec)** 에만 저장한다.
+                 · getAll 로는 아예 안 나온다(서버가 막는다) → 광고문구·문자에 실릴 수 없다
+                 · 볼 때도 전용 조회(bldgSecList)로만, **대표만** 읽을 수 있다
+                 · 목록에는 값 자체를 그리지 않는다. [보기] 를 눌러야 잠깐 보여 준다.       */
+
+var BZ_SEC_SCOPE = 'unit';                 /* 호실(매물) 단위로 붙인다 */
+var BZ_SEC_CACHE = {};                     /* 매물번호 → 마지막으로 읽은 값 */
+
+/* 비번처럼 보이는가 — 서버 규칙과 같은 눈으로 본다(막히기 전에 화면에서 먼저 잡는다) */
+function bzLooksSecret(t) {
+  var s = String(t || '');
+  if (!s) return false;
+  var words = ['비번', '비밀번호', '패스워드', '현관', '도어락', '도어록', '출입', '공동현관', '호수키'];
+  var hasWord = false;
+  for (var i = 0; i < words.length; i++) { if (s.indexOf(words[i]) >= 0) { hasWord = true; break; } }
+  if (!hasWord) return false;
+  /* 숫자 3자리 이상이 붙어 있으면 비번으로 본다 */
+  var run = 0;
+  for (var k = 0; k < s.length; k++) {
+    var c = s.charAt(k);
+    if (c >= '0' && c <= '9') { run++; if (run >= 3) return true; }
+    else run = 0;
+  }
+  return false;
+}
+
+/* ── 📝 메모 칸 ─────────────────────────────────────────────────────────── */
+function bzNoteCell(l) {
+  var id = String((l && l.id) || '');
+  var v = String((l && l.note) || '').trim().split(String.fromCharCode(10)).join(' ');
+  var call = 'bzNoteEdit(event,&#39;' + id + '&#39;)';
+  if (v) {
+    var show = v.length > 14 ? (v.slice(0, 14) + '…') : v;
+    return '<span style="cursor:pointer;font-size:11.5px" title="' + bzAttr(v)
+      + '" onclick="' + call + '">' + bzAttr(show) + '</span>';
+  }
+  return '<span style="cursor:pointer;border:1px dashed var(--t3);color:var(--t3);'
+    + 'border-radius:6px;padding:2px 7px;font-size:11px;white-space:nowrap"'
+    + ' title="누르면 바로 적습니다" onclick="' + call + '">＋메모</span>';
+}
+
+function bzAttr(t) {
+  return String(t || '').split('&').join('&amp;').split('"').join('&quot;')
+    .split('<').join('&lt;').split('>').join('&gt;');
+}
+
+function bzNoteEdit(ev, id) {
+  try { if (ev && ev.stopPropagation) ev.stopPropagation(); } catch (e) {}
+  var host = (ev && ev.target) ? ev.target : null;
+  if (!host || !host.parentNode) return;
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  var row = null;
+  for (var i = 0; i < list.length; i++) { if (String(list[i].id) === String(id)) { row = list[i]; break; } }
+  if (!row) return;
+
+  var inp = document.createElement('input');
+  inp.type = 'text';
+  inp.value = String(row.note || '');
+  inp.setAttribute('data-qe', 'on');
+  inp.style.cssText = 'width:220px;font-size:12px;padding:3px 5px;border:1px solid var(--b);border-radius:6px';
+  var back = host.cloneNode(true);
+  host.parentNode.replaceChild(inp, host);
+  inp.focus();
+  inp.select();
+
+  var closed = false;
+  function restore() { if (closed) return; closed = true; if (inp.parentNode) inp.parentNode.replaceChild(back, inp); }
+  function commit() {
+    if (closed) return;
+    var v = String(inp.value || '').trim();
+    if (v === String(row.note || '').trim()) { restore(); return; }
+    if (bzLooksSecret(v)) {
+      /* 🔴 여기서 막지 않으면 서버가 메모를 통째로 지운다(실측). */
+      closed = true;
+      if (inp.parentNode) inp.parentNode.replaceChild(back, inp);
+      alert('비밀번호처럼 보이는 글이 있습니다.' + String.fromCharCode(10)
+        + '메모에 넣으면 서버가 안전을 위해 메모를 통째로 지웁니다(실제로 그렇게 됩니다).'
+        + String.fromCharCode(10) + String.fromCharCode(10)
+        + '🔒 칸에 넣어 주세요 — 광고문구·문자에 절대 실리지 않고 대표님만 볼 수 있습니다.');
+      bzSecOpen(id);
+      return;
+    }
+    closed = true;
+    row.note = v;
+    row.updatedAt = (typeof bzNowStamp === 'function') ? bzNowStamp() : new Date().toISOString();
+    try {
+      save('listings', list);
+      if (typeof showToast === 'function') showToast('메모를 저장했습니다 — ' + id);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('저장 실패: ' + e.message);
+    }
+    if (typeof renderListings === 'function') renderListings();
+  }
+  inp.onkeydown = function (e) {
+    if (!e) return;
+    if (e.key === 'Enter') commit();
+    if (e.key === 'Escape') restore();
+  };
+  inp.onblur = function () { setTimeout(commit, 120); };
+}
+
+/* ── 🔒 출입 칸 ─────────────────────────────────────────────────────────── */
+function bzSecCell(l) {
+  var id = String((l && l.id) || '');
+  var got = BZ_SEC_CACHE[id];
+  var mark = got && (got.unitCode || got.gateCode || got.entryHow) ? '🔒 있음' : '🔒';
+  return '<span style="cursor:pointer;font-size:11px;border:1px dashed var(--b);color:var(--b);'
+    + 'border-radius:6px;padding:2px 7px;white-space:nowrap"'
+    + ' title="공동현관·비번·출입방법 — 광고문구·문자에 실리지 않습니다(대표만)"'
+    + ' onclick="bzSecOpen(&#39;' + id + '&#39;)">' + mark + '</span>';
+}
+
+function bzSecOpen(id) {
+  var old = document.getElementById('bz-sec-box');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  var box = document.createElement('div');
+  box.id = 'bz-sec-box';
+  box.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10000;'
+    + 'background:#fff;border:2px solid #0F6E56;border-radius:12px;padding:16px 18px;'
+    + 'box-shadow:0 10px 40px rgba(0,0,0,.25);min-width:320px;max-width:92vw;font-size:13px';
+  var h = document.createElement('div');
+  h.style.cssText = 'font-weight:700;margin-bottom:4px';
+  h.textContent = '🔒 출입 정보 — ' + id;
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-size:11.5px;color:var(--t2);line-height:1.7;margin-bottom:10px';
+  sub.textContent = '건물보안 칸에만 저장됩니다. 광고문구·문자·외부 응답에는 실리지 않고, 대표만 볼 수 있습니다.';
+  box.appendChild(h);
+  box.appendChild(sub);
+
+  var fields = [['gateCode', '공동현관 비번'], ['unitCode', '호실 비번'], ['entryHow', '출입 방법 · 기타']];
+  var inputs = {};
+  for (var i = 0; i < fields.length; i++) {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-bottom:8px';
+    var lab = document.createElement('div');
+    lab.style.cssText = 'font-size:11.5px;color:var(--t2);margin-bottom:3px';
+    lab.textContent = fields[i][1];
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.style.cssText = 'width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:8px';
+    inputs[fields[i][0]] = inp;
+    wrap.appendChild(lab);
+    wrap.appendChild(inp);
+    box.appendChild(wrap);
+  }
+
+  var msg = document.createElement('div');
+  msg.style.cssText = 'font-size:11.5px;color:var(--t2);margin:6px 0 10px';
+  msg.textContent = '불러오는 중…';
+  box.appendChild(msg);
+
+  var bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+  var bSave = document.createElement('button');
+  bSave.className = 'btn btn-g btn-sm';
+  bSave.textContent = '저장';
+  bSave.style.cssText = 'background:#0F6E56;color:#fff;border:0;border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer';
+  var bClose = document.createElement('button');
+  bClose.className = 'btn btn-sm';
+  bClose.textContent = '닫기';
+  bClose.style.cssText = 'background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer';
+  bClose.onclick = function () { if (box.parentNode) box.parentNode.removeChild(box); };
+  bar.appendChild(bClose);
+  bar.appendChild(bSave);
+  box.appendChild(bar);
+  document.body.appendChild(box);
+
+  /* 지금 값 읽어 오기 — 전용 조회(대표만) */
+  bzSecLoad(id).then(function (got) {
+    if (got) {
+      inputs.gateCode.value = String(got.gateCode || '');
+      inputs.unitCode.value = String(got.unitCode || '');
+      inputs.entryHow.value = String(got.entryHow || '');
+      msg.textContent = '마지막 수정 ' + (got.updatedAt || '-') + (got.updatedBy ? (' · ' + got.updatedBy) : '');
+    } else {
+      msg.textContent = '아직 적어 둔 것이 없습니다.';
+    }
+  }).catch(function (e) {
+    msg.textContent = '읽지 못했습니다: ' + String(e && e.message || e).slice(0, 80)
+      + ' (대표 토큰이 있어야 볼 수 있습니다)';
+  });
+
+  bSave.onclick = function () {
+    bSave.disabled = true;
+    bSave.textContent = '저장 중…';
+    bzSecSave(id, {
+      gateCode: String(inputs.gateCode.value || '').trim(),
+      unitCode: String(inputs.unitCode.value || '').trim(),
+      entryHow: String(inputs.entryHow.value || '').trim()
+    }).then(function () {
+      if (typeof showToast === 'function') showToast('🔒 출입 정보를 저장했습니다 — ' + id);
+      if (box.parentNode) box.parentNode.removeChild(box);
+      if (typeof renderListings === 'function') renderListings();
+    }).catch(function (e) {
+      bSave.disabled = false;
+      bSave.textContent = '저장';
+      msg.textContent = '저장 실패: ' + String(e && e.message || e).slice(0, 100);
+    });
+  };
+}
+
+async function bzSecLoad(id) {
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) throw new Error('구글 시트 연동을 먼저 해 주세요');
+  var q = url + '?action=bldgSecList&scope=' + BZ_SEC_SCOPE + '&targetId=' + encodeURIComponent(id)
+    + '&t=' + Date.now() + ((typeof tokQ === 'function') ? tokQ() : '');
+  var j = (typeof gsFetchJson === 'function')
+    ? await gsFetchJson(q, null, '출입정보 조회')
+    : await (await fetch(q, { cache: 'no-store' })).json();
+  var rows = (j && j.result && j.result.rows) || (j && j.rows) || [];
+  var got = rows.length ? rows[0] : null;
+  BZ_SEC_CACHE[id] = got || {};
+  return got;
+}
+
+async function bzSecSave(id, val) {
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) throw new Error('구글 시트 연동을 먼저 해 주세요');
+  var was = BZ_SEC_CACHE[id] || {};
+  var body = {
+    action: 'upsert', type: 'bldgSec',
+    data: {
+      id: String(was.id || ('SEC-' + id)),
+      scope: BZ_SEC_SCOPE,
+      targetId: id,
+      gateCode: val.gateCode,
+      unitCode: val.unitCode,
+      entryHow: val.entryHow,
+      updatedBy: (typeof crmWho === 'function') ? crmWho() : '',
+      updatedAt: (typeof bzNowStamp === 'function') ? bzNowStamp() : ''
+    },
+    token: (typeof getGsTok === 'function') ? getGsTok() : ''
+  };
+  var j = (typeof gsFetchJson === 'function')
+    ? await gsFetchJson(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) }, '출입정보 저장')
+    : await (await fetch(url, { method: 'POST', body: JSON.stringify(body) })).json();
+  if (j && j.ok === false) throw new Error(j.error || '저장 실패');
+  BZ_SEC_CACHE[id] = body.data;
+  return j;
+}
 
 </script>
 </body>
