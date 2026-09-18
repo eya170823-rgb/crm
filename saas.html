@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:01</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:22</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1223,10 +1223,9 @@ body{padding-bottom:46px}
     </div>
     <div class="sx-find"><input id="sx-find" placeholder="메뉴 찾기" autocomplete="off" oninput="sxFind(this.value)"></div>
     <div class="sx-list" id="sx-list">
-      <div class="sx-pri-lg"><span class="sx-pri p1">1</span>매일 <span class="sx-pri p2">2</span>자주 <span class="sx-pri p3">3</span>가끔 · <span class="sx-auto auto">⚡</span>저절로 <span class="sx-auto half">◑</span>반자동</div>
-      <div class="sx-grp" data-co="head" data-dept="홈">
+            <div class="sx-grp" data-co="head" data-dept="홈">
         <div class="sx-grp-h">홈<em>대시보드</em></div>
-          <button class="sx-item" data-co="head" data-grp="홈" data-menu="home" onclick="sxGo('home',0,'홈')"><span class="sx-pri p1" title="매일 여는 것">1</span>대시보드<span class="sx-auto auto" title="저절로 됩니다 — 사람이 안 눌러도 돕니다">⚡</span></button>
+          <button class="sx-item" data-co="head" data-grp="홈" data-menu="home" onclick="sxGo('home',0,'홈')">대시보드</button>
           <button class="sx-item" data-co="head" data-grp="홈" data-menu="csched" onclick="sxGo('csched',0,'홈')">일정관리</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="그룹웨어">
@@ -1236,11 +1235,11 @@ body{padding-bottom:46px}
       </div>
       <div class="sx-grp" data-co="head" data-dept="관리부">
         <div class="sx-grp-h">관리부<em>계약·인사·회계·결재</em></div>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract" onclick="sxGo('contract',0,'관리부')">계약관리<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="contract" onclick="sxGo('contract',0,'관리부')">계약관리</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="staff" data-admin="1" onclick="sxGo('staff',0,'관리부')">인사·직원</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="payout" onclick="sxGo('payout',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>회계·정산</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="payout" onclick="sxGo('payout',0,'관리부')">회계·정산</button>
           <button class="sx-item" data-co="head" data-grp="관리부" data-menu="stats" data-admin="1" onclick="sxGo('stats',0,'관리부')">경영 통계</button>
-          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="approval" onclick="sxGo('approval',0,'관리부')"><span class="sx-pri p3" title="필요할 때">3</span>승인·보고함</button>
+          <button class="sx-item" data-co="head" data-grp="관리부" data-menu="approval" onclick="sxGo('approval',0,'관리부')">승인·보고함</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="운영부">
         <div class="sx-grp-h">운영부<em>건물 · 매물 · 고객 · 광고 · 계약</em></div>
@@ -1258,12 +1257,12 @@ body{padding-bottom:46px}
       </div>
       <div class="sx-grp" data-co="head" data-dept="법무팀">
         <div class="sx-grp-h">법무팀<em>계약·보증금·위험</em></div>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'법무팀')"><span class="sx-pri p2" title="자주 쓰는 것">2</span>계약서 작성·검토</button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="jeonse" onclick="sxGo('jeonse',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>전세 안전도<span class="sx-auto half" title="반만 자동 — 기계가 만들고 사람이 확인합니다">◑</span></button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="contract-writer" onclick="sxGo('contract-writer',0,'법무팀')">계약서 작성·검토</button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="jeonse" onclick="sxGo('jeonse',0,'법무팀')">전세 안전도</button>
           <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="docreq" onclick="sxGo('docreq',0,'법무팀')">공부 발급</button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="guar" onclick="sxGo('guar',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>보증보험 확인</button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>등기 변동 확인</button>
-          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')"><span class="sx-pri p3" title="필요할 때">3</span>문서 작성 · 브리핑</button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="guar" onclick="sxGo('guar',0,'법무팀')">보증보험 확인</button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="reg" onclick="sxGo('reg',0,'법무팀')">등기 변동 확인</button>
+          <button class="sx-item" data-co="head" data-grp="법무팀" data-menu="doc" onclick="sxGo('doc',0,'법무팀')">문서 작성 · 브리핑</button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="개발부" data-admin="1" data-sys="1">
         <div class="sx-grp-h">개발부<em>설계·개발·운영</em></div>
@@ -1642,7 +1641,7 @@ body{padding-bottom:46px}
       <div class="expiry-sum" id="expiry-sum"></div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>D-day</th><th>매물</th><th>유형</th><th>임대인</th><th>임차인</th><th>만기일</th><th>거래가</th><th>연장/종료</th><th>연락상태</th><th>액션</th></tr></thead>
+          <thead><tr><th>D-day</th><th>매물</th><th>유형</th><th>임대인</th><th>임차인</th><th>만기일</th><th>거래가</th><th>방향</th><th>연장/종료</th><th>연락상태</th><th>액션</th></tr></thead>
           <tbody id="expiry-tbody"></tbody>
         </table>
       </div>
@@ -1899,8 +1898,8 @@ body{padding-bottom:46px}
             <th>매물</th><th>유형</th>
             <th>임대인</th><th>임대인 연락처</th>
             <th>임차인</th><th>임차인 연락처</th>
-            <th>거래가</th><th>계약일</th><th>계약만료일</th>
-            <th>만기 D-day</th><th>연락</th><th>수정</th><th>삭제</th>
+            <th>거래가</th><th>방향</th><th>계약일</th><th>계약만료일</th>
+            <th>만기 D-day</th><th>연락</th><th>수정</th><th>지도</th><th>삭제</th>
           </tr></thead>
           <tbody id="contract-tbody"></tbody>
         </table>
@@ -5005,9 +5004,9 @@ function renderListings(){
   if(view==='table'){
     el.innerHTML=`<div class="listing-table-wrap"><table>
       <thead><tr>
-        <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>방향</th><th>거래유형</th><th>거래가</th>
+        <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>거래유형</th><th>거래가</th><th>방향</th>
         <th>입주가능일</th><th>고객명</th><th>연락처</th>
-        <th>상태</th><th>메모</th><th>🔒출입</th><th>지도</th><th>첨부</th><th>수정</th>
+        <th>상태</th><th>메모</th><th>🔒출입</th><th>첨부</th><th>수정</th><th>지도</th>
       </tr></thead>
       <tbody>${list.map(l=>{
         const dN=dup.no.has(String(l.id||'').trim());
@@ -5017,16 +5016,16 @@ function renderListings(){
         <td style="font-size:11px;white-space:nowrap;color:${dN?'var(--r)':'var(--b)'};font-weight:600">${l.id}${dN?' <span class="badge br" style="font-size:9px" title="매물번호 중복 — 시트 입력 확인 필요">⚠️중복</span>':''}</td>
         <td style="font-size:11px;white-space:nowrap">${l.recvDate||'-'}</td>
         <td style="font-weight:600;white-space:nowrap">${l.apt}${l.addr2?' '+l.addr2:''}${dA?' <span class="badge br" style="font-size:9px" title="주소·호수 중복 — 당근 중복등록 시 계정 제재 위험">⚠️주소중복</span>':''}${auditBadge(l)}</td>
-        <td>${bzCell(l,'kind')}</td><td>${bzCell(l,'direction')}</td>
+        <td>${bzCell(l,'kind')}</td>
         <td>${typeBadge(l.type)}</td>
-        <td style="white-space:nowrap">${l.price}${l.rentAmt?' / '+l.rentAmt:''}</td>
+        <td style="white-space:nowrap">${l.price}${l.rentAmt?' / '+l.rentAmt:''}</td><td>${bzCell(l,'direction')}</td>
         <td style="white-space:nowrap">${l.availDate||moveBadge(l.moveDate)||`<span style="color:var(--t3);font-size:11px">${l.moveDate||'-'}</span>`}</td>
         <td style="font-weight:500">${lk?maskNameUI(l.cname):(l.cname||'-')}</td>
         <td style="color:var(--b);white-space:nowrap">${lk?maskPhoneUI(l.cphone):(l.cphone||'-')}</td>
         <td><span class="badge ${STATUS_CLS[l.status]||'bgr'}">${l.status}</span></td><td>${bzNoteCell(l)}</td><td>${bzSecCell(l)}</td>
-        <td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
+        
         <td>${(l.attachments&&l.attachments.length)?`<span class="file-badge" onclick="openListingFiles('${l.id}')">📎 ${l.attachments.length}</span>`:'-'}${noPhoto?` <span class="badge bgr" style="font-size:9px;padding:2px 6px" title="사진 미등록">📷사진없음</span>`:''}</td>
-        <td><button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈</button><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td>
+        <td><button class="btn btn-xs" title="실거래 시세 대조" onclick="priceCheckOpen('${l.id}')">📈</button><button class="btn btn-a btn-xs" onclick="openModal('listing','${l.id}')">✏️</button></td><td>${l.addr?`<button class="btn btn-xs" onclick="showListingMap('${l.id}')">📍</button>`:'-'}<button class="btn btn-xs" title="방문예약 → 구글캘린더" onclick="addVisitCal('${l.id}')">📅</button></td>
       </tr>`;}).join('')}</tbody>
     </table></div>`;
     return;
@@ -14890,7 +14889,8 @@ function fcG1Body(o){
     var n = Number(o.photoCnt || 0);
     return '<div class="g1-kv">' + kv('등록된 사진', n ? (n + '장') : '없음')
       + kv('드라이브 폴더', String(o.photoUrl || '').trim() ? '연결됨' : '아직 없음') + '</div>'
-      + why('사진은 구글드라이브에 보관됩니다. 아래 [📷 사진] 을 누르면 이 매물의 사진 자리로 갑니다.');
+      + why('사진은 구글드라이브에 보관됩니다. 아래 [📷 사진] 을 누르면 '
+            + '사진관리 프로그램이 이 매물로 열립니다 — 거기서 사진을 넣고 광고용으로 만듭니다.');
   }
   if(t === 'ad'){
     return '<div class="g1-kv">'
@@ -23361,13 +23361,14 @@ function bzRowTidy() {
   var thr = tb.querySelector('thead tr');
   if (!thr) return;
 
+  /* 🔴 2026-09-18 대표 지시 "이력칸을 빼고, 이력은 펼치기 했을 때 나오도록".
+     · 이력 칸(th/td)을 더 이상 만들지 않는다. 이력 내용은 펼치기에서 보여 준다(bzHistOpen 은 남겨 둔다).
+     · '수정' → '게시' 이름만 바꾼다. 🔴 종전에는 **맨 끝 칸**이 '수정'일 때만 바꿨는데,
+       지도 칸이 맨 끝으로 가면서(대표 지시) 조건이 안 맞아 이름이 안 바뀌고,
+       몸통에만 이력 칸이 붙어 표가 한 칸 밀렸다(실측 몸통 17 / 머리 16). 자리와 무관하게 찾는다. */
   var ths = Array.prototype.slice.call(thr.querySelectorAll('th'));
-  var last = ths[ths.length - 1];
-  if (last && String(last.textContent || '').trim() === '수정') {
-    last.textContent = '게시';
-    var th2 = document.createElement('th');
-    th2.textContent = '이력';
-    thr.appendChild(th2);
+  for (var hi = 0; hi < ths.length; hi++) {
+    if (String(ths[hi].textContent || '').trim() === '수정') { ths[hi].textContent = '게시'; break; }
   }
 
   bzListRows().forEach(function (tr) {
@@ -23405,13 +23406,7 @@ function bzRowTidy() {
       }).join('');
     }
 
-    /* 이력 칸 */
-    if (!tr.querySelector('.bz-hist')) {
-      var td = document.createElement('td');
-      td.innerHTML = '<button class="btn btn-xs bz-hist" title="이 호실의 거래 이력"'
-        + ' onclick="event.stopPropagation();bzHistOpen(&quot;' + bzEsc(id) + '&quot;)">이력</button>';
-      tr.appendChild(td);
-    }
+    /* 🔴 이력 칸은 만들지 않는다(2026-09-18 대표 지시) — 펼치기에서 보여 준다 */
   });
 
   tb.setAttribute('data-bz', '1');
@@ -25298,12 +25293,34 @@ function bzPhotoModalTidy() {
   hd.insertAdjacentHTML('beforeend', ' ' + bzPhotoBtn(mm[1]));
 }
 
+/* 🔴 매물 작업패널(#fc-g1)의 [📷 사진] 단추를 사진관리로 돌린다 — 대표 지시(2026-09-18)
+     "사진을 누르면 사진프로그램에 들어가도록"
+
+   원래 fcG1Acts 의 [📷 사진] 은 fcG1Photo(id) 를 불렀고, 그것은
+     openModal('listing', id) 로 수정창을 연 뒤 #photo-panel 로 스크롤하는 일을 했다.
+   그런데 대표 결정 ERP-PHOTO-01 로 생성기(photoListingTidy)가 #photo-panel 을
+   **display:none 으로 숨긴다.** 그래서 누르면 수정창만 뜨고 사진은 아무데도 없었다 —
+   대표에게는 "눌러도 아무 일도 안 일어난다" 로 보인다.
+   숨겨진 칸으로 보내는 대신 **사진관리 프로그램**으로 보낸다. PHOTO-01 과 어긋나지 않는다.
+
+   🔴 일부러 덮어쓴다(이름 충돌이 아니다). 이 조각은 생성기가 맨 뒤에 넣으므로
+      원래 정의보다 나중에 실행된다. 원래 동작이 필요하면 __bzG1PhotoOrig 로 남겨 둔다. */
+function bzPhotoTakeOverG1() {
+  if (window.__bzG1PhotoWrapped) return;
+  if (typeof window.fcG1Photo !== 'function') return;
+  window.__bzG1PhotoOrig = window.fcG1Photo;
+  window.fcG1Photo = function (id) { bzPhotoLaunch(id); };
+  window.__bzG1PhotoWrapped = true;
+}
+
 (function bzPhotoHook() {
   var tick = function () {
+    try { bzPhotoTakeOverG1(); } catch (e) {}
     try { bzPhotoRowTidy(); } catch (e) {}
     try { bzPhotoBadgeTidy(); } catch (e) {}
     try { bzPhotoModalTidy(); } catch (e) {}
   };
+  try { bzPhotoTakeOverG1(); } catch (e) {}
   if (typeof renderListings === 'function' && !window.__bzPhotoWrapped) {
     var _r = renderListings;
     window.renderListings = function () {
