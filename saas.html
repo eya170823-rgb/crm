@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:54</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 18:00</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1347,7 +1347,7 @@ body{padding-bottom:46px}
       <div id="gs-sync-status" style="font-size:10px;margin-top:6px;color:var(--t3)">⚪ 구글 시트 미연동</div>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
         <button id="gs-bulk-btn" onclick="gsSyncAllGuarded()" title="이 화면 목록으로 중앙 DB를 통째로 맞춥니다. 평소에는 쓰지 않습니다 — 고친 내용은 자동으로 올라갑니다." style="display:none;width:100%;padding:6px;background:#B91C1C;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⚠️ 전체 데이터 강제 동기화 — 대표</button>
-        <button onclick="gsEnrichAndLoad()" title="구글 시트에 적어 넣은 매물을 건축물대장 기준으로 채운 뒤 CRM으로 가져옵니다" style="width:100%;padding:6px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⬇️ 시트에서 불러오기</button>
+        
         <a href="https://docs.google.com/spreadsheets/d/1B69qGMsO6BPZvGVPxTnVzYmgRCqDB4UkrJjOluFqsBA/edit" target="_blank" rel="noopener" style="display:block;width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t2);cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box">📊 구글 시트 바로 열기</a>
         
       </div>
@@ -24804,7 +24804,7 @@ async function bzPullListings(quiet) {
 (function bzPullBtn() {
   function put() {
     var host = document.getElementById('p-listing');
-    if (!host || document.getElementById('bz-pull-btn')) return;
+    if (!host || document.getElementById('bz-pull-btn')) return;   /* 둘 다 이 가드로 함께 붙는다 */
     var b = document.createElement('button');
     b.id = 'bz-pull-btn';
     b.className = 'btn btn-sm';
@@ -24813,8 +24813,23 @@ async function bzPullListings(quiet) {
     b.style.cssText = 'background:#185FA5;color:#fff;border:0;border-radius:8px;'
       + 'padding:6px 12px;font-weight:600;cursor:pointer;margin:0 0 10px';
     b.onclick = function () { bzPullListings(false); };
-    if (host.firstChild) host.insertBefore(b, host.firstChild);
-    else host.appendChild(b);
+    /* ⬇️ 2026-09-18 대표 지시로 사이드바 [시트에서 불러오기] 를 없앴다 —
+       전체(매물·고객·계약·임대인)를 받는 길은 여기 남겨 둔다. 기능을 없애지 않는다. */
+    var b2 = document.createElement('button');
+    b2.id = 'bz-pull-all';
+    b2.className = 'btn btn-sm';
+    b2.textContent = '⬇️ 전체 불러오기';
+    b2.title = '매물·고객·계약·임대인을 모두 받아옵니다(대장 보강 포함). 임대인 4천여 행이라 느립니다';
+    b2.style.cssText = 'background:#fff;border:1px solid var(--border);color:var(--t2);'
+      + 'border-radius:8px;padding:6px 12px;cursor:pointer;margin:0 0 10px 6px';
+    b2.onclick = function () {
+      if (typeof gsEnrichAndLoad === 'function') gsEnrichAndLoad();
+      else if (typeof gsLoadFromSheet === 'function') gsLoadFromSheet();
+    };
+    if (host.firstChild) {
+      host.insertBefore(b2, host.firstChild);
+      host.insertBefore(b, host.firstChild);
+    } else { host.appendChild(b); host.appendChild(b2); }
   }
   setTimeout(put, 1500);
   setInterval(put, 3000);
@@ -25966,25 +25981,70 @@ function bzPhotoNoneTap(id) {
   bzPhotoLaunch(id);
 }
 
+/* 사진이 몇 장인지 단추에 그대로 보여 준다 — 대표가 누르는 그 '없음' 이 여기다.
+   🔴 장수는 시트에 적힌 값(photoCnt)이다. 매물 상세를 한 번 열어야 채워지므로
+      드라이브에 사진이 있어도 '없음' 으로 보일 수 있다 — 눌러서 확인하면 그때 채워진다. */
 function bzPhotoBtn(id) {
+  var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
+  var cnt = o ? String(o.photoCnt || '').trim() : '';
+  var has = !!(cnt && cnt !== '0');
+  var label = has ? '📷 사진' : '📷 없음';
+  var style = has ? '' : 'background:#FEF2F2;border-color:#FCA5A5;color:#B91C1C;font-weight:700';
+  var tip = has
+    ? ('사진 ' + cnt + ' — 눌러서 사진관리를 엽니다')
+    : '사진이 없습니다 — 폰이면 눌러서 바로 찍고, PC 면 사진관리가 열립니다';
   return '<button class="btn btn-xs bz-photo" data-id="' + bzEsc(id) + '"'
-    + ' title="이 매물의 사진을 관리합니다 (사진 넣기 · 워터마크 찍어 광고용으로 · 폴더 열기)"'
-    + ' onclick="event.stopPropagation();bzPhotoLaunch(&quot;' + bzEsc(id) + '&quot;)">📷 사진</button>';
+    + (style ? ' style="' + style + '"' : '')
+    + ' title="' + bzEsc(tip) + '"'
+    + ' onclick="event.stopPropagation();'
+    + (has ? 'bzPhotoLaunch' : 'bzPhotoNoneTap')
+    + '(&quot;' + bzEsc(id) + '&quot;)">' + label + '</button>';
 }
 
-/* 매물관리 표 — 행마다 단추 하나 */
+/* 🔴 2026-09-18 — 행에서 매물번호를 안전하게 뽑는다.
+   다른 세션이 매물장 첫 칸에 펼치기 화살표(▸)를 붙이면서 공용 bzRowId 가
+   '▸R260917-08' 을 돌려주게 됐다(실측). 그대로 쓰면 엉뚱한 매물을 열거나 주소가 깨진다.
+   매물번호 모양(영문1 + 숫자6 + '-' + 숫자2)만 골라낸다. */
+function bzPhotoRowId(tr) {
+  var raw = '';
+  try { raw = (typeof bzRowId === 'function') ? bzRowId(tr) : ''; } catch (e) {}
+  if (!raw) {
+    var td = tr.querySelector('td');
+    raw = td ? String(td.textContent || '') : '';
+  }
+  var m = String(raw).match(/[A-Za-z]\d{6}-\d{2}/);
+  return m ? m[0] : '';
+}
+
+/* 표 머리글에서 '첨부' 칸이 몇 번째인지 찾는다(칸 순서가 바뀌어도 따라가게) */
+function bzPhotoCellIdx(tb) {
+  var th = tb.querySelectorAll('thead th');
+  for (var i = 0; i < th.length; i++) {
+    var t = String(th[i].textContent || '').trim();
+    if (t.indexOf('첨부') >= 0) return i;
+  }
+  return -1;
+}
+
+/* 매물관리 표 — 행마다 사진 상태 단추.
+   🔴 맨 끝 칸에 붙이면 표가 16칸이라 화면 오른쪽 밖으로 밀려 **대표 눈에 안 보인다**(실측).
+      '첨부' 칸에 붙인다 — 사진이 몇 장인지도 같이 보여 준다. */
 function bzPhotoRowTidy() {
   var tb = document.querySelector('#listing-cards table');
   if (!tb) return;
+  var idx = bzPhotoCellIdx(tb);
   var rows = (typeof bzListRows === 'function')
     ? bzListRows() : Array.prototype.slice.call(tb.querySelectorAll('tbody tr'));
   rows.forEach(function (tr) {
     if (tr.querySelector('.bz-photo')) return;
-    var id = (typeof bzRowId === 'function') ? bzRowId(tr) : '';
+    var id = bzPhotoRowId(tr);
     if (!id) return;
     var tds = tr.querySelectorAll('td');
-    var hist = tr.querySelector('.bz-hist');
-    var cell = hist ? hist.parentNode : tds[tds.length - 1];
+    var cell = (idx >= 0 && tds[idx]) ? tds[idx] : null;
+    if (!cell) {
+      var hist = tr.querySelector('.bz-hist');
+      cell = hist ? hist.parentNode : tds[tds.length - 1];
+    }
     if (!cell) return;
     cell.insertAdjacentHTML('beforeend', ' ' + bzPhotoBtn(id));
   });
