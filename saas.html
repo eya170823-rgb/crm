@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 16:52</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:01</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -24823,6 +24823,8 @@ async function bzPullListings(quiet) {
     if (typeof renderListings === 'function') renderListings();
     if (typeof bzFreshOff === 'function') bzFreshOff();
     if (typeof showToast === 'function') showToast('매물 ' + listings.length + '건을 시트에서 새로 읽었습니다');
+    /* 📋 읽고 나서 광고문구가 빈 매물이 있으면 알려 준다(만드는 것은 누를 때만) */
+    try { bzDescBar(); } catch (e) {}
     return true;
   } catch (e) {
     if (typeof showToast === 'function') showToast('새로 읽기 실패: ' + e.message);
@@ -24848,7 +24850,104 @@ async function bzPullListings(quiet) {
   }
   setTimeout(put, 1500);
   setInterval(put, 3000);
+  /* 매물장을 열면 광고문구 빈 매물이 있는지도 한 번 본다(읽기만 · 시트 호출 없음) */
+  setTimeout(function () { try { bzDescBar(); } catch (e) {} }, 2500);
 })();
+
+/* ═══ 📋 2026-09-18 — 광고문구(매물 설명)가 빈 매물을 알려 주고 그 자리에서 만든다 ══════
+   대표: "매물설명은 매물 펼치기에 보면 광고내용이 작성이 되어있음"
+   실측: 화면에는 보이는데 **시트에는 비어 있었다**(인트로빌 301호 desc 빈칸).
+   왜: 광고문구는 listings.desc 칸이고, 만들어지는 자리는 [⬇️ 시트에서 불러오기](gsEnrichAndLoad)
+       안이다. 위에서 만든 [🔄 시트에서 새로 읽기] 는 **읽기만** 하므로 문구를 만들지 않는다.
+       그래서 새로 읽고 나면 문구 빈 매물이 남을 수 있다 → 여기서 알려 주고 만들게 한다.
+   🔴 이미 있는 문구는 건드리지 않는다(대표가 손으로 적어 둔 것이 사라지면 안 된다).
+   🔴 만드는 규칙은 기존 buildListingDesc 를 그대로 쓴다 — 새 규칙을 만들지 않는다.           */
+function bzDescMissing() {
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var l = list[i];
+    if (!l) continue;
+    var has = String(l.desc || '').trim();
+    var enough = (l.addr || l.apt) && String(l.type || '').trim() && String(l.price || '').trim();
+    if (!has && enough) out.push(l);
+  }
+  return out;
+}
+
+function bzDescMake() {
+  if (typeof buildListingDesc !== 'function') {
+    if (typeof showToast === 'function') showToast('문구 만드는 기능을 찾지 못했습니다');
+    return;
+  }
+  var miss = bzDescMissing();
+  if (!miss.length) {
+    if (typeof showToast === 'function') showToast('광고문구가 빈 매물이 없습니다');
+    bzDescBarOff();
+    return;
+  }
+  var names = [];
+  for (var i = 0; i < miss.length && i < 8; i++) {
+    names.push(String(miss[i].apt || '') + ' ' + String(miss[i].addr2 || ''));
+  }
+  var msg = '광고문구가 비어 있는 매물 ' + miss.length + '건에 문구를 만들까요?'
+    + String.fromCharCode(10) + names.join(' · ')
+    + (miss.length > 8 ? (' 외 ' + (miss.length - 8) + '건') : '')
+    + String.fromCharCode(10) + String.fromCharCode(10)
+    + '이미 적혀 있는 문구는 건드리지 않습니다.';
+  if (!confirm(msg)) return;
+  var made = 0;
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  for (var k = 0; k < miss.length; k++) {
+    try {
+      var t = buildListingDesc(miss[k], list);
+      if (t) {
+        miss[k].desc = t;
+        miss[k].descAt = (typeof fmtDate === 'function') ? fmtDate() : '';
+        made++;
+      }
+    } catch (e) {}
+  }
+  if (made) {
+    save('listings', list);                 /* 기존 경로 — 바뀐 건만 시트로 간다 */
+    if (typeof renderListings === 'function') renderListings();
+    if (typeof showToast === 'function') showToast('광고문구 ' + made + '건 만들었습니다 — 시트에도 올라갑니다');
+  }
+  bzDescBarOff();
+}
+
+function bzDescBarOff() {
+  var b = document.getElementById('bz-desc-bar');
+  if (b && b.parentNode) b.parentNode.removeChild(b);
+}
+
+function bzDescBar() {
+  var miss = bzDescMissing();
+  bzDescBarOff();
+  if (!miss.length) return;
+  var host = document.getElementById('p-listing');
+  if (!host) return;
+  var d = document.createElement('div');
+  d.id = 'bz-desc-bar';
+  d.style.cssText = 'margin:0 0 10px;padding:9px 12px;border-radius:10px;background:#EAF3FF;'
+    + 'border:1px solid #9CC3F0;color:#14406E;font-size:13px;display:flex;gap:10px;'
+    + 'align-items:center;flex-wrap:wrap';
+  var s = document.createElement('span');
+  s.textContent = '광고문구(매물 설명)가 비어 있는 매물 ' + miss.length + '건 — 당근에 올릴 때 막힙니다';
+  var b = document.createElement('button');
+  b.textContent = '지금 만들기';
+  b.style.cssText = 'background:#185FA5;color:#fff;border:0;border-radius:8px;padding:6px 12px;'
+    + 'font-weight:700;cursor:pointer;white-space:nowrap';
+  b.onclick = bzDescMake;
+  var x = document.createElement('button');
+  x.textContent = '닫기';
+  x.style.cssText = 'background:#fff;border:1px solid #9CC3F0;color:#14406E;border-radius:8px;'
+    + 'padding:6px 10px;cursor:pointer';
+  x.onclick = bzDescBarOff;
+  d.appendChild(s); d.appendChild(b); d.appendChild(x);
+  if (host.firstChild) host.insertBefore(d, host.firstChild);
+  else host.appendChild(d);
+}
 
 /* ═══ 📝🔒 2026-09-18 대표 지시 — 매물장 목록에 메모칸 ═══════════════════════
    "메모칸도 추가해주게. 비번이나 기타사항을 넣을 거임"
