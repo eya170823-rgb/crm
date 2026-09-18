@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:26</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 17:27</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -25361,6 +25361,233 @@ async function bzNewSave() {
 (function bzNewHook() {
   function tick() { try { bzNewRow(); } catch (e) {} }
   setTimeout(tick, 1800);
+  setInterval(tick, 2500);
+})();
+
+/* ═══ ▸ 2026-09-18 대표 지시 — 매물을 펼치면 다 보이게 ══════════════════════
+   "펼치기를 누르면 내용이 다 나오도록" · "펼쳤을때 건물 매물 사진 으로 되어서 조회되도록"
+   "이력칸을 빼고 이력칸은 펼치기 했을때 그 호실 이전 접수된내용이 나오거나 상담내용이 나오도록"
+   "펼쳤을때 기본에만 접기가 있는데 접기 고정으로 각 탭에서도 다 접을수 있도록"
+   "미리보기에 메모 보이도록"
+
+   · 매물번호 앞 ▸ 를 누르면 **그 줄 바로 아래**가 열린다. 창을 띄우지 않는다.
+   · 맨 위 한 줄은 미리보기 — 건물명·호수·금액·상태와 **메모**가 바로 보인다.
+   · 탭 넷: 🏢건물 · 🏠매물 · 📷사진 · 🕘이력.  [접기] 는 탭 줄 오른쪽에 **늘 붙어 있다**.
+   🔴 여기서는 **보여 주기만** 한다. 값을 고치거나 저장하지 않는다(고치는 것은 표의 칸·입력창).
+   🔴 이력은 기존 bzUnitHistory 를 그대로 쓴다 — 같은 호실로 묶는 규칙을 새로 만들지 않는다.
+   🔴 없는 값은 '-' 로 둔다. 지어내지 않는다.                                            */
+
+var BZ_EXP_TAB = {};        /* 매물번호 → 마지막으로 본 탭 */
+
+function bzExpEsc(v) {
+  return String(v == null ? '' : v)
+    .split('&').join('&amp;').split('<').join('&lt;')
+    .split('>').join('&gt;').split('"').join('&quot;');
+}
+
+function bzExpClose(id) {
+  var r = document.getElementById('bz-exp-' + id);
+  if (r && r.parentNode) r.parentNode.removeChild(r);
+  var b = document.querySelector('.bz-exp-btn[data-id="' + id + '"]');
+  if (b) b.textContent = '▸';
+}
+
+function bzExpCloseAll() {
+  Array.prototype.forEach.call(document.querySelectorAll('tr[id^="bz-exp-"]'), function (r) {
+    if (r.parentNode) r.parentNode.removeChild(r);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.bz-exp-btn'), function (b) {
+    b.textContent = '▸';
+  });
+}
+
+function bzExpToggle(ev, id) {
+  try { if (ev && ev.stopPropagation) ev.stopPropagation(); } catch (e) {}
+  if (document.getElementById('bz-exp-' + id)) { bzExpClose(id); return; }
+  bzExpOpen(id);
+}
+
+function bzExpOpen(id, tab) {
+  var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
+  if (!o) {
+    var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+    for (var i = 0; i < list.length; i++) { if (String(list[i].id) === String(id)) { o = list[i]; break; } }
+  }
+  if (!o) return;
+  var tr = null;
+  Array.prototype.forEach.call(document.querySelectorAll('#listing-cards tbody tr'), function (x) {
+    if (tr) return;
+    var t = String(x.textContent || '');
+    if (t.indexOf(String(id)) >= 0 && x.id.indexOf('bz-exp-') !== 0) tr = x;
+  });
+  if (!tr) return;
+  bzExpClose(id);
+
+  var n = document.querySelectorAll('#listing-cards thead th').length || 16;
+  var row = document.createElement('tr');
+  row.id = 'bz-exp-' + id;
+  var td = document.createElement('td');
+  td.colSpan = n;
+  td.style.cssText = 'background:#F8FAFC;padding:10px 14px;border-top:2px solid var(--b)';
+  row.appendChild(td);
+  if (tr.nextSibling) tr.parentNode.insertBefore(row, tr.nextSibling);
+  else tr.parentNode.appendChild(row);
+
+  BZ_EXP_TAB[id] = tab || BZ_EXP_TAB[id] || 'bldg';
+  td.innerHTML = bzExpHtml(o, BZ_EXP_TAB[id]);
+  var b = document.querySelector('.bz-exp-btn[data-id="' + id + '"]');
+  if (b) b.textContent = '▾';
+}
+
+/* 값 한 줄 */
+function bzExpLine(k, v) {
+  return '<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px">'
+    + '<div style="min-width:88px;color:var(--t3)">' + bzExpEsc(k) + '</div>'
+    + '<div style="font-weight:500">' + (String(v || '').trim() ? bzExpEsc(v) : '-') + '</div></div>';
+}
+
+function bzExpHtml(o, tab) {
+  var id = String(o.id || '');
+  var TABS = [['bldg', '🏢 건물'], ['unit', '🏠 매물'], ['photo', '📷 사진'], ['hist', '🕘 이력']];
+  var head = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<div style="font-weight:700;font-size:13.5px">' + bzExpEsc((o.apt || '') + ' ' + (o.addr2 || '')) + '</div>'
+    + '<span class="badge bgr">' + bzExpEsc(o.type || '-') + '</span>'
+    + '<span style="font-size:12.5px">' + bzExpEsc(String(o.price || '-')
+      + (o.rentAmt ? (' / ' + o.rentAmt) : '')) + '</span>'
+    + '<span class="badge bgr">' + bzExpEsc(o.status || '-') + '</span>'
+    + '<span style="font-size:12px;color:var(--t2)">' + bzExpEsc(id) + '</span>'
+    /* 📝 대표 지시 — 미리보기에 메모가 보이게 */
+    + '<div style="flex:1 1 100%;font-size:12.5px;color:#6B4A00;background:#FFF9E6;'
+    + 'border:1px solid #F0DFA8;border-radius:8px;padding:6px 9px;margin-top:4px">'
+    + '📝 ' + (String(o.note || '').trim()
+      ? bzExpEsc(String(o.note).split(String.fromCharCode(10)).join(' / ')).slice(0, 400)
+      : '<span style="color:var(--t3)">메모 없음</span>') + '</div>'
+    + '</div>';
+
+  var tabs = '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'
+    + TABS.map(function (t) {
+      var on = (t[0] === tab);
+      return '<button class="btn btn-xs" style="' + (on
+        ? 'background:var(--b);color:#fff;border:0'
+        : 'background:#fff;border:1px solid var(--border);color:var(--t2)')
+        + ';border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:' + (on ? '700' : '500') + '"'
+        + ' onclick="bzExpOpen(&#39;' + id + '&#39;,&#39;' + t[0] + '&#39;)">' + t[1] + '</button>';
+    }).join('')
+    /* 🔴 [접기] 는 탭 줄 오른쪽에 늘 붙어 있다 — 어느 탭에서도 접을 수 있다 */
+    + '<button class="btn btn-xs" style="margin-left:auto;background:#fff;border:1px solid var(--border);'
+    + 'border-radius:8px;padding:4px 12px;cursor:pointer" onclick="bzExpClose(&#39;' + id + '&#39;)">▴ 접기</button>'
+    + '</div>';
+
+  var body = '';
+  if (tab === 'bldg') {
+    body = bzExpLine('주소', o.addr)
+      + bzExpLine('건물명', o.apt)
+      + bzExpLine('건물종류', o.bldgUse || o.kind)
+      + bzExpLine('층 / 총층', (o.floor || '-') + ' / ' + (o.totalFloor || '-'))
+      + bzExpLine('건축년도', o.aprDate)
+      + bzExpLine('세대수', o.hhldCnt)
+      + bzExpLine('주차', (o.parking || '-') + (o.parkTotal ? (' (총 ' + o.parkTotal + '대)') : ''))
+      + bzExpLine('엘리베이터', o.elevator)
+      + bzExpSame(o);
+  } else if (tab === 'unit') {
+    body = bzExpLine('거래유형', o.type)
+      + bzExpLine('보증금 / 월세', String(o.price || '-') + (o.rentAmt ? (' / ' + o.rentAmt) : ''))
+      + bzExpLine('관리비', (String(o.feeType || '').trim()
+          ? (o.feeType + (String(o.feeAmt || '').trim() ? (' ' + o.feeAmt + '만') : ''))
+          : '따로 없음(월세에 포함이면 설명에 적습니다)'))
+      + bzExpLine('물건유형', o.kind)
+      + bzExpLine('전용면적', o.area)
+      + bzExpLine('방 / 욕실', (o.rooms || '-') + ' / ' + (o.baths || '-'))
+      + bzExpLine('향', o.direction)
+      + bzExpLine('입주가능일', o.availDate || o.moveDate)
+      + bzExpLine('접수일', o.recvDate)
+      + bzExpLine('담당', o.agent)
+      + '<div style="margin-top:8px;font-size:12.5px"><div style="color:var(--t3);margin-bottom:3px">광고문구(매물 설명)</div>'
+      + '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;'
+      + 'max-height:190px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
+      + (String(o.desc || '').trim() ? bzExpEsc(o.desc)
+        : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>')
+      + '</div></div>';
+  } else if (tab === 'photo') {
+    var cnt = parseInt(o.photoCnt, 10) || 0;
+    body = bzExpLine('사진 수', cnt ? (cnt + '장') : '없음')
+      + bzExpLine('사진 폴더', o.photoUrl)
+      + (o.photoUrl ? ('<div style="margin-top:6px"><a href="' + bzExpEsc(o.photoUrl)
+        + '" target="_blank" rel="noopener" class="btn btn-xs" style="text-decoration:none">📂 사진 폴더 열기</a></div>') : '')
+      + ((typeof bzPhotoBtn === 'function')
+        ? ('<div style="margin-top:8px">' + bzPhotoBtn(id) + '</div>') : '')
+      + '<div style="margin-top:8px;font-size:11.5px;color:var(--t3);line-height:1.7">'
+      + '※ 사진은 드라이브 폴더에 있습니다. 이 화면은 개수와 폴더만 보여 줍니다.</div>';
+  } else {
+    var rows = (typeof bzUnitHistory === 'function') ? bzUnitHistory(id) : [];
+    var hist = rows.length
+      ? rows.map(function (x) {
+        var when = String(x.recvDate || x.updatedAt || '').slice(0, 10);
+        var mine = String(x.id) === String(id);
+        return '<div style="display:flex;gap:9px;font-size:12.5px;padding:5px 0;border-bottom:1px solid #F1F5F9'
+          + (mine ? ';background:#EEF4FF' : '') + '">'
+          + '<div style="min-width:84px;color:var(--t3)">' + bzExpEsc(when || '-') + '</div>'
+          + '<div style="min-width:106px;font-weight:600">' + bzExpEsc(x.id)
+          + (mine ? ' <span style="font-size:10px;color:var(--b)">지금</span>' : '') + '</div>'
+          + '<div style="min-width:64px">' + bzExpEsc(x.status || '-') + '</div>'
+          + '<div style="color:var(--t2)">' + bzExpEsc((x.type || '') + ' ' + (x.price || '')
+            + (x.rentAmt ? (' / ' + x.rentAmt) : '')) + '</div></div>';
+      }).join('')
+      : '<div style="font-size:12.5px;color:var(--t2)">같은 호실로 이전에 접수된 것이 없습니다.</div>';
+    body = '<div style="font-size:12px;color:var(--t3);margin-bottom:4px">이 호실로 이전에 접수된 것</div>'
+      + hist
+      + '<div style="margin-top:10px;font-size:12px;color:var(--t3);margin-bottom:4px">상담·접수 내용(메모)</div>'
+      + '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;'
+      + 'max-height:200px;overflow:auto;white-space:pre-wrap;font-size:12.5px;line-height:1.6">'
+      + (String(o.note || '').trim() ? bzExpEsc(o.note)
+        : '<span style="color:var(--t3)">적어 둔 내용이 없습니다</span>') + '</div>';
+  }
+  return head + tabs + '<div>' + body + '</div>';
+}
+
+/* 같은 건물의 다른 방 — 건물 탭 아래에 붙인다 */
+function bzExpSame(o) {
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  var key = String(o.apt || '').trim();
+  if (!key) return '';
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var x = list[i];
+    if (!x || String(x.id) === String(o.id)) continue;
+    if (String(x.apt || '').trim() !== key) continue;
+    out.push('<div style="display:flex;gap:8px;font-size:12.5px;padding:3px 0">'
+      + '<div style="min-width:64px;font-weight:600">' + bzExpEsc(x.addr2 || '-') + '</div>'
+      + '<div style="min-width:64px">' + bzExpEsc(x.status || '-') + '</div>'
+      + '<div style="color:var(--t2)">' + bzExpEsc(String(x.price || '')
+        + (x.rentAmt ? (' / ' + x.rentAmt) : '')) + '</div></div>');
+  }
+  if (!out.length) return '';
+  return '<div style="margin-top:9px;padding-top:7px;border-top:1px dashed var(--border)">'
+    + '<div style="font-size:12px;color:var(--t3);margin-bottom:3px">같은 건물의 다른 방 '
+    + out.length + '건</div>' + out.join('') + '</div>';
+}
+
+/* 매물번호 칸 앞에 ▸ 를 붙인다 */
+function bzExpBtns() {
+  var tb = document.querySelector('#listing-cards table tbody');
+  if (!tb) return;
+  Array.prototype.forEach.call(tb.querySelectorAll('tr'), function (tr) {
+    if (tr.id && tr.id.indexOf('bz-') === 0) return;                 /* 새 줄·펼친 줄은 건너뛴다 */
+    if (tr.querySelector('.bz-exp-btn')) return;
+    var id = (typeof bzRowId === 'function') ? bzRowId(tr) : '';
+    if (!id) return;
+    var td = tr.querySelector('td');
+    if (!td) return;
+    td.insertAdjacentHTML('afterbegin',
+      '<button class="btn btn-xs bz-exp-btn" data-id="' + id + '" title="펼쳐 보기"'
+      + ' style="padding:0 5px;margin-right:4px;border:1px solid var(--border);border-radius:5px;'
+      + 'background:#fff;cursor:pointer" onclick="bzExpToggle(event,&#39;' + id + '&#39;)">▸</button>');
+  });
+}
+
+(function bzExpHook() {
+  function tick() { try { bzExpBtns(); } catch (e) {} }
+  setTimeout(tick, 1900);
   setInterval(tick, 2500);
 })();
 
