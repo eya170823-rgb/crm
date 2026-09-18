@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 16:23</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 16:40</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -5005,7 +5005,7 @@ function renderListings(){
   if(view==='table'){
     el.innerHTML=`<div class="listing-table-wrap"><table>
       <thead><tr>
-        <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>거래유형</th><th>거래가</th>
+        <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>방향</th><th>거래유형</th><th>거래가</th>
         <th>입주가능일</th><th>고객명</th><th>연락처</th>
         <th>상태</th><th>지도</th><th>첨부</th><th>수정</th>
       </tr></thead>
@@ -5017,7 +5017,7 @@ function renderListings(){
         <td style="font-size:11px;white-space:nowrap;color:${dN?'var(--r)':'var(--b)'};font-weight:600">${l.id}${dN?' <span class="badge br" style="font-size:9px" title="매물번호 중복 — 시트 입력 확인 필요">⚠️중복</span>':''}</td>
         <td style="font-size:11px;white-space:nowrap">${l.recvDate||'-'}</td>
         <td style="font-weight:600;white-space:nowrap">${l.apt}${l.addr2?' '+l.addr2:''}${dA?' <span class="badge br" style="font-size:9px" title="주소·호수 중복 — 당근 중복등록 시 계정 제재 위험">⚠️주소중복</span>':''}${auditBadge(l)}</td>
-        <td><span class="badge bgr">${l.kind||'-'}</span></td>
+        <td>${bzCell(l,'kind')}</td><td>${bzCell(l,'direction')}</td>
         <td>${typeBadge(l.type)}</td>
         <td style="white-space:nowrap">${l.price}${l.rentAmt?' / '+l.rentAmt:''}</td>
         <td style="white-space:nowrap">${l.availDate||moveBadge(l.moveDate)||`<span style="color:var(--t3);font-size:11px">${l.moveDate||'-'}</span>`}</td>
@@ -24675,6 +24675,179 @@ function bzFreshCheck(force) {
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) bzFreshCheck(false);
   });
+})();
+
+
+/* ═══ ✏️ 2026-09-18 대표 지시 — 매물장 목록에서 바로 고친다 ═══════════════════
+   "인트로빌 301호 옆에 물건유형이 빠졌는데 클릭하면 바로 입력할 수 있도록" + "방향도"
+
+   비어 있으면 `＋유형` `＋방향` 처럼 점선칸으로 보인다. 누르면 그 자리에서 고른다.
+   🔴 새 저장 경로를 만들지 않는다 — 기존 save('listings', …) 를 그대로 쓴다.
+      그러면 gsAutoSync 가 **바뀐 한 건만** upsert 한다(통째 덮어쓰기 아님).
+   🔴 값은 매물 입력창의 목록을 그대로 읽어 쓴다(두 곳이 어긋나지 않게).
+   🔴 지어내지 않는다 — 고르지 않으면 아무것도 저장하지 않는다.                    */
+
+var BZ_QE_KIND = ['오픈형 원룸', '분리형 원룸', '빌라(투룸 이상)', '아파트', '오피스텔',
+                  '주택', '상가', '사무실', '건물', '공장/창고', '토지'];
+var BZ_QE_DIR = ['남향', '동향', '서향', '북향', '남동향', '남서향', '북동향', '북서향'];
+var BZ_QE_LABEL = { kind: '유형', direction: '방향' };
+
+function bzQeOpts(f) {
+  /* 입력창(select)에 있는 목록을 먼저 쓴다 — 거기서 늘어나면 여기도 같이 늘어난다 */
+  var id = (f === 'kind') ? 'l-kind' : 'l-direction';
+  var el = document.getElementById(id);
+  var out = [];
+  if (el && el.options) {
+    for (var i = 0; i < el.options.length; i++) {
+      var v = String(el.options[i].value || el.options[i].textContent || '').trim();
+      if (v) out.push(v);
+    }
+  }
+  if (!out.length) out = (f === 'kind') ? BZ_QE_KIND.slice() : BZ_QE_DIR.slice();
+  return out;
+}
+
+/* 목록 칸 한 개를 그린다 — 값이 있으면 뱃지, 없으면 점선 [＋유형] */
+function bzCell(l, f) {
+  var id = String((l && l.id) || '');
+  var v = String((l && l[f]) || '').trim();
+  var call = 'bzQuick(event,&#39;' + id + '&#39;,&#39;' + f + '&#39;)';
+  if (v) {
+    return '<span class="badge bgr" style="cursor:pointer" title="누르면 바로 고칩니다"'
+      + ' onclick="' + call + '">' + v + '</span>';
+  }
+  return '<span style="cursor:pointer;border:1px dashed var(--b);color:var(--b);'
+    + 'border-radius:6px;padding:2px 7px;font-size:11px;white-space:nowrap"'
+    + ' title="비어 있습니다 — 누르면 바로 넣습니다" onclick="' + call + '">＋'
+    + (BZ_QE_LABEL[f] || f) + '</span>';
+}
+
+function bzQuick(ev, id, f) {
+  try { if (ev && ev.stopPropagation) ev.stopPropagation(); } catch (e) {}
+  var host = (ev && ev.target) ? ev.target : null;
+  if (!host || !host.parentNode) return;
+  if (host.getAttribute('data-qe') === 'on') return;        /* 이미 열려 있다 */
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  var row = null;
+  for (var i = 0; i < list.length; i++) {
+    if (String(list[i].id) === String(id)) { row = list[i]; break; }
+  }
+  if (!row) { if (typeof showToast === 'function') showToast('그 매물을 찾지 못했습니다'); return; }
+
+  var cur = String(row[f] || '').trim();
+  var sel = document.createElement('select');
+  sel.setAttribute('data-qe', 'on');
+  sel.style.cssText = 'font-size:12px;padding:3px 4px;border:1px solid var(--b);border-radius:6px';
+  var o0 = document.createElement('option');
+  o0.value = '';
+  o0.textContent = '고르세요';
+  sel.appendChild(o0);
+  var opts = bzQeOpts(f);
+  for (var k = 0; k < opts.length; k++) {
+    var o = document.createElement('option');
+    o.value = opts[k];
+    o.textContent = opts[k];
+    if (opts[k] === cur) o.selected = true;
+    sel.appendChild(o);
+  }
+  var back = host.cloneNode(true);
+  host.parentNode.replaceChild(sel, host);
+  sel.focus();
+
+  var closed = false;
+  function restore() {
+    if (closed) return;
+    closed = true;
+    if (sel.parentNode) sel.parentNode.replaceChild(back, sel);
+  }
+  sel.onkeydown = function (e) { if (e && e.key === 'Escape') restore(); };
+  sel.onblur = function () { setTimeout(restore, 150); };
+  sel.onchange = function () {
+    var v = String(sel.value || '').trim();
+    if (!v) { restore(); return; }
+    closed = true;
+    row[f] = v;
+    row.updatedAt = bzNowStamp();
+    try {
+      save('listings', list);                 /* 기존 경로 — 바뀐 한 건만 시트로 간다 */
+      if (typeof showToast === 'function') {
+        showToast((BZ_QE_LABEL[f] || f) + ' 을(를) "' + v + '" 로 저장했습니다 — ' + id);
+      }
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('저장 실패: ' + e.message);
+    }
+    if (typeof renderListings === 'function') renderListings();
+  };
+}
+
+function bzNowStamp() {
+  var d = new Date();
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+/* ═══ 🔄 매물만 빨리 새로 읽기 ═══════════════════════════════════════════════
+   [⬇️ 시트에서 불러오기] 는 매물·고객·계약·**임대인 4천여 행**을 한꺼번에 읽는다.
+   그래서 오래 걸리고 중간에 끊기기 쉽다(대표가 눌러도 안 바뀌던 이유로 의심된다).
+   여기서는 **매물만** 한 번 읽어 화면을 맞춘다. 시트에 쓰지 않는다.
+   🔴 첨부·광고 메모처럼 시트에 칸이 없는 값은 기존 불러오기와 똑같이 지키고 합친다. */
+async function bzPullListings(quiet) {
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) { if (typeof showToast === 'function') showToast('구글 시트 연동을 먼저 해 주세요'); return false; }
+  if (typeof showToast === 'function' && !quiet) showToast('매물만 새로 읽는 중…');
+  try {
+    var q = url + '?action=getAll&type=listings&t=' + Date.now()
+      + ((typeof tokQ === 'function') ? tokQ() : '');
+    var j = (typeof gsFetchJson === 'function')
+      ? await gsFetchJson(q, null, '매물 새로 읽기')
+      : await (await fetch(q, { cache: 'no-store' })).json();
+    var got = (j && j.data) || [];
+    if (!got.length) { if (typeof showToast === 'function') showToast('시트에서 매물을 못 읽었습니다'); return false; }
+    var keep = {};
+    var old = (typeof load === 'function') ? (load('listings') || []) : [];
+    for (var i = 0; i < old.length; i++) { if (old[i] && old[i].id) keep[old[i].id] = old[i]; }
+    var next = (typeof normDates === 'function') ? normDates('listings', got) : got;
+    for (var k = 0; k < next.length; k++) {
+      var o = next[k], p = keep[o.id];
+      if (!p) continue;
+      if ((!o.attachments || !o.attachments.length) && p.attachments && p.attachments.length) {
+        o.attachments = p.attachments;
+      }
+      if (p.ads) o.ads = Object.assign({}, p.ads, o.ads || {});
+    }
+    listings = next;
+    /* 🔴 save() 를 쓰면 방금 읽은 것을 도로 시트에 올린다 — 여기서는 화면에만 담는다 */
+    localStorage.setItem(K.listings, JSON.stringify(listings));
+    if (typeof gsShadowSet === 'function') { try { gsShadowSet('listings', listings); } catch (e) {} }
+    if (typeof renderListings === 'function') renderListings();
+    if (typeof bzFreshOff === 'function') bzFreshOff();
+    if (typeof showToast === 'function') showToast('매물 ' + listings.length + '건을 시트에서 새로 읽었습니다');
+    return true;
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('새로 읽기 실패: ' + e.message);
+    return false;
+  }
+}
+
+/* 매물장 화면 위에 단추를 하나 놓는다 — 사이드바 맨 아래까지 안 가도 되게 */
+(function bzPullBtn() {
+  function put() {
+    var host = document.getElementById('p-listing');
+    if (!host || document.getElementById('bz-pull-btn')) return;
+    var b = document.createElement('button');
+    b.id = 'bz-pull-btn';
+    b.className = 'btn btn-sm';
+    b.textContent = '🔄 시트에서 새로 읽기';
+    b.title = '다른 프로그램(인입함)에서 바꾼 것을 지금 화면으로 가져옵니다 — 매물만 읽어 빠릅니다';
+    b.style.cssText = 'background:#185FA5;color:#fff;border:0;border-radius:8px;'
+      + 'padding:6px 12px;font-weight:600;cursor:pointer;margin:0 0 10px';
+    b.onclick = function () { bzPullListings(false); };
+    if (host.firstChild) host.insertBefore(b, host.firstChild);
+    else host.appendChild(b);
+  }
+  setTimeout(put, 1500);
+  setInterval(put, 3000);
 })();
 
 </script>
