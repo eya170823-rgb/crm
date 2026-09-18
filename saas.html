@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 16:48</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 16:52</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -25101,6 +25101,130 @@ async function bzSecSave(id, val) {
   BZ_SEC_CACHE[id] = body.data;
   return j;
 }
+
+
+/* ═══ 📷 2026-09-18 [사진] — ERP 매물에서 누르면 사진관리 프로그램이 그 매물로 열린다 ═══
+   흐름: 단추 → breezephoto://open?listingId=R260814-01 → (윈도우 프로토콜) → 브리즈 사진관리
+        → 그 매물의 구글드라이브 사진 자리를 찾아 고른 상태로 연다
+        → 거기서 [사진 넣기] · [광고용으로 만들기](워터마크) · [폴더 열기]
+
+   🔴 왜 ERP 밖으로 보내나 — 대표 결정 ERP-PHOTO-01
+      "매물사진 저장·사진편집은 ERP 안에서 하지 않는다. 매물↔사진 연결은 남긴다."
+      이 단추가 바로 그 '연결' 이다. 사진을 ERP 가 만지지 않고 프로그램으로 넘긴다.
+
+   🔴 breeze:// (당근 광고게시기) 와 **다른 주소**다. 서로 덮어쓰지 않는다.
+      등록: 09_사진관리\register_photo_protocol.ps1
+
+   🔴 이 파일은 생성기(tools/build-saas.js)가 읽어 saas.html 에 넣는다. saas.html 직접 수정 금지. */
+var BZ_PHOTO_SCHEME = 'breezephoto://open?listingId=';
+
+function bzPhotoLaunch(id) {
+  id = String(id || '').trim();
+  if (!id) return;
+  /* 사진은 상태와 무관하게 관리한다 — 임대중·거래완료 매물도 사진은 손봐야 한다.
+     (광고 올리기와 달리 여기서 상태로 막지 않는다) */
+  var t0 = Date.now();
+  try { window.location.href = BZ_PHOTO_SCHEME + encodeURIComponent(id); } catch (e) {}
+  if (typeof showToast === 'function') showToast('사진관리를 엽니다 — ' + id);
+  /* 프로토콜이 등록 안 된 PC 에서는 아무 일도 안 일어난다 — 그 경우만 안내한다 */
+  setTimeout(function () {
+    if (!document.hasFocus() || Date.now() - t0 >= 4000) return;
+    if (document.getElementById('bz-photo-hint')) return;
+    var d = document.createElement('div');
+    d.id = 'bz-photo-hint';
+    d.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;'
+      + 'background:#2d2a4a;color:#fff;padding:10px 14px;border-radius:10px;font-size:12.5px;max-width:560px';
+    d.innerHTML = '사진관리가 열리지 않으면 이 PC 에 아직 연결이 안 된 것입니다. '
+      + '한 번만 등록하면 됩니다 — <b>09_사진관리 폴더의 register_photo_protocol.ps1</b> '
+      + '<span style="margin-left:8px;cursor:pointer;text-decoration:underline" '
+      + 'onclick="this.parentNode.remove()">닫기</span>';
+    document.body.appendChild(d);
+    setTimeout(function () { try { d.remove(); } catch (e) {} }, 12000);
+  }, 2500);
+}
+
+function bzPhotoBtn(id) {
+  return '<button class="btn btn-xs bz-photo" data-id="' + bzEsc(id) + '"'
+    + ' title="이 매물의 사진을 관리합니다 (사진 넣기 · 워터마크 찍어 광고용으로 · 폴더 열기)"'
+    + ' onclick="event.stopPropagation();bzPhotoLaunch(&quot;' + bzEsc(id) + '&quot;)">📷 사진</button>';
+}
+
+/* 매물관리 표 — 행마다 단추 하나 */
+function bzPhotoRowTidy() {
+  var tb = document.querySelector('#listing-cards table');
+  if (!tb) return;
+  var rows = (typeof bzListRows === 'function')
+    ? bzListRows() : Array.prototype.slice.call(tb.querySelectorAll('tbody tr'));
+  rows.forEach(function (tr) {
+    if (tr.querySelector('.bz-photo')) return;
+    var id = (typeof bzRowId === 'function') ? bzRowId(tr) : '';
+    if (!id) return;
+    var tds = tr.querySelectorAll('td');
+    var hist = tr.querySelector('.bz-hist');
+    var cell = hist ? hist.parentNode : tds[tds.length - 1];
+    if (!cell) return;
+    cell.insertAdjacentHTML('beforeend', ' ' + bzPhotoBtn(id));
+  });
+}
+
+/* 이미 있는 '📷사진없음' 딱지도 누르면 열리게 한다 — 대표가 거기를 먼저 누른다 */
+function bzPhotoBadgeTidy() {
+  var rows = (typeof bzListRows === 'function') ? bzListRows() : [];
+  rows.forEach(function (tr) {
+    var id = (typeof bzRowId === 'function') ? bzRowId(tr) : '';
+    if (!id) return;
+    var sp = tr.querySelectorAll('span.badge');
+    Array.prototype.forEach.call(sp, function (s) {
+      if (s.getAttribute('data-bzphoto')) return;
+      if (String(s.textContent || '').indexOf('사진없음') < 0) return;
+      s.setAttribute('data-bzphoto', '1');
+      s.style.cursor = 'pointer';
+      s.title = '눌러서 사진관리 열기';
+      s.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        bzPhotoLaunch(id);
+      });
+    });
+  });
+}
+
+/* 매물 상세(모달) 머리 — 열려 있는 매물의 번호를 찾아 단추 */
+function bzPhotoModalTidy() {
+  var m = document.querySelector('#modal-body, .modal-body, #modal .modal-content');
+  if (!m || m.querySelector('.bz-photo')) return;
+  var mm = String(m.textContent || '').match(/\b([A-Z]\d{6}-\d{2})\b/);
+  if (!mm) return;
+  var hd = m.querySelector('h2, h3, .modal-title, .page-hd') || m.firstElementChild;
+  if (!hd) return;
+  hd.insertAdjacentHTML('beforeend', ' ' + bzPhotoBtn(mm[1]));
+}
+
+(function bzPhotoHook() {
+  var tick = function () {
+    try { bzPhotoRowTidy(); } catch (e) {}
+    try { bzPhotoBadgeTidy(); } catch (e) {}
+    try { bzPhotoModalTidy(); } catch (e) {}
+  };
+  if (typeof renderListings === 'function' && !window.__bzPhotoWrapped) {
+    var _r = renderListings;
+    window.renderListings = function () {
+      var r = _r.apply(this, arguments);
+      setTimeout(tick, 60);
+      return r;
+    };
+    window.__bzPhotoWrapped = true;
+  }
+  if (typeof openModal === 'function' && !window.__bzPhotoModalWrapped) {
+    var _o = openModal;
+    window.openModal = function () {
+      var r = _o.apply(this, arguments);
+      setTimeout(tick, 120);
+      return r;
+    };
+    window.__bzPhotoModalWrapped = true;
+  }
+  setInterval(tick, 1500);
+})();
 
 </script>
 </body>
