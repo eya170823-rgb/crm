@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 18:02</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-18 18:05</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -25365,6 +25365,45 @@ async function bzNewSave() {
   function tick() { try { bzNewRow(); } catch (e) {} }
   setTimeout(tick, 1800);
   setInterval(tick, 2500);
+})();
+
+
+/* ➕ 2026-09-18 — "매물장에서 신규 버튼 없어짐"(대표)
+   입력 줄은 **목록 맨 아래**에 있다(대표 지시). 그런데 매물이 63건이라 한참 내려야 보여서
+   없어진 것처럼 보였다. 위쪽에 눈에 띄는 [＋ 새 매물] 을 두고, 누르면 그 줄로 데려간다.
+   🔴 입력 줄을 위로 옮기지 않는다 — 자리는 대표가 정한 그대로 둔다. */
+function bzNewJump() {
+  bzNewRow();
+  var r = document.getElementById(BZ_NEW_ID);
+  if (!r) { if (typeof showToast === 'function') showToast('입력 줄을 찾지 못했습니다'); return; }
+  try { r.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {
+    try { r.scrollIntoView(); } catch (e2) {}
+  }
+  var e = document.getElementById('bz-n-apt');
+  if (e) { try { e.focus(); } catch (e3) {} }
+  /* 잠깐 깜빡여 어디인지 눈에 띄게 한다 */
+  var old = r.style.background;
+  r.style.background = '#FFE9A8';
+  setTimeout(function () { r.style.background = old || '#F4F9FF'; }, 900);
+}
+
+(function bzNewTopBtn() {
+  function put() {
+    var host = document.getElementById('p-listing');
+    if (!host || document.getElementById('bz-new-top')) return;
+    var b = document.createElement('button');
+    b.id = 'bz-new-top';
+    b.className = 'btn btn-sm';
+    b.textContent = '＋ 새 매물';
+    b.title = '목록 맨 아래 입력 줄로 갑니다 — 건물명·호수만 치면 등록됩니다';
+    b.style.cssText = 'background:#0F6E56;color:#fff;border:0;border-radius:8px;'
+      + 'padding:6px 14px;font-weight:700;cursor:pointer;margin:0 6px 10px 0';
+    b.onclick = bzNewJump;
+    if (host.firstChild) host.insertBefore(b, host.firstChild);
+    else host.appendChild(b);
+  }
+  setTimeout(put, 1700);
+  setInterval(put, 2500);
 })();
 
 /* ═══ ▸ 2026-09-18 대표 지시 — 매물을 펼치면 다 보이게 ══════════════════════
