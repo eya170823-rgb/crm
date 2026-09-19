@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 12:35</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:16</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -27261,6 +27261,49 @@ function bzExpPhotoDone(id, c) {
   if (el) el.innerHTML = bzExpPhotoInner(c);
 }
 
+/* ═══ 👆 2026-09-19 대표 지시 — "매물을 누르면 펼치기 화면이 바로 나오도록" ═══════
+   그전까지 매물번호·매물명 칸은 **수정창**(openModal)을 열었다. 이제 펼치기를 연다.
+   · 행 아무 빈 곳을 눌러도 펼쳐진다.
+   · 🔴 단추·링크·입력칸은 그대로 둔다 — 광고/지도/메모/출입/사진 같은 것이 먹히면 안 된다.
+   · 표가 다시 그려지면 listing-table2 가 수정창 연결을 되살리므로 tick 마다 다시 덮는다.
+   · 수정창은 아래 작업패널의 [✏ 수정] 으로 연다(그 길은 그대로 둔다). */
+function bzRowClickTidy() {
+  var tb = document.querySelector('#listing-cards table tbody');
+  if (!tb) return;
+  Array.prototype.forEach.call(tb.querySelectorAll('tr'), function (tr) {
+    if (tr.id && tr.id.indexOf('bz-') === 0) return;      /* 펼친 줄·새 줄은 건너뛴다 */
+    var id = bzPhotoRowId(tr);
+    if (!id) return;
+
+    /* 매물번호·매물명 칸 — 수정창 대신 펼치기 */
+    var tds = tr.querySelectorAll('td');
+    /* 🔴 '한 번만' 으로 두면 안 된다 — listing-table2 가 다시 그릴 때 수정창 연결을
+       되살리는데 내 표시만 남아 건너뛰게 된다. 매 번 덮어쓴다(행 수만큼이라 가볍다). */
+    [tds[0], tds[2]].forEach(function (td) {
+      if (!td) return;
+      td.onclick = function (ev) { bzExpToggle(ev, id); };
+      td.title = '누르면 펼쳐 봅니다';
+      td.style.cursor = 'pointer';
+    });
+
+    /* 행의 빈 곳 */
+    if (tr.getAttribute('data-bzrow') === '1') return;
+    tr.setAttribute('data-bzrow', '1');
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', function (ev) {
+      var t = ev.target;
+      while (t && t !== tr) {
+        var tag = String(t.tagName || '').toLowerCase();
+        if (tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select'
+            || tag === 'textarea' || tag === 'label' || tag === 'img') return;
+        if (t.getAttribute && t.getAttribute('onclick')) return;   /* 남의 손잡이는 살린다 */
+        t = t.parentNode;
+      }
+      bzExpToggle(ev, id);
+    });
+  });
+}
+
 function bzPhotoBtn(id) {
   var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
   var cnt = o ? String(o.photoCnt || '').trim() : '';
@@ -27394,6 +27437,7 @@ function bzPhotoTakeOverG1() {
 (function bzPhotoHook() {
   var tick = function () {
     try { bzPhotoTakeOverG1(); } catch (e) {}
+    try { bzRowClickTidy(); } catch (e) {}
     try { bzPhotoRowTidy(); } catch (e) {}
     try { bzPhotoBadgeTidy(); } catch (e) {}
     try { bzPhotoModalTidy(); } catch (e) {}
