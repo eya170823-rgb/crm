@@ -2,7 +2,7 @@
   "name": "브리즈부동산중개 CRM",
   "short_name": "브리즈CRM",
   "description": "브리즈부동산중개 매물·고객·계약 통합 관리 시스템",
-  "start_url": "./index.html",
+  "start_url": "./saas.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",

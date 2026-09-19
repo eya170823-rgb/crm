@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 16:10</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 16:23</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23660,6 +23660,22 @@ async function bzPhotoUp(id, ev) {
   if (typeof showToast === 'function') showToast(okN + '장 올렸습니다 — 워터마크는 잠시 뒤에 찍힙니다');
 }
 
+/* ── 📱 2026-09-19 대표 지시 — 사진 칸을 누르면 **폰은 곧장 3단추**(찍기·앨범·폴더) ──────
+   "사진칸 폰 클릭 시 bzPhotoLaunch(3단추: 찍기/앨범/폴더)로 바로 가게 고쳐라."
+   · 폰  → bzPhotoLaunch(id)  → bzPhotoSheet  (찍기 / 앨범 / 드라이브 폴더)
+   · PC  → bzPhotoOpen(id)    → 지금 쓰던 모달 그대로
+   🔴 지시는 photo-launch.js 의 bzPhotoRowTidy 의 `if(true) return` 을 풀라는 것이었는데,
+      그것을 풀면 그 함수가 같은 '사진' 칸에 제 딱지를 **또** 그린다 —
+      09-19 에 대표가 "딱지가 둘로 보인다 · 없음 단추 지워라" 고 하셔서 껐던 바로 그 원인이다.
+      그래서 **그리는 곳은 여기 한 곳으로 두고, 누를 때의 갈림길만** 지시대로 되살렸다.
+      (되돌리기: 이 함수를 지우고 단추 onclick 을 bzPhotoOpen 으로 되돌리면 된다) */
+function bzPhotoTap(id) {
+  if (typeof bzPhotoIsPhone === 'function' && typeof bzPhotoLaunch === 'function') {
+    try { if (bzPhotoIsPhone()) { bzPhotoLaunch(id); return; } } catch (e) {}
+  }
+  bzPhotoOpen(id);
+}
+
 /* 매물 표의 [첨부] 칸을 사진 열기로 바꾼다 */
 function bzPhotoCell() {
   var tb = document.querySelector('#listing-cards table');
@@ -23681,7 +23697,7 @@ function bzPhotoCell() {
     var o = bzFindListing(id);
     var n = o ? (parseInt(o.photoCnt, 10) || 0) : 0;
     td.innerHTML = '<button class="btn btn-xs" title="사진 보기·올리기"'
-      + ' onclick="event.stopPropagation();bzPhotoOpen(&quot;' + bzEsc(id) + '&quot;)">'
+      + ' onclick="event.stopPropagation();bzPhotoTap(&quot;' + bzEsc(id) + '&quot;)">'
       /* 🔴 2026-09-19 대표 지시 — 카메라 옆에 장수만. '없음' 단추는 만들지 않는다.
          사진이 없으면 카메라만 (눌러서 올릴 수 있게 단추는 남긴다). */
       + '📷' + (n ? (' ' + n) : '') + '</button>';
