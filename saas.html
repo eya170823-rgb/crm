@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:54</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:00</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -27072,21 +27072,28 @@ function bzMfMount() {
   bzMfDraw();
 }
 
-/* ── 🔴 2026-09-19 대표 지시 — "운영부 탭 왼쪽 칸이 비었다" ──────────────
-   실측: .sx-rail 이 .sidebar **밖**에 있어서
-     · 사이드바 첫 칸(76px)이 통째로 비고
-     · 레일은 상단에 888x31 로 누워 부서 단추 13개 중 6개만 보였다(나머지 0x0).
-   CSS 는 .sidebar 의 자식일 때만 듣는다(grid-column:1 / grid-row:1/-1).
-   그래서 **제자리(사이드바 맨 앞)로 옮긴다.** 마크업·버튼은 그대로 둔다. */
+/* ── 🔴 2026-09-19 되돌림 + 다시 고침 ─────────────────────────────────────
+   내가 틀렸다. `.sx-rail` 은 **상단의 부서 탭**(가로 888x31)이었다. 그것을 사이드바
+   안으로 옮겼더니 대표 화면에서 **위쪽 운영부 탭이 통째로 사라졌다**(대표 지적).
+   → 옮기지 않는다. 레일은 원래 자리에 그대로 둔다.
+
+   빈 칸의 진짜 정리 방법: 사이드바 첫 칸(76px)에 들어올 것이 없으므로
+   **그 칸을 접는다**. 그러면 메뉴 목록이 그만큼 넓어진다(내용이 더 보인다).
+   🔴 레일이 사이드바 안에 있는 화면(좁은 창 등)에서는 손대지 않는다. */
 function bzRailFix() {
   var side = document.querySelector('.sidebar');
-  var rail = document.querySelector('.sx-rail');
-  if (!side || !rail) return;
-  if (rail.parentNode === side) {
-    if (side.firstElementChild !== rail) side.insertBefore(rail, side.firstElementChild);
-    return;
+  if (!side) return;
+  var rail = side.querySelector(':scope > .sx-rail');
+  if (rail) { side.style.gridTemplateColumns = ''; return; }   /* 안에 있으면 원래대로 */
+  if (document.body && document.body.classList.contains('sx-narrow')) return;
+  /* 🔴 칸만 1개로 줄이면 안 된다 — 자식들이 CSS 로 '2번째 칸' 에 박혀 있어서
+     빈 1번 칸이 그대로 남는다(실측: 123px + 155px). 자식도 1번 칸으로 옮긴다. */
+  if (side.style.gridTemplateColumns !== '1fr') side.style.gridTemplateColumns = '1fr';
+  var kids = side.children;
+  for (var i = 0; i < kids.length; i++) {
+    if (kids[i].classList && kids[i].classList.contains('sx-rail')) continue;
+    if (kids[i].style.gridColumn !== '1') kids[i].style.gridColumn = '1';
   }
-  side.insertBefore(rail, side.firstElementChild);
 }
 
 /* 찾기 칸을 감추면서 생긴 빈 줄(0px)도 접는다 — 목록이 그만큼 더 보인다 */
