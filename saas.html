@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:16</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:21</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -24543,7 +24543,48 @@ function bzAdsBlockedStatus(st) {
   return st === '계약완료' || st === '임대중' || st === '거래완료' || st === '임대완료' || st === '매매완료';
 }
 
-/* ── 한 매물의 광고 칸 속 ─────────────────────────────────────────── */
+/* ── 🔴 2026-09-19 대표 지시 — 매물관리 광고 칸은 **표시 전용** ──────────
+   올린 것(게시중·초안)만 아이콘을 그린다. 안 올린 포털은 **아무것도 그리지 않는다**
+   (회색 아이콘도, 빈 자리 표시도 없다). 누르면 광고관리의 그 매물로 갈 뿐이다.
+   근거는 adMark 기록(adsFlat 의 daangn~ / daangndraft~)뿐이다. 없으면 빈칸.
+   올리는 단추·체크박스·막힌 사유는 전부 광고관리로 옮겼다. */
+function bzAdsShowHtml(id) {
+  var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
+  if (!o) return '';
+  var out = [], i, p, s2;
+  for (i = 0; i < BZ_ADS_PORTALS.length; i++) {
+    p = BZ_ADS_PORTALS[i];
+    s2 = bzAdsSeg(o, p.key);
+    if (s2.state === 'posted') {
+      out.push('<span class="bz-ads-chip" title="' + p.label + ' 광고중'
+        + (s2.no ? ' · 번호 ' + bzEsc(s2.no) : '') + (s2.at ? ' · ' + bzEsc(s2.at) : '')
+        + ' — 누르면 광고관리로 갑니다"'
+        + ' style="color:#fff;background:' + p.color + ';cursor:pointer"'
+        + ' onclick="event.stopPropagation();bzAdsGo(&quot;' + bzEsc(id) + '&quot;)">'
+        + p.icon + (s2.at ? ' ' + bzEsc(bzAdsDay(s2.at)) : '') + '</span>');
+    } else if (s2.state === 'draft') {
+      out.push('<span class="bz-ads-chip" title="' + p.label + ' 임시저장(초안) ' + bzEsc(s2.at)
+        + ' — 아직 게시된 것이 아닙니다. 누르면 광고관리로 갑니다"'
+        + ' style="color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;cursor:pointer"'
+        + ' onclick="event.stopPropagation();bzAdsGo(&quot;' + bzEsc(id) + '&quot;)">'
+        + p.icon + ' 초안</span>');
+    }
+    /* 안 올린 포털 — 아무것도 그리지 않는다 */
+  }
+  return out.join('');
+}
+
+/* 아이콘을 누르면 광고관리로 (올리기는 거기서 한다) */
+function bzAdsGo(id) {
+  try { bzAdsSel = {}; if (id) bzAdsSel[id] = true; } catch (e) {}
+  try { sxGo('ads'); } catch (e) {}
+  setTimeout(function () { try { bzAdsManageDraw(); } catch (e) {} }, 300);
+}
+
+/* ── 🟡 [안 쓰임 2026-09-19] bzAdsCellHtml ────────────────────────────────
+   매물관리 광고 칸이 '표시 전용'(bzAdsShowHtml)으로 바뀌면서 부르는 곳이 없어졌다.
+   광고관리 목록은 bzAdmStateHtml + 체크박스를 따로 그린다.
+   🔴 지우지 않고 남겨 둔다 — 되돌릴 때 이 함수만 다시 연결하면 된다. */
 function bzAdsCellHtml(id) {
   var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
   var st = o ? String(o.status || '') : '';
@@ -24656,18 +24697,16 @@ function bzAdsLaunch(portal, ids) {
 
 function bzAdsLaunchSel() { bzAdsLaunch('daangn', bzAdsSelIds()); }
 
+/* 🔴 2026-09-19 — '모두 고르기' 는 **광고관리 목록** 기준이다.
+   종전에는 매물장 표를 읽어 펼치기 화살표(▸)·입력 줄까지 매물번호로 집어 넣었다(실측). */
 function bzAdsAll(on) {
-  var tb = document.querySelector('.listing-table-wrap table');
-  if (!tb) return;
-  var rows = tb.querySelectorAll('tbody tr'), i, id, o;
-  for (i = 0; i < rows.length; i++) {
-    id = (typeof bzRowId === 'function') ? bzRowId(rows[i]) : '';
+  var rows = (typeof bzAdmRows === 'function') ? bzAdmRows() : [];
+  for (var i = 0; i < rows.length; i++) {
+    var id = String(rows[i].id || '');
     if (!id) continue;
-    o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
-    if (bzAdsBlockedStatus(o ? String(o.status || '') : '')) continue;
     if (on) bzAdsSel[id] = true; else delete bzAdsSel[id];
   }
-  bzAdsRowTidy(true);
+  try { bzAdmDraw(); } catch (e) {}
   bzAdsBarTidy();
 }
 
@@ -24691,7 +24730,20 @@ function bzAdsStyle() {
    '게시' 를 못 찾으면 예전처럼 맨 뒤에 새 칸을 만든다(물러서기). */
 function bzAdsHeadTidy(tb) {
   var hr = tb.querySelector('thead tr');
-  if (!hr || hr.querySelector('.bz-ads-th')) return;
+  if (!hr) return;
+  /* 🔴 2026-09-19 실측 — 표를 다시 그리면 '게시' 가 되살아나 '광고' 가 **둘** 이 됐다.
+     맨 뒤에 덧붙었던 것을 먼저 치우고, 다시 '게시' 를 찾아 이름만 바꾼다(멱등). */
+  var ths0 = hr.querySelectorAll('th'), z, names = [];
+  for (z = 0; z < ths0.length; z++) names.push(String(ths0[z].textContent || '').trim());
+  if (names.indexOf('게시') >= 0) {
+    for (z = ths0.length - 1; z >= 0; z--) {
+      if (ths0[z].className && ths0[z].className.indexOf('bz-ads-th') >= 0) {
+        ths0[z].parentNode.removeChild(ths0[z]);
+      }
+    }
+  } else if (hr.querySelector('.bz-ads-th')) {
+    return;                                   /* 이미 합쳐져 있다 */
+  }
   var ths = hr.querySelectorAll('th'), i, t;
   for (i = 0; i < ths.length; i++) {
     t = String(ths[i].textContent || '').trim();
@@ -24699,19 +24751,15 @@ function bzAdsHeadTidy(tb) {
       ths[i].className = (ths[i].className ? ths[i].className + ' ' : '') + 'bz-ads-th';
       ths[i].textContent = '광고';
       ths[i].title = '☑ 골라서 올리기 · 🥕당근 N네이버 Z직방 — 광고중이면 색, 임시저장이면 초안';
-      /* 막힌 까닭 칸을 바로 뒤에 (2026-09-19 대표 승인 ②) */
-      if (!hr.querySelector('.bz-ads-why-th')) {
-        ths[i].insertAdjacentHTML('afterend',
-          '<th class="bz-ads-why-th" title="광고가 막힌 까닭 — 프로그램이 돌려준 값">사유</th>');
-      }
+      /* 🔴 2026-09-19 — 막힌 사유 칸은 매물관리에서 뺐다(광고관리로 옮김).
+         앞서 만들어 둔 것이 남아 있으면 지운다(광고 관련 칸만 손댄다). */
+      var oldTh = hr.querySelector('.bz-ads-why-th');
+      if (oldTh) oldTh.parentNode.removeChild(oldTh);
       return;
     }
   }
   hr.insertAdjacentHTML('beforeend',
-    '<th class="bz-ads-th" title="🥕당근 · N네이버 · Z직방 — 광고중이면 색, 임시저장이면 초안">광고</th>');
-  if (!hr.querySelector('.bz-ads-why-th')) {
-    hr.insertAdjacentHTML('beforeend', '<th class="bz-ads-why-th" title="광고가 막힌 까닭">사유</th>');
-  }
+    '<th class="bz-ads-th" title="올라간 것만 보입니다 — 올리기는 광고관리에서">광고</th>');
 }
 
 /* 합친 칸이 몇 번째인지 */
@@ -24755,31 +24803,29 @@ function bzAdsRowTidy(force) {
         cell = tds[ci];                                  /* 합친 '게시' 칸 자리 */
         cell.className = (cell.className ? cell.className + ' ' : '') + 'bz-ads-td';
         cell.style.whiteSpace = 'nowrap';
-        if (!tr.querySelector('.bz-ads-why-td')) {
-          cell.insertAdjacentHTML('afterend', '<td class="bz-ads-why-td"></td>');
-        }
       } else {
         tr.insertAdjacentHTML('beforeend', '<td class="bz-ads-td" style="white-space:nowrap"></td>');
         cell = tr.querySelector('.bz-ads-td');
-        if (!tr.querySelector('.bz-ads-why-td')) {
-          tr.insertAdjacentHTML('beforeend', '<td class="bz-ads-why-td"></td>');
-        }
       }
     }
-    if (cell) cell.innerHTML = bzAdsCellHtml(id);
-    var wc = tr.querySelector('.bz-ads-why-td');
-    if (wc) wc.innerHTML = bzAdsWhyHtml(id);
+    /* 🔴 표시 전용 — 체크박스·올리기 단추 없음 */
+    if (cell) cell.innerHTML = bzAdsShowHtml(id);
+    var wc = tr.querySelector('.bz-ads-why-td');      /* 앞서 만든 사유 칸이 남아 있으면 치운다 */
+    if (wc) wc.parentNode.removeChild(wc);
   }
 }
 
+/* 🔴 2026-09-19 — 이 띠는 **광고관리(#p-ads)** 안에만 만든다. 매물관리에서는 뺐다. */
 function bzAdsBarTidy() {
-  var wrap = document.querySelector('.listing-table-wrap');
-  if (!wrap) return;
+  var old = document.getElementById('bz-ads-bar');
+  if (old && old.parentNode && !old.closest('#p-ads')) { old.parentNode.removeChild(old); old = null; }
+  var host = document.getElementById('bz-adm-bar');
+  if (!host) return;
   var bar = document.getElementById('bz-ads-bar');
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'bz-ads-bar';
-    wrap.parentNode.insertBefore(bar, wrap);
+    host.appendChild(bar);
   }
   var n = bzAdsSelCount();
   bar.innerHTML = '<label style="cursor:pointer"><input type="checkbox" id="bz-ads-all"'
@@ -26853,6 +26899,144 @@ function bzUpSave() {
   hook();
   setTimeout(hook, 1200);
   setInterval(hook, 3000);
+})();
+
+
+/* ═══ 🥕 광고관리 — 여기서 올린다 (2026-09-19 대표 지시) ═══════════════════
+   "매물장은 광고 '표시'만, 올리기는 광고관리로."
+
+   여기 있는 것 : 매물 목록 + ☑ + [당근][네이버][직방] · 포털별 상태(초안/게시중/없음) ·
+                  마지막 처리 시각 · 막힌 사유(프로그램이 돌려준 값)
+   🔴 adMark·breeze:// 호출은 **이 화면에서만** 한다(매물관리에는 없다).
+   🔴 최종 [매물 등록하기] 는 누르지 않는다 — 임시저장까지만.
+   🔴 사유는 화면이 판단하지 않는다. adsFlat 의 '<portal>blocked~시각~사유' 를 그대로 읽는다. */
+
+function bzAdmRows() {
+  /* 🔴 화면이 들고 있는 목록을 먼저 쓴다 — adListings() 는 localStorage 를 다시 읽어
+     방금 불러온 것과 어긋날 수 있다(2026-09-19 실측: 화면 3건인데 목록 1건). */
+  var all = (typeof listings !== 'undefined' && listings && listings.length) ? listings
+          : ((typeof adListings === 'function') ? adListings() : []);
+  var q = String((document.getElementById('bz-adm-q') || {}).value || '').trim().toLowerCase();
+  var only = (document.getElementById('bz-adm-only') || {}).checked;
+  var out = [];
+  for (var i = 0; i < all.length; i++) {
+    var o = all[i];
+    if (!o) continue;
+    if (bzAdsBlockedStatus(String(o.status || ''))) continue;   /* 계약완료·임대중은 광고 대상 아님 */
+    if (only) {
+      var any = false;
+      for (var k = 0; k < BZ_ADS_PORTALS.length; k++) {
+        if (bzAdsSeg(o, BZ_ADS_PORTALS[k].key).state) { any = true; break; }
+      }
+      if (any) continue;                                        /* '아직 안 올린 것만' */
+    }
+    if (q) {
+      var hay = [o.id, o.apt, o.addr, o.addr2].join(' ').toLowerCase();
+      if (hay.indexOf(q) < 0) continue;
+    }
+    out.push(o);
+  }
+  return out;
+}
+
+/* 포털별 상태 한 칸 */
+function bzAdmStateHtml(o) {
+  var out = [], i, p, s;
+  for (i = 0; i < BZ_ADS_PORTALS.length; i++) {
+    p = BZ_ADS_PORTALS[i];
+    s = bzAdsSeg(o, p.key);
+    if (s.state === 'posted') {
+      out.push('<span class="bz-ads-chip" style="color:#fff;background:' + p.color + '">'
+        + p.icon + ' 게시중</span>');
+    } else if (s.state === 'draft') {
+      out.push('<span class="bz-ads-chip" style="color:#92400E;background:#FEF3C7;'
+        + 'border:1px solid #FDE68A">' + p.icon + ' 초안</span>');
+    } else if (!p.ready) {
+      out.push('<span class="bz-ads-chip" title="' + p.label + ' 는 아직 자동 등록이 없습니다"'
+        + ' style="color:#9CA3AF;background:#F3F4F6">' + p.icon + ' 준비 중</span>');
+    } else {
+      out.push('<span class="bz-ads-chip" style="color:#6B7280;background:#F9FAFB">'
+        + p.icon + ' 없음</span>');
+    }
+  }
+  return out.join(' ');
+}
+
+/* 마지막 처리 시각 — 포털 가운데 가장 최근 */
+function bzAdmLastAt(o) {
+  var best = '', i, s;
+  for (i = 0; i < BZ_ADS_PORTALS.length; i++) {
+    s = bzAdsSeg(o, BZ_ADS_PORTALS[i].key);
+    if (s.at && s.at > best) best = s.at;
+  }
+  return best;
+}
+
+function bzAdmDraw() {
+  var box = document.getElementById('bz-adm-list');
+  if (!box) return;
+  var rows = bzAdmRows();
+  var head = '<thead><tr>'
+    + '<th style="width:34px"><input type="checkbox" id="bz-adm-all" onchange="bzAdsAll(this.checked)"></th>'
+    + '<th>매물번호</th><th>건물 · 호실</th><th>상태</th><th>마지막 처리</th>'
+    + '<th>막힌 사유</th></tr></thead>';
+  var body = rows.map(function (o) {
+    var id = String(o.id || '');
+    var why = bzAdsWhyHtml(id);
+    return '<tr>'
+      + '<td style="text-align:center"><input type="checkbox" ' + (bzAdsSel[id] ? 'checked' : '')
+      + ' onclick="bzAdsPick(&quot;' + bzEsc(id) + '&quot;,this.checked)"></td>'
+      + '<td style="white-space:nowrap">' + bzEsc(id) + '</td>'
+      + '<td>' + bzEsc(String(o.apt || '')) + ' ' + bzEsc(String(o.addr2 || '')) + '</td>'
+      + '<td style="white-space:nowrap">' + bzAdmStateHtml(o) + '</td>'
+      + '<td style="white-space:nowrap;font-size:11px;color:var(--t2)">' + bzEsc(bzAdmLastAt(o)) + '</td>'
+      + '<td style="font-size:11px">' + (why || '') + '</td>'
+      + '</tr>';
+  }).join('');
+  box.innerHTML = '<table>' + head + '<tbody>' + (body
+    || '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">'
+       + '보여줄 매물이 없습니다</td></tr>') + '</tbody></table>';
+  var c = document.getElementById('bz-adm-cnt');
+  if (c) c.textContent = rows.length;
+  try { bzAdsBarTidy(); } catch (e) {}
+}
+
+/* 광고관리 화면에 올리는 자리를 만든다 (기존 ad-table 위) */
+function bzAdmMount() {
+  var panel = document.getElementById('p-ads');
+  if (!panel || document.getElementById('bz-adm')) return;
+  var anchor = document.getElementById('ad-table');
+  var box = document.createElement('div');
+  box.id = 'bz-adm';
+  box.innerHTML =
+    '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px">'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<b style="font-size:13px">🥕 광고 올리기</b>'
+    + '<span style="font-size:11px;color:var(--t3)">— 매물장은 표시만 합니다. 올리는 곳은 여기입니다.</span>'
+    + '<input id="bz-adm-q" placeholder="매물번호 / 건물 / 호실" oninput="bzAdmDraw()"'
+    + ' style="margin-left:auto;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px">'
+    + '<label style="font-size:11px;cursor:pointer"><input type="checkbox" id="bz-adm-only"'
+    + ' onchange="bzAdmDraw()"> 아직 안 올린 것만</label>'
+    + '<span style="font-size:11px;color:var(--t3)"><b id="bz-adm-cnt">0</b>건</span>'
+    + '</div>'
+    + '<div id="bz-adm-bar"></div>'
+    + '<div id="bz-adm-list" class="tbl-wrap" style="max-height:420px;overflow:auto"></div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:6px">'
+    + '🔴 임시저장까지만 합니다 — 당근의 최종 [매물 등록하기] 는 프로그램이 누르지 않습니다.</div>'
+    + '</div>';
+  if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor);
+  else panel.appendChild(box);
+}
+
+(function bzAdmBoot() {
+  function tick() {
+    var panel = document.getElementById('p-ads');
+    if (!panel || panel.style.display === 'none') return;
+    bzAdmMount();
+    bzAdmDraw();
+  }
+  setTimeout(tick, 1200);
+  setInterval(tick, 2000);
 })();
 
 
