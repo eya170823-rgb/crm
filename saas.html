@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 10:46</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 11:10</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -24470,6 +24470,278 @@ async function ezContractId() { return ezNextId('contracts'); }
   [500, 1600, 4000].forEach(function (ms) { setTimeout(hook, ms); });
 })();
 
+
+/* ═══ 🥕 2026-09-19 광고 올리기 ERP 통합 — 매물관리에서 [당근][N][Z] 만 누른다 ═══
+   흐름: 단추 → breeze://ads?portal=daangn&listing=R260827-04 → (윈도우 프로토콜) → BreezeAdsPublisher
+        → ERP 조회 → 엑셀 → 업로드 → 사진 → 관리비·주차 → 임시저장 → GAS adMark(state=draft)
+   🔴 최종 '매물 등록하기' 는 프로그램이 절대 누르지 않는다.
+   🔴 URI 에는 **포털과 매물번호만** 싣는다. 주소·이름·전화·금액 금지.
+   🔴 ㉮(대표 승인) — 필수값이 모자라도 단추를 회색으로 **막지 않는다**. 누르면 프로그램이
+      준비검사를 돌려 사유를 알려 준다. 규칙을 화면에도 한 벌 더 두면 두 벌이 갈라진다.
+   🔴 칸은 **기존 16칸 뒤에만** 붙인다. listing-table2·photo-launch·erp18-24b·listing-photo-excel
+      네 곳이 tds[0] tds[2] tds[idx] 처럼 **칸 번호로** 집고 있어 앞에 끼우면 통째로 어긋난다.
+   🔴 이 파일은 생성기(tools/build-saas.js)가 읽어 saas.html 에 넣는다. saas.html 직접 수정 금지. */
+
+var BZ_ADS_SCHEME = 'breeze://ads?portal=';
+var BZ_ADS_PORTALS = [
+  { key: 'daangn',  label: '당근',   icon: '🥕', color: '#FF6F0F', ready: true },
+  { key: 'naver',   label: '네이버', icon: 'N',  color: '#03C75A', ready: false },
+  { key: 'zigbang', label: '직방',   icon: 'Z',  color: '#0B63F6', ready: false }
+];
+var bzAdsSel = {};          /* 고른 매물번호 { id: true } — 인입함 inboxSelected 와 같은 방식 */
+
+function bzAdsSelCount() {
+  var n = 0, k;
+  for (k in bzAdsSel) { if (bzAdsSel[k]) n++; }
+  return n;
+}
+
+function bzAdsSelIds() {
+  var out = [], k;
+  for (k in bzAdsSel) { if (bzAdsSel[k]) out.push(k); }
+  return out;
+}
+
+/* ── 상태 읽기 — adsFlat 글자에서 바로 (정규식·백슬래시 안 쓴다) ────────────────
+   게시중 : 'daangn~번호~날짜~url'
+   초안   : 'daangndraft~날짜'      ← 2026-09-19 신설. 임시저장은 게시가 아니다. */
+function bzAdsSeg(l, key) {
+  var flat = String((l && l.adsFlat) || ''), segs = flat.split('|'), i, p, k;
+  var out = { state: '', no: '', at: '', url: '' };
+  for (i = 0; i < segs.length; i++) {
+    if (!segs[i]) continue;
+    p = segs[i].split('~');
+    k = p[0] || '';
+    if (k === key) { out.state = 'posted'; out.no = p[1] || ''; out.at = p[2] || ''; out.url = p[3] || ''; }
+    else if (k === key + 'draft' && out.state !== 'posted') { out.state = 'draft'; out.at = p[1] || ''; }
+  }
+  /* 화면 안쪽 객체(o.ads)가 이미 복원돼 있으면 그쪽도 본다 — 손으로 표시한 것 */
+  if (out.state !== 'posted' && l && l.ads && l.ads[key] && l.ads[key].on) {
+    out.state = 'posted';
+    out.no = l.ads[key].no || out.no;
+    out.at = l.ads[key].at || out.at;
+    out.url = l.ads[key].url || out.url;
+  }
+  return out;
+}
+
+function bzAdsDay(at) {
+  var t = String(at || '');
+  return (t.length >= 10) ? t.slice(5, 10) : t;
+}
+
+function bzAdsBlockedStatus(st) {
+  return st === '계약완료' || st === '임대중' || st === '거래완료' || st === '임대완료' || st === '매매완료';
+}
+
+/* ── 한 매물의 광고 칸 속 ─────────────────────────────────────────── */
+function bzAdsCellHtml(id) {
+  var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
+  var st = o ? String(o.status || '') : '';
+  var off = bzAdsBlockedStatus(st);
+  var checked = bzAdsSel[id] ? ' checked' : '';
+  var h = '<label class="bz-ads-ck" title="여러 건을 골라 한 번에 올립니다" style="margin-right:4px">'
+        + '<input type="checkbox"' + checked + (off ? ' disabled' : '')
+        + ' onclick="event.stopPropagation();bzAdsPick(&quot;' + bzEsc(id) + '&quot;,this.checked)"></label>';
+  var i, p, s, chip;
+  for (i = 0; i < BZ_ADS_PORTALS.length; i++) {
+    p = BZ_ADS_PORTALS[i];
+    s = bzAdsSeg(o, p.key);
+    if (s.state === 'posted') {
+      chip = '<span class="bz-ads-chip" title="광고중' + (s.no ? ' · 번호 ' + bzEsc(s.no) : '')
+           + (s.at ? ' · ' + bzEsc(s.at) : '') + '" style="color:#fff;background:' + p.color + '">'
+           + p.icon + (s.at ? ' ' + bzEsc(bzAdsDay(s.at)) : '') + '</span>';
+      if (s.url) {
+        chip = '<a href="' + bzEsc(s.url) + '" target="_blank" onclick="event.stopPropagation()"'
+             + ' style="text-decoration:none">' + chip + '</a>';
+      }
+    } else if (s.state === 'draft') {
+      chip = '<span class="bz-ads-chip" title="임시저장(초안) ' + bzEsc(s.at)
+           + ' — 아직 게시된 것이 아닙니다. 당근에서 [매물 등록하기] 를 눌러 주세요."'
+           + ' style="color:#92400E;background:#FEF3C7;border:1px solid #FDE68A">'
+           + p.icon + ' 초안</span>';
+    } else if (!p.ready) {
+      chip = '<span class="bz-ads-chip bz-ads-soon" title="' + p.label
+           + ' 는 아직 자동 등록이 없습니다 — 광고관리에서 손으로 표시하세요"'
+           + ' onclick="event.stopPropagation();bzAdsSoon(&quot;' + p.label + '&quot;)"'
+           + ' style="color:#9CA3AF;background:#F3F4F6;cursor:pointer">' + p.icon + '</span>';
+    } else if (off) {
+      chip = '<span class="bz-ads-chip" title="상태가 ' + bzEsc(st) + ' 라 광고 대상이 아닙니다"'
+           + ' style="color:#D1D5DB;background:#F9FAFB">' + p.icon + '</span>';
+    } else {
+      chip = '<span class="bz-ads-chip bz-ads-go" data-id="' + bzEsc(id) + '"'
+           + ' title="이 매물을 ' + p.label + '에 올립니다 (엑셀 → 업로드 → 사진 → 임시저장까지)"'
+           + ' onclick="event.stopPropagation();bzAdsLaunch(&quot;' + p.key + '&quot;,[&quot;' + bzEsc(id) + '&quot;])"'
+           + ' style="color:#fff;background:' + p.color + ';cursor:pointer">' + p.icon + '</span>';
+    }
+    h += chip;
+  }
+  return h;
+}
+
+function bzAdsPick(id, on) {
+  if (on) bzAdsSel[id] = true; else delete bzAdsSel[id];
+  bzAdsBarTidy();
+}
+
+function bzAdsSoon(label) {
+  if (typeof showToast === 'function') {
+    showToast(label + ' 는 아직 자동 등록이 없습니다 — 광고관리에서 손으로 표시하세요');
+  }
+}
+
+/* ── 보내기 ───────────────────────────────────────────────────────── */
+function bzAdsLaunch(portal, ids) {
+  portal = String(portal || 'daangn');
+  ids = (ids || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+  if (!ids.length) {
+    if (typeof showToast === 'function') showToast('먼저 올릴 매물을 고르세요 (광고 칸의 네모를 누르면 됩니다)');
+    return;
+  }
+  var keep = [], i, o, st;
+  for (i = 0; i < ids.length; i++) {
+    o = (typeof bzFindListing === 'function') ? bzFindListing(ids[i]) : null;
+    st = o ? String(o.status || '') : '';
+    if (bzAdsBlockedStatus(st)) continue;         /* 상태로 막힌 것만 뺀다 — 나머지는 프로그램이 판단(㉮) */
+    keep.push(ids[i]);
+  }
+  if (!keep.length) {
+    if (typeof showToast === 'function') showToast('고른 매물이 모두 계약완료·임대중이라 광고 대상이 아닙니다');
+    return;
+  }
+  var t0 = Date.now();
+  try { window.location.href = BZ_ADS_SCHEME + portal + '&listing=' + encodeURIComponent(keep.join(',')); }
+  catch (e) {}
+  if (typeof showToast === 'function') {
+    showToast(keep.length + '건을 당근 게시기로 보냅니다 — 임시저장까지만 합니다');
+  }
+  /* 프로토콜 미등록 PC 에서는 아무 일도 안 일어난다 — 그 경우를 안내한다 */
+  setTimeout(function () {
+    if (document.hasFocus() && Date.now() - t0 < 4000) {
+      if (document.getElementById('bz-ads-hint')) return;
+      var d = document.createElement('div');
+      d.id = 'bz-ads-hint';
+      d.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;'
+        + 'background:#1F2937;color:#fff;padding:10px 14px;border-radius:10px;font-size:12.5px;max-width:560px';
+      d.innerHTML = '게시기가 열리지 않으면 이 PC 에 <b>브리즈 당근광고게시기</b> 연결이 안 된 것입니다. '
+        + '(01_광고자동화_당근 폴더의 register_breeze_protocol.ps1 을 한 번 실행) '
+        + '<span style="margin-left:8px;cursor:pointer;text-decoration:underline" onclick="this.parentNode.remove()">닫기</span>';
+      document.body.appendChild(d);
+      setTimeout(function () { try { d.remove(); } catch (e) {} }, 14000);
+    }
+  }, 2500);
+}
+
+function bzAdsLaunchSel() { bzAdsLaunch('daangn', bzAdsSelIds()); }
+
+function bzAdsAll(on) {
+  var tb = document.querySelector('.listing-table-wrap table');
+  if (!tb) return;
+  var rows = tb.querySelectorAll('tbody tr'), i, id, o;
+  for (i = 0; i < rows.length; i++) {
+    id = (typeof bzRowId === 'function') ? bzRowId(rows[i]) : '';
+    if (!id) continue;
+    o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
+    if (bzAdsBlockedStatus(o ? String(o.status || '') : '')) continue;
+    if (on) bzAdsSel[id] = true; else delete bzAdsSel[id];
+  }
+  bzAdsRowTidy(true);
+  bzAdsBarTidy();
+}
+
+/* ── 표 손보기 ────────────────────────────────────────────────────── */
+function bzAdsStyle() {
+  if (document.getElementById('bz-ads-css')) return;
+  var s = document.createElement('style');
+  s.id = 'bz-ads-css';
+  s.textContent = '.bz-ads-chip{display:inline-block;min-width:22px;text-align:center;padding:2px 5px;'
+    + 'margin-right:3px;border-radius:6px;font-size:10.5px;font-weight:700;line-height:1.5}'
+    + '.bz-ads-go:hover{filter:brightness(1.12)}'
+    + '.bz-ads-ck input{cursor:pointer;vertical-align:middle}'
+    + '#bz-ads-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 2px;font-size:12px}';
+  document.head.appendChild(s);
+}
+
+function bzAdsHeadTidy(tb) {
+  var hr = tb.querySelector('thead tr');
+  if (!hr || hr.querySelector('.bz-ads-th')) return;
+  hr.insertAdjacentHTML('beforeend',
+    '<th class="bz-ads-th" title="🥕당근 · N네이버 · Z직방 — 광고중이면 색, 임시저장이면 초안">광고</th>');
+}
+
+function bzAdsRowTidy(force) {
+  var tb = document.querySelector('.listing-table-wrap table');
+  if (!tb) return;
+  bzAdsStyle();
+  bzAdsHeadTidy(tb);
+  var rows = tb.querySelectorAll('tbody tr'), i, tr, id, cell;
+  for (i = 0; i < rows.length; i++) {
+    tr = rows[i];
+    id = (typeof bzRowId === 'function') ? bzRowId(tr) : '';
+    if (!id) continue;
+    cell = tr.querySelector('.bz-ads-td');
+    if (cell && !force) continue;
+    if (!cell) {
+      tr.insertAdjacentHTML('beforeend', '<td class="bz-ads-td" style="white-space:nowrap"></td>');
+      cell = tr.querySelector('.bz-ads-td');
+    }
+    if (cell) cell.innerHTML = bzAdsCellHtml(id);
+  }
+}
+
+function bzAdsBarTidy() {
+  var wrap = document.querySelector('.listing-table-wrap');
+  if (!wrap) return;
+  var bar = document.getElementById('bz-ads-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'bz-ads-bar';
+    wrap.parentNode.insertBefore(bar, wrap);
+  }
+  var n = bzAdsSelCount();
+  bar.innerHTML = '<label style="cursor:pointer"><input type="checkbox" id="bz-ads-all"'
+    + ' onchange="bzAdsAll(this.checked)"> 보이는 것 모두</label>'
+    + '<span style="font-weight:700">☑ ' + n + '건 선택</span>'
+    + '<button class="btn btn-xs" style="background:#FF6F0F;color:#fff;border-color:#FF6F0F"'
+    + (n ? '' : ' disabled') + ' onclick="bzAdsLaunchSel()">🥕 선택 건 당근 올리기</button>'
+    + '<span style="color:var(--t3)">임시저장까지만 합니다 — 최종 [매물 등록하기] 는 대표님이 당근에서 누르십니다.</span>';
+  var all = document.getElementById('bz-ads-all');
+  if (all) all.checked = false;
+}
+
+/* 매물 상세(모달) 머리 — 열려 있는 매물에도 단추 하나 */
+function bzAdsModalTidy() {
+  var m = document.querySelector('#modal-body, .modal-body, #modal .modal-content');
+  if (!m || m.querySelector('.bz-ads-modal')) return;
+  var t = String(m.textContent || '');
+  var mm = t.match(/\b([A-Z]\d{6}-\d{2})\b/);
+  if (!mm) return;
+  var hd = m.querySelector('h2, h3, .modal-title, .page-hd') || m.firstElementChild;
+  if (!hd) return;
+  hd.insertAdjacentHTML('beforeend',
+    ' <button class="btn btn-xs bz-ads-modal" style="background:#FF6F0F;color:#fff;border-color:#FF6F0F"'
+    + ' title="이 매물을 당근에 올립니다 (임시저장까지)"'
+    + ' onclick="event.stopPropagation();bzAdsLaunch(&quot;daangn&quot;,[&quot;' + bzEsc(mm[1]) + '&quot;])">🥕 당근 올리기</button>');
+}
+
+(function bzAdsHook() {
+  var tick = function () {
+    try { bzAdsRowTidy(false); } catch (e) {}
+    try { bzAdsBarTidy(); } catch (e) {}
+    try { bzAdsModalTidy(); } catch (e) {}
+  };
+  if (typeof renderListings === 'function' && !window.__bzAdsWrapped) {
+    var _r = renderListings;
+    window.renderListings = function () { var r = _r.apply(this, arguments); setTimeout(tick, 60); return r; };
+    window.__bzAdsWrapped = true;
+  }
+  if (typeof openModal === 'function' && !window.__bzAdsModalWrapped) {
+    var _o = openModal;
+    window.openModal = function () { var r = _o.apply(this, arguments); setTimeout(tick, 120); return r; };
+    window.__bzAdsModalWrapped = true;
+  }
+  setInterval(tick, 1500);
+})();
 
 /* ═══ 🧾 2026-09-18 매물 폼 '관리비 실비근거' 선택지 — 대표 지시: 두 가지 중 고른다 ═══
    당근 [수정] 화면 '관리비 세부 타입(실비 근거)' 와 낱말을 맞춘다:
