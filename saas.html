@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:22</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:36</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -26250,16 +26250,16 @@ function bzExpEsc(v) {
 function bzExpClose(id) {
   var r = document.getElementById('bz-exp-' + id);
   if (r && r.parentNode) r.parentNode.removeChild(r);
-  var b = document.querySelector('.bz-exp-btn[data-id="' + id + '"]');
-  if (b) b.textContent = '▸';
+  var b = document.querySelector('.bz-exp-end[data-id="' + id + '"]');
+  if (b) b.textContent = '펼치기';
 }
 
 function bzExpCloseAll() {
   Array.prototype.forEach.call(document.querySelectorAll('tr[id^="bz-exp-"]'), function (r) {
     if (r.parentNode) r.parentNode.removeChild(r);
   });
-  Array.prototype.forEach.call(document.querySelectorAll('.bz-exp-btn'), function (b) {
-    b.textContent = '▸';
+  Array.prototype.forEach.call(document.querySelectorAll('.bz-exp-end'), function (b) {
+    b.textContent = '펼치기';
   });
 }
 
@@ -26297,8 +26297,8 @@ function bzExpOpen(id, tab) {
 
   BZ_EXP_TAB[id] = tab || BZ_EXP_TAB[id] || 'bldg';
   td.innerHTML = bzExpHtml(o, BZ_EXP_TAB[id]);
-  var b = document.querySelector('.bz-exp-btn[data-id="' + id + '"]');
-  if (b) b.textContent = '▾';
+  var b = document.querySelector('.bz-exp-end[data-id="' + id + '"]');
+  if (b) b.textContent = '접기';
 }
 
 /* 값 한 줄 */
@@ -26432,21 +26432,57 @@ function bzExpSame(o) {
     + out.length + '건</div>' + out.join('') + '</div>';
 }
 
-/* 매물번호 칸 앞에 ▸ 를 붙인다 */
+/* ── 🔴 2026-09-19 대표 지시 — 매물 앞 화살표(▸)를 없애고, 줄 **끝**에 [펼치기] 단추 ──
+   "매물앞에 화살표 이건 기능을 없애주고, 펼치기를 버튼형식으로 매물끝으로 붙여줘.
+    그리고 제일 아래의 펼치기 버튼 없애줘."
+   · 앞 칸의 ▸ 는 만들지 않고, 이미 붙어 있는 것도 걷어낸다(bzRowId 가 '▸R2609…' 를
+     돌려주던 문제도 같이 사라진다).
+   · 맨 아래 입력 줄(＋새 매물)·안내 줄에는 붙이지 않는다 — 매물번호 모양인 줄만 붙인다. */
+function bzExpRealId(tr) {
+  var raw = '';
+  try { raw = (typeof bzRowId === 'function') ? bzRowId(tr) : ''; } catch (e) {}
+  if (!raw) {
+    var td0 = tr.querySelector('td');
+    raw = td0 ? String(td0.textContent || '') : '';
+  }
+  var m = String(raw).match(/[A-Za-z]\d{6}-\d{2}/);
+  if (m) return m[0];
+  /* 🔴 옛 매물번호(시각+난수)도 있다 — 모양이 달라도 버리지 않는다.
+     대신 입력 줄·안내 줄은 글자로 가려낸다(거기엔 단추를 붙이지 않는다). */
+  var t = String((tr.textContent || '')).slice(0, 40);
+  if (t.indexOf('＋새') >= 0 || t.indexOf('칸마다') >= 0 || t.indexOf('없습니다') >= 0) return '';
+  var c = String(raw).replace(/[▸▾\s]/g, '').trim();
+  return (c.length >= 4) ? c : '';
+}
+
 function bzExpBtns() {
   var tb = document.querySelector('#listing-cards table tbody');
   if (!tb) return;
   Array.prototype.forEach.call(tb.querySelectorAll('tr'), function (tr) {
-    if (tr.id && tr.id.indexOf('bz-') === 0) return;                 /* 새 줄·펼친 줄은 건너뛴다 */
-    if (tr.querySelector('.bz-exp-btn')) return;
-    var id = (typeof bzRowId === 'function') ? bzRowId(tr) : '';
-    if (!id) return;
-    var td = tr.querySelector('td');
-    if (!td) return;
-    td.insertAdjacentHTML('afterbegin',
-      '<button class="btn btn-xs bz-exp-btn" data-id="' + id + '" title="펼쳐 보기"'
-      + ' style="padding:0 5px;margin-right:4px;border:1px solid var(--border);border-radius:5px;'
-      + 'background:#fff;cursor:pointer" onclick="bzExpToggle(event,&#39;' + id + '&#39;)">▸</button>');
+    if (tr.id && tr.id.indexOf('bz-') === 0) return;                 /* 펼친 줄은 건너뛴다 */
+    /* 앞 칸에 남아 있는 옛 ▸ 를 걷어낸다 */
+    var old = tr.querySelectorAll('.bz-exp-btn');
+    for (var k = 0; k < old.length; k++) {
+      if (String(old[k].textContent || '').indexOf('▸') >= 0
+          || String(old[k].textContent || '').indexOf('▾') >= 0) {
+        old[k].parentNode.removeChild(old[k]);
+      }
+    }
+    if (tr.querySelector('.bz-exp-end')) return;
+    var id = bzExpRealId(tr);
+    if (!id) return;                                                  /* 입력 줄·안내 줄 제외 */
+    var tds = tr.querySelectorAll('td');
+    if (!tds.length) return;
+    var last = null;
+    for (var i = tds.length - 1; i >= 0; i--) {                       /* 숨긴 칸은 건너뛴다 */
+      if (tds[i].style.display !== 'none') { last = tds[i]; break; }
+    }
+    if (!last) last = tds[tds.length - 1];
+    last.insertAdjacentHTML('beforeend',
+      ' <button class="btn btn-xs bz-exp-end" data-id="' + id + '" title="이 매물을 펼쳐 봅니다"'
+      + ' style="padding:1px 7px;border:1px solid var(--border);border-radius:6px;'
+      + 'background:#fff;cursor:pointer;white-space:nowrap"'
+      + ' onclick="event.stopPropagation();bzExpToggle(event,&#39;' + id + '&#39;)">펼치기</button>');
   });
 }
 
