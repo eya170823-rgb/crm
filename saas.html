@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:38</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:54</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23347,7 +23347,10 @@ function bzRowTidy() {
        몸통에만 이력 칸이 붙어 표가 한 칸 밀렸다(실측 몸통 17 / 머리 16). 자리와 무관하게 찾는다. */
   var ths = Array.prototype.slice.call(thr.querySelectorAll('th'));
   for (var hi = 0; hi < ths.length; hi++) {
-    if (String(ths[hi].textContent || '').trim() === '수정') { ths[hi].textContent = '게시'; break; }
+    /* 🔴 2026-09-19 — 이름을 바로 '광고' 로 바꾼다. 종전에는 '게시' 로 바꿨는데,
+       ads-launch 가 그것을 다시 '광고' 로 바꾸면서 두 조각이 한 칸을 두고 다퉜다
+       (실측: 머리 16 / 몸통 17 · 아이콘이 왔다갔다). 이름은 한 곳에서만 정한다. */
+    if (String(ths[hi].textContent || '').trim() === '수정') { ths[hi].textContent = '광고'; break; }
   }
 
   bzListRows().forEach(function (tr) {
@@ -23366,6 +23369,11 @@ function bzRowTidy() {
     };
     open(tds[0]);
     open(tds[2]);
+
+    /* 🟡 [안 쓰임 2026-09-19] 아래 채널 아이콘 그리기 — 광고 칸은 이제 ads-launch 의
+       bzAdsShowHtml 이 홀로 그린다(대표 지시: 매물장은 표시만 · 세 포털을 늘 보여준다).
+       🔴 지우지 않고 남겨 둔다 — 되돌릴 때 이 return 만 빼면 된다. */
+    if (true) return;
 
     /* '게시' 칸 → 채널 아이콘(당근·네이버·직방). 🔴 [수정] 단추는 여기서 사라진다.
        🔴 2026-09-18 실사고 — 종전에는 **마지막 칸**에 넣었다. 대표 지시로 지도가 맨 끝으로
@@ -24562,14 +24570,16 @@ function bzAdsShowHtml(id) {
         + ' style="color:#fff;background:' + p.color + ';cursor:pointer"'
         + ' onclick="event.stopPropagation();bzAdsGo(&quot;' + bzEsc(id) + '&quot;)">'
         + p.icon + (s2.at ? ' ' + bzEsc(bzAdsDay(s2.at)) : '') + '</span>');
-    } else if (s2.state === 'draft') {
-      out.push('<span class="bz-ads-chip" title="' + p.label + ' 임시저장(초안) ' + bzEsc(s2.at)
-        + ' — 아직 게시된 것이 아닙니다. 누르면 광고관리로 갑니다"'
-        + ' style="color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;cursor:pointer"'
+    } else {
+      /* 🔴 2026-09-19 대표 지시 — 안 올린 것도 **회색으로 늘 보인다**(당근·네이버·직방 셋 다).
+         임시저장(초안) 표시는 매물장에서 빼라고 하셔서 여기서는 회색으로 같이 묶는다.
+         (초안인지 아닌지는 광고관리 화면에서 본다) */
+      out.push('<span class="bz-ads-chip" title="' + p.label
+        + ' 아직 올리지 않았습니다 — 누르면 광고관리로 갑니다"'
+        + ' style="color:#9CA3AF;background:#F3F4F6;cursor:pointer"'
         + ' onclick="event.stopPropagation();bzAdsGo(&quot;' + bzEsc(id) + '&quot;)">'
-        + p.icon + ' 초안</span>');
+        + p.icon + '</span>');
     }
-    /* 안 올린 포털 — 아무것도 그리지 않는다 */
   }
   return out.join('');
 }
@@ -24764,9 +24774,15 @@ function bzAdsHeadTidy(tb) {
 
 /* 합친 칸이 몇 번째인지 */
 function bzAdsColIdx(tb) {
-  var ths = tb.querySelectorAll('thead th'), i;
+  var ths = tb.querySelectorAll('thead th'), i, t;
   for (i = 0; i < ths.length; i++) {
     if (ths[i].className && ths[i].className.indexOf('bz-ads-th') >= 0) return i;
+  }
+  /* 🔴 2026-09-19 — 표가 다시 그려져 딱지(class)가 날아가는 순간이 있다(실측: 머리 16/몸통 17).
+     그때 새 칸을 덧붙이면 칸 수가 어긋난다. **이름으로도** 찾아 그 자리를 쓴다. */
+  for (i = 0; i < ths.length; i++) {
+    t = String(ths[i].textContent || '').trim();
+    if (t === '광고' || t === '게시') return i;
   }
   return -1;
 }
@@ -24804,8 +24820,10 @@ function bzAdsRowTidy(force) {
         cell.className = (cell.className ? cell.className + ' ' : '') + 'bz-ads-td';
         cell.style.whiteSpace = 'nowrap';
       } else {
-        tr.insertAdjacentHTML('beforeend', '<td class="bz-ads-td" style="white-space:nowrap"></td>');
-        cell = tr.querySelector('.bz-ads-td');
+        /* 🔴 2026-09-19 — 광고 칸을 못 찾으면 **아무것도 하지 않는다.**
+           종전에는 맨 뒤에 새 칸을 덧붙였다 → 머리 16 / 몸통 17 로 어긋나고
+           아이콘이 엉뚱한 칸(수정 📈✏️)에 앉았다(실측). 다음 차례에 다시 본다. */
+        continue;
       }
     }
     /* 🔴 표시 전용 — 체크박스·올리기 단추 없음 */
@@ -26318,12 +26336,9 @@ function bzExpHtml(o, tab) {
       + (o.rentAmt ? (' / ' + o.rentAmt) : '')) + '</span>'
     + '<span class="badge bgr">' + bzExpEsc(o.status || '-') + '</span>'
     + '<span style="font-size:12px;color:var(--t2)">' + bzExpEsc(id) + '</span>'
-    /* 📝 대표 지시 — 미리보기에 메모가 보이게 */
-    + '<div style="flex:1 1 100%;font-size:12.5px;color:#6B4A00;background:#FFF9E6;'
-    + 'border:1px solid #F0DFA8;border-radius:8px;padding:6px 9px;margin-top:4px">'
-    + '📝 ' + (String(o.note || '').trim()
-      ? bzExpEsc(String(o.note).split(String.fromCharCode(10)).join(' / ')).slice(0, 400)
-      : '<span style="color:var(--t3)">메모 없음</span>') + '</div>'
+    /* 🔴 2026-09-19 대표 지시 — 펼치기 맨 위의 **노란 메모 상자를 뺐다.**
+       ("밑에 노란색 메모같은게 나오는데 왜 나오는지 모르겠음 지워줘")
+       메모는 목록의 [메모] 칸과 🏠매물 탭에서 그대로 볼 수 있다. */
     + '</div>';
 
   var tabs = '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'
@@ -26473,9 +26488,20 @@ function bzExpBtns() {
     if (!id) return;                                                  /* 입력 줄·안내 줄 제외 */
     var tds = tr.querySelectorAll('td');
     if (!tds.length) return;
-    var last = null;
-    for (var i = tds.length - 1; i >= 0; i--) {                       /* 숨긴 칸은 건너뛴다 */
-      if (tds[i].style.display !== 'none') { last = tds[i]; break; }
+    /* 🔴 2026-09-19 대표 지시 정정 — "지도 밑에 펼치기가 되어 있음".
+       맨 오른쪽(지도·광고) 에 붙이면 눈에서 멀고 지도 칸을 타고 앉는다.
+       **매물명 칸 끝**에 붙인다 — 어느 칸을 접든 자리가 흔들리지 않는다. */
+    var tbl = tr.closest ? tr.closest('table') : null;
+    var ths = tbl ? tbl.querySelectorAll('thead th') : [];
+    var want = -1, n;
+    for (n = 0; n < ths.length; n++) {
+      if (String(ths[n].textContent || '').trim() === '매물명') { want = n; break; }
+    }
+    var last = (want >= 0 && tds[want]) ? tds[want] : null;
+    if (!last) {
+      for (var i = tds.length - 1; i >= 0; i--) {
+        if (tds[i].style.display !== 'none') { last = tds[i]; break; }
+      }
     }
     if (!last) last = tds[tds.length - 1];
     last.insertAdjacentHTML('beforeend',
@@ -26938,6 +26964,148 @@ function bzUpSave() {
 })();
 
 
+/* ═══ 🔎 메뉴찾기를 위(알림 옆)로 (2026-09-19 대표 지시) ═══════════════════
+   "메뉴찾기는 부서 위에 칸은 없애고, 상단에 알림 옆에서 메뉴찾기 할 수 있게,
+    나온 결과를 누르면 거기 화면으로 이동되게"
+   🔴 사이드바의 찾기 칸은 **감춘다**(지우지 않는다 — 되돌릴 수 있게).
+   🔴 찾는 규칙·이동은 기존 sxFind/sxFindGo 와 같은 자리를 쓴다(새로 만들지 않는다). */
+
+function bzMfHideSide() {
+  var f = document.querySelector('.sx-find');
+  if (f && f.style.display !== 'none') f.style.display = 'none';
+}
+
+/* 메뉴 목록에서 찾는다 — sxFind 와 같은 규칙(회사·권한·준비중 글자 제거) */
+function bzMfHits(q) {
+  q = String(q || '').trim().toLowerCase();
+  if (!q) return [];
+  var admin = false;
+  try { admin = (typeof sxAdmin === 'function') ? sxAdmin() : false; } catch (e) {}
+  var co = (typeof sxCo !== 'undefined') ? sxCo : null;
+  var all = document.querySelectorAll('.sx-item');
+  var out = [];
+  for (var i = 0; i < all.length && out.length < 14; i++) {
+    var b = all[i];
+    if (co != null && b.getAttribute('data-co') !== co) continue;
+    if (!admin && b.getAttribute('data-admin') === '1') continue;
+    var label = String(b.textContent || '').split('준비 중').join('').split('참조').join('').trim();
+    if (!label || label.toLowerCase().indexOf(q) < 0) continue;
+    out.push({ id: b.getAttribute('data-menu') || '', grp: b.getAttribute('data-grp') || '',
+               label: label, soon: String(b.textContent || '').indexOf('준비 중') >= 0 });
+  }
+  return out;
+}
+
+function bzMfEsc(t) {
+  return String(t == null ? '' : t).split('&').join('&amp;').split('<').join('&lt;')
+    .split('>').join('&gt;').split('"').join('&quot;');
+}
+
+function bzMfDraw() {
+  var box = document.getElementById('bz-mf-list');
+  if (!box) return;
+  var q = String((document.getElementById('bz-mf-q') || {}).value || '');
+  if (!q.trim()) {
+    box.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">'
+      + '찾을 화면 이름을 적어 보세요 (예: 매물 · 임대인 · 광고)</div>';
+    return;
+  }
+  var hits = bzMfHits(q);
+  if (!hits.length) {
+    box.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--t3)">찾는 화면이 없습니다</div>';
+    return;
+  }
+  box.innerHTML = hits.map(function (h) {
+    return '<button class="bz-mf-hit" onclick="bzMfGo(&quot;' + bzMfEsc(h.id) + '&quot;,&quot;'
+      + bzMfEsc(h.grp) + '&quot;)"'
+      + ' style="display:flex;width:100%;align-items:center;gap:8px;text-align:left;'
+      + 'padding:7px 12px;border:0;background:none;cursor:pointer;font-size:12.5px">'
+      + '<span style="flex:1">' + bzMfEsc(h.label) + '</span>'
+      + '<em style="font-style:normal;font-size:11px;color:var(--t3)">' + bzMfEsc(h.grp) + '</em>'
+      + (h.soon ? '<span style="font-size:10.5px;color:#9CA3AF">준비 중</span>' : '')
+      + '</button>';
+  }).join('');
+}
+
+/* 결과를 누르면 그 화면으로 간다 — 기존 sxFindGo 를 그대로 쓴다 */
+function bzMfGo(id, grp) {
+  var inp = document.getElementById('bz-mf-q');
+  if (inp) inp.value = '';
+  bzMfDraw();
+  try { if (typeof sxPop === 'function') sxPop('bz-mf'); } catch (e) {}
+  try {
+    if (typeof sxFindGo === 'function') { sxFindGo(id, grp); return; }
+  } catch (e) {}
+  try { if (grp && typeof sxRail === 'function') sxRail(grp, true); } catch (e) {}
+  if (id) { try { sxGo(id); } catch (e) {} }
+  else if (typeof showToast === 'function') showToast('준비 중인 화면입니다');
+}
+
+function bzMfOpen() {
+  try { if (typeof sxPop === 'function') sxPop('bz-mf'); } catch (e) {}
+  setTimeout(function () {
+    var inp = document.getElementById('bz-mf-q');
+    if (inp) { try { inp.focus(); } catch (e) {} }
+    bzMfDraw();
+  }, 60);
+}
+
+function bzMfMount() {
+  var top = document.querySelector('.sx-top');
+  if (!top || document.getElementById('bz-mf-b')) return;
+  var bell = top.querySelector('.sx-ico[onclick*="sx-noti"]');
+  var html = '<button class="sx-ico" id="bz-mf-b" onclick="bzMfOpen()"'
+    + ' title="메뉴 찾기 — 화면 이름으로 찾아 바로 이동합니다">🔎</button>';
+  if (bell) bell.insertAdjacentHTML('beforebegin', html);
+  else {
+    var right = top.querySelector('.sx-right');
+    if (right) right.insertAdjacentHTML('beforeend', html);
+    else return;
+  }
+  top.insertAdjacentHTML('beforeend',
+    '<div class="sx-pop" id="bz-mf"><h4>메뉴 찾기</h4>'
+    + '<div style="padding:0 12px 8px"><input id="bz-mf-q" placeholder="화면 이름"'
+    + ' autocomplete="off" oninput="bzMfDraw()"'
+    + ' style="width:100%;height:32px;border-radius:8px;border:1px solid var(--border);'
+    + 'background:var(--bg3);padding:0 10px;font-size:12.5px;outline:none"></div>'
+    + '<div id="bz-mf-list" style="max-height:320px;overflow:auto"></div></div>');
+  bzMfDraw();
+}
+
+/* ── 🔴 2026-09-19 대표 지시 — "운영부 탭 왼쪽 칸이 비었다" ──────────────
+   실측: .sx-rail 이 .sidebar **밖**에 있어서
+     · 사이드바 첫 칸(76px)이 통째로 비고
+     · 레일은 상단에 888x31 로 누워 부서 단추 13개 중 6개만 보였다(나머지 0x0).
+   CSS 는 .sidebar 의 자식일 때만 듣는다(grid-column:1 / grid-row:1/-1).
+   그래서 **제자리(사이드바 맨 앞)로 옮긴다.** 마크업·버튼은 그대로 둔다. */
+function bzRailFix() {
+  var side = document.querySelector('.sidebar');
+  var rail = document.querySelector('.sx-rail');
+  if (!side || !rail) return;
+  if (rail.parentNode === side) {
+    if (side.firstElementChild !== rail) side.insertBefore(rail, side.firstElementChild);
+    return;
+  }
+  side.insertBefore(rail, side.firstElementChild);
+}
+
+/* 찾기 칸을 감추면서 생긴 빈 줄(0px)도 접는다 — 목록이 그만큼 더 보인다 */
+function bzRailRows() {
+  var side = document.querySelector('.sidebar');
+  if (!side) return;
+  var f = document.querySelector('.sx-find');
+  if (f && f.style.display === 'none' && side.style.gridTemplateRows !== 'auto 0 1fr auto') {
+    side.style.gridTemplateRows = 'auto 0 1fr auto';
+  }
+}
+
+(function bzMfBoot() {
+  function tick() { try { bzMfMount(); bzMfHideSide(); bzRailFix(); bzRailRows(); } catch (e) {} }
+  setTimeout(tick, 900);
+  setInterval(tick, 2000);
+})();
+
+
 /* ═══ 🥕 광고관리 — 여기서 올린다 (2026-09-19 대표 지시) ═══════════════════
    "매물장은 광고 '표시'만, 올리기는 광고관리로."
 
@@ -27159,6 +27327,7 @@ function bzColBar() {
   bar.id = 'bz-col-bar';
   bar.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 2px;font-size:12px';
   bar.innerHTML = '<button class="btn btn-xs" onclick="bzColPanel()">📐 칸 보기</button>'
+    + '<span id="bz-col-n" style="color:var(--t3)"></span>'
     + '<span id="bz-col-sum" style="color:var(--t3)"></span>'
     + '<span id="bz-col-note" style="color:var(--t3)"></span>'
     + '<div id="bz-col-box" style="display:none;gap:10px;flex-wrap:wrap;width:100%;'
@@ -27201,11 +27370,113 @@ function bzColAll(show) {
   bzColApply(); bzColSum(); bzColPanel(); bzColPanel();
 }
 
+/* ── 🔴 2026-09-19 대표 지시 — 매물장 위쪽을 줄인다 ──────────────────────
+   "상단에 매물장이라는 글씨, 전체 몇 건 중 몇 건 표시라는 말은 굳이 필요 없을 것 같음.
+    상단이 길어서 스크롤이 길게 내려간다."
+   🔴 지우지 않고 **감춘다**(display:none). 건수는 [📐 칸 보기] 줄에 작게 남겨 둔다. */
+function bzColHead() {
+  var panel = document.getElementById('p-listing');
+  if (!panel) return;
+  var hd = panel.querySelector('.page-hd');
+  if (!hd) return;
+  var t = hd.querySelector('.page-title');
+  if (t && t.style.display !== 'none') t.style.display = 'none';
+  var sub = document.getElementById('listing-count-sub');
+  if (sub) {
+    var n = String(sub.textContent || '').trim();
+    if (sub.style.display !== 'none') sub.style.display = 'none';
+    var slot = document.getElementById('bz-col-n');
+    if (slot && n) slot.textContent = n.replace('전체 ', '').replace('건 표시', '건');
+  }
+  hd.style.marginBottom = '6px';
+  hd.style.paddingBottom = '0';
+}
+
+/* ── 🔴 2026-09-19 대표 지시 — 모든 화면: 바깥은 고정, 리스트만 움직인다 ────
+   "사스 모든 화면이 리스트 외의 화면은 고정으로 모두 보이게. 안에 리스트만 움직이게."
+   · 지금 보이는 화면(panel) 안에서 표를 감싼 상자를 찾아 화면 높이에 맞춰 자른다.
+   · 그 상자가 여럿이면 **가장 큰 것 하나만** 잡는다(작은 보조 표는 그대로 둔다).
+   · 머리글은 위에 붙여 둔다(sticky).
+   · 잡을 상자가 없는 화면(설정·안내 등)은 건드리지 않고 바깥 스크롤을 되돌린다.
+   🔴 자료·칸은 건드리지 않는다. 화면 크기가 바뀌면 다시 잰다. */
+var BZ_FIT_SEL = '.listing-table-wrap, .tbl-wrap, .table-wrap';
+
+function bzFitPanel() {
+  var ps = document.querySelectorAll('.panel');
+  for (var i = 0; i < ps.length; i++) {
+    if (ps[i].offsetParent !== null && ps[i].style.display !== 'none') return ps[i];
+  }
+  return null;
+}
+
+function bzColFit() {
+  var panel = bzFitPanel();
+  var lock = false;
+  if (panel) {
+    var boxes = panel.querySelectorAll(BZ_FIT_SEL);
+    var best = null, bestH = 0;
+    for (var i = 0; i < boxes.length; i++) {
+      var b = boxes[i];
+      if (b.offsetParent === null) continue;
+      if (b.closest && b.closest('#bz-adm')) continue;      /* 광고관리 안 작은 표는 그대로 */
+      var h = b.scrollHeight || 0;
+      if (h > bestH) { bestH = h; best = b; }
+    }
+    if (best) {
+      var top = 0;
+      try { top = best.getBoundingClientRect().top; } catch (e) { top = 0; }
+      if (top > 0) {
+        var hh = Math.max(220, Math.round((window.innerHeight || 800) - top - 16));
+        best.style.maxHeight = hh + 'px';
+        best.style.overflowY = 'auto';
+        /* 🔴 2026-09-19 대표 지시 — "오른쪽으로 확장되지 않고 아래로 스크롤만".
+           가로 스크롤을 없애고, 글이 길면 **줄바꿈**으로 접어 넣는다.
+           아이콘 칸(광고·사진)은 줄바꿈하면 깨지므로 그대로 둔다. */
+        best.style.overflowX = 'hidden';
+        var tbl0 = best.querySelector('table');
+        if (tbl0) { tbl0.style.width = '100%'; tbl0.style.minWidth = '0'; }
+        var keep = { '광고': 1, '사진': 1, '지도': 1, '게시': 1 };
+        var hn = best.querySelectorAll('thead th'), names = [], z;
+        for (z = 0; z < hn.length; z++) names.push(String(hn[z].textContent || '').trim());
+        var trs = best.querySelectorAll('tbody tr'), r2, c2, tds2;
+        for (r2 = 0; r2 < trs.length; r2++) {
+          tds2 = trs[r2].querySelectorAll('td');
+          for (c2 = 0; c2 < tds2.length; c2++) {
+            if (keep[names[c2]]) continue;
+            tds2[c2].style.whiteSpace = 'normal';
+            tds2[c2].style.wordBreak = 'break-word';
+          }
+        }
+        var ths = best.querySelectorAll('thead th');
+        for (var k = 0; k < ths.length; k++) {
+          ths[k].style.position = 'sticky';
+          ths[k].style.top = '0';
+          if (!ths[k].style.background) ths[k].style.background = 'var(--bg, #fff)';
+          if (!ths[k].style.zIndex) ths[k].style.zIndex = '2';
+        }
+        lock = true;
+      }
+    }
+  }
+  /* 🔴 잡을 상자가 없으면 바깥 스크롤을 되돌린다 — 안 그러면 그 화면이 안 내려간다 */
+  try { document.documentElement.style.overflowY = lock ? 'hidden' : ''; } catch (e) {}
+}
+
+(function bzColFitHook() {
+  window.addEventListener('resize', function () { try { bzColFit(); } catch (e) {} });
+  setInterval(function () { try { bzColFit(); } catch (e) {} }, 1200);
+})();
+
 (function bzColBoot() {
   function tick() {
-    if (!bzColTable()) return;
+    if (!bzColTable()) {
+      try { document.documentElement.style.overflowY = ''; } catch (e) {}
+      return;
+    }
     bzColBar();
     bzColApply();
+    bzColHead();
+    bzColFit();
   }
   setTimeout(tick, 900);
   setInterval(tick, 1500);
@@ -27508,6 +27779,26 @@ function bzExpTrack() {
     try { BZ_EXP_KEEP[id] = !!document.getElementById('bz-exp-' + id); } catch (e) {}
     return out;
   };
+  /* 🔴 2026-09-19 대표 보고 "아래 하단에 에코힐튼 802호가 아직 안 없어짐"
+     원인: [접기] 단추는 bzExpClose 를 **바로** 부른다(토글을 거치지 않는다).
+     그래서 '열어 둔 것' 표시가 참인 채로 남아 bzExpKeepTidy 가 도로 열었다.
+     닫는 길도 같이 따라가 표시를 내린다. */
+  if (typeof window.bzExpClose === 'function' && !window.__bzExpCloseTracked) {
+    var _c = window.bzExpClose;
+    window.bzExpClose = function (id) {
+      try { BZ_EXP_KEEP[id] = false; } catch (e) {}
+      return _c.apply(this, arguments);
+    };
+    window.__bzExpCloseTracked = true;
+  }
+  if (typeof window.bzExpCloseAll === 'function' && !window.__bzExpCloseAllTracked) {
+    var _ca = window.bzExpCloseAll;
+    window.bzExpCloseAll = function () {
+      try { BZ_EXP_KEEP = {}; } catch (e) {}
+      return _ca.apply(this, arguments);
+    };
+    window.__bzExpCloseAllTracked = true;
+  }
   window.__bzExpTracked = true;
 }
 
