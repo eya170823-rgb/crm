@@ -1173,7 +1173,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:16</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:28</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23564,8 +23564,9 @@ function bzPhotoCell() {
     var n = o ? (parseInt(o.photoCnt, 10) || 0) : 0;
     td.innerHTML = '<button class="btn btn-xs" title="사진 보기·올리기"'
       + ' onclick="event.stopPropagation();bzPhotoOpen(&quot;' + bzEsc(id) + '&quot;)">'
-      /* 🔴 목록에는 그림을 안 그린다 — 장수만 숫자로. 누르면 사진이 뜬다(대표 지시). */
-      + (n ? ('📷' + n) : '📷0') + '</button>';
+      /* 🔴 2026-09-19 대표 지시 — 카메라 옆에 장수만. '없음' 단추는 만들지 않는다.
+         사진이 없으면 카메라만 (눌러서 올릴 수 있게 단추는 남긴다). */
+      + '📷' + (n ? (' ' + n) : '') + '</button>';
     td.setAttribute('data-bzph', '1');
   });
 }
@@ -24746,10 +24747,26 @@ function bzAdsHeadTidy(tb) {
      맨 뒤에 덧붙었던 것을 먼저 치우고, 다시 '게시' 를 찾아 이름만 바꾼다(멱등). */
   var ths0 = hr.querySelectorAll('th'), z, names = [];
   for (z = 0; z < ths0.length; z++) names.push(String(ths0[z].textContent || '').trim());
-  if (names.indexOf('게시') >= 0) {
+  var nAd = 0;
+  for (z = 0; z < names.length; z++) { if (names[z] === '광고') nAd++; }
+  /* 🔴 2026-09-19 실측 — 머리글이 '… 광고 | 지도 | 광고' 로 **둘**이 된 적이 있다.
+     (listing-table2 가 '수정'→'광고' 로 바꾸는데, 예전에 덧붙인 칸이 남아 있으면 둘이 된다)
+     둘 이상이면 **덧붙인 것(.bz-ads-th)을 모두 걷어내고** 다시 표시한다. */
+  if (names.indexOf('게시') >= 0 || nAd > 1) {
     for (z = ths0.length - 1; z >= 0; z--) {
       if (ths0[z].className && ths0[z].className.indexOf('bz-ads-th') >= 0) {
         ths0[z].parentNode.removeChild(ths0[z]);
+      }
+    }
+    /* 몸통에 남은 덧붙인 칸도 같이 걷어낸다 — 안 그러면 머리 16 / 몸통 17 로 어긋난다 */
+    var tb0 = tb.querySelectorAll('tbody tr');
+    for (z = 0; z < tb0.length; z++) {
+      var ex = tb0[z].querySelectorAll('td.bz-ads-td');
+      for (var y = 0; y < ex.length; y++) {
+        if (ex[y] === tb0[z].querySelectorAll('td')[tb0[z].querySelectorAll('td').length - 1]
+            && ex.length > 0 && tb0[z].querySelectorAll('td').length > names.length - 1) {
+          ex[y].parentNode.removeChild(ex[y]);
+        }
       }
     }
   } else if (hr.querySelector('.bz-ads-th')) {
@@ -26366,7 +26383,10 @@ function bzExpHtml(o, tab) {
       + bzExpLine('세대수', o.hhldCnt)
       + bzExpLine('주차', (o.parking || '-') + (o.parkTotal ? (' (총 ' + o.parkTotal + '대)') : ''))
       + bzExpLine('엘리베이터', o.elevator)
-      + bzExpSame(o);
+      /* 🟡 [뺌 2026-09-19 대표 지시] "매물명 눌렀을 때 건물에서 같은 건물의 다른 방은
+         안 보여줘도 됨." — 같은 건물 다른 호실 목록을 건물 탭에서 뺐다.
+         bzExpSame 함수는 지우지 않았다. 되돌리려면 이 줄을 `+ bzExpSame(o);` 로. */
+      + '';
   } else if (tab === 'unit') {
     body = bzExpLine('거래유형', o.type)
       + bzExpLine('보증금 / 월세', String(o.price || '-') + (o.rentAmt ? (' / ' + o.rentAmt) : ''))
@@ -26980,7 +27000,11 @@ function bzUpSave() {
    🔴 비밀번호처럼 보이는 글은 여기 넣지 않는다(메모·출입 쪽 규칙 그대로).           */
 
 var BZ_CE_COLS = {
-  '입주가능일': { field: 'availDate', kind: 'date' },
+  /* 🔴 2026-09-19 실측 — 이 칸에 실제로 들어 있는 값(매물 63건):
+       날짜(YYYY-MM-DD) 27 · 즉시입주 7 · 빈집 4 · 협의입주 3 · 빈칸 12
+     '즉시가능' 은 없었다. 날짜와 이 세 가지 말을 **둘 다** 받아야 한다. */
+  '입주가능일': { field: 'availDate', kind: 'text',
+                  hints: ['즉시입주', '협의입주', '빈집'] },
   '고객명':     { field: 'cname',    kind: 'text' },
   '연락처':     { field: 'cphone',   kind: 'tel' },
   '상태':       { field: 'status',   kind: 'sel',
@@ -27034,6 +27058,18 @@ function bzCeOpen(ev, id, colName) {
       if (cur && !/^\d{4}-\d{2}-\d{2}$/.test(cur)) el.type = 'text';
     }
     el.value = cur;
+    if (spec.hints && spec.hints.length) {
+      /* 자주 쓰는 말은 고르기만 해도 되게 — 날짜도 그대로 칠 수 있다 */
+      var lid = 'bz-ce-hints';
+      if (!document.getElementById(lid)) {
+        var dl = document.createElement('datalist');
+        dl.id = lid;
+        dl.innerHTML = spec.hints.map(function (h) { return '<option value="' + h + '">'; }).join('');
+        document.body.appendChild(dl);
+      }
+      el.setAttribute('list', lid);
+      el.placeholder = '날짜(2026-10-01) 또는 ' + spec.hints.join('/');
+    }
   }
   el.style.cssText = 'width:100%;min-width:90px;font-size:12px;padding:3px 5px;'
     + 'border:1px solid var(--b, #ccc);border-radius:6px';
@@ -27257,6 +27293,11 @@ function bzSideFoot() {
     ft.style.overflowY = 'auto';
     ft.style.minHeight = '0';
   }
+  /* 🔴 2026-09-19 대표 지적 "왼쪽 하단 제주시 연동·구글시트 여는 화면이 짤려 있음".
+     아래 칸이 사이드바 높이에 눌려 잘렸다. 최대 높이를 주고 그 안에서 스크롤되게 한다. */
+  if (ft.style.maxHeight !== '46vh') ft.style.maxHeight = '46vh';
+  var side2 = document.querySelector('.sidebar');
+  if (side2 && side2.style.overflow !== 'hidden') side2.style.overflow = 'hidden';
   var kids = ft.querySelectorAll('*');
   for (var i = 0; i < kids.length; i++) {
     var e = kids[i];
@@ -27595,9 +27636,16 @@ function bzColHead() {
 var BZ_FIT_SEL = '.listing-table-wrap, .tbl-wrap, .table-wrap';
 
 function bzFitPanel() {
+  /* 🔴 2026-09-19 — offsetParent 만 보면 **감춰진 화면**이 먼저 잡힌다(실측: 매물장 상자에
+     높이가 안 잡혔다). 실제로 자리를 차지하는 것(높이>0)만 고른다.
+     매물장이 보이면 매물장을 먼저 쓴다. */
+  var lp = document.getElementById('p-listing');
+  if (lp && lp.offsetParent !== null && lp.getBoundingClientRect().height > 0) return lp;
   var ps = document.querySelectorAll('.panel');
   for (var i = 0; i < ps.length; i++) {
-    if (ps[i].offsetParent !== null && ps[i].style.display !== 'none') return ps[i];
+    if (ps[i].offsetParent === null || ps[i].style.display === 'none') continue;
+    if (ps[i].getBoundingClientRect().height <= 0) continue;
+    return ps[i];
   }
   return null;
 }
@@ -27606,8 +27654,12 @@ function bzColFit() {
   var panel = bzFitPanel();
   var lock = false;
   if (panel) {
+    /* 🔴 2026-09-19 — 매물장에서는 **매물 목록 상자**를 잡는다.
+       '가장 큰 것' 으로 고르면 펼친 줄 안의 작은 표를 잡는 순간이 있다(실측: 높이가 안 잡힘). */
+    var main = panel.querySelector('.listing-table-wrap');
     var boxes = panel.querySelectorAll(BZ_FIT_SEL);
-    var best = null, bestH = 0;
+    var best = main || null, bestH = 0;      /* 매물 목록이 있으면 그것을 쓴다(크기로 고르지 않는다) */
+    if (main) boxes = [];
     for (var i = 0; i < boxes.length; i++) {
       var b = boxes[i];
       if (b.offsetParent === null) continue;
@@ -27625,16 +27677,31 @@ function bzColFit() {
         /* 🔴 2026-09-19 대표 지시 — "오른쪽으로 확장되지 않고 아래로 스크롤만".
            가로 스크롤을 없애고, 글이 길면 **줄바꿈**으로 접어 넣는다.
            아이콘 칸(광고·사진)은 줄바꿈하면 깨지므로 그대로 둔다. */
-        best.style.overflowX = 'hidden';
+        /* 🔴 기본 칸 수에서는 딱 맞아 가로 스크롤이 없다. 다만 대표가 칸을 여러 개 더 펴서
+           정말 안 들어가면 **감추지 않고** 가로로 움직이게 둔다(글자가 잘리면 안 된다). */
+        /* 🔴 2026-09-19 실측 — 기본 9칸이 좁은 창(1114px)에서는 1317px 을 차지한다.
+           'hidden' 으로 두면 글자가 **잘려 사라진다**. 대표 화면이 그만큼 넓으면 가로줄이
+           아예 안 보이고, 좁으면 가로로 움직여 볼 수 있게 둔다(감추지 않는다). */
+        best.style.overflowX = 'auto';
         var tbl0 = best.querySelector('table');
         if (tbl0) { tbl0.style.width = '100%'; tbl0.style.minWidth = '0'; }
         /* 🔴 2026-09-19 대표 지시 "매물번호를 줄내림하지 말고" —
            번호·날짜·전화처럼 **한 줄로 읽는 것**은 줄바꿈하지 않는다. 긴 글만 접는다. */
         var keep = { '광고': 1, '사진': 1, '지도': 1, '게시': 1,
                      '매물번호': 1, '접수일': 1, '입주가능일': 1, '연락처': 1,
-                     '거래가': 1, '상태': 1, '방향': 1 };
+                     '거래가': 1, '상태': 1, '방향': 1,
+                     '매물명': 1 };   /* 🔴 2026-09-19 대표 지시 — 매물명도 한 줄로 */
         var hn = best.querySelectorAll('thead th'), names = [], z;
-        for (z = 0; z < hn.length; z++) names.push(String(hn[z].textContent || '').trim());
+        for (z = 0; z < hn.length; z++) {
+          names.push(String(hn[z].textContent || '').trim());
+        }
+        var tightH = { '물건유형': 1, '거래유형': 1, '거래가': 1, '방향': 1,
+                       '입주가능일': 1, '연락처': 1, '상태': 1, '사진': 1 };
+        for (z = 0; z < hn.length; z++) {
+          if (!tightH[names[z]]) continue;
+          hn[z].style.paddingLeft = '5px';
+          hn[z].style.paddingRight = '5px';
+        }
         var trs = best.querySelectorAll('tbody tr'), r2, c2, tds2;
         for (r2 = 0; r2 < trs.length; r2++) {
           tds2 = trs[r2].querySelectorAll('td');
@@ -27642,10 +27709,32 @@ function bzColFit() {
             if (keep[names[c2]]) {
               /* 한 줄로 읽는 칸은 **분명히** 한 줄로 못박는다(원래 CSS 에 기대지 않는다) */
               if (tds2[c2].style.whiteSpace !== 'nowrap') tds2[c2].style.whiteSpace = 'nowrap';
+              /* 🔴 매물명은 길어서 표를 오른쪽으로 벌린다 — 한 줄을 지키되 폭을 묶고
+                 넘치면 …로 줄인다(전체 이름은 손대면 말풍선으로 보인다). */
+              if (names[c2] === '매물명') {
+                tds2[c2].style.maxWidth = '160px';
+                tds2[c2].style.overflow = 'hidden';
+                tds2[c2].style.textOverflow = 'ellipsis';
+                if (!tds2[c2].title) tds2[c2].title = String(tds2[c2].textContent || '').trim();
+              }
               continue;
             }
             tds2[c2].style.whiteSpace = 'normal';
             tds2[c2].style.wordBreak = 'break-word';
+            /* 메모처럼 긴 글은 폭을 묶어 둔다 — 안 그러면 표가 오른쪽으로 벌어진다 */
+            if (names[c2] === '메모') tds2[c2].style.maxWidth = '150px';
+          }
+        }
+        /* 🔴 2026-09-19 대표 지시 — "물건유형 거래유형 거래가 방향 입주가능일 연락처 등
+           좀 더 촘촘하게 붙여줘, 보기가 힘듬" → 그 칸들의 좌우 여백을 줄인다. */
+        var tight = { '물건유형': 1, '거래유형': 1, '거래가': 1, '방향': 1,
+                      '입주가능일': 1, '연락처': 1, '상태': 1, '사진': 1 };
+        for (r2 = 0; r2 < trs.length; r2++) {
+          tds2 = trs[r2].querySelectorAll('td');
+          for (c2 = 0; c2 < tds2.length; c2++) {
+            if (!tight[names[c2]]) continue;
+            tds2[c2].style.paddingLeft = '5px';
+            tds2[c2].style.paddingRight = '5px';
           }
         }
         var ths = best.querySelectorAll('thead th');
@@ -28110,8 +28199,18 @@ function bzPhotoCellIdx(tb) {
    🔴 맨 끝 칸에 붙이면 표가 16칸이라 화면 오른쪽 밖으로 밀려 **대표 눈에 안 보인다**(실측).
       '첨부' 칸에 붙인다 — 사진이 몇 장인지도 같이 보여 준다. */
 function bzPhotoRowTidy() {
+  /* 🟡 [안 쓰임 2026-09-19 대표 지시] "사진이 사진모양인게 있고 없음이 있는데 …
+     없음 버튼을 지우고, 사진이 있으면 몇 장인지 카메라 옆에 숫자로"
+     → 사진 칸은 listing-photo-excel 의 bzPhotoCell 하나만 그린다(📷 N).
+     여기서 붙이던 딱지(📷 / 📷 없음)가 둘로 보이던 원인이라 멈춘다.
+     🔴 지우지 않고 남겨 둔다 — 되돌릴 때 이 return 만 빼면 된다. */
   var tb = document.querySelector('#listing-cards table');
   if (!tb) return;
+  if (true) {
+    var stale = tb.querySelectorAll('tbody .bz-photo');
+    for (var s0 = 0; s0 < stale.length; s0++) stale[s0].parentNode.removeChild(stale[s0]);
+    return;
+  }
   var idx = bzPhotoCellIdx(tb);
   var rows = (typeof bzListRows === 'function')
     ? bzListRows() : Array.prototype.slice.call(tb.querySelectorAll('tbody tr'));
