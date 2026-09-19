@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 11:10</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 11:18</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -24591,27 +24591,39 @@ function bzAdsSoon(label) {
 }
 
 /* ── 보내기 ───────────────────────────────────────────────────────── */
-function bzAdsLaunch(portal, ids) {
-  portal = String(portal || 'daangn');
-  ids = (ids || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
-  if (!ids.length) {
-    if (typeof showToast === 'function') showToast('먼저 올릴 매물을 고르세요 (광고 칸의 네모를 누르면 됩니다)');
-    return;
-  }
+/* 🔒 주소 만들기는 따로 뗀다 — 개인정보가 안 실리는지 검산이 **보내지 않고** 확인할 수 있어야 한다 */
+function bzAdsUri(portal, ids) {
+  return BZ_ADS_SCHEME + String(portal || 'daangn')
+       + '&listing=' + encodeURIComponent((ids || []).join(','));
+}
+
+function bzAdsPickable(ids) {
   var keep = [], i, o, st;
+  ids = (ids || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
   for (i = 0; i < ids.length; i++) {
     o = (typeof bzFindListing === 'function') ? bzFindListing(ids[i]) : null;
     st = o ? String(o.status || '') : '';
     if (bzAdsBlockedStatus(st)) continue;         /* 상태로 막힌 것만 뺀다 — 나머지는 프로그램이 판단(㉮) */
     keep.push(ids[i]);
   }
+  return keep;
+}
+
+function bzAdsLaunch(portal, ids) {
+  portal = String(portal || 'daangn');
+  ids = (ids || []).map(function (x) { return String(x || '').trim(); }).filter(Boolean);
+  if (!ids.length) {
+    if (typeof showToast === 'function') showToast('먼저 올릴 매물을 고르세요 (광고 칸의 네모를 누르면 됩니다)');
+    return '';
+  }
+  var keep = bzAdsPickable(ids);
   if (!keep.length) {
     if (typeof showToast === 'function') showToast('고른 매물이 모두 계약완료·임대중이라 광고 대상이 아닙니다');
-    return;
+    return '';
   }
+  var uri = bzAdsUri(portal, keep);
   var t0 = Date.now();
-  try { window.location.href = BZ_ADS_SCHEME + portal + '&listing=' + encodeURIComponent(keep.join(',')); }
-  catch (e) {}
+  try { window.location.href = uri; } catch (e) {}
   if (typeof showToast === 'function') {
     showToast(keep.length + '건을 당근 게시기로 보냅니다 — 임시저장까지만 합니다');
   }
@@ -24630,6 +24642,7 @@ function bzAdsLaunch(portal, ids) {
       setTimeout(function () { try { d.remove(); } catch (e) {} }, 14000);
     }
   }, 2500);
+  return uri;
 }
 
 function bzAdsLaunchSel() { bzAdsLaunch('daangn', bzAdsSelIds()); }
@@ -24723,6 +24736,37 @@ function bzAdsModalTidy() {
     + ' title="이 매물을 당근에 올립니다 (임시저장까지)"'
     + ' onclick="event.stopPropagation();bzAdsLaunch(&quot;daangn&quot;,[&quot;' + bzEsc(mm[1]) + '&quot;])">🥕 당근 올리기</button>');
 }
+
+/* 🔴 2026-09-19 실측 — 초안 표시가 저장 한 번에 통째로 사라지던 자리.
+   adsFlatten(o) 은 o.ads(아는 포털)만 보고 adsFlat 을 **새로 쓴다.** 'daangndraft~시각' 은
+   PLATFORMS 에 없는 낱말이라 adsRestore 가 안 읽고, 다음 저장 때 adsFlatten 이 지워 버린다.
+   (실증: 검수에서 게시중은 살아남고 초안만 사라졌다 — 딱 이 경로다)
+   🔴 index.html 기능 코드는 고치지 않는다. 여기서 덧씌워 **모르는 초안 칸을 도로 붙인다.**
+   🔴 같은 포털이 '게시중' 으로 적혀 있으면 초안은 버린다 — 게시가 이긴다. */
+(function bzAdsKeepDraft() {
+  if (typeof adsFlatten !== 'function' || window.__bzAdsFlatWrapped) return;
+  var _f = adsFlatten;
+  window.adsFlatten = function (o) {
+    var keep = [];
+    String((o && o.adsFlat) || '').split('|').forEach(function (s) {
+      if (!s) return;
+      var k = s.split('~')[0] || '';
+      if (k.length > 5 && k.slice(-5) === 'draft') keep.push(s);
+    });
+    var r = _f.apply(this, arguments);
+    if (o && keep.length) {
+      var cur = String(o.adsFlat || '').split('|').filter(Boolean);
+      keep.forEach(function (s) {
+        var base = s.split('~')[0].slice(0, -5);
+        var posted = cur.some(function (x) { return (x.split('~')[0] || '') === base; });
+        if (!posted) cur.push(s);
+      });
+      o.adsFlat = cur.join('|');
+    }
+    return r;
+  };
+  window.__bzAdsFlatWrapped = true;
+})();
 
 (function bzAdsHook() {
   var tick = function () {
