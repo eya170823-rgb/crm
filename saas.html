@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:21</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:22</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -27451,6 +27451,43 @@ function bzExpPhotoDone(id, c) {
    · 🔴 단추·링크·입력칸은 그대로 둔다 — 광고/지도/메모/출입/사진 같은 것이 먹히면 안 된다.
    · 표가 다시 그려지면 listing-table2 가 수정창 연결을 되살리므로 tick 마다 다시 덮는다.
    · 수정창은 아래 작업패널의 [✏ 수정] 으로 연다(그 길은 그대로 둔다). */
+/* 🔴 2026-09-19 대표 보고 "열렸다가 금방 다시 닫힘"
+   헤드리스로는 재현되지 않았다(진짜 마우스 이벤트로도 2초 뒤까지 열려 있었다).
+   남는 설명은 **표가 다시 그려지면 펼친 줄이 표와 함께 사라진다**는 것이다(추정) —
+   시트 확인·자동 갱신이 renderListings 를 부르면 <tr id="bz-exp-…"> 도 같이 지워진다.
+   원인을 단정하지 않고, **다시 그려져도 펼친 채로 되살린다.**
+   · 사람이 닫은 것은 되살리지 않는다(토글에서 상태를 따라간다).
+   · 그 매물 행이 화면에 없으면(검색·필터로 빠졌으면) 되살리지 않는다. */
+var BZ_EXP_KEEP = {};
+
+function bzExpTrack() {
+  if (window.__bzExpTracked) return;
+  if (typeof window.bzExpToggle !== 'function') return;
+  var _t = window.bzExpToggle;
+  window.bzExpToggle = function (ev, id) {
+    var out = _t.apply(this, arguments);
+    try { BZ_EXP_KEEP[id] = !!document.getElementById('bz-exp-' + id); } catch (e) {}
+    return out;
+  };
+  window.__bzExpTracked = true;
+}
+
+function bzExpKeepTidy() {
+  var tb = document.querySelector('#listing-cards table tbody');
+  if (!tb) return;
+  var onScreen = {};
+  Array.prototype.forEach.call(tb.querySelectorAll('tr'), function (tr) {
+    if (tr.id && tr.id.indexOf('bz-') === 0) return;
+    var id = bzPhotoRowId(tr);
+    if (id) onScreen[id] = 1;
+  });
+  for (var id in BZ_EXP_KEEP) {
+    if (!BZ_EXP_KEEP[id] || !onScreen[id]) continue;
+    if (document.getElementById('bz-exp-' + id)) continue;   /* 아직 열려 있으면 그대로 */
+    try { bzExpOpen(id); } catch (e) {}
+  }
+}
+
 function bzRowClickTidy() {
   var tb = document.querySelector('#listing-cards table tbody');
   if (!tb) return;
@@ -27621,7 +27658,9 @@ function bzPhotoTakeOverG1() {
 (function bzPhotoHook() {
   var tick = function () {
     try { bzPhotoTakeOverG1(); } catch (e) {}
+    try { bzExpTrack(); } catch (e) {}
     try { bzRowClickTidy(); } catch (e) {}
+    try { bzExpKeepTidy(); } catch (e) {}
     try { bzPhotoRowTidy(); } catch (e) {}
     try { bzPhotoBadgeTidy(); } catch (e) {}
     try { bzPhotoModalTidy(); } catch (e) {}
