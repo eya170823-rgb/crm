@@ -1173,7 +1173,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:28</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:34</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -27476,6 +27476,20 @@ function bzAdmMount() {
 /* 🔴 2026-09-19 대표 지시 — "광고는 필요없음 지워줘" · "출입 칸이 굳이 필요 없음"
    🔴 칸을 지우지는 않았다(자료가 사라지면 되돌릴 수 없다). **기본으로 접는다.**
       [📐 칸 보기] 에서 다시 켤 수 있고, 출입 비번은 대표 말씀대로 메모에 적으면 된다. */
+/* ── 🔴 2026-09-19 대표 승인 — 고객관리도 매물관리와 같은 구성으로 ────────
+   같은 코드를 두 화면이 나눠 쓴다(고객관리용으로 새로 만들지 않는다).
+   화면마다 다른 것만 여기 적는다. 칸 이름·순서·내용은 그 화면 것 그대로 둔다. */
+var BZ_SCREENS = {
+  listing: { panel: 'p-listing', wrap: '.listing-table-wrap',
+             sub: 'listing-count-sub', key: 'bzListColHide', sticky: '매물명' },
+  customer: { panel: 'p-customer', wrap: '.tbl-wrap',
+              sub: 'customer-count-sub', key: 'bzCustColHide', sticky: '이름',
+              /* 🔴 고객관리는 칸을 지우지 않는다 — 접을 수 있게만 한다. 처음엔 다 보인다. */
+              hideable: ['구분', '유형', '접수일/완료시점', '예산', '진행단계'],
+              hideDefault: [] }
+};
+function bzScr(k) { return BZ_SCREENS[k || 'listing']; }
+
 var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '고객명',
                        '🔒출입', '광고', '지도'];
 /* 처음에 접어 두는 것. 🔴 고객명은 접는 목록에는 두되 **처음부터 접지는 않는다** —
@@ -27485,18 +27499,28 @@ var BZ_COL_HIDE_DEFAULT = ['매물번호', '접수일', '거래유형', '방향'
 var BZ_COL_KEY = 'bzListColHide';
 var BZ_COL_STICKY = '매물명';
 
-function bzColHidden() {
+function bzColAble(sc) { return (bzScr(sc).hideable) || BZ_COL_HIDEABLE; }
+function bzColDef(sc) {
+  var c = bzScr(sc);
+  return c.hideDefault ? c.hideDefault : BZ_COL_HIDE_DEFAULT;
+}
+function bzColHidden(sc) {
+  var c = bzScr(sc);
   try {
-    var raw = localStorage.getItem(BZ_COL_KEY);
-    if (raw === null) return BZ_COL_HIDE_DEFAULT.slice();   /* 처음에 접어 두는 칸 */
+    var raw = localStorage.getItem(c.key);
+    if (raw === null) return bzColDef(sc).slice();          /* 처음에 접어 두는 칸 */
     var a = JSON.parse(raw);
     return Object.prototype.toString.call(a) === '[object Array]' ? a : [];
-  } catch (e) { return BZ_COL_HIDE_DEFAULT.slice(); }
+  } catch (e) { return bzColDef(sc).slice(); }
 }
-function bzColSave(list) {
-  try { localStorage.setItem(BZ_COL_KEY, JSON.stringify(list)); } catch (e) {}
+function bzColSave(list, sc) {
+  try { localStorage.setItem(bzScr(sc).key, JSON.stringify(list)); } catch (e) {}
 }
-function bzColTable() { return document.querySelector('.listing-table-wrap table'); }
+function bzColTable(sc) {
+  var c = bzScr(sc);
+  var p = document.getElementById(c.panel);
+  return p ? p.querySelector(c.wrap + ' table') : null;
+}
 
 function bzColNames(tb) {
   var out = [], th = tb.querySelectorAll('thead th'), i;
@@ -27505,14 +27529,15 @@ function bzColNames(tb) {
 }
 
 /* 접기·펴기 + 첫 칸 고정을 표에 입힌다 */
-function bzColApply() {
-  var tb = bzColTable();
+function bzColApply(sc) {
+  var tb = bzColTable(sc);
   if (!tb) return;
   var names = bzColNames(tb);
-  var hide = bzColHidden(), i, j;
+  var hide = bzColHidden(sc), i, j;
+  var ABLE = bzColAble(sc);
   var hideIdx = {};
   for (i = 0; i < names.length; i++) {
-    if (hide.indexOf(names[i]) >= 0 && BZ_COL_HIDEABLE.indexOf(names[i]) >= 0) hideIdx[i] = 1;
+    if (hide.indexOf(names[i]) >= 0 && ABLE.indexOf(names[i]) >= 0) hideIdx[i] = 1;
   }
   var ths = tb.querySelectorAll('thead th');
   for (i = 0; i < ths.length; i++) ths[i].style.display = hideIdx[i] ? 'none' : '';
@@ -27524,7 +27549,7 @@ function bzColApply() {
 
   /* 첫 칸 고정 — 매물명 앞의 칸이 모두 접혀 있을 때만 건다.
      🔴 앞에 보이는 칸이 남아 있으면 left:0 이 어긋나 글자가 겹친다. 그때는 걸지 않는다. */
-  var si = names.indexOf(BZ_COL_STICKY);
+  var si = names.indexOf(bzScr(sc).sticky || BZ_COL_STICKY);
   var canStick = si >= 0;
   for (i = 0; i < si; i++) { if (!hideIdx[i]) { canStick = false; break; } }
   var put = function (el, on) {
@@ -27542,83 +27567,93 @@ function bzColApply() {
   }
   /* 🔴 메모 줄바꿈도 해 봤으나 표가 오히려 넓어졌다(801px 넘침) — 되돌렸다.
      table-layout:auto 에서는 td 의 max-width 가 칸 폭을 못 줄인다(2026-09-19 실측). */
-  var note = document.getElementById('bz-col-note');
+  var note = document.getElementById(bzScr(sc).panel === 'p-customer' ? 'bz-col-note-c' : 'bz-col-note');
   if (note) {
     note.textContent = canStick ? '' : '(앞 칸을 펴 두면 매물명 고정은 꺼집니다)';
   }
 }
 
 /* [칸 보기] 단추 + 고르는 상자 */
-function bzColBar() {
-  var wrap = document.querySelector('.listing-table-wrap');
-  if (!wrap || document.getElementById('bz-col-bar')) return;
+function bzColBar(sc) {
+  var c = bzScr(sc), cu = (c.panel === 'p-customer');
+  var pn = document.getElementById(c.panel);
+  var wrap = pn ? pn.querySelector(c.wrap) : null;
+  var barId = cu ? 'bz-col-bar-c' : 'bz-col-bar';
+  if (!wrap || document.getElementById(barId)) return;
   var bar = document.createElement('div');
-  bar.id = 'bz-col-bar';
+  bar.id = barId;
   bar.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 2px;font-size:12px';
-  bar.innerHTML = '<button class="btn btn-xs" onclick="bzColPanel()">📐 칸 보기</button>'
-    + '<span id="bz-col-n" style="color:var(--t3)"></span>'
-    + '<span id="bz-col-sum" style="color:var(--t3)"></span>'
-    + '<span id="bz-col-note" style="color:var(--t3)"></span>'
-    + '<div id="bz-col-box" style="display:none;gap:10px;flex-wrap:wrap;width:100%;'
+  var sfx = cu ? '-c' : '';
+  bar.innerHTML = '<button class="btn btn-xs" onclick="bzColPanel(' + (cu ? '&quot;customer&quot;' : '') + ')">📐 칸 보기</button>'
+    + '<span id="bz-col-n' + sfx + '" style="color:var(--t3)"></span>'
+    + '<span id="bz-col-sum' + sfx + '" style="color:var(--t3)"></span>'
+    + '<span id="bz-col-note' + sfx + '" style="color:var(--t3)"></span>'
+    + '<div id="bz-col-box' + sfx + '" style="display:none;gap:10px;flex-wrap:wrap;width:100%;'
     + 'border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:4px"></div>';
   wrap.parentNode.insertBefore(bar, wrap);
-  bzColSum();
+  bzColSum(sc);
 }
-function bzColSum() {
-  var el = document.getElementById('bz-col-sum');
+function bzColSum(sc) {
+  var cu = bzScr(sc).panel === 'p-customer';
+  var el = document.getElementById(cu ? 'bz-col-sum-c' : 'bz-col-sum');
   if (!el) return;
-  var n = bzColHidden().length;
+  var n = bzColHidden(sc).length;
   el.textContent = n ? ('접은 칸 ' + n + '개') : '모든 칸 보임';
 }
-function bzColPanel() {
-  var box = document.getElementById('bz-col-box');
+function bzColPanel(sc) {
+  var cu = bzScr(sc).panel === 'p-customer';
+  var q = cu ? ',&quot;customer&quot;' : '';
+  var box = document.getElementById(cu ? 'bz-col-box-c' : 'bz-col-box');
   if (!box) return;
   if (box.style.display !== 'none') { box.style.display = 'none'; return; }
-  var hide = bzColHidden();
-  box.innerHTML = BZ_COL_HIDEABLE.map(function (n) {
+  var hide = bzColHidden(sc);
+  box.innerHTML = bzColAble(sc).map(function (n) {
     return '<label style="cursor:pointer;white-space:nowrap">'
       + '<input type="checkbox" ' + (hide.indexOf(n) < 0 ? 'checked' : '')
-      + ' onchange="bzColSet(&quot;' + n + '&quot;,this.checked)"> ' + n + '</label>';
+      + ' onchange="bzColSet(&quot;' + n + '&quot;,this.checked' + q + ')"> ' + n + '</label>';
   }).join('')
-    + '<button class="btn btn-xs" onclick="bzColAll(true)">모두 펴기</button>'
-    + '<button class="btn btn-xs" onclick="bzColAll(false)">모두 접기</button>'
+    + '<button class="btn btn-xs" onclick="bzColAll(true' + q + ')">모두 펴기</button>'
+    + '<button class="btn btn-xs" onclick="bzColAll(false' + q + ')">모두 접기</button>'
     + '<span style="color:var(--t3);font-size:11px;width:100%">'
     + '🔴 칸을 지우는 것이 아닙니다 — 이 기기에서만 숨깁니다.</span>';
   box.style.display = 'flex';
 }
-function bzColSet(name, show) {
-  var hide = bzColHidden();
+function bzColSet(name, show, sc) {
+  var hide = bzColHidden(sc);
   var i = hide.indexOf(name);
   if (show && i >= 0) hide.splice(i, 1);
   if (!show && i < 0) hide.push(name);
-  bzColSave(hide);
-  bzColApply(); bzColSum();
+  bzColSave(hide, sc);
+  bzColApply(sc); bzColSum(sc);
 }
-function bzColAll(show) {
-  bzColSave(show ? [] : BZ_COL_HIDEABLE.slice());
-  bzColApply(); bzColSum(); bzColPanel(); bzColPanel();
+function bzColAll(show, sc) {
+  bzColSave(show ? [] : bzColAble(sc).slice(), sc);
+  bzColApply(sc); bzColSum(sc); bzColPanel(sc); bzColPanel(sc);
 }
 
 /* ── 🔴 2026-09-19 대표 지시 — 매물장 위쪽을 줄인다 ──────────────────────
    "상단에 매물장이라는 글씨, 전체 몇 건 중 몇 건 표시라는 말은 굳이 필요 없을 것 같음.
     상단이 길어서 스크롤이 길게 내려간다."
    🔴 지우지 않고 **감춘다**(display:none). 건수는 [📐 칸 보기] 줄에 작게 남겨 둔다. */
-function bzColHead() {
-  var panel = document.getElementById('p-listing');
+function bzColHead(sc) {
+  var c = bzScr(sc), cu = (c.panel === 'p-customer');
+  var panel = document.getElementById(c.panel);
   if (!panel) return;
   var hd = panel.querySelector('.page-hd');
   if (!hd) return;
   var t = hd.querySelector('.page-title');
   if (t && t.style.display !== 'none') t.style.display = 'none';
-  var sub = document.getElementById('listing-count-sub');
+  var sub = document.getElementById(c.sub);
   if (sub) {
     var n = String(sub.textContent || '').trim();
     if (sub.style.display !== 'none') sub.style.display = 'none';
   }
-  var slot = document.getElementById('bz-col-n');
+  var slot = document.getElementById(cu ? 'bz-col-n-c' : 'bz-col-n');
   if (slot) {
     /* 🔴 건수는 늘 직접 센다 — 원본 글자가 비어 있는 순간이 있다(실측) */
-    var cnt = (typeof listings !== 'undefined' && listings) ? listings.length : 0;
+    var src2 = cu ? ((typeof customers !== 'undefined' && customers) ? customers : [])
+                  : ((typeof listings !== 'undefined' && listings) ? listings : []);
+    var cnt = src2.length;
     var txt2 = cnt + '건';
     if (slot.textContent !== txt2) slot.textContent = txt2;
   }
@@ -27641,6 +27676,8 @@ function bzFitPanel() {
      매물장이 보이면 매물장을 먼저 쓴다. */
   var lp = document.getElementById('p-listing');
   if (lp && lp.offsetParent !== null && lp.getBoundingClientRect().height > 0) return lp;
+  var cp = document.getElementById('p-customer');
+  if (cp && cp.offsetParent !== null && cp.getBoundingClientRect().height > 0) return cp;
   var ps = document.querySelectorAll('.panel');
   for (var i = 0; i < ps.length; i++) {
     if (ps[i].offsetParent === null || ps[i].style.display === 'none') continue;
@@ -27656,7 +27693,7 @@ function bzColFit() {
   if (panel) {
     /* 🔴 2026-09-19 — 매물장에서는 **매물 목록 상자**를 잡는다.
        '가장 큰 것' 으로 고르면 펼친 줄 안의 작은 표를 잡는 순간이 있다(실측: 높이가 안 잡힘). */
-    var main = panel.querySelector('.listing-table-wrap');
+    var main = panel.querySelector('.listing-table-wrap') || panel.querySelector('.tbl-wrap');
     var boxes = panel.querySelectorAll(BZ_FIT_SEL);
     var best = main || null, bestH = 0;      /* 매물 목록이 있으면 그것을 쓴다(크기로 고르지 않는다) */
     if (main) boxes = [];
@@ -27758,14 +27795,19 @@ function bzColFit() {
 })();
 
 (function bzColBoot() {
+  function one(sc) {
+    if (!bzColTable(sc)) return false;
+    bzColBar(sc);
+    bzColApply(sc);
+    bzColHead(sc);
+    return true;
+  }
   function tick() {
-    if (!bzColTable()) {
-      try { document.documentElement.style.overflowY = ''; } catch (e) {}
-      return;
-    }
-    bzColBar();
-    bzColApply();
-    bzColHead();
+    var any = false;
+    if (one('listing')) any = true;
+    /* 🔴 2026-09-19 대표 승인 — 고객관리도 같은 구성으로(같은 코드를 쓴다) */
+    if (one('customer')) any = true;
+    if (!any) { try { document.documentElement.style.overflowY = ''; } catch (e) {} return; }
     bzColFit();
   }
   setTimeout(tick, 900);
