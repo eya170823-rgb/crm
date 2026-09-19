@@ -346,7 +346,9 @@ body,button,input,select,textarea{font-family:Pretendard,-apple-system,BlinkMacS
 :root{
   --navy:#12305B; --navy-d:#0B2240; --navy-l:#E8EEF6;
   --a:#C2410C; --al:#FDEBE1;            /* 금색 제거 */
-  --shell-h:56px; --nav-w:280px; --rail-w:76px;
+  /* 🔴 2026-09-19 대표 지시 "왼쪽에 사이드바가 너무 넓음" — 280 → 200px.
+     빈 76px 칸을 접어 목록이 279px 까지 넓어진 뒤라, 200px 로도 글자가 안 잘린다(실측). */
+  --shell-h:56px; --nav-w:200px; --rail-w:76px;
 }
 /* 📱 아이패드 세로(761~1000px): 옆 메뉴를 그대로 두고 폭만 줄여 본문을 넓힌다 (2026-09-08 대표 지적) */
 @media(min-width:761px) and (max-width:1000px){
@@ -1171,7 +1173,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:00</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:09</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -26483,7 +26485,13 @@ function bzExpBtns() {
         old[k].parentNode.removeChild(old[k]);
       }
     }
-    if (tr.querySelector('.bz-exp-end')) return;
+    /* 🔴 2026-09-19 대표 지시 — "매물 밑에 펼치기가 아니고 **매물명을 누르면** 펼치기".
+       단추를 만들지 않고, 이미 붙어 있던 것은 걷어낸다. 여는 길은 매물명 칸 클릭이다
+       (photo-launch 의 bzRowClickTidy 가 매물번호·매물명 칸에 걸어 둔다).
+       🟡 아래 단추 만들기는 지우지 않고 여기서 멈춘다 — 되돌릴 때 이 return 만 빼면 된다. */
+    var oldEnd = tr.querySelectorAll('.bz-exp-end');
+    for (var q = 0; q < oldEnd.length; q++) oldEnd[q].parentNode.removeChild(oldEnd[q]);
+    return;
     var id = bzExpRealId(tr);
     if (!id) return;                                                  /* 입력 줄·안내 줄 제외 */
     var tds = tr.querySelectorAll('td');
@@ -27096,6 +27104,32 @@ function bzRailFix() {
   }
 }
 
+/* ── 🔴 2026-09-19 대표 지적 "왼쪽 하단에 글자가 짤렸음" ────────────────
+   사이드바는 overflow:hidden 이고 아래 칸(푸터)은 높이가 고정이라, 글이 길거나
+   글자 크기가 커지면 **그대로 잘린다**(헤드리스 1034px 에서는 재현 안 됨 — 창 크기·글자
+   크기에 따라 달라진다. 그래서 원인을 가리지 않고 잘릴 수 없게 만든다).
+     · 푸터 안 글자는 줄바꿈을 허용하고 말줄임(…)을 끈다
+     · 푸터가 넘치면 그 안에서 스크롤되게 한다(감추지 않는다)
+     · 낱말이 어색하게 끊기지 않도록 keep-all */
+function bzSideFoot() {
+  var ft = document.querySelector('.sidebar .sb-footer');
+  if (!ft) return;
+  if (ft.style.overflowY !== 'auto') {
+    ft.style.overflowY = 'auto';
+    ft.style.minHeight = '0';
+  }
+  var kids = ft.querySelectorAll('*');
+  for (var i = 0; i < kids.length; i++) {
+    var e = kids[i];
+    if (e.style.whiteSpace === 'normal') continue;
+    e.style.whiteSpace = 'normal';
+    e.style.wordBreak = 'keep-all';
+    e.style.overflow = 'visible';
+    e.style.textOverflow = 'clip';
+    if (e.tagName === 'BUTTON' || e.tagName === 'A') e.style.height = 'auto';
+  }
+}
+
 /* 찾기 칸을 감추면서 생긴 빈 줄(0px)도 접는다 — 목록이 그만큼 더 보인다 */
 function bzRailRows() {
   var side = document.querySelector('.sidebar');
@@ -27107,7 +27141,7 @@ function bzRailRows() {
 }
 
 (function bzMfBoot() {
-  function tick() { try { bzMfMount(); bzMfHideSide(); bzRailFix(); bzRailRows(); } catch (e) {} }
+  function tick() { try { bzMfMount(); bzMfHideSide(); bzRailFix(); bzRailRows(); bzSideFoot(); } catch (e) {} }
   setTimeout(tick, 900);
   setInterval(tick, 2000);
 })();
@@ -27442,14 +27476,22 @@ function bzColFit() {
         best.style.overflowX = 'hidden';
         var tbl0 = best.querySelector('table');
         if (tbl0) { tbl0.style.width = '100%'; tbl0.style.minWidth = '0'; }
-        var keep = { '광고': 1, '사진': 1, '지도': 1, '게시': 1 };
+        /* 🔴 2026-09-19 대표 지시 "매물번호를 줄내림하지 말고" —
+           번호·날짜·전화처럼 **한 줄로 읽는 것**은 줄바꿈하지 않는다. 긴 글만 접는다. */
+        var keep = { '광고': 1, '사진': 1, '지도': 1, '게시': 1,
+                     '매물번호': 1, '접수일': 1, '입주가능일': 1, '연락처': 1,
+                     '거래가': 1, '상태': 1, '방향': 1 };
         var hn = best.querySelectorAll('thead th'), names = [], z;
         for (z = 0; z < hn.length; z++) names.push(String(hn[z].textContent || '').trim());
         var trs = best.querySelectorAll('tbody tr'), r2, c2, tds2;
         for (r2 = 0; r2 < trs.length; r2++) {
           tds2 = trs[r2].querySelectorAll('td');
           for (c2 = 0; c2 < tds2.length; c2++) {
-            if (keep[names[c2]]) continue;
+            if (keep[names[c2]]) {
+              /* 한 줄로 읽는 칸은 **분명히** 한 줄로 못박는다(원래 CSS 에 기대지 않는다) */
+              if (tds2[c2].style.whiteSpace !== 'nowrap') tds2[c2].style.whiteSpace = 'nowrap';
+              continue;
+            }
             tds2[c2].style.whiteSpace = 'normal';
             tds2[c2].style.wordBreak = 'break-word';
           }
@@ -27833,32 +27875,29 @@ function bzRowClickTidy() {
     var id = bzPhotoRowId(tr);
     if (!id) return;
 
-    /* 매물번호·매물명 칸 — 수정창 대신 펼치기 */
+    /* 🔴 2026-09-19 대표 지시 — **매물명 칸만** 누르면 펼쳐진다.
+       · 종전에는 tds[0]·tds[2] 를 **자리(번호)로** 잡았는데, 칸을 접고 옮기면서
+         엉뚱한 칸에 걸렸다. 이제 머리글 이름으로 '매물명' 칸을 찾는다.
+       · 줄 전체에 걸어 둔 손잡이도 뺐다 — 지도 칸을 눌러도 펼쳐지던 원인이다.
+         지도는 예전처럼 그 칸의 [지도] 단추가 지도를 연다. */
+    var tbl = tr.closest ? tr.closest('table') : null;
+    var ths = tbl ? tbl.querySelectorAll('thead th') : [];
+    var want = -1, n;
+    for (n = 0; n < ths.length; n++) {
+      if (String(ths[n].textContent || '').trim() === '매물명') { want = n; break; }
+    }
     var tds = tr.querySelectorAll('td');
-    /* 🔴 '한 번만' 으로 두면 안 된다 — listing-table2 가 다시 그릴 때 수정창 연결을
-       되살리는데 내 표시만 남아 건너뛰게 된다. 매 번 덮어쓴다(행 수만큼이라 가볍다). */
-    [tds[0], tds[2]].forEach(function (td) {
-      if (!td) return;
-      td.onclick = function (ev) { bzExpToggle(ev, id); };
-      td.title = '누르면 펼쳐 봅니다';
-      td.style.cursor = 'pointer';
-    });
-
-    /* 행의 빈 곳 */
-    if (tr.getAttribute('data-bzrow') === '1') return;
-    tr.setAttribute('data-bzrow', '1');
-    tr.style.cursor = 'pointer';
-    tr.addEventListener('click', function (ev) {
-      var t = ev.target;
-      while (t && t !== tr) {
-        var tag = String(t.tagName || '').toLowerCase();
-        if (tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select'
-            || tag === 'textarea' || tag === 'label' || tag === 'img') return;
-        if (t.getAttribute && t.getAttribute('onclick')) return;   /* 남의 손잡이는 살린다 */
-        t = t.parentNode;
-      }
-      bzExpToggle(ev, id);
-    });
+    var nameTd = (want >= 0) ? tds[want] : null;
+    if (nameTd) {
+      nameTd.onclick = function (ev) { bzExpToggle(ev, id); };
+      nameTd.title = '누르면 펼쳐 봅니다';
+      nameTd.style.cursor = 'pointer';
+    }
+    /* 줄 전체 손잡이가 예전에 걸려 있으면 떼어 낸다 */
+    if (tr.getAttribute('data-bzrow') === '1') {
+      tr.removeAttribute('data-bzrow');
+      tr.style.cursor = '';
+    }
   });
 }
 
