@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 16:23</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 16:46</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23556,7 +23556,7 @@ function bzRowTidy() {
 /* ── 13. 사진 첨부 ───────────────────────────────────────────────────── */
 function bzPhotoOpen(id) {
   var o = bzFindListing(id);
-  var n = o ? (parseInt(o.photoCnt, 10) || 0) : 0;
+  var n = o ? bzPhotoNum(o.photoCnt) : 0;
   var title = (o ? (bzEsc(o.apt || '') + ' ' + bzEsc(o.addr2 || '')) : id) + ' — 사진';
 
   var body = '<div style="font-size:12.5px;margin-bottom:9px">'
@@ -23618,47 +23618,44 @@ function bzPhotoPick(id, cam) {
   f.click();
 }
 
-/* 🔴 원본 폴더로 올리기만 한다. 기존 drivePut 경로를 그대로 쓴다. */
+/* ── 🔴 2026-09-19 대표 승인 — 올리는 길을 **하나로** 합쳤다 ────────────────────
+   종전에는 이 함수가 drivePut 을 **자기 fetch 로 직접** 불렀다. 그래서 올리는 코드가 두 벌이었고
+     · 폰 3단추 길(bzPhotoShoot) → photoUpload → drivePut   (사진을 긴 변 1600px·JPEG 로 **줄여서** 올림)
+     · 이 모달 길(bzPhotoUp)     → drivePut 직접            (🔴 **원본 그대로** 올림 · 줄이지 않음)
+   두 길이 서로 달라, 한쪽만 고치면 어긋났다.
+   → 이제 폰 길과 **똑같이** photoUpload 를 쓴다. 줄이기·오류처리가 한 곳에만 있다.
+   🔴 저장 위치는 그대로다(GAS drivePut → 그 호실 '원본' 폴더). 새 경로를 만들지 않았다.
+   되돌리기: 05_보관\정리대기_20260919\ 의 사본에 옛 함수가 그대로 있다. */
 async function bzPhotoUp(id, ev) {
   var box = document.getElementById('bz-ph-box');
   var files = (ev && ev.target && ev.target.files) ? Array.prototype.slice.call(ev.target.files) : [];
   if (!files.length) return;
-  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
-  if (!url) { if (box) box.textContent = '이 기기에 CRM 주소·토큰이 없습니다.'; return; }
-  var tok = (typeof getGsTok === 'function') ? getGsTok() : '';
-  var okN = 0, bad = [];
-  for (var i = 0; i < files.length; i++) {
-    var f = files[i];
-    if (box) box.innerHTML = '올리는 중… ' + (i + 1) + ' / ' + files.length + ' (' + bzEsc(f.name) + ')';
-    try {
-      var b64 = await new Promise(function (res, rej) {
-        var rd = new FileReader();
-        rd.onload = function () { res(String(rd.result || '').split(',')[1] || ''); };
-        rd.onerror = function () { rej(new Error('파일을 읽지 못했습니다')); };
-        rd.readAsDataURL(f);
-      });
-      var r = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'drivePut', token: tok, listingId: id,
-          name: f.name, mime: f.type || 'image/jpeg', data: b64
-        })
-      });
-      var j = await r.json();
-      if (j && j.ok) okN++; else bad.push(f.name + ' — ' + String((j && j.error) || '실패'));
-    } catch (e) { bad.push(f.name + ' — ' + String(e && e.message)); }
+
+  if (typeof photoUpload !== 'function') {
+    if (box) box.textContent = '이 화면에서는 사진을 올릴 수 없습니다.';
+    return;
   }
-  if (box) {
-    box.innerHTML = '<div style="font-size:12.5px">' + okN + '장 올렸습니다.'
-      + (bad.length ? ('<br><span style="color:#B91C1C">실패 ' + bad.length + '장</span><br>'
-        + bad.slice(0, 4).map(bzEsc).join('<br>')) : '')
-      + '<br><span style="color:var(--t3)">워터마크가 찍히면 장수가 바뀝니다 — 잠시 뒤 다시 보세요.</span></div>';
+  /* photoUpload 는 '어느 매물인지'를 photoPanelId 로 안다 — 폰 길과 같은 방법으로 정해 준다 */
+  if (typeof photoPanelOpen === 'function') { try { photoPanelOpen(id); } catch (e) {} }
+
+  if (box) box.innerHTML = '올리는 중… ' + files.length + '장 (잠시만요)';
+  try {
+    await Promise.resolve(photoUpload(files));
+    if (box) {
+      box.innerHTML = '<div style="font-size:12.5px">' + files.length + '장 보냈습니다.'
+        + '<br><span style="color:var(--t3)">워터마크가 찍히면 장수가 바뀝니다 — 잠시 뒤 다시 보세요.</span></div>';
+    }
+    if (typeof showToast === 'function') showToast(files.length + '장 올렸습니다 — 워터마크는 잠시 뒤에 찍힙니다');
+  } catch (e) {
+    /* 🔴 실패를 '0장' 으로 감추지 않는다 — 까닭을 그대로 띄운다 */
+    if (box) box.innerHTML = '<div style="font-size:12.5px;color:#B91C1C">올리지 못했습니다 — '
+      + bzEsc(String((e && e.message) || e)) + '</div>';
+    if (typeof showToast === 'function') showToast('사진을 올리지 못했습니다');
   }
   try { ev.target.value = ''; } catch (e2) {}
   setTimeout(function () { bzPhotoRefresh(id); }, 15000);
-  if (typeof showToast === 'function') showToast(okN + '장 올렸습니다 — 워터마크는 잠시 뒤에 찍힙니다');
 }
+
 
 /* ── 📱 2026-09-19 대표 지시 — 사진 칸을 누르면 **폰은 곧장 3단추**(찍기·앨범·폴더) ──────
    "사진칸 폰 클릭 시 bzPhotoLaunch(3단추: 찍기/앨범/폴더)로 바로 가게 고쳐라."
@@ -23674,6 +23671,24 @@ function bzPhotoTap(id) {
     try { if (bzPhotoIsPhone()) { bzPhotoLaunch(id); return; } } catch (e) {}
   }
   bzPhotoOpen(id);
+}
+
+/* ── 📷 2026-09-19 — 사진 장수 읽기 (숫자도, 옛 글자도 받는다) ────────────────
+   시트 photoCnt 에는 두 가지가 들어 있다.
+     · 앞으로 : **숫자** (GAS photoCntSync_ 가 올릴 때마다 그 매물만 숫자로 적는다)
+     · 예전 것: '원본16·보정완료0' 같은 **글자** — parseInt 가 NaN 이라 늘 안 보였다(실측)
+   그래서 글자면 **첫 숫자('원본' 쪽)** 를 뽑는다. 숫자를 지어내지 않는다 — 없으면 0. */
+function bzPhotoNum(v) {
+  var s = String(v == null ? '' : v).trim();
+  if (!s) return 0;
+  var n = parseInt(s, 10);
+  if (!isNaN(n)) return n;
+  var d = '', i;
+  for (i = 0; i < s.length; i++) {
+    if (s.charAt(i) >= '0' && s.charAt(i) <= '9') d += s.charAt(i);
+    else if (d) break;
+  }
+  return d ? parseInt(d, 10) : 0;
 }
 
 /* 매물 표의 [첨부] 칸을 사진 열기로 바꾼다 */
@@ -23695,7 +23710,7 @@ function bzPhotoCell() {
     if (td.getAttribute('data-bzph') === '1') return;
     var id = bzRowId(tr);
     var o = bzFindListing(id);
-    var n = o ? (parseInt(o.photoCnt, 10) || 0) : 0;
+    var n = o ? bzPhotoNum(o.photoCnt) : 0;
     td.innerHTML = '<button class="btn btn-xs" title="사진 보기·올리기"'
       + ' onclick="event.stopPropagation();bzPhotoTap(&quot;' + bzEsc(id) + '&quot;)">'
       /* 🔴 2026-09-19 대표 지시 — 카메라 옆에 장수만. '없음' 단추는 만들지 않는다.
@@ -24687,16 +24702,15 @@ function bzAdsBlockedStatus(st) {
   return st === '계약완료' || st === '임대중' || st === '거래완료' || st === '임대완료' || st === '매매완료';
 }
 
-/* ── 🔴 2026-09-19 대표 지시(확정) — 매물관리 광고 칸은 **표시 전용** ──────────
-   대표 원문: "올린 것은 표시하고 안 올린 것은 표시가 안 되게".
-   → **올린 포털(posted)만** 컬러 칩을 만든다.
-     안 올린 포털은 **DOM 을 아예 만들지 않는다** — 회색 칩도, opacity·visibility 로
-     숨긴 빈 칩도 만들지 않는다(빈 자리마저 남기지 않는다).
-   🔴 임시저장(초안)도 매물장에는 내지 않는다 — 초안 여부는 광고관리에서 본다.
-   근거는 adMark 기록(adsFlat 의 daangn~)뿐이다. 기록이 없으면 그 칸은 빈칸이다.
-   올리는 단추·체크박스·막힌 사유는 전부 광고관리로 옮겼다.
-   (앞서 여기 있던 "안 올린 것도 회색으로 늘 보인다" 주석은 **지시 해석 오류**였다 —
-    2026-09-19 대표 확인 후 회색 렌더링과 함께 걷어냈다) */
+/* ── 🔴 2026-09-19 대표 방침(최종) — 매물관리 광고 칸은 **표시 전용** ──────────
+   "올린 포털은 날짜(색 있는 아이콘), 안 올린 포털은 회색 아이콘."
+   목적: 대표가 매물장을 **한 번 보면** 어느 포털에 올렸고 어디에 안 올렸는지 바로 안다.
+     · 올린 것(posted)  : 포털 색 + **올린 날짜**
+     · 안 올린 것        : **회색 아이콘** (초안·막힘·기록없음 전부 회색)
+   🔴 여기서는 **올리지 않는다.** 아이콘을 눌러도 광고관리로 갈 뿐이다.
+   🔴 컬러 칩은 실제로 올라간 것만 — 근거는 adMark 기록(adsFlat 의 daangn~)뿐이다.
+      눌렀다고 칩이 켜지지 않는다(미준비 포털은 실행기가 ads_mark 를 아예 안 부른다).
+   경과: 09-19 오전 '안 올린 것은 표시하지 않는다' → 오후 대표 지시로 **회색 표시로 되돌림**. */
 function bzAdsShowHtml(id) {
   var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
   if (!o) return '';
@@ -24704,8 +24718,19 @@ function bzAdsShowHtml(id) {
   for (i = 0; i < BZ_ADS_PORTALS.length; i++) {
     p = BZ_ADS_PORTALS[i];
     s2 = bzAdsSeg(o, p.key);
-    /* 🔴 안 올린 포털(초안·막힘·기록없음) — 여기서 끝낸다. 아무것도 만들지 않는다. */
-    if (s2.state !== 'posted') continue;
+    if (s2.state !== 'posted') {
+      /* 🔘 안 올린 포털 — **회색 아이콘**으로 자리를 지킨다(2026-09-19 대표 방침 변경).
+         목적: 매물장을 한 번 보면 어느 포털에 올렸고 어디에 안 올렸는지 바로 알 수 있게.
+         🔴 회색은 '안 올림' 표시일 뿐이다. 누른다고 올라가지 않는다 — 광고관리로 갈 뿐이다.
+         🔴 초안(임시저장)도 회색이다. **컬러 칩은 실제로 올라간 것만**(방침 그대로). */
+      out.push('<span class="bz-ads-chip" title="' + p.label
+        + (s2.state === 'draft' ? ' 임시저장(초안)' + (s2.at ? ' · ' + bzEsc(s2.at) : '') : ' 아직 안 올림')
+        + ' — 누르면 광고관리로 갑니다"'
+        + ' style="color:#9CA3AF;background:#F3F4F6;cursor:pointer"'
+        + ' onclick="event.stopPropagation();bzAdsGo(&quot;' + bzEsc(id) + '&quot;)">'
+        + p.icon + '</span>');
+      continue;
+    }
     out.push('<span class="bz-ads-chip" title="' + p.label + ' 광고중'
       + (s2.no ? ' · 번호 ' + bzEsc(s2.no) : '') + (s2.at ? ' · ' + bzEsc(s2.at) : '')
       + ' — 누르면 광고관리로 갑니다"'
@@ -26474,9 +26499,60 @@ function bzExpLine(k, v) {
     + '<div style="font-weight:500">' + (String(v || '').trim() ? bzExpEsc(v) : '-') + '</div></div>';
 }
 
+/* ══ 🔒💼💹 2026-09-19 대표 지시 — 건물 탭에 세 가지를 더한다 ═══════════════════
+   ① 비밀번호·출입방법 등 기타  ② 우리와 이 건물·임대인의 거래 이력  ③ 시세(칸만)
+   🔴 §5 규칙 그대로 — 비번은 **화면에서만** 보이고 광고·문자로 나가는 길에는 절대 안 실린다.
+      값을 여기에 그리지 않는다. [보기] 를 눌러야 **전용 조회(bldgSecList)** 로 잠깐 보여 준다.
+      · getAll 로는 애초에 안 나온다(google_apps_script.js:412 에서 서버가 막는다)
+      · bldgSecList 는 adminOnly_ 다 — 대표만 읽힌다. 누가 읽었는지 서버가 기록한다.
+   🔴 새 조회 통로를 만들지 않았다. 이미 있는 bzSecOpen(listing-note-sec.js)을 그대로 부른다. */
+function bzExpSec(o) {
+  var id = String(o.id || '');
+  var can = (typeof bzSecOpen === 'function');
+  return '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);'
+    + 'font-size:12px;color:var(--t3)">🔒 출입·비밀번호 등 기타</div>'
+    + '<div style="font-size:12.5px;padding:2px 0">'
+    + (can
+      ? '<button class="btn btn-xs" onclick="event.stopPropagation();bzSecOpen(&#39;' + id + '&#39;)">🔒 보기·적기</button>'
+        + '<span style="color:var(--t3);margin-left:8px">대표만 볼 수 있습니다. 광고·문자에는 실리지 않습니다.</span>'
+      : '<span style="color:var(--t3)">이 화면에서는 볼 수 없습니다</span>')
+    + '</div>';
+}
+
+/* 💼 우리와의 거래 이력 — 호실 단위(bzUnitHistory)로 보여 준다.
+   🔴 2026-09-19 대표 지시 — 건물·임대인 단위 이력은 **만들지 않는다**(호실 단위로 충분).
+      "아직 만들지 않았습니다" 안내 문구도 지운다 — 안 만들 기능을 예고할 필요가 없다. */
+function bzExpDeal(o) {
+  var id = String(o.id || '');
+  var rows = [];
+  try { if (typeof bzUnitHistory === 'function') rows = bzUnitHistory(id) || []; } catch (e) { rows = []; }
+  var line = rows.length
+    ? ('이 호실로 이전에 접수된 것 <b>' + rows.length + '건</b>'
+       + ' <button class="btn btn-xs" onclick="event.stopPropagation();bzExpOpen(&#39;' + id + '&#39;,&#39;hist&#39;)">🕘 이력 보기</button>')
+    : '이 호실로 이전에 접수된 기록이 없습니다';
+  return '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);'
+    + 'font-size:12px;color:var(--t3)">💼 우리와의 거래 이력</div>'
+    + '<div style="font-size:12.5px;padding:2px 0">' + line + '</div>';
+}
+
+/* 💹 시세 — 지시대로 **칸만** 만들어 둔다. 숫자를 지어내지 않는다. */
+function bzExpPrice(o) {
+  return '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);'
+    + 'font-size:12px;color:var(--t3)">💹 시세</div>'
+    + '<div style="font-size:12.5px;padding:2px 0;color:var(--t3)">'
+    + '아직 연결하지 않았습니다 — 국토부 실거래가 연동 예정(칸만 먼저 만들어 둔 자리입니다)</div>';
+}
+
 function bzExpHtml(o, tab) {
   var id = String(o.id || '');
-  var TABS = [['bldg', '🏢 건물'], ['unit', '🏠 매물'], ['photo', '📷 사진'], ['hist', '🕘 이력']];
+  /* 🔴 2026-09-19 대표 지시(㉮ 채택) — 🏠매물 탭을 **없앴다.**
+     "매물 칸이 따로 있을 이유가 없다. 건물정보 안에서 호실별로 다 보이면 된다."
+     → 매물 탭에 있던 11가지를 아래 🏢건물 탭 안으로 옮겼다(내용은 하나도 안 버렸다).
+     🔴 같은 건물 다른 호실 목록은 **되살리지 않는다**(09-19 방침 그대로 · bzExpSame 미사용).
+     되돌리기: TABS 에 ['unit','🏠 매물'] 을 되넣고 아래 '호실' 묶음을 unit 분기로 도로 옮기면 된다. */
+  var TABS = [['bldg', '🏢 건물'], ['photo', '📷 사진'], ['hist', '🕘 이력']];
+  /* 예전에 'unit' 을 보던 기억이 남아 있으면 빈 화면이 된다 — 건물 탭으로 돌린다 */
+  if (tab === 'unit') tab = 'bldg';
   var head = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
     + '<div style="font-weight:700;font-size:13.5px">' + bzExpEsc((o.apt || '') + ' ' + (o.addr2 || '')) + '</div>'
     + '<span class="badge bgr">' + bzExpEsc(o.type || '-') + '</span>'
@@ -26516,9 +26592,11 @@ function bzExpHtml(o, tab) {
       /* 🟡 [뺌 2026-09-19 대표 지시] "매물명 눌렀을 때 건물에서 같은 건물의 다른 방은
          안 보여줘도 됨." — 같은 건물 다른 호실 목록을 건물 탭에서 뺐다.
          bzExpSame 함수는 지우지 않았다. 되돌리려면 이 줄을 `+ bzExpSame(o);` 로. */
-      + '';
-  } else if (tab === 'unit') {
-    body = bzExpLine('거래유형', o.type)
+      + ''
+      /* ── 🏠 이 호실 (옛 '매물' 탭에서 옮겨 온 11가지 · 2026-09-19 대표 지시 ㉮) ────── */
+      + '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);'
+      + 'font-size:12px;color:var(--t3)">🏠 이 호실 ' + bzExpEsc(o.addr2 || '') + '</div>'
+      + bzExpLine('거래유형', o.type)
       + bzExpLine('보증금 / 월세', String(o.price || '-') + (o.rentAmt ? (' / ' + o.rentAmt) : ''))
       + bzExpLine('관리비', (String(o.feeType || '').trim()
           ? (o.feeType + (String(o.feeAmt || '').trim() ? (' ' + o.feeAmt + '만') : ''))
@@ -26535,9 +26613,10 @@ function bzExpHtml(o, tab) {
       + 'max-height:190px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
       + (String(o.desc || '').trim() ? bzExpEsc(o.desc)
         : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>')
-      + '</div></div>';
+      + '</div></div>'
+      + bzExpSec(o) + bzExpDeal(o) + bzExpPrice(o);
   } else if (tab === 'photo') {
-    var cnt = parseInt(o.photoCnt, 10) || 0;
+    var cnt = (typeof bzPhotoNum === 'function') ? bzPhotoNum(o.photoCnt) : (parseInt(o.photoCnt, 10) || 0);
     body = bzExpLine('사진 수', cnt ? (cnt + '장') : '없음')
       + bzExpLine('사진 폴더', o.photoUrl)
       + (o.photoUrl ? ('<div style="margin-top:6px"><a href="' + bzExpEsc(o.photoUrl)
@@ -27625,7 +27704,28 @@ var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '�
 /* 처음에 접어 두는 것. 🔴 고객명은 접는 목록에는 두되 **처음부터 접지는 않는다** —
    대표가 "고객명 누르면 고객명 수정되게" 라고 하셨으니 보여야 누를 수 있다.
    필요 없으면 [📐 칸 보기] 에서 끄면 된다. */
-var BZ_COL_HIDE_DEFAULT = ['매물번호', '접수일', '거래유형', '방향', '🔒출입', '광고', '지도'];
+/* 🔴 2026-09-19 대표 지시 — '광고' 는 **접는 목록에서 뺀다**(늘 보인다).
+   까닭: "포털 버튼 자체가 안 나온다" 의 원인이 이것이었다. 코드는 멀쩡히 들어 있었는데
+   광고 칸이 기본으로 접혀 있어 당근·네이버·직방 아이콘이 화면에 아예 안 보였다(실측).
+   대표 방침: 매물장을 한 번 보면 어느 포털에 올렸는지 바로 알아야 한다. */
+var BZ_COL_HIDE_DEFAULT = ['매물번호', '접수일', '거래유형', '방향', '🔒출입', '지도'];
+
+/* 🔁 이미 이 기기에 '광고 접힘' 이 저장돼 있으면 기본값을 바꿔도 소용이 없다(저장값이 이긴다).
+   그래서 **딱 한 번** 저장값에서 '광고' 를 빼 준다. 그 뒤로는 대표가 접으면 접힌 대로 둔다. */
+function bzColAdOnce() {
+  try {
+    if (localStorage.getItem('bzColAdShown') === '1') return;
+    localStorage.setItem('bzColAdShown', '1');
+    var raw = localStorage.getItem('bzListColHide');
+    if (raw === null) return;                       /* 저장값이 없으면 새 기본값이 그대로 쓰인다 */
+    var a = JSON.parse(raw);
+    if (Object.prototype.toString.call(a) !== '[object Array]') return;
+    var out = [], i;
+    for (i = 0; i < a.length; i++) { if (a[i] !== '광고') out.push(a[i]); }
+    if (out.length !== a.length) localStorage.setItem('bzListColHide', JSON.stringify(out));
+  } catch (e) {}
+}
+bzColAdOnce();
 var BZ_COL_KEY = 'bzListColHide';
 var BZ_COL_STICKY = '매물명';
 
