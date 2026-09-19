@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:36</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 13:38</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -27081,7 +27081,10 @@ function bzAdmMount() {
    🔴 칸을 지우지 않는다 — 숨기기만 한다. [칸 보기] 에서 언제든 다시 편다.
    🔴 설정은 이 기기에만 남는다(localStorage). 시트·매물 자료는 건드리지 않는다.      */
 
-var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '🔒출입', '지도'];
+/* 🔴 2026-09-19 대표 지시 — "입주가능일 옆에 고객명은 굳이 안 써도 될 것 같음,
+   연락처만 표기되도록" → 고객명을 접는 칸에 넣고 **기본으로 접는다.**
+   🔴 칸을 지우지는 않았다 — [📐 칸 보기] 에서 언제든 다시 편다(자료도 그대로). */
+var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '고객명', '🔒출입', '지도'];
 var BZ_COL_KEY = 'bzListColHide';
 var BZ_COL_STICKY = '매물명';
 
