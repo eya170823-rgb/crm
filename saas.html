@@ -1171,7 +1171,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 12:20</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 12:35</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -26332,8 +26332,11 @@ function bzExpHtml(o, tab) {
         + '" target="_blank" rel="noopener" class="btn btn-xs" style="text-decoration:none">📂 사진 폴더 열기</a></div>') : '')
       + ((typeof bzPhotoBtn === 'function')
         ? ('<div style="margin-top:8px">' + bzPhotoBtn(id) + '</div>') : '')
+      /* 🖼 2026-09-19 대표 지시 — 펼치면 광고용 사진을 작게 늘어놓는다.
+         펼친 매물만 부르고 한 번 부르면 기억한다(조각: photo-launch.js). */
+      + ((typeof bzExpPhotoStrip === 'function') ? bzExpPhotoStrip(id) : '')
       + '<div style="margin-top:8px;font-size:11.5px;color:var(--t3);line-height:1.7">'
-      + '※ 사진은 드라이브 폴더에 있습니다. 이 화면은 개수와 폴더만 보여 줍니다.</div>';
+      + '※ 사진은 드라이브 폴더에 있습니다. 광고에 나가는 것은 워터마크가 찍힌 것뿐입니다.</div>';
   } else {
     var rows = (typeof bzUnitHistory === 'function') ? bzUnitHistory(id) : [];
     var hist = rows.length
@@ -27183,6 +27186,81 @@ function bzPhotoNoneTap(id) {
 /* 사진이 몇 장인지 단추에 그대로 보여 준다 — 대표가 누르는 그 '없음' 이 여기다.
    🔴 장수는 시트에 적힌 값(photoCnt)이다. 매물 상세를 한 번 열어야 채워지므로
       드라이브에 사진이 있어도 '없음' 으로 보일 수 있다 — 눌러서 확인하면 그때 채워진다. */
+/* ═══ 🖼 2026-09-19 매물 펼치기 → 광고용 사진 미리보기 (대표 지시) ═══════════
+   · 펼친 매물만 불러온다. 목록 첫 화면에서는 아무것도 부르지 않는다.
+   · 한 번 불러오면 기억한다 — 접었다 펴도 다시 요청하지 않는다.
+   · 파일이름 순서 그대로 늘어놓는다(01, 02 …). 순서를 바꾸지 않는다.
+   🔴 대표 판단(09-19): '광고용' 폴더가 드라이브에 **0곳**이라 **'보정완료'(워터마크 찍힌 것)** 를 보여준다.
+      GAS drivePhotos 가 돌려주는 photos[] 가 바로 그 폴더 것이다(PHOTO_OUT_DIRS 순서).
+   · 비어 있으면 '광고용 사진 없음' 한 줄만. 원본 폴더 사진으로 대신 채우지 않는다. */
+var BZ_EXP_PH = {};      /* 매물번호 → {st:'load'|'ok'|'none'|'err', ph:[], why} */
+
+function bzExpPhotoStrip(id) {
+  id = String(id || '').trim();
+  if (!id) return '';
+  var c = BZ_EXP_PH[id];
+  if (!c) {
+    c = { st: 'load' };
+    BZ_EXP_PH[id] = c;
+    setTimeout(function () { bzExpPhotoLoad(id); }, 0);   /* 그린 뒤에 부른다 */
+  }
+  return '<div id="bz-ph-' + bzEsc(id) + '" style="margin-top:8px">'
+    + bzExpPhotoInner(c) + '</div>';
+}
+
+function bzExpPhotoInner(c) {
+  var dim = 'font-size:12px;color:var(--t3)';
+  if (!c || c.st === 'load') return '<span style="' + dim + '">광고용 사진 불러오는 중…</span>';
+  if (c.st === 'none') return '<span style="' + dim + '">광고용 사진 없음</span>';
+  if (c.st === 'err') {
+    return '<span style="font-size:12px;color:#B91C1C">사진을 불러오지 못했습니다 — '
+      + bzEsc(c.why || '') + '</span>';
+  }
+  var s = '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  c.ph.forEach(function (p, i) {
+    s += '<a href="' + bzEsc(p.url) + '" target="_blank" rel="noopener"'
+      + ' title="' + bzEsc(p.name) + ' (눌러서 크게 보기)"'
+      + ' style="display:block;width:96px;height:72px;border:1px solid var(--border);'
+      + 'border-radius:6px;overflow:hidden;background:#F1F5F9;position:relative">'
+      + '<img src="' + bzEsc(p.thumb) + '" alt="' + bzEsc(p.name) + '" loading="lazy"'
+      + ' style="width:100%;height:100%;object-fit:cover;display:block">'
+      + '<span style="position:absolute;left:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;'
+      + 'font-size:10px;padding:1px 4px;border-radius:0 5px 0 0">' + (i + 1) + '</span></a>';
+  });
+  s += '</div><div style="' + dim + ';margin-top:4px">광고용(보정완료) '
+    + c.ph.length + '장 · 파일이름 순서</div>';
+  return s;
+}
+
+function bzExpPhotoLoad(id) {
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url || typeof gsFetchJson !== 'function') {
+    bzExpPhotoDone(id, { st: 'err', why: '구글 시트 연동이 안 돼 있습니다' });
+    return;
+  }
+  gsFetchJson(url, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'drivePhotos', token: getGsTok(), listingId: id })
+  }, '광고용 사진').then(function (r) {
+    var d = (r && r.result) ? r.result : r;
+    if (!d || d.error) { bzExpPhotoDone(id, { st: 'err', why: (d && d.error) || '' }); return; }
+    var ph = (d.photos || []).slice();
+    ph.sort(function (a, b) {
+      var x = String(a && a.name || ''), y = String(b && b.name || '');
+      return x < y ? -1 : (x > y ? 1 : 0);
+    });
+    bzExpPhotoDone(id, ph.length ? { st: 'ok', ph: ph } : { st: 'none' });
+  }).catch(function (e) {
+    bzExpPhotoDone(id, { st: 'err', why: (e && e.message) ? e.message : String(e) });
+  });
+}
+
+function bzExpPhotoDone(id, c) {
+  BZ_EXP_PH[id] = c;
+  var el = document.getElementById('bz-ph-' + id);
+  if (el) el.innerHTML = bzExpPhotoInner(c);
+}
+
 function bzPhotoBtn(id) {
   var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
   var cnt = o ? String(o.photoCnt || '').trim() : '';
