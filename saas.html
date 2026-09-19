@@ -1173,7 +1173,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:09</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 14:16</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1255,7 +1255,6 @@ body{padding-bottom:46px}
         <div class="sx-grp-h">마케팅부<em>노출 채널 · 자동화</em></div>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="" onclick="chanGo('home')">채널 안내</button>
           <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="brand" onclick="sxGo('brand',0,'마케팅부')">브랜드 스튜디오</button>
-          <button class="sx-item" data-co="head" data-grp="마케팅부" data-menu="adcopy" onclick="sxGo('adcopy',0,'마케팅부')">광고문구<span class="sx-tag ref">참조</span></button>
       </div>
       <div class="sx-grp" data-co="head" data-dept="법무팀">
         <div class="sx-grp-h">법무팀<em>계약·보증금·위험</em></div>
@@ -11710,7 +11709,7 @@ async function fillBldgBulk(){
 
 
 /* ══ 🏢 SaaS 셸 (build-saas.js 가 넣음) ══ */
-const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"건물 · 매물 · 고객 · 광고 · 계약","home":"bldg","items":[{"label":"건물관리","id":"bldg"},{"label":"매물관리","id":"listing"},{"label":"고객관리","id":"customer"},{"label":"광고관리","id":"ads"},{"label":"계약관리","id":"contract","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"},{"label":"광고문구","id":"adcopy","ref":true}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"공부 발급","id":"docreq"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"설정","act":"openGsSetup()"},{"label":"앱 설치 방법","act":"showPwaGuide()"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
+const SX_NAV = [{"co":"head","coName":"브리즈부동산중개","kind":"본사","depts":[{"dept":"홈","desc":"대시보드","home":"home","items":[{"label":"대시보드","id":"home"},{"label":"일정관리","id":"csched"}]},{"dept":"그룹웨어","desc":"회의록·자료실","home":"minutes","items":[{"label":"회의록","id":"minutes"},{"label":"자료실","id":"ref"}]},{"dept":"관리부","desc":"계약·인사·회계·결재","home":"contract","items":[{"label":"계약관리","id":"contract"},{"label":"인사·직원","id":"staff","adminOnly":true},{"label":"회계·정산","id":"payout"},{"label":"경영 통계","id":"stats","adminOnly":true},{"label":"승인·보고함","id":"approval"}]},{"dept":"운영부","desc":"건물 · 매물 · 고객 · 광고 · 계약","home":"bldg","items":[{"label":"건물관리","id":"bldg"},{"label":"매물관리","id":"listing"},{"label":"고객관리","id":"customer"},{"label":"광고관리","id":"ads"},{"label":"계약관리","id":"contract","ref":true}]},{"dept":"마케팅부","desc":"노출 채널 · 자동화","home":"chan","items":[{"label":"채널 안내","act":"chanGo('home')"},{"label":"브랜드 스튜디오","id":"brand"}]},{"dept":"법무팀","desc":"계약·보증금·위험","home":"contract-writer","items":[{"label":"계약서 작성·검토","id":"contract-writer"},{"label":"전세 안전도","id":"jeonse"},{"label":"공부 발급","id":"docreq"},{"label":"보증보험 확인","id":"guar"},{"label":"등기 변동 확인","id":"reg"},{"label":"문서 작성 · 브리핑","id":"doc"}]},{"dept":"개발부","desc":"설계·개발·운영","adminOnly":true,"home":"memo","items":[{"label":"메모 · 요구사항","id":"memo"},{"label":"오류·데이터 검수","id":"audit"},{"label":"매물 수집","id":"gather"},{"label":"자동화 현황","id":"ops"},{"label":"변경 이력","id":"changelog"},{"label":"배포 관리","id":"deploy"},{"label":"설정","act":"openGsSetup()"},{"label":"앱 설치 방법","act":"showPwaGuide()"},{"label":"기존 화면으로","act":"location.href='index.html'"}]}]},{"co":"design","coName":"브리즈디자인","kind":"계열사 · 인테리어","depts":[{"dept":"디자인영업","desc":"상담·견적·수주","items":[{"sub":"상담 · 수주"},{"label":"견적 요청 접수"},{"label":"상담 일지"},{"label":"견적서 작성"},{"label":"수주 계약"},{"sub":"고객"},{"label":"고객 명부"},{"label":"A/S 접수"}]},{"dept":"설계·시공","desc":"현장·공정·품질","items":[{"sub":"설계"},{"label":"도면·3D 시안"},{"label":"마감재 선정"},{"sub":"시공"},{"label":"현장 보드"},{"label":"공정표"},{"label":"현장 사진"},{"label":"준공·검수"},{"sub":"품질"},{"label":"하자 관리"}]},{"dept":"자재·협력","desc":"자재·업체·정산","items":[{"label":"자재 단가표"},{"label":"발주·입고"},{"label":"협력업체 명부"},{"label":"현장 원가"},{"label":"대금 지급"}]},{"dept":"포트폴리오","desc":"시공 사례·홍보","items":[{"label":"시공 사례"},{"label":"사례 사진첩"},{"label":"브랜드 자료","id":"brand","ref":true}]}]},{"co":"academy","coName":"브리즈아카데미","kind":"계열사 · 교육","depts":[{"dept":"교육운영","desc":"과정·일정·자료","items":[{"sub":"과정"},{"label":"과정 개설"},{"label":"강의 일정"},{"label":"강의 자료"},{"sub":"사내 교육"},{"label":"사내 매뉴얼","id":"guide","ref":true},{"label":"신입 교육 과정"}]},{"dept":"수강생","desc":"등록·출결·수료","items":[{"label":"수강 신청"},{"label":"수강생 명부"},{"label":"출결 관리"},{"label":"평가·시험"},{"label":"수료증 발급"}]},{"dept":"강사·정산","desc":"강사·수강료","items":[{"label":"강사 명부"},{"label":"강사료 정산"},{"label":"수강료 수납"},{"label":"매출 현황"}]}]}];
 let sxCo = 'head';
 function sxAdmin(){ if(window.__crmRole === 'admin') return true; if(window.__crmRole === 'staff') return false;
   try{ return localStorage.getItem('crm_role') === 'admin'; }catch(e){ return false; } }   // 토큰 확인 전에도 지난 결과로 판단
@@ -26972,6 +26971,146 @@ function bzUpSave() {
 })();
 
 
+/* ═══ ✏️ 칸을 누르면 그 자리에서 고친다 (2026-09-19 대표 지시) ═══════════════
+   "입주가능일에서 즉시가능(보라색)을 누르면 펼치기가 됨 → 입주가능일 수정이 되게.
+    고객명 누르면 고객명 수정, 연락처 누르면 연락처 수정, 상태 누르면 상태 수정."
+
+   🔴 펼치기는 **매물명 칸**만 연다. 이 칸들은 펼치지 않고 그 자리에서 고친다.
+   🔴 저장은 기존 길(save('listings', …))만 쓴다 — 새 저장 경로를 만들지 않는다.
+   🔴 비밀번호처럼 보이는 글은 여기 넣지 않는다(메모·출입 쪽 규칙 그대로).           */
+
+var BZ_CE_COLS = {
+  '입주가능일': { field: 'availDate', kind: 'date' },
+  '고객명':     { field: 'cname',    kind: 'text' },
+  '연락처':     { field: 'cphone',   kind: 'tel' },
+  '상태':       { field: 'status',   kind: 'sel',
+                  opts: ['접수', '상담중', '계약완료', '임대중', '거래완료', '보류'] }
+};
+
+function bzCeFind(id) {
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  for (var i = 0; i < list.length; i++) {
+    if (String(list[i].id) === String(id)) return list[i];
+  }
+  return null;
+}
+
+function bzCeSave(row, field, v, id) {
+  row[field] = v;
+  row.updatedAt = (typeof bzNowStamp === 'function') ? bzNowStamp() : new Date().toISOString();
+  try {
+    save('listings', (typeof listings !== 'undefined' && listings) ? listings : []);
+    if (typeof showToast === 'function') showToast('고쳤습니다 — ' + id);
+    if (typeof renderListings === 'function') renderListings();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('저장 실패: ' + (e && e.message));
+  }
+}
+
+function bzCeOpen(ev, id, colName) {
+  try { if (ev && ev.stopPropagation) ev.stopPropagation(); } catch (e) {}
+  var spec = BZ_CE_COLS[colName];
+  if (!spec) return;
+  var td = (ev && ev.currentTarget) ? ev.currentTarget : null;
+  if (!td || td.getAttribute('data-ce-on') === '1') return;
+  var row = bzCeFind(id);
+  if (!row) return;
+
+  var back = td.innerHTML;
+  td.setAttribute('data-ce-on', '1');
+  var el;
+  if (spec.kind === 'sel') {
+    el = document.createElement('select');
+    el.innerHTML = spec.opts.map(function (o) {
+      return '<option value="' + o + '"' + (String(row[spec.field] || '') === o ? ' selected' : '') + '>'
+        + o + '</option>';
+    }).join('');
+  } else {
+    el = document.createElement('input');
+    el.type = (spec.kind === 'date') ? 'date' : 'text';
+    var cur = String(row[spec.field] || '');
+    if (spec.kind === 'date') {
+      /* '즉시가능' 처럼 날짜가 아닌 값은 날짜칸이 못 받는다 — 글자칸으로 바꾼다 */
+      if (cur && !/^\d{4}-\d{2}-\d{2}$/.test(cur)) el.type = 'text';
+    }
+    el.value = cur;
+  }
+  el.style.cssText = 'width:100%;min-width:90px;font-size:12px;padding:3px 5px;'
+    + 'border:1px solid var(--b, #ccc);border-radius:6px';
+  el.setAttribute('data-qe', 'on');
+  td.innerHTML = '';
+  td.appendChild(el);
+  try { el.focus(); if (el.select) el.select(); } catch (e) {}
+
+  var closed = false;
+  function restore() {
+    if (closed) return;
+    closed = true;
+    td.removeAttribute('data-ce-on');
+    td.innerHTML = back;
+  }
+  function commit() {
+    if (closed) return;
+    var v = String(el.value || '').trim();
+    if (v === String(row[spec.field] || '').trim()) { restore(); return; }
+    if (spec.kind !== 'sel' && typeof bzLooksSecret === 'function' && bzLooksSecret(v)) {
+      restore();
+      alert('비밀번호처럼 보이는 글은 이 칸에 넣지 않습니다.' + String.fromCharCode(10)
+        + '메모에 적어 주세요.');
+      return;
+    }
+    closed = true;
+    td.removeAttribute('data-ce-on');
+    bzCeSave(row, spec.field, v, id);
+  }
+  el.addEventListener('keydown', function (e2) {
+    if (e2.key === 'Enter') { e2.preventDefault(); commit(); }
+    if (e2.key === 'Escape') { e2.preventDefault(); restore(); }
+  });
+  el.addEventListener('blur', commit);
+  if (spec.kind === 'sel') el.addEventListener('change', commit);
+  el.addEventListener('click', function (e2) { e2.stopPropagation(); });
+}
+
+/* 표를 다시 그릴 때마다 그 칸들에 손잡이를 건다 */
+function bzCeTidy() {
+  var tb = document.querySelector('#listing-cards table');
+  if (!tb) return;
+  var ths = tb.querySelectorAll('thead th'), names = [], i;
+  for (i = 0; i < ths.length; i++) names.push(String(ths[i].textContent || '').trim());
+  var rows = tb.querySelectorAll('tbody tr');
+  Array.prototype.forEach.call(rows, function (tr) {
+    if (tr.id && tr.id.indexOf('bz-') === 0) return;
+    var raw = '';
+    try { raw = (typeof bzPhotoRowId === 'function') ? bzPhotoRowId(tr) : ''; } catch (e) {}
+    if (!raw) {
+      var t0 = tr.querySelector('td');
+      var m = String(t0 ? t0.textContent : '').match(/[A-Za-z]\d{6}-\d{2}/);
+      raw = m ? m[0] : '';
+    }
+    if (!raw) return;
+    var tds = tr.querySelectorAll('td');
+    for (var c = 0; c < tds.length; c++) {
+      var nm = names[c];
+      if (!BZ_CE_COLS[nm]) continue;
+      if (tds[c].getAttribute('data-ce') === nm) continue;
+      tds[c].setAttribute('data-ce', nm);
+      tds[c].style.cursor = 'pointer';
+      tds[c].title = nm + ' — 누르면 그 자리에서 고칩니다';
+      (function (cell, name, id) {
+        cell.onclick = function (e3) { bzCeOpen(e3, id, name); };
+      })(tds[c], nm, raw);
+    }
+  });
+}
+
+(function bzCeBoot() {
+  function tick() { try { bzCeTidy(); } catch (e) {} }
+  setTimeout(tick, 1500);
+  setInterval(tick, 1500);
+})();
+
+
 /* ═══ 🔎 메뉴찾기를 위(알림 옆)로 (2026-09-19 대표 지시) ═══════════════════
    "메뉴찾기는 부서 위에 칸은 없애고, 상단에 알림 옆에서 메뉴찾기 할 수 있게,
     나온 결과를 누르면 거기 화면으로 이동되게"
@@ -27293,17 +27432,25 @@ function bzAdmMount() {
 /* 🔴 2026-09-19 대표 지시 — "입주가능일 옆에 고객명은 굳이 안 써도 될 것 같음,
    연락처만 표기되도록" → 고객명을 접는 칸에 넣고 **기본으로 접는다.**
    🔴 칸을 지우지는 않았다 — [📐 칸 보기] 에서 언제든 다시 편다(자료도 그대로). */
-var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '고객명', '🔒출입', '지도'];
+/* 🔴 2026-09-19 대표 지시 — "광고는 필요없음 지워줘" · "출입 칸이 굳이 필요 없음"
+   🔴 칸을 지우지는 않았다(자료가 사라지면 되돌릴 수 없다). **기본으로 접는다.**
+      [📐 칸 보기] 에서 다시 켤 수 있고, 출입 비번은 대표 말씀대로 메모에 적으면 된다. */
+var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '고객명',
+                       '🔒출입', '광고', '지도'];
+/* 처음에 접어 두는 것. 🔴 고객명은 접는 목록에는 두되 **처음부터 접지는 않는다** —
+   대표가 "고객명 누르면 고객명 수정되게" 라고 하셨으니 보여야 누를 수 있다.
+   필요 없으면 [📐 칸 보기] 에서 끄면 된다. */
+var BZ_COL_HIDE_DEFAULT = ['매물번호', '접수일', '거래유형', '방향', '🔒출입', '광고', '지도'];
 var BZ_COL_KEY = 'bzListColHide';
 var BZ_COL_STICKY = '매물명';
 
 function bzColHidden() {
   try {
     var raw = localStorage.getItem(BZ_COL_KEY);
-    if (raw === null) return BZ_COL_HIDEABLE.slice();      /* 처음에는 6칸 접어 둔다 */
+    if (raw === null) return BZ_COL_HIDE_DEFAULT.slice();   /* 처음에 접어 두는 칸 */
     var a = JSON.parse(raw);
     return Object.prototype.toString.call(a) === '[object Array]' ? a : [];
-  } catch (e) { return BZ_COL_HIDEABLE.slice(); }
+  } catch (e) { return BZ_COL_HIDE_DEFAULT.slice(); }
 }
 function bzColSave(list) {
   try { localStorage.setItem(BZ_COL_KEY, JSON.stringify(list)); } catch (e) {}
@@ -27426,8 +27573,13 @@ function bzColHead() {
   if (sub) {
     var n = String(sub.textContent || '').trim();
     if (sub.style.display !== 'none') sub.style.display = 'none';
-    var slot = document.getElementById('bz-col-n');
-    if (slot && n) slot.textContent = n.replace('전체 ', '').replace('건 표시', '건');
+  }
+  var slot = document.getElementById('bz-col-n');
+  if (slot) {
+    /* 🔴 건수는 늘 직접 센다 — 원본 글자가 비어 있는 순간이 있다(실측) */
+    var cnt = (typeof listings !== 'undefined' && listings) ? listings.length : 0;
+    var txt2 = cnt + '건';
+    if (slot.textContent !== txt2) slot.textContent = txt2;
   }
   hd.style.marginBottom = '6px';
   hd.style.paddingBottom = '0';
