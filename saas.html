@@ -1276,7 +1276,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:31</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:34</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -29709,6 +29709,72 @@ function bzVpExtraHtml(i, s) {
        실행되는 경우를 대비해 짧게 재시도(사진 칸 인터벌 훅과 같은 방식). */
     [200, 800, 2000].forEach(function (ms) { setTimeout(apply, ms); });
   }
+})();
+
+
+/* ═══ 📷⚡ 2026-09-21 9차 대표 지시 — "사진 첨부했는데 올라가는데 너무 오래 걸림" ═══
+   원인 실측: index.html 의 photoUpload() 가 파일을 **한 장씩 순서대로**
+   업로드한다(for 루프 안에서 매번 await) — 사진 한 장마다 photoShrink(빠름,
+   로컬)에 이어 GAS drivePut 왕복(느림, 매번 초 단위)을 기다린 뒤에야 다음
+   장으로 넘어간다. 09-19 "올리는 길을 하나로 합친다"(listing-photo-excel.js
+   bzPhotoUp 주석)에서 폰 3단추 길과 이 모달 길을 photoUpload 하나로
+   합치면서, 그 이전에 있었다고 기록된 "동시 4장" 최적화가 이 함수엔
+   없었다(전체 코드베이스 검색: Promise.all 을 쓰는 사진 업로드 경로가
+   지금 0곳 — 실측). 10장을 올리면 GAS 왕복 10번을 순서대로 기다리는 셈.
+   → 4장씩 동시에(Promise.all) 보내도록 바꾼다. index.html 원본은 손대지
+   않는다 — saas.html 만 이 함수를 덮어쓴다. 나머지(HEIC 거르기·shrink·
+   실패 처리·완료 메시지·photoPanelRefresh·gsAutoSync)는 전부 원본과 동일,
+   순서만 배치(batch) 처리로 바꿨다.
+   🔴 photoUpload 는 index.html 에서 `async function` **선언**이라 window 에
+   붙는다(const/let 과 달리 함수선언은 window 에 붙음 — openModal 등과 같은
+   부류). bare 로 재대입해도 같은 전역이 갱신된다. */
+(function bzPhotoUploadParallel() {
+  function apply() {
+    if (typeof photoShrink !== 'function' || typeof gsFetchJson !== 'function') return false;
+    photoUpload = async function (files) {
+      if (!photoPanelId) { if (typeof showToast === 'function') showToast('매물을 먼저 저장해주세요'); return; }
+      var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+      if (!url) { if (typeof showToast === 'function') showToast('구글 시트 연동을 먼저 설정해주세요'); return; }
+      var prog = document.getElementById('l-photo-progress');
+      var say = function (t) { if (prog) prog.textContent = t; };
+
+      var heic = files.filter(function (f) { return /\.(heic|heif)$/i.test(f.name); });
+      if (heic.length && typeof showToast === 'function') {
+        showToast('아이폰 HEIC 사진 ' + heic.length + '장은 브라우저가 못 엽니다 — 드라이브 원본 폴더에 직접 넣어주세요');
+      }
+      var usable = files.filter(function (f) { return !/\.(heic|heif)$/i.test(f.name); });
+      if (!usable.length) { say(''); return; }
+
+      var done = 0, failed = 0;
+      var CONC = 4;   /* 🔴 2026-09-21 이전 기록에 있던 값과 동일 — 근거 없이 새로 짓지 않음 */
+      for (var start = 0; start < usable.length; start += CONC) {
+        var batch = usable.slice(start, start + CONC);
+        say('올리는 중… ' + Math.min(start + CONC, usable.length) + '/' + usable.length);
+        await Promise.all(batch.map(async function (f) {
+          try {
+            var shrunk = await photoShrink(f);
+            var r = await gsFetchJson(url, {
+              method: 'POST', headers: { 'Content-Type': 'text/plain' },
+              body: JSON.stringify({
+                action: 'drivePut', token: (typeof getGsTok === 'function') ? getGsTok() : '',
+                listingId: photoPanelId, name: shrunk.name, b64: shrunk.b64
+              })
+            }, '사진 업로드');
+            if (r && r.result && r.result.error) throw new Error(r.result.error);
+            done++;
+          } catch (e) { failed++; say(f.name + ' 실패 — ' + (e && e.message || e)); }
+        }));
+      }
+      say('올리기 끝 — 성공 ' + done + '장' + (failed ? ' / 실패 ' + failed + '장' : ''));
+      if (typeof showToast === 'function') {
+        showToast(done + '장을 원본 폴더에 올렸습니다. 사진보정 프로그램을 돌리면 워터마크가 찍힙니다');
+      }
+      if (typeof photoPanelRefresh === 'function') await photoPanelRefresh();
+      if (typeof gsAutoSync === 'function') gsAutoSync('listings', listings);
+    };
+    return true;
+  }
+  if (!apply()) { [200, 800, 2000].forEach(function (ms) { setTimeout(apply, ms); }); }
 })();
 
 </script>
