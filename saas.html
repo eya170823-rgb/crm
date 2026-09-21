@@ -447,7 +447,11 @@ body,button,input,select,textarea{font-family:Pretendard,-apple-system,BlinkMacS
   --a:#C2410C; --al:#FDEBE1;            /* 금색 제거 */
   /* 🔴 2026-09-19 대표 지시 "왼쪽에 사이드바가 너무 넓음" — 280 → 200px.
      빈 76px 칸을 접어 목록이 279px 까지 넓어진 뒤라, 200px 로도 글자가 안 잘린다(실측). */
-  --shell-h:56px; --nav-w:200px; --rail-w:76px;
+  /* 🔴 2026-09-21 5차 대표 지시 "매물장 오른쪽 짤림 — 공간 부족하면 왼쪽 메뉴탭을
+     줄이기", 이어서 "줄여서라도 매물장칸이 좀더 많이 보였으면" — 200→150→130px,
+     rail(아이콘 줄)도 76→60→52px. 목록 폭(nav-w-rail-w) 124→90→78px — 매 단계
+     헤드리스로 사이드바 라벨 잘림(scrollWidth>clientWidth) 0건 재확인하며 줄임. */
+  --shell-h:56px; --nav-w:115px; --rail-w:46px;
 }
 /* 📱 아이패드 세로(761~1000px): 옆 메뉴를 그대로 두고 폭만 줄여 본문을 넓힌다 (2026-09-08 대표 지적) */
 @media(min-width:761px) and (max-width:1000px){
@@ -1272,7 +1276,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 19:48</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:09</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23871,9 +23875,10 @@ function bzPhotoCell() {
     td.innerHTML = '<div style="display:flex;align-items:flex-start;gap:6px">'
       + '<button class="btn btn-xs" style="flex:0 0 auto" title="사진 보기·올리기"'
       + ' onclick="event.stopPropagation();bzPhotoTap(&quot;' + bzEsc(id) + '&quot;)">'
-      /* 🔴 2026-09-19 대표 지시 — 카메라 옆에 장수만. '없음' 단추는 만들지 않는다.
-         사진이 없으면 카메라만 (눌러서 올릴 수 있게 단추는 남긴다). */
-      + '📷' + (n ? (' ' + n) : '') + '</button>'
+      /* 🔴 2026-09-21 6차 대표 지시 — "없는건 0으로 표시하고 첨부된 사진 갯수만큼만
+         표시" → 09-19엔 0장일 때 숫자를 아예 감췄는데(카메라 아이콘만), 이제 0도
+         그대로 보여준다. n 은 이미 실제 photoCnt 값 그대로다(꾸며 더하지 않음). */
+      + '📷 ' + n + '</button>'
       /* 🔴 2026-09-21 대표 지시 — 광고문구를 사진 옆에, 자동생성된 내용이 바로
          보이는 형식으로(메모 칸에 있던 것을 여기로 옮김). listing-note-sec.js */
       + ((typeof bzDescBadgeHtml === 'function') ? bzDescBadgeHtml(o, id) : '')
@@ -26573,9 +26578,19 @@ function bzNewSel(id, list, w, blank) {
   for (var i = 0; i < list.length; i++) {
     o += '<option value="' + list[i] + '">' + list[i] + '</option>';
   }
-  return '<select id="' + id + '" style="width:' + w
+  /* 🔴 2026-09-21 5차 — "물건유형·거래유형 사이가 멀다" 원인을 끝까지 추적한 결과,
+     이 select(물건유형 BZ_NEW_KIND 목록에 '빌라(투룸 이상)' 처럼 긴 option이 있다)가
+     범인이었다. select 에 style width:92px 를 줘도(!important 까지 실험) table
+     auto-layout 의 열 폭 계산은 select 의 **가장 긴 option 텍스트 기준 intrinsic
+     폭**을 그대로 반영했다(실측: td/th 에 아무리 폭을 못박아도 물건유형 칸이
+     143.141px 그대로 — 데이터 줄의 배지가 아니라 이 입력줄의 select 가 범인이었다).
+     select 자체가 아니라 **감싸는 div 에 고정폭+overflow:hidden** 을 줘서 select
+     를 그 안에서 시각적으로만 자르는 방식으로 바꿨다 — table 열 폭 계산은 이
+     div 의 폭을 보고, select 는 그 안에서 넘치는 부분만 가려진다(표준 트릭). */
+  return '<div style="width:' + w + 'px;overflow:hidden;display:inline-block">'
+    + '<select id="' + id + '" style="width:' + w
     + 'px;font-size:12px;padding:3px 2px;border:1px solid var(--border);border-radius:6px">'
-    + o + '</select>';
+    + o + '</select></div>';
 }
 
 /* 표 맨 아래 입력 줄 — 머리 칸에 맞춰 **모든 칸**을 입력칸으로 만든다 */
@@ -28510,7 +28525,11 @@ function bzColFit() {
         var keep = { '광고': 1, '사진': 1, '지도': 1, '게시': 1,
                      '매물번호': 1, '접수일': 1, '입주가능일': 1, '연락처': 1,
                      '거래가': 1, '상태': 1, '방향': 1,
-                     '매물명': 1 };   /* 🔴 2026-09-19 대표 지시 — 매물명도 한 줄로 */
+                     '매물명': 1,   /* 🔴 2026-09-19 대표 지시 — 매물명도 한 줄로 */
+                     '물건유형': 1 };  /* 🔴 2026-09-21 5차 — 아래 물건유형 폭 묶기가 여기
+                       (keep=한 줄 유지 그룹)에 있어야 실행된다. else 가지(줄바꿈 허용)에
+                       있으면 이 if 가 안 걸려 조용히 무시된다(실측으로 발견) — 매물명과
+                       같은 자리로 옮김. */
         var hn = best.querySelectorAll('thead th'), names = [], z;
         for (z = 0; z < hn.length; z++) {
           names.push(String(hn[z].textContent || '').trim());
@@ -28523,6 +28542,9 @@ function bzColFit() {
           if (!tightH[names[z]]) continue;
           hn[z].style.paddingLeft = '5px';
           hn[z].style.paddingRight = '5px';
+          /* 🔴 2026-09-21 5차(2) — 물건유형은 th 에도 같은 고정폭을 줘야 auto-layout
+             열 폭이 그 값을 기준으로 잡힌다(td 만으로는 안 먹힘, 실측). */
+          if (names[z] === '물건유형') { hn[z].style.width = '92px'; hn[z].style.maxWidth = '92px'; }
         }
         var trs = best.querySelectorAll('tbody tr'), r2, c2, tds2;
         for (r2 = 0; r2 < trs.length; r2++) {
@@ -28539,6 +28561,19 @@ function bzColFit() {
                 tds2[c2].style.textOverflow = 'ellipsis';
                 if (!tds2[c2].title) tds2[c2].title = String(tds2[c2].textContent || '').trim();
               }
+              /* 🔴 2026-09-21 5차 — "물건유형·거래유형 사이가 멀다" 원인을 헤드리스로
+                 끝까지 추적: td/th 에 width·max-width 를 !important 까지 줘도(실측
+                 여러 번) 이 칸의 auto-layout 계산 폭이 143px 에서 안 줄었다 — 원인은
+                 [＋새 매물] 빠른입력줄의 <select>(BZ_NEW_KIND 안 '빌라(투룸 이상)'가
+                 가장 긴 option) 였다(listing-newrow.js 에서 감싸는 div로 해결, 그
+                 줄 자체는 92px로 정상 확보됨 — 실측 확인). 그런데도 **데이터 줄의
+                 이 칸만은** 여전히 143px 그대로였다 — table auto-layout이 inline
+                 배지(.badge)의 max-width/ellipsis 를 열 폭 계산에 반영하지 않는
+                 것으로 보인다(원인 🔴 확정 못함 — 브라우저 auto-layout 내부 동작,
+                 추가 조사 필요). 배지에 max-width 만 걸면 칸은 안 줄고 텍스트만
+                 잘려 **빈 자리가 오히려 더 도드라지므로** 텍스트 자르기는 걷어내고
+                 padding만 남긴다(더 줄이려면 table-layout:fixed 로 표 전체를
+                 바꿔야 하는데 12칸 전부 폭을 다시 잡아야 해서 별도 작업으로 미룸). */
               continue;
             }
             tds2[c2].style.whiteSpace = 'normal';
