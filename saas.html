@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:17</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:27</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -27956,7 +27956,9 @@ var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '�
 /* 🔴 2026-09-21 대표 확인(에코제니 218호) — "방향(향)이 매물장에 안 보인다.
    당근 등 광고 필수 조건인데" → '방향' 도 '광고' 와 같은 까닭으로 접는 목록에서 뺀다
    (칸 자체는 있고 입력도 되는데 09-19 가로스크롤 줄이기 때 기본으로 접혀 안 보였다). */
-var BZ_COL_HIDE_DEFAULT = ['매물번호', '접수일', '거래유형', '🔒출입', '지도'];
+/* 🔴 2026-09-21 대표 지시(2차) — "매물유형도 당연히 나와야지" → '거래유형'(매물
+   유형: 월세/전세/매매)도 같은 까닭으로 접는 목록에서 뺀다. */
+var BZ_COL_HIDE_DEFAULT = ['매물번호', '접수일', '🔒출입', '지도'];
 
 /* 🔁 이미 이 기기에 접힘이 저장돼 있으면 기본값을 바꿔도 소용이 없다(저장값이 이긴다).
    그래서 **딱 한 번** 저장값에서 지정한 이름을 빼 준다. 그 뒤로는 대표가 접으면 접힌 대로 둔다. */
@@ -27975,6 +27977,7 @@ function bzColShowOnce(flagKey, names) {
 }
 bzColShowOnce('bzColAdShown', ['광고']);
 bzColShowOnce('bzColDirShown_0921', ['방향']);
+bzColShowOnce('bzColTypeShown_0921b', ['거래유형']);
 var BZ_COL_KEY = 'bzListColHide';
 var BZ_COL_STICKY = '매물명';
 
@@ -28020,17 +28023,25 @@ function bzColApply(sc) {
   }
   var ths = tb.querySelectorAll('thead th');
   for (i = 0; i < ths.length; i++) ths[i].style.display = hideIdx[i] ? 'none' : '';
-  /* 🔴 2026-09-21 대표 재확인(2회) — "입주가능일이 안 보인다"(스크린샷 확인) — 진짜 원인
-     실측: 이 칸은 BZ_COL_HIDEABLE 에 없어 위 계산만으로는 못 감춰야 하는데, 좁은 화면
-     (860px 이하)에서 <style> 안의 예전 nth-child CSS(2026-09-09, 그때는 칸이 지금보다
-     적어 7·8번째가 다른 칸이었다 — 그 뒤 방향·메모·출입·광고 칸이 새로 끼어들며 자리가
-     밀렸는데 그 CSS 숫자는 그대로였다)가 지금은 우연히 '방향'·'입주가능일' 자리를 가리켜
-     숨기고 있었다(실헤드리스 재현으로 확정: innerWidth=756 에서 재현, 1440 에서는 재현 안 됨).
-     🔴 그 CSS 전체를 다시 손보진 않는다(범위 밖 — 다른 칸까지 건드리면 더 커진다).
-     여기서는 "입주가능일" 딱 하나만, 화면 폭과 무관하게 항상 보이도록 !important 인라인으로
-     못박는다(일반 인라인 ''는 그 CSS 를 못 이긴다 — 실측으로 확인, 그래서 !important 를 쓴다). */
-  var avIdx = names.indexOf('입주가능일');
-  if (avIdx >= 0 && ths[avIdx]) ths[avIdx].style.setProperty('display', 'table-cell', 'important');
+  /* 🔴 2026-09-21 대표 재확인(2회, 3회) — "입주가능일이 안 보인다" → "매물유형도
+     당연히 나와야지" — 진짜 원인(1건 실측 확정 + 같은 계열 방어):
+     실측: '입주가능일'은 BZ_COL_HIDEABLE 에 없어 위 계산만으로는 못 감춰야 하는데,
+     좁은 화면(860px 이하)에서 <style> 안의 예전 nth-child CSS(2026-09-09, 그때는
+     칸이 지금보다 적어 7·8번째가 다른 칸이었다 — 그 뒤 방향·메모·출입·광고 칸이
+     새로 끼어들며 자리가 밀렸는데 그 CSS 숫자는 그대로였다)가 지금은 우연히
+     '방향'·'입주가능일' 자리를 가리켜 숨기고 있었다(헤드리스 실측: innerWidth=756
+     에서 재현, 1440 에서는 재현 안 됨). '물건유형'·'거래유형'도 그 CSS 가 가리키는
+     자리(4·5번째)라 같은 계열로 안 보일 수 있다(대표가 "매물유형"이라 부른 것이
+     둘 중 어느 쪽인지 확정 못해 방어적으로 둘 다 포함).
+     🔴 CSS 블록 전체를 다시 짜지 않는다(범위 밖 — 대표가 원래 좁은 화면에서
+     6칸만 남기길 원했던 09-19 결정 자체는 손대지 않는다). 대신 이 네 칸만, 화면
+     폭과 무관하게 항상 보이도록 !important 인라인으로 못박는다(일반 인라인 ''는
+     그 CSS 를 못 이긴다 — 실측으로 확인, 그래서 !important 를 쓴다). */
+  var FORCE_SHOW = ['입주가능일', '물건유형', '거래유형', '방향'];
+  for (var fi = 0; fi < FORCE_SHOW.length; fi++) {
+    var fIdx = names.indexOf(FORCE_SHOW[fi]);
+    if (fIdx >= 0 && ths[fIdx]) ths[fIdx].style.setProperty('display', 'table-cell', 'important');
+  }
   var rows = tb.querySelectorAll('tbody tr');
   for (i = 0; i < rows.length; i++) {
     /* 🔴 2026-09-21 대표 지시 — "새매물 더하기 화면에 저장 버튼이 없다"
@@ -28043,7 +28054,10 @@ function bzColApply(sc) {
     if (rows[i].id && rows[i].id.indexOf('bz-') === 0) continue;
     var tds = rows[i].querySelectorAll('td');
     for (j = 0; j < tds.length; j++) tds[j].style.display = hideIdx[j] ? 'none' : '';
-    if (avIdx >= 0 && tds[avIdx]) tds[avIdx].style.setProperty('display', 'table-cell', 'important');
+    for (var fj = 0; fj < FORCE_SHOW.length; fj++) {
+      var fjIdx = names.indexOf(FORCE_SHOW[fj]);
+      if (fjIdx >= 0 && tds[fjIdx]) tds[fjIdx].style.setProperty('display', 'table-cell', 'important');
+    }
   }
 
   /* 첫 칸 고정 — 매물명 앞의 칸이 모두 접혀 있을 때만 건다.
