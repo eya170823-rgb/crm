@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 15:57</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 16:12</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -8249,7 +8249,7 @@ function renderSms(){
   list=list.filter(s=>{const k=String(s.phone||'').replace(/\D/g,'').replace(/^82/,'0');if(!k)return true;if(seen.has(k))return false;seen.add(k);return true;});
   smsPreviewList=list;
   const el=document.getElementById('sms-list');
-  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?(bzVpRows===null?'당근수집 원본을 불러오는 중…':'표시할 대상이 없습니다(중개확정 제외 후 0건)'):theme==='expiry'?'만기 6개월(180일) 이내 계약이 없습니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?(bzVpRows===null?'당근수집 원본을 불러오는 중…':'선택한 날짜(수집 회차)에 표시할 대상이 없습니다 — 상단 날짜를 바꿔 보세요'):theme==='expiry'?'만기 6개월(180일) 이내 계약이 없습니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
   el.innerHTML=list.map((s,i)=>{
     const okPhone=/\d{9,11}/.test(String(s.phone).replace(/\D/g,''));
     // 08-23 단문화: 요금 계량 배지 — 90바이트 이하 단문 18원, 넘으면 장문 45원(빨강 경고)
@@ -29059,8 +29059,29 @@ var bzVpRows = null;      /* null = 아직 안 읽음 */
 var bzVpLoading = false;
 var bzVpErr = '';
 var bzVpPick = {};        /* 후보 번호가 여럿인 행의 현재 선택 — key: src|id → 선택한 번호 */
+var bzVpDateAutoSet = false;  /* 09-21 추가 — 첫 로딩 때 한 번만 '최근 수집일'로 맞춘다 */
 
 function bzVpDigits(p) { return String(p == null ? '' : p).replace(/\D/g, '').replace(/^82/, '0'); }
+
+/* ── 🔴 2026-09-21 대표 지시 — "새로 수집하면 그 회차만 기본 표시" ─────────────
+   화면 하단 #sms-date(기존 칸, index.html 이 부팅 때 '오늘'로 채워 둔다)를 재사용해
+   그 날짜 수집분만 보여준다. 다만 부팅 시 채워진 '오늘'은 실제 최근 수집일과 다를 수
+   있어(예: 자정 넘겨 수집·아직 오늘자가 없음), 첫 로딩이 끝나면 실제 자료의 가장
+   최근 seenAt 날짜로 한 번 강제로 맞춘다("회차 구분 가능한 값" — 1.수집이 별도
+   회차ID 를 주기 전까지는 seenAt 날짜 단위로 회차를 구분한다). 그 뒤 대표가 날짜를
+   바꾸면(과거 조회) 그 값을 그대로 쓴다 — 다시 자동으로 되돌리지 않는다. */
+function bzVpSelDate() {
+  var el = document.getElementById('sms-date');
+  return el ? String(el.value || '').trim() : '';
+}
+function bzVpLatestDate() {
+  var max = '';
+  (bzVpRows || []).forEach(function (o) {
+    var d = String((o && o.seenAt) || '').slice(0, 10);
+    if (d && d > max) max = d;
+  });
+  return max;
+}
 
 function bzVpCandidates(o) {
   var raw = String((o && (o.matchPhone || o.phone)) || '').trim();
@@ -29091,10 +29112,12 @@ function bzVpPickPhone(o) {
    (임대인 전용 — 기존 renderSms 로직과 동일한 규칙을 그대로 옮겼다). */
 function bzVpBuildList(role) {
   if (role === '임차인') return [];
+  var selDate = bzVpSelDate();
   var out = [];
   (bzVpRows || []).forEach(function (o) {
     if (!o) return;
     if (String(o.agencySignal || '').trim() === 'confirmed') return;
+    if (selDate && String((o && o.seenAt) || '').slice(0, 10) !== selDate) return;
     var cands = bzVpCandidates(o);
     if (!cands.length) return;
     var dong = String(o.dong || '').trim();
@@ -29128,6 +29151,12 @@ function bzVpLoad() {
       bzVpLoading = false;
       if (!j || j.ok === false) { bzVpRows = []; bzVpErr = (j && j.error) ? String(j.error) : '조회 실패'; }
       else { bzVpRows = j.data || []; bzVpErr = ''; }
+      if (!bzVpDateAutoSet && bzVpRows.length) {
+        bzVpDateAutoSet = true;
+        var latest = bzVpLatestDate();
+        var dEl = document.getElementById('sms-date');
+        if (latest && dEl) dEl.value = latest;
+      }
       if (typeof renderSms === 'function') renderSms();
     })
     .catch(function (e) { bzVpLoading = false; bzVpRows = []; bzVpErr = e.message || '조회 실패'; if (typeof renderSms === 'function') renderSms(); });
