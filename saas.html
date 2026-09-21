@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 14:34</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 11:01</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -29053,6 +29053,7 @@ var bzSgRows = null;        /* null = 아직 안 읽음 / [] = 읽었는데 0건
 var bzSgErr = '';
 var bzSgSel = {};
 var bzSgMax = 200;
+var bzSgLoading = false;    /* 09-21 자동불러오기 — 1.2초 tick이 겹쳐 중복요청하는 것 방지 */
 
 function bzSgDigits(p) { return String(p == null ? '' : p).replace(/\D/g, '').replace(/^82/, '0'); }
 
@@ -29139,14 +29140,17 @@ function bzSgHost() {
 /* ── 읽기 — 실패를 0건으로 감추지 않는다 ─────────────────────────────── */
 function bzSgLoad() {
   bzSgHost();
+  if (bzSgLoading) return;
   var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
   if (!url) { bzSgErr = '구글 시트 설정(주소)이 없습니다'; bzSgRows = null; bzSgDraw(); return; }
   var q = (typeof tokQ === 'function') ? tokQ() : '';
   var sub = document.getElementById('bz-sg-sub');
   if (sub) sub.textContent = '불러오는 중…';
+  bzSgLoading = true;
   fetch(url + '?action=gatherList&t=' + Date.now() + q)
     .then(function (r) { return r.json(); })
     .then(function (j) {
+      bzSgLoading = false;
       if (!j || j.ok === false) {
         bzSgRows = null;
         bzSgErr = (j && j.error) ? String(j.error) : '조회 실패';
@@ -29156,7 +29160,7 @@ function bzSgLoad() {
       }
       bzSgDraw();
     })
-    .catch(function (e) { bzSgRows = null; bzSgErr = e.message || '조회 실패'; bzSgDraw(); });
+    .catch(function (e) { bzSgLoading = false; bzSgRows = null; bzSgErr = e.message || '조회 실패'; bzSgDraw(); });
 }
 
 function bzSgToggle(k, on) { if (on) bzSgSel[k] = 1; else delete bzSgSel[k]; bzSgCount(); bzSgSum(); }
@@ -29393,11 +29397,20 @@ function bzSgSend() {
     .catch(function (e) { alert('발송 실패: ' + e.message); });
 }
 
-/* 문자발송 화면이 열릴 때 자리만 만들어 둔다(자료는 대표가 [불러오기] 를 눌러야 읽는다) */
+/* ── 🔴 2026-09-21 변경 — 화면 열면 자동으로 불러온다 ──────────────────────
+   예전엔 자리만 만들고 대표가 [🔄 불러오기]를 직접 눌러야 했다(수동).
+   대표 지시: "예전처럼 화면을 열면 자동으로 당근수집 원본이 바로 불러와져서
+   바로 확인·선택할 수 있어야 함" — 화면(#p-sms)이 처음 켜지는 순간 bzSgLoad()를
+   1회 자동 실행한다. bzSgRows가 null(아직 한 번도 안 읽음)일 때만 자동 실행하므로
+   이미 불러온 뒤 다른 탭을 오가도 매번 다시 불러오진 않는다 — 새로고침은 여전히
+   [🔄 불러오기] 버튼으로 가능. */
 (function bzSgBoot() {
   var tick = function () {
     var pn = document.getElementById('p-sms');
-    if (pn && pn.className.indexOf('on') >= 0) bzSgHost();
+    if (pn && pn.className.indexOf('on') >= 0) {
+      bzSgHost();
+      if (bzSgRows === null && !bzSgLoading) bzSgLoad();
+    }
   };
   setInterval(tick, 1200);
   setTimeout(tick, 600);
