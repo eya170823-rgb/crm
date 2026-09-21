@@ -1276,7 +1276,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:16</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:23</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -29665,6 +29665,48 @@ function bzVpExtraHtml(i, s) {
   if (s.memo) h += '<div class="card-sub" style="color:var(--t3)">📝 ' + bzVpEsc(s.memo) + '</div>';
   return h;
 }
+
+
+/* ═══ 📬 2026-09-21 8차 대표 지시 — 공실확인 문자 문구 교체 ═══════════════════
+   대표가 새 문구를 그대로 불러줬다: "사장님 안녕하세요 브리즈부동산입니다
+   (동+주소+건물명)에 현재 임대 가능한 방이나 퇴실 예정인 공실이 있을까요?
+   있으시다면 세입자를 빠르게 맞춰보겠습니다..."
+   🔴 index.html 의 smsTpl.vacancy.임대인 원본은 고치지 않는다(원본 기능코드
+   불변 원칙). 이 조각이 saas.html 에서만 그 값을 덮어쓴다 — sms-vacancy2.js
+   도 smsTpl.vacancy.임대인 를 그대로 불러 쓰므로(20·100줄) 여기 하나만
+   바꾸면 문자발송 화면 전체(미리보기·카드별 발송 포함)에 같이 반영된다.
+   🔴 상호는 "브리즈부동산중개"로 쓴다(대표가 부른 건 "브리즈부동산"이었지만,
+   08-27 확정 규칙 — tests/verify_sms.js 가 "브리즈부동산"만 쓰면 회귀로
+   잡는다. 서명 줄은 원래도 "브리즈부동산중개"였다).
+   🔴 (동+주소+건물명) 값 자체는 새로 만들지 않는다 — index.html renderSms()
+   가 이미 dong+건물명을 조합해 bld 로 넘겨준다(7021~7026줄, smsPlace).
+   이 함수의 인자 b 가 바로 그 값이다.
+   ⚠ 장문(45원) 그대로 — 기존 08-27 결정(대상이 소수라 단문으로 잘리는 것보다
+   낫다) 유지. */
+(function bzVacSmsTextSwap() {
+  /* 🔴 smsTpl 은 index.html 에서 top-level const 로 선언돼 있다 — let/const 는
+     window 에 안 붙는다(이 프로젝트 재발 함정, listings 접근 때와 같은 것).
+     window.smsTpl 로 확인하면 항상 undefined 라 절대 안 걸린다(실측으로 발견,
+     처음 배포판은 이 이유로 옛 문구가 그대로 나갔다) — bare 식별자로 읽고 쓴다. */
+  function apply() {
+    if (typeof smsTpl === 'undefined' || !smsTpl.vacancy) return false;
+    smsTpl.vacancy.임대인 = function (b) {
+      return '사장님, 안녕하세요. 브리즈부동산중개입니다. ' + String(b || '').trim()
+        + '에 현재 임대 가능한 방이나 퇴실 예정인 공실이 있을까요?'
+        + ' 있으시다면 세입자를 빠르게 맞춰보겠습니다.'
+        + ' 감사합니다.'
+        + String.fromCharCode(10) + String.fromCharCode(10)
+        + '브리즈부동산중개 대표 박정희'
+        + String.fromCharCode(10) + '제주시 삼무로1길 13, 1층';
+    };
+    return true;
+  }
+  if (!apply()) {
+    /* smsTpl 이 아직 정의 전일 수 있다 — index.html 하단 스크립트가 나중에
+       실행되는 경우를 대비해 짧게 재시도(사진 칸 인터벌 훅과 같은 방식). */
+    [200, 800, 2000].forEach(function (ms) { setTimeout(apply, ms); });
+  }
+})();
 
 </script>
 </body>
