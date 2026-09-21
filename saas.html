@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:27</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:33</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -26856,21 +26856,26 @@ function bzExpHtml(o, tab) {
     /* 🔴 2026-09-21 오후 — 예전엔 여기 o.photoUrl(저장된 값, 자주 빈칸/낡음)로 만든
        고정 링크가 하나 더 있었다. bzPhotoBtn 이 이미 같은 자리에서 매번 새로 조회해
        breezephoto:// 로 폴더를 바로 여니(PC), 낡은 값 기반 중복 링크는 걷어냈다. */
-    body = bzExpLine('사진 수', cnt ? (cnt + '장') : '없음')
+    var photoCol = bzExpLine('사진 수', cnt ? (cnt + '장') : '없음')
       + ((typeof bzPhotoBtn === 'function')
         ? ('<div style="margin-top:8px">' + bzPhotoBtn(id) + '</div>') : '')
       /* 🖼 2026-09-19 대표 지시 — 펼치면 광고용 사진을 작게 늘어놓는다.
          펼친 매물만 부르고 한 번 부르면 기억한다(조각: photo-launch.js). */
-      + ((typeof bzExpPhotoStrip === 'function') ? bzExpPhotoStrip(id) : '')
-      /* 🔴 2026-09-21 대표 지시 — "사진 옆에 광고문구가 나와야 하는데 안 나옴".
-         🏢건물 탭에만 있던 광고문구(o.desc) 블록을 여기(사진 탭)에도 그대로 보여준다
-         (필드는 새로 만들지 않는다 — 건물 탭과 같은 o.desc). */
-      + '<div style="margin-top:8px;font-size:12.5px"><div style="color:var(--t3);margin-bottom:3px">광고문구(매물 설명)</div>'
+      + ((typeof bzExpPhotoStrip === 'function') ? bzExpPhotoStrip(id) : '');
+    /* 🔴 2026-09-21 대표 지시 — "사진 옆에 광고문구가 나와야 하는데 안 나옴" →
+       "사진옆에 광고 문구 나오도록"(2차, 위치 명확화) — 아래로 쌓지 않고 사진과
+       나란히(좌우) 놓는다. 좁은 화면에서는 flex-wrap 으로 자연히 아래로 접힌다
+       (o.desc 필드는 새로 만들지 않는다 — 건물 탭과 같은 값). */
+    var descCol = '<div style="font-size:12.5px"><div style="color:var(--t3);margin-bottom:3px">광고문구(매물 설명)</div>'
       + '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;'
-      + 'max-height:190px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
+      + 'max-height:220px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
       + (String(o.desc || '').trim() ? bzExpEsc(o.desc)
         : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>')
-      + '</div></div>'
+      + '</div></div>';
+    body = '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'
+      + '<div style="flex:1 1 240px;min-width:220px">' + photoCol + '</div>'
+      + '<div style="flex:1 1 260px;min-width:220px">' + descCol + '</div>'
+      + '</div>'
       + '<div style="margin-top:8px;font-size:11.5px;color:var(--t3);line-height:1.7">'
       + '※ 사진은 드라이브 폴더에 있습니다. 광고에 나가는 것은 워터마크가 찍힌 것뿐입니다.</div>';
   } else {
@@ -28281,12 +28286,23 @@ function bzColFit() {
            좀 더 촘촘하게 붙여줘, 보기가 힘듬" → 그 칸들의 좌우 여백을 줄인다. */
         var tight = { '매물명': 1, '물건유형': 1, '거래유형': 1, '거래가': 1, '방향': 1,
                       '입주가능일': 1, '연락처': 1, '상태': 1, '사진': 1 };
+        /* 🔴 2026-09-21 대표 지시(2차) — "물건유형 거래유형 거래가 사이 좁히기".
+           셀 padding 만으로는 부족했다 — 물건유형·거래유형은 .badge(클릭해서
+           고치는 칩)로 그려지는데 .badge 자체에 padding:3px 9px 가 이미 있어(전역
+           클래스, 다른 화면도 같이 쓴다 — 거기는 안 건드린다) 셀 padding 을 줄여도
+           칩 안쪽 9px 이 남아 여전히 벌어져 보였다. 이 세 칸 안의 칩만 좁힌다. */
+        var tightBadge = { '물건유형': 1, '거래유형': 1, '거래가': 1 };
         for (r2 = 0; r2 < trs.length; r2++) {
           tds2 = trs[r2].querySelectorAll('td');
           for (c2 = 0; c2 < tds2.length; c2++) {
-            if (!tight[names[c2]]) continue;
-            tds2[c2].style.paddingLeft = '5px';
-            tds2[c2].style.paddingRight = '5px';
+            if (tight[names[c2]]) {
+              tds2[c2].style.paddingLeft = '5px';
+              tds2[c2].style.paddingRight = '5px';
+            }
+            if (tightBadge[names[c2]]) {
+              var bgs = tds2[c2].querySelectorAll('.badge');
+              for (var bi = 0; bi < bgs.length; bi++) { bgs[bi].style.padding = '3px 5px'; }
+            }
           }
         }
         var ths = best.querySelectorAll('thead th');
