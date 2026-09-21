@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 18:22</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 19:32</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23851,14 +23851,29 @@ function bzPhotoCell() {
        그 줄은 자기 자리(listing-newrow.js 의 MAP)가 따로 있다. */
     if (!o) return;
     var n = bzPhotoNum(o.photoCnt);
-    td.innerHTML = '<button class="btn btn-xs" title="사진 보기·올리기"'
+    /* 🔴 2026-09-21 3차 — 대표 지시는 "사진 옆(오른쪽)에, 아래로 쌓지 않고
+       나란히(좌우)"였다(listing-expand.js 의 📷사진 탭과 같은 지시). 그런데 이 칸은
+       표 전역 220px 규칙을 그대로 받아 폭이 55px로 눌렸고, 버튼+배지를 한 td 안에
+       세로로만 쌓을 수밖에 없었다(실측: badge display:block, 문구가 5줄로 줄바꿈).
+       → 이 칸(사진/첨부)만 폭을 늘리고 flex 가로배치로 바꾼다. 표 전역 220px 규칙은
+       건드리지 않는다 — 이 td 에만 인라인 스타일로 덮어쓴다. */
+    /* 🔴 2026-09-21 3차(2) — max-width 만으로는 부족했다(실측): table auto-layout이
+       다른 칸들에 밀려 이 칸을 90px로 눌러버렸다. min-width 로 실제 자리를
+       확보해야 버튼+배지가 같은 줄에 들어갈 폭이 생긴다. */
+    td.style.maxWidth = '300px';
+    td.style.minWidth = '210px';
+    td.style.whiteSpace = 'normal';
+    td.style.overflow = 'visible';
+    td.innerHTML = '<div style="display:flex;align-items:flex-start;gap:6px">'
+      + '<button class="btn btn-xs" style="flex:0 0 auto" title="사진 보기·올리기"'
       + ' onclick="event.stopPropagation();bzPhotoTap(&quot;' + bzEsc(id) + '&quot;)">'
       /* 🔴 2026-09-19 대표 지시 — 카메라 옆에 장수만. '없음' 단추는 만들지 않는다.
          사진이 없으면 카메라만 (눌러서 올릴 수 있게 단추는 남긴다). */
       + '📷' + (n ? (' ' + n) : '') + '</button>'
       /* 🔴 2026-09-21 대표 지시 — 광고문구를 사진 옆에, 자동생성된 내용이 바로
          보이는 형식으로(메모 칸에 있던 것을 여기로 옮김). listing-note-sec.js */
-      + ((typeof bzDescBadgeHtml === 'function') ? bzDescBadgeHtml(o, id) : '');
+      + ((typeof bzDescBadgeHtml === 'function') ? bzDescBadgeHtml(o, id) : '')
+      + '</div>';
     td.setAttribute('data-bzph', '1');
   });
 }
@@ -26133,27 +26148,26 @@ function bzNoteCell(l) {
    🔒출입 bzSecOpen 과 같은 방식의 고정박스). listing-photo-excel.js 의
    bzPhotoCell() 에서 사진 버튼 뒤에 이 값을 붙여 쓴다. */
 function bzDescBadgeHtml(o, id) {
-  /* 🔴 2026-09-21 실측(헤드리스 getBoundingClientRect 대조) — "버튼이 따로
-     보이지 않음"의 진짜 원인: #p-listing .listing-table-wrap td 전체에 걸린
-     전역 규칙 `max-width:220px;overflow:hidden;white-space:nowrap`(한 칸이
-     1,941px 로 늘어졌던 사고를 막으려고 건 안전장치, 이 칸만의 것이 아니라
-     건드리면 안 됨) 때문에, 사진 버튼(≈40px) 뒤에 한 줄로 이어 붙인 문구
-     미리보기(최대 213px)가 합쳐서 220px 를 넘는 순간 뒷부분이 그대로 잘려
-     나갔다(측정: td 폭 220px인데 버튼+배지 합이 250~260px). 같은 줄에 우겨넣지
-     않고 **사진 버튼 아래 새 줄**로 내려서(display:block) 칸 폭 안에서
-     줄바꿈되게 한다 — overflow:hidden 은 가로만 자르므로 세로로 늘어나는 것은
-     잘리지 않는다(실측 확인). */
+  /* 🔴 2026-09-21 3차 — 대표가 원한 배치는 "아래로 쌓지 않고 사진과 나란히(좌우)"
+     (listing-expand.js 의 📷사진 탭과 같은 지시). 종전엔 #p-listing
+     .listing-table-wrap td 전역 규칙(max-width:220px;overflow:hidden;white-space:
+     nowrap — 한 칸이 1,941px 로 늘어졌던 사고 방지용, 이 규칙 자체는 건드리지
+     않음) 때문에 버튼 옆에 못 두고 display:block 으로 버튼 **아래**에 내려
+     쌓았다 — 실제로는 그 칸이 55px 로 눌려 문구가 5줄로 줄바꿈되며 더 붙어
+     보이는 역효과였다(헤드리스 실측). → bzPhotoCell() 쪽에서 이 칸(사진/첨부)만
+     폭을 300px 로 늘리고 flex 가로배치로 바꿨다 — 여기서는 그 flex 줄 안의
+     한 칸으로 앉도록 display:inline-block 으로 되돌리고 폭만 남는 공간에 맞춘다. */
   var v = String((o && o.desc) || '').trim();
   if (v) {
     var flat = v.split(String.fromCharCode(10)).join(' ');
-    var show = flat.length > 34 ? (flat.slice(0, 34) + '…') : flat;
+    var show = flat.length > 22 ? (flat.slice(0, 22) + '…') : flat;
     return '<span style="cursor:pointer;font-size:11px;color:var(--t2);'
-      + 'display:block;margin-top:2px;max-width:210px;white-space:normal;'
-      + 'word-break:break-word;line-height:1.3"'
+      + 'display:inline-block;min-width:0;max-width:230px;white-space:nowrap;'
+      + 'overflow:hidden;text-overflow:ellipsis;line-height:1.3"'
       + ' title="' + bzAttr(v) + ' (누르면 광고문구 고치기)"'
       + ' onclick="event.stopPropagation();bzDescOpen(&#39;' + id + '&#39;)">📝 ' + bzAttr(show) + '</span>';
   }
-  return '<span style="cursor:pointer;display:block;margin-top:2px;width:fit-content;'
+  return '<span style="cursor:pointer;display:inline-block;width:fit-content;'
     + 'border:1px dashed var(--t3);color:var(--t3);border-radius:6px;padding:2px 6px;'
     + 'font-size:11px;white-space:nowrap"'
     + ' title="광고문구(매물 설명) — 누르면 바로 적습니다"'
@@ -28147,7 +28161,10 @@ var BZ_COL_HIDEABLE = ['매물번호', '접수일', '거래유형', '방향', '�
    (칸 자체는 있고 입력도 되는데 09-19 가로스크롤 줄이기 때 기본으로 접혀 안 보였다). */
 /* 🔴 2026-09-21 대표 지시(2차) — "매물유형도 당연히 나와야지" → '거래유형'(매물
    유형: 월세/전세/매매)도 같은 까닭으로 접는 목록에서 뺀다. */
-var BZ_COL_HIDE_DEFAULT = ['매물번호', '접수일', '🔒출입', '지도'];
+/* 🔴 2026-09-21 대표 지시(3차) — "매물번호가 없어졌음" → 위 방향·거래유형과 같은
+   원인(09-19 가로스크롤 줄이기 때 기본으로 접힘). 매물번호는 매물을 특정하는
+   기준 칸이라 접는 목록에서 뺀다. */
+var BZ_COL_HIDE_DEFAULT = ['접수일', '🔒출입', '지도'];
 
 /* 🔁 이미 이 기기에 접힘이 저장돼 있으면 기본값을 바꿔도 소용이 없다(저장값이 이긴다).
    그래서 **딱 한 번** 저장값에서 지정한 이름을 빼 준다. 그 뒤로는 대표가 접으면 접힌 대로 둔다. */
@@ -28167,6 +28184,7 @@ function bzColShowOnce(flagKey, names) {
 bzColShowOnce('bzColAdShown', ['광고']);
 bzColShowOnce('bzColDirShown_0921', ['방향']);
 bzColShowOnce('bzColTypeShown_0921b', ['거래유형']);
+bzColShowOnce('bzColIdShown_0921c', ['매물번호']);
 var BZ_COL_KEY = 'bzListColHide';
 var BZ_COL_STICKY = '매물명';
 
