@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 16:12</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 16:19</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23681,13 +23681,22 @@ function bzPhotoThumbToggle(id, fileId) {
 
 /* 선택한 것들을 휴지통으로 — 30일 안에 되살릴 수 있다(규칙 그대로). 하나씩 순서대로 지운다. */
 async function bzPhotoTrashSelected(id) {
-  var sel = BZ_PH_SEL[id] || {};
-  var ids = Object.keys(sel).filter(function (k) { return sel[k]; });
-  if (!ids.length) return;
-  if (!window.confirm(ids.length + '장을 휴지통으로 옮깁니다. 30일 안에는 되살릴 수 있습니다. 계속할까요?')) return;
-
+  /* 🔴 2026-09-21 — "지우기 눌러도 반응 없음" 신고 뒤 재조사: 실제 클릭 재현으로는
+     재현 안 됨(선택→버튼→확인창→photoTrash 호출까지 전부 정상). 그래도 조용히
+     끝나는 경로가 하나 있었다 — 선택이 비어 있으면 여기서 소리 없이 return 했다.
+     화면을 다시 그리는 사이 선택 상태가 비면(예: 다른 코드가 같은 매물 모달을
+     다시 열어 재조회하는 경우) 버튼은 그대로 보이는데 눌러도 아무 일도 안
+     일어나는 것처럼 보일 수 있다 — 최소한 이 경로는 이제 눈에 보이게 알린다. */
   var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
   var tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+  var sel = BZ_PH_SEL[id] || {};
+  var ids = Object.keys(sel).filter(function (k) { return sel[k]; });
+  if (!ids.length) {
+    if (typeof showToast === 'function') showToast('선택된 사진이 없습니다 — 사진을 눌러 먼저 고르세요');
+    return;
+  }
+  if (!window.confirm(ids.length + '장을 휴지통으로 옮깁니다. 30일 안에는 되살릴 수 있습니다. 계속할까요?')) return;
+
   var okN = 0, failMsgs = [];
   for (var i = 0; i < ids.length; i++) {
     try {
