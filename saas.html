@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 15:32</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 15:57</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -8224,19 +8224,8 @@ function renderSms(){
   const tpl=smsTpl[theme]||smsTpl.general;
   let list=[];
   if(theme==='vacancy'){
-    // 공실확인: 임대인관리에서 선택 날짜에 '당근 공실감지'가 기록된 임대인만 (매도인 제외)
-    const d=document.getElementById('sms-date').value;
-    (landlords||[]).forEach(l=>{
-      if(role==='임차인')return;
-      if(!String(l.name||'').includes('임대인'))return;
-      if(!String(l.note||'').includes('공실감지 '+d))return;
-      // 2026-08-27: 주소(읍면동)+건물명으로 넘긴다 — 건물명만으로는 어느 동네인지 안 드러난다
-      const dong=(String(l.addr||'').match(/([가-힣0-9]+(?:동|읍|면|리))(?=\s|$)/)||[])[1]||'';
-      const aptNm=String(l.apt||'').trim();
-      const bld=smsPlace(dong,aptNm)
-        || String(l.addr||'').replace('제주특별자치도 제주시','').trim() || '보유하신 건물';
-      list.push({name:l.name||'임대인',phone:l.phone||'-',role:'임대인',apt:bld,msg:smsTpl.vacancy.임대인(bld)});
-    });
+    if(bzVpRows===null){ bzVpLoad(); }
+    list=list.concat(bzVpBuildList(role));
   }else contracts.forEach((c,i)=>{
     // 🔴 매매 계약은 어떤 테마에서도 제외 — 매도인·매수인에게 "임대료 입금 확인해 주세요"가
     //    나가고 있었다. 종전에는 이 조건이 expiry 테마 안에만 있었다 (2026-08-14 수정)
@@ -8260,16 +8249,16 @@ function renderSms(){
   list=list.filter(s=>{const k=String(s.phone||'').replace(/\D/g,'').replace(/^82/,'0');if(!k)return true;if(seen.has(k))return false;seen.add(k);return true;});
   smsPreviewList=list;
   const el=document.getElementById('sms-list');
-  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?'선택한 날짜에 공실 감지된 임대인이 없습니다 — 당근 수집을 돌리면 자동으로 등록됩니다':theme==='expiry'?'만기 6개월(180일) 이내 계약이 없습니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">💬</div>${theme==='vacancy'?(bzVpRows===null?'당근수집 원본을 불러오는 중…':'표시할 대상이 없습니다(중개확정 제외 후 0건)'):theme==='expiry'?'만기 6개월(180일) 이내 계약이 없습니다':'계약 완료 탭에 계약 정보를 먼저 등록하세요'}</div>`;return;}
   el.innerHTML=list.map((s,i)=>{
     const okPhone=/\d{9,11}/.test(String(s.phone).replace(/\D/g,''));
     // 08-23 단문화: 요금 계량 배지 — 90바이트 이하 단문 18원, 넘으면 장문 45원(빨강 경고)
     const bts=smsBytes(s.msg);
     const feeBadge=bts<=90?`<span class="badge bg" style="font-size:10px">단문 ${bts}B·18원</span>`:`<span class="badge br" style="font-size:10px">⚠ 장문 ${bts}B·45원</span>`;
-    return`<div class="card"><div class="card-hd"><div><div class="card-title">${s.name} <span class="badge ${s.role==='임대인'?'bg':'bb'}">${s.role}</span> ${feeBadge}</div><div class="card-sub">${s.phone} · ${s.apt}</div></div><div class="row">
+    return`<div class="card"><div class="card-hd"><div><div class="card-title">${bzVpEsc(s.name)} <span class="badge ${s.role==='임대인'?'bg':'bb'}">${s.role}</span> ${feeBadge}</div><div class="card-sub">${bzVpEsc(s.phone)} · ${bzVpEsc(s.apt)}</div>${bzVpExtraHtml(i,s)}</div><div class="row">
       ${okPhone?`<button class="btn btn-g btn-sm" onclick="sendSmsOne(${i})">📨 발송</button>`:`<span class="badge br" style="font-size:10px">번호 없음</span>`}
       <button class="btn btn-sm" onclick="(()=>{navigator.clipboard.writeText(document.getElementById('smsg-${i}').textContent).then(()=>showToast('복사했습니다!'))})()">📋 복사</button>
-    </div></div><div class="sms-box" id="smsg-${i}">${s.msg}</div></div>`;}).join('');
+    </div></div><div class="sms-box" id="smsg-${i}">${bzVpEsc(s.msg)}</div></div>`;}).join('');
 }
 
 // ─── 솔라피 자동 발송 (GAS v10 smsSend/smsBalance) ───
@@ -24822,28 +24811,39 @@ function bzAdsBlockedStatus(st) {
 function bzAdsShowHtml(id) {
   var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
   if (!o) return '';
-  var out = [], i, p, s2;
+  var out = [], i, p, s2, click, hint;
   for (i = 0; i < BZ_ADS_PORTALS.length; i++) {
     p = BZ_ADS_PORTALS[i];
     s2 = bzAdsSeg(o, p.key);
+    /* 🔴 2026-09-21 대표 지시 — "당근 버튼을 누르면 광고관리가 아니라 바로
+       '당근 글 올리기'(임시저장)로 들어가야 함". 당근은 실행기가 있으니(ready:true)
+       바로 launch, 아직 준비 안 된 포털(네이버·직방)은 그대로 광고관리로 보낸다
+       (수동으로 표시만 하는 단계라 자동 게시 흐름이 없다). */
+    if (p.key === 'daangn') {
+      click = 'bzAdsLaunch(&quot;daangn&quot;,[&quot;' + bzEsc(id) + '&quot;])';
+      hint = ' — 누르면 당근 글 올리기로 갑니다"';
+    } else {
+      click = 'bzAdsGo(&quot;' + bzEsc(id) + '&quot;)';
+      hint = ' — 누르면 광고관리로 갑니다"';
+    }
     if (s2.state !== 'posted') {
       /* 🔘 안 올린 포털 — **회색 아이콘**으로 자리를 지킨다(2026-09-19 대표 방침 변경).
          목적: 매물장을 한 번 보면 어느 포털에 올렸고 어디에 안 올렸는지 바로 알 수 있게.
-         🔴 회색은 '안 올림' 표시일 뿐이다. 누른다고 올라가지 않는다 — 광고관리로 갈 뿐이다.
+         🔴 회색은 '안 올림' 표시일 뿐이다. 누른다고 올라가지 않는다(당근은 임시저장까지만).
          🔴 초안(임시저장)도 회색이다. **컬러 칩은 실제로 올라간 것만**(방침 그대로). */
       out.push('<span class="bz-ads-chip" title="' + p.label
         + (s2.state === 'draft' ? ' 임시저장(초안)' + (s2.at ? ' · ' + bzEsc(s2.at) : '') : ' 아직 안 올림')
-        + ' — 누르면 광고관리로 갑니다"'
+        + hint
         + ' style="color:#9CA3AF;background:#F3F4F6;cursor:pointer"'
-        + ' onclick="event.stopPropagation();bzAdsGo(&quot;' + bzEsc(id) + '&quot;)">'
+        + ' onclick="event.stopPropagation();' + click + '">'
         + p.icon + '</span>');
       continue;
     }
     out.push('<span class="bz-ads-chip" title="' + p.label + ' 광고중'
       + (s2.no ? ' · 번호 ' + bzEsc(s2.no) : '') + (s2.at ? ' · ' + bzEsc(s2.at) : '')
-      + ' — 누르면 광고관리로 갑니다"'
+      + hint
       + ' style="color:#fff;background:' + p.color + ';cursor:pointer"'
-      + ' onclick="event.stopPropagation();bzAdsGo(&quot;' + bzEsc(id) + '&quot;)">'
+      + ' onclick="event.stopPropagation();' + click + '">'
       + p.icon + (s2.at ? ' ' + bzEsc(bzAdsDay(s2.at)) : '') + '</span>');
   }
   return out.join('');
@@ -26766,6 +26766,15 @@ function bzExpHtml(o, tab) {
       /* 🖼 2026-09-19 대표 지시 — 펼치면 광고용 사진을 작게 늘어놓는다.
          펼친 매물만 부르고 한 번 부르면 기억한다(조각: photo-launch.js). */
       + ((typeof bzExpPhotoStrip === 'function') ? bzExpPhotoStrip(id) : '')
+      /* 🔴 2026-09-21 대표 지시 — "사진 옆에 광고문구가 나와야 하는데 안 나옴".
+         🏢건물 탭에만 있던 광고문구(o.desc) 블록을 여기(사진 탭)에도 그대로 보여준다
+         (필드는 새로 만들지 않는다 — 건물 탭과 같은 o.desc). */
+      + '<div style="margin-top:8px;font-size:12.5px"><div style="color:var(--t3);margin-bottom:3px">광고문구(매물 설명)</div>'
+      + '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;'
+      + 'max-height:190px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
+      + (String(o.desc || '').trim() ? bzExpEsc(o.desc)
+        : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>')
+      + '</div></div>'
       + '<div style="margin-top:8px;font-size:11.5px;color:var(--t3);line-height:1.7">'
       + '※ 사진은 드라이브 폴더에 있습니다. 광고에 나가는 것은 워터마크가 찍힌 것뿐입니다.</div>';
   } else {
@@ -29023,450 +29032,128 @@ window.photoUpload = async function (files) {
 };
 
 
-/* ═══ 📇 문자발송 화면에 '당근 수집 원본' 목록 붙이기 (2026-09-19 대표 지시 · 09-19 저녁 제거 · 09-21 재도입+자동기록) ═══
-   "1.수집이 만든 당근 원본 데이터를 문자발송 화면 목록에 붙여라. 대표가 직접 보고 고른다."
+/* ═══ 📬 임대인 문자발송 화면 — 목록+미리보기+메모 (2026-09-21 대표·1.수집 지시) ═══
+   경위: 09-19~09-21 사이 이 화면엔 "당근 수집 원본 — 보고 고르기" 카드(체크박스
+   다중선택 + 별도 그리드)가 있었으나, 대표가 "그 섹션을 삭제하고 원래 방식
+   (renderSms 의 미리보기 생성/전체 자동 발송, 카드 하나씩 미리보기+발송)으로
+   재구성하라"고 지시 — 카드/그리드는 05_보관\정리대기_20260921\ 로 옮기고 여기서는
+   기존 renderSms() 의 theme==='vacancy' 분기만 이 파일의 bzVpBuildList() 를 부르도록
+   build-saas.js 가 문자열만 바꿔 끼운다(마크업·다른 테마 코드는 그대로).
 
-   🔴 새 화면을 만들지 않는다. 문자발송 화면(#p-sms) 안에 칸(카드) 하나만 더한다.
-   🔴 CSS 를 건드리지 않는다 — 이미 있는 class(card·btn·badge·tbl-wrap)만 쓴다. <style> 0.
-   🔴 전체발송 단추는 만들지 않는다. **체크한 건만** 나간다. 보낼 때 확인창 필수.
+   1.수집 데이터 스펙(2026-09-21 확정, 수집매물 시트에 실명 헤더로 추가 — GAS 코드
+   변경 없이 gatherList 의 헤더-이름 매핑이 그대로 실어 보낸다):
+     · phone / matchPhone — 번호(단일 5,233건 · 후보 여러 개 2,096건). matchPhone 이
+       있으면 그걸 쓰고, 없으면 phone. 번호 없는 10,165행은 목록에서 뺀다(1.수집 실측).
+     · matchNote — 메모(그 임대인/매물에 기존에 남은 메모). 참고정보로만 보여준다.
+     · agencySignal — 'confirmed' 만 목록에서 뺀다. 그 밖의 값은 전부 그대로 노출
+       (대표 지시: "확정/확인필요 같은 자체 분류는 하지 않음 — 대표가 직접 판단").
+   🔴 후보가 여럿인 matchPhone 의 구분자 형식이 아직 실측 확인 전이라, 쉼표·슬래시·
+      세미콜론·파이프·가운뎃점을 전부 구분자로 보는 방어적 파싱을 쓴다. 실제 형식이
+      다르면 bzVpCandidates() 정규식 한 줄만 고치면 된다.
 
-   자료: GAS action=gatherList (시트 '수집매물' · COL_HEADERS 25칸) — 읽기만.
-         권한이 대표(colAdmin_)라 직원 토큰이면 서버가 막는다. 그때는 그대로 사유를 보여준다.
-   🔴 못 읽으면 '0건' 으로 적지 않는다 — 까닭을 그대로 띄운다.
+   문구는 새로 만들지 않는다 — 기존 smsTpl.vacancy.임대인(place) 그대로 재사용한다.
+   google_apps_script.js 의 vacSmsText_(dong,apt) 와 "같은 문구여야 한다"고 이미
+   주석에 못박혀 있어(그 파일 vacSmsText_ 윗줄), 클라이언트 발송 미리보기는 항상
+   이 함수를 통해 만든다(GAS 를 매 행 호출하지 않는다 — 7천 건 대상 성능). */
+var bzVpRows = null;      /* null = 아직 안 읽음 */
+var bzVpLoading = false;
+var bzVpErr = '';
+var bzVpPick = {};        /* 후보 번호가 여럿인 행의 현재 선택 — key: src|id → 선택한 번호 */
 
-   칸: ☐ · 이름 · 전화 · 주소 · 문구 · 당근제목 · 보증/월세 · 수집일 · 글개수
-   🔴 '당근제목' 은 수집매물 시트에 **제목 칸이 없다**(COL_HEADERS 에 title·본문 없음).
-      그래서 글 링크(url)를 대신 건다. 제목을 쓰려면 1.수집 쪽에서 먼저 모아야 한다.
+function bzVpDigits(p) { return String(p == null ? '' : p).replace(/\D/g, '').replace(/^82/, '0'); }
 
-   ═══ 🔴 2026-09-21 재도입 경위·추가 — 대표 지시 ═══════════════════════════════
-   09-19 저녁 이 화면은 대표 지시로 걷어냈다(자료: 05_보관\정리대기_20260919\문자발송화면_되돌림_1720\).
-   09-21 대표 지시: "수집 프로그램의 별도 [임대인관리로 넘기기] 버튼 방식 대신, 예전처럼
-   이 화면에서 확인·발송하는 행위 자체가 임대인관리 갱신의 유일한 경로가 되도록" — 그래서
-   화면을 되살리고 bzSgAutoRecord() 를 새로 더했다. 예전 버전에는 이 자동기록이 없었다
-   (전수 확인: bzSgSend 안에 landlords 관련 코드 0줄).
-   참고한 것: D:\브리즈문자발송기\app\bundle.py 의 after_send()/_erp()/_new_landlord() —
-   그 프로그램은 구글시트 API를 직접 불러 기존 행을 부분 patch 하지만, 이 화면은 브라우저라
-   그럴 수 없다. 대신 GAS upsertRow 가 이미 "안 보낸 칸은 안 바꾼다"(P0-2, 09-10 수정
-   — google_apps_script.js:1941 부근 주석)를 갖고 있어, gsUpsertOne 으로 필요한 칸만
-   보내면 기존 이름·기타 칸을 지우지 않는다(GAS 코드 새로 안 만듦). */
-var bzSgRows = null;        /* null = 아직 안 읽음 / [] = 읽었는데 0건 (둘을 섞지 않는다) */
-var bzSgErr = '';
-var bzSgSel = {};
-var bzSgMax = 200;
-var bzSgLoading = false;    /* 09-21 자동불러오기 — 1.2초 tick이 겹쳐 중복요청하는 것 방지 */
-
-function bzSgDigits(p) { return String(p == null ? '' : p).replace(/\D/g, '').replace(/^82/, '0'); }
-
-/* 우리가 아는 사람인지 — 임대인관리에 같은 번호가 있으면 그 사람 */
-function bzSgMatch(phone) {
-  var d = bzSgDigits(phone);
-  if (!d) return null;
-  var arr = (typeof landlords !== 'undefined' && landlords) ? landlords : [];
-  for (var i = 0; i < arr.length; i++) {
-    if (bzSgDigits(arr[i] && arr[i].phone) === d) return arr[i];
-  }
-  return null;
+function bzVpCandidates(o) {
+  var raw = String((o && (o.matchPhone || o.phone)) || '').trim();
+  if (!raw) return [];
+  var parts = raw.split(/[,\/;|·]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  var seen = {}, out = [];
+  parts.forEach(function (p) {
+    var d = bzVpDigits(p);
+    if (d && !seen[d]) { seen[d] = 1; out.push(p); }
+  });
+  return out;
 }
 
-/* 보낼 수 있는 번호인가 — 막히면 까닭을 돌려준다(빈 문자열이면 보낼 수 있다) */
-function bzSgWhyNo(o, m) {
-  var d = bzSgDigits(o.phone);
-  if (!d) return '번호 없음';
-  if (d.length < 9 || d.length > 11) return '번호 형식';
-  if (d.indexOf('050') === 0) return '050 안심번호';   /* 통화는 되나 문자는 대부분 막힌다 */
-  if (m && typeof ldBlocked === 'function') {
-    var w = ldBlocked(m);
-    if (w) return w;
-  }
-  return '';
+function bzVpEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function bzSgPlace(o) {
-  var dong = String(o.dong || '').trim();
-  var apt = String(o.apt || '').trim();
-  var p = '';
-  if (typeof smsPlace === 'function') { try { p = smsPlace(dong, apt) || ''; } catch (e) {} }
-  if (!p) p = (dong + ' ' + apt).trim();
-  if (!p) p = String(o.addr || '').replace('제주특별자치도 제주시', '').trim();
-  return p || '보유하신 건물';
+function bzVpKey(o) { return String((o && o.src) || '') + '|' + String((o && o.id) || ''); }
+
+function bzVpPickPhone(o) {
+  var cands = bzVpCandidates(o);
+  if (!cands.length) return '';
+  var k = bzVpKey(o);
+  return bzVpPick[k] || cands[0];
 }
 
-function bzSgMsg(o) {
-  var place = bzSgPlace(o);
-  if (typeof smsTpl !== 'undefined' && smsTpl && smsTpl.vacancy && smsTpl.vacancy.임대인) {
-    try { return smsTpl.vacancy.임대인(place); } catch (e) {}
-  }
-  return '';            /* 문구를 못 만들면 빈 값 — 지어내지 않는다 */
+/* renderSms() 의 vacancy 분기가 부른다. role==='임차인' 이면 이 테마는 대상이 없다
+   (임대인 전용 — 기존 renderSms 로직과 동일한 규칙을 그대로 옮겼다). */
+function bzVpBuildList(role) {
+  if (role === '임차인') return [];
+  var out = [];
+  (bzVpRows || []).forEach(function (o) {
+    if (!o) return;
+    if (String(o.agencySignal || '').trim() === 'confirmed') return;
+    var cands = bzVpCandidates(o);
+    if (!cands.length) return;
+    var dong = String(o.dong || '').trim();
+    var apt = String(o.apt || '').trim();
+    var bld = (typeof smsPlace === 'function' ? smsPlace(dong, apt) : '') || apt
+      || String(o.addr || '').replace('제주특별자치도 제주시', '').trim() || '보유하신 건물';
+    out.push({
+      key: bzVpKey(o),
+      name: o.nick || o.biz || '임대인',
+      phone: bzVpPickPhone(o),
+      cands: cands,
+      role: '임대인',
+      apt: bld,
+      msg: (typeof smsTpl !== 'undefined' && smsTpl.vacancy && smsTpl.vacancy.임대인) ? smsTpl.vacancy.임대인(bld) : '',
+      memo: String(o.matchNote || '').trim()
+    });
+  });
+  return out;
 }
 
-function bzSgMoney(o) {
-  var dep = String(o.deposit == null ? '' : o.deposit).trim();
-  var rent = String(o.rent == null ? '' : o.rent).trim();
-  var price = String(o.price == null ? '' : o.price).trim();
-  if (!dep && !rent) return price || '-';
-  return (dep || '0') + ' / ' + (rent || '0');
-}
-
-function bzSgEsc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-/* ── 자리 만들기 — 문자발송 화면의 filter-bar 앞에 카드 하나 ───────────── */
-function bzSgHost() {
-  var pn = document.getElementById('p-sms');
-  if (!pn || document.getElementById('bz-sg-card')) return document.getElementById('bz-sg-card');
-  var card = document.createElement('div');
-  card.id = 'bz-sg-card';
-  card.className = 'card';
-  card.innerHTML =
-    '<div class="card-hd">'
-    + '<div><div class="card-title">📇 당근 수집 원본 — 보고 고르기</div>'
-    + '<div class="card-sub" id="bz-sg-sub">아직 안 불러왔습니다</div></div>'
-    + '<div class="row">'
-    + '<input id="bz-sg-q" placeholder="이름·번호·주소 찾기" oninput="bzSgDraw()" style="width:150px">'
-    + '<button class="btn btn-xs" onclick="bzSgLoad()">🔄 불러오기</button>'
-    + '<button class="btn btn-g btn-xs" onclick="bzSgSend()">📨 체크한 건 발송</button>'
-    + '</div></div>'
-    + '<div style="font-size:11px;color:var(--t3);margin:-4px 0 6px">'
-    + '※ 발송하면 그 번호가 임대인관리에 자동으로 기록·갱신됩니다.</div>'
-    + '<div class="tbl-wrap" id="bz-sg-body">'
-    + '<div class="empty-state">[🔄 불러오기] 를 누르면 수집매물을 읽어옵니다</div></div>';
-  var bar = pn.querySelector('.filter-bar');
-  if (bar) pn.insertBefore(card, bar); else pn.appendChild(card);
-  return card;
-}
-
-/* ── 읽기 — 실패를 0건으로 감추지 않는다 ─────────────────────────────── */
-function bzSgLoad() {
-  bzSgHost();
-  if (bzSgLoading) return;
+/* 읽기 — 실패를 숨기지 않는다(0건으로 감추지 않는다) */
+function bzVpLoad() {
+  if (bzVpLoading) return;
   var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
-  if (!url) { bzSgErr = '구글 시트 설정(주소)이 없습니다'; bzSgRows = null; bzSgDraw(); return; }
+  if (!url) { bzVpRows = []; bzVpErr = '구글 시트 설정(주소)이 없습니다'; if (typeof renderSms === 'function') renderSms(); return; }
   var q = (typeof tokQ === 'function') ? tokQ() : '';
-  var sub = document.getElementById('bz-sg-sub');
-  if (sub) sub.textContent = '불러오는 중…';
-  bzSgLoading = true;
+  bzVpLoading = true;
   fetch(url + '?action=gatherList&t=' + Date.now() + q)
     .then(function (r) { return r.json(); })
     .then(function (j) {
-      bzSgLoading = false;
-      if (!j || j.ok === false) {
-        bzSgRows = null;
-        bzSgErr = (j && j.error) ? String(j.error) : '조회 실패';
-      } else {
-        bzSgRows = j.data || [];
-        bzSgErr = '';
-      }
-      bzSgDraw();
+      bzVpLoading = false;
+      if (!j || j.ok === false) { bzVpRows = []; bzVpErr = (j && j.error) ? String(j.error) : '조회 실패'; }
+      else { bzVpRows = j.data || []; bzVpErr = ''; }
+      if (typeof renderSms === 'function') renderSms();
     })
-    .catch(function (e) { bzSgLoading = false; bzSgRows = null; bzSgErr = e.message || '조회 실패'; bzSgDraw(); });
+    .catch(function (e) { bzVpLoading = false; bzVpRows = []; bzVpErr = e.message || '조회 실패'; if (typeof renderSms === 'function') renderSms(); });
 }
 
-function bzSgToggle(k, on) { if (on) bzSgSel[k] = 1; else delete bzSgSel[k]; bzSgCount(); bzSgSum(); }
-
-/* ── 🔴 2026-09-21 대표 지시 — 1.수집이 매긴 중개업소 판정(AJ열 → GAS gatherList 의
-   o.bizJudge) 적용. confirmed(중개 확정) 은 화면에서 아예 뺀다. mixed(혼합 의심) 는
-   빼지 않고 배지만 붙인다. individual/unknown/빈값은 그대로 노출(손대지 않는다). */
-function bzSgConfirmedBiz(o) { return String((o && o.bizJudge) || '').trim() === 'confirmed'; }
-function bzSgMixedBiz(o) { return String((o && o.bizJudge) || '').trim() === 'mixed'; }
-
-/* ── 🔴 2026-09-21 대표 지시 — 화면 하단 날짜 선택 칸(#sms-date, 이미 있던 칸)으로
-   "그 날짜에 수집된 것만" 걸러지게 한다. 대표: "20,150건 같은 전체 누적이 아니라
-   선택한 날짜에 수집된 것만 걸러져서 나와야 함." 수집일은 각 행의 seenAt(GAS
-   gatherList) 앞 10자(YYYY-MM-DD)로 판단한다. 날짜를 안 고르면(빈칸) 전부 보인다
-   — 기존 동작을 그대로 유지. #sms-date 는 원래 renderSms('vacancy')(공실감지 노트
-   태그 매칭 — 이 화면과는 다른 별개 기능) 전용이었으나, 대표가 이 칸을 이 카드에도
-   쓰길 원해 change 이벤트를 하나 더 붙인다(기존 onchange="renderSms()" 는 그대로 두고
-   addEventListener 만 추가 — index.html 마크업은 건드리지 않는다). */
-function bzSgSelDate() {
-  var el = document.getElementById('sms-date');
-  return el ? String(el.value || '').trim() : '';
-}
-function bzSgDateOk(o) {
-  var d = bzSgSelDate();
-  if (!d) return true;
-  return String((o && o.seenAt) || '').slice(0, 10) === d;
-}
-var BZ_SG_DATE_WIRED = false;
-function bzSgWireDate() {
-  if (BZ_SG_DATE_WIRED) return;
-  var el = document.getElementById('sms-date');
-  if (!el) return;
-  BZ_SG_DATE_WIRED = true;
-  el.addEventListener('change', bzSgDraw);
-  /* #sms-date 는 원래 sms-theme==='vacancy' 일 때만 보이게 되어 있다(index.html
-     sync(), 건드리지 않음). 이 카드는 테마 선택과 무관하게 이 칸을 쓰므로, 테마가
-     바뀌어도 계속 보이도록 sync() 뒤에 실행되는 리스너를 하나 더 붙인다. */
-  var thEl = document.getElementById('sms-theme');
-  if (thEl) thEl.addEventListener('change', function () { el.style.display = ''; });
-  el.style.display = '';
+/* 번호 후보 select 를 바꾸면 smsPreviewList 의 그 항목 번호도 같이 갱신한다 —
+   발송(sendSmsOne)은 항상 smsPreviewList[i].phone 을 읽으므로 실시간으로 맞춰 둔다. */
+function bzVpPhoneChange(i, key, val) {
+  bzVpPick[key] = val;
+  if (typeof smsPreviewList !== 'undefined' && smsPreviewList[i]) smsPreviewList[i].phone = val;
 }
 
-/* ── ℹ️ 2026-09-19 대표 지시 — 상단 요약 한 줄(대상건수·예상비용) ──────────
-   안내 박스를 접은 자리에 이 한 줄만 남는다. 자리는 build-saas.js 가 만든다(#bz-sms-sum).
-   🔴 '대상' 은 **보낼 수 있는 건수**다(번호 없음·050·연락금지·제외는 뺀 수).
-      셈이 안 되면 숫자를 지어내지 않고 '대상 확인 전' 이라고 적는다. */
-function bzSgSum() {
-  var el = document.getElementById('bz-sms-sum');
-  if (!el) return;
-  if (bzSgRows === null) { el.textContent = '대상 확인 전 — [🔄 불러오기] 를 누르세요'; return; }
-  var i, r, m, can = 0, msg = '';
-  for (i = 0; i < bzSgRows.length; i++) {
-    r = bzSgRows[i];
-    if (!r) continue;
-    if (bzSgConfirmedBiz(r)) continue;   /* 중개 확정 — 대상에서 아예 뺀다 */
-    if (!bzSgDateOk(r)) continue;        /* 날짜 선택 시 그 날 수집분만 */
-    m = bzSgMatch(r.phone);
-    if (bzSgWhyNo(r, m)) continue;
-    if (!msg) msg = bzSgMsg(r);
-    can++;
+/* 카드에 번호선택(후보 여럿일 때만)·메모 줄을 덧붙인다 — 다른 테마(계약 기반) 항목은
+   s.cands/s.memo 가 없으므로 빈 문자열을 돌려줘 화면이 그대로다. */
+function bzVpExtraHtml(i, s) {
+  var h = '';
+  if (s.cands && s.cands.length > 1) {
+    h += '<div class="card-sub">번호 선택: <select onchange="bzVpPhoneChange(' + i + ',&quot;' + bzVpEsc(s.key) + '&quot;,this.value)">'
+      + s.cands.map(function (c) {
+          return '<option value="' + bzVpEsc(c) + '"' + (c === s.phone ? ' selected' : '') + '>' + bzVpEsc(c) + '</option>';
+        }).join('')
+      + '</select></div>';
   }
-  var picked = bzSgCount();
-  var bts = 0;
-  if (msg && typeof smsBytes === 'function') { try { bts = smsBytes(msg); } catch (e) {} }
-  var per = (bts && bts <= 90) ? 18 : 45;
-  var n = picked || can;
-  el.textContent = '대상 ' + can + '건'
-    + (picked ? ' · 체크 ' + picked + '건' : '')
-    + ' · 예상 ' + (n * per).toLocaleString() + '원'
-    + (bts ? (bts <= 90 ? ' (단문 ' + bts + 'B)' : ' (장문 ' + bts + 'B)') : '');
+  if (s.memo) h += '<div class="card-sub" style="color:var(--t3)">📝 ' + bzVpEsc(s.memo) + '</div>';
+  return h;
 }
-
-function bzSgCount() {
-  var n = 0, k;
-  for (k in bzSgSel) if (bzSgSel[k]) n++;
-  return n;
-}
-
-/* ── 그리기 ───────────────────────────────────────────────────────── */
-function bzSgDraw() {
-  bzSgHost();
-  var body = document.getElementById('bz-sg-body');
-  var sub = document.getElementById('bz-sg-sub');
-  if (!body) return;
-
-  if (bzSgRows === null) {
-    bzSgSum();
-    body.innerHTML = '<div class="empty-state">🔴 불러오지 못했습니다 — ' + bzSgEsc(bzSgErr || '까닭 미확인')
-      + '<br>수집매물 조회는 대표 토큰만 됩니다(설정 → 토큰).</div>';
-    if (sub) sub.textContent = '실패';
-    return;
-  }
-
-  bzSgWireDate();
-  var selDate = bzSgSelDate();
-
-  /* 글개수 — 같은 번호로 올라온 글이 몇 개인지 (화면에 남는 자료 기준으로 센다 —
-     중개확정·날짜필터로 이미 안 보이는 것까지 세면 배지 숫자가 화면과 안 맞는다) */
-  var cnt = {}, i, d;
-  for (i = 0; i < bzSgRows.length; i++) {
-    if (bzSgConfirmedBiz(bzSgRows[i])) continue;
-    if (!bzSgDateOk(bzSgRows[i])) continue;
-    d = bzSgDigits(bzSgRows[i].phone);
-    if (d) cnt[d] = (cnt[d] || 0) + 1;
-  }
-
-  var qEl = document.getElementById('bz-sg-q');
-  var q = qEl ? String(qEl.value || '').trim().toLowerCase() : '';
-  var list = [], confirmedN = 0, dateOutN = 0;
-  for (i = 0; i < bzSgRows.length; i++) {
-    var o = bzSgRows[i];
-    if (!o) continue;
-    if (bzSgConfirmedBiz(o)) { confirmedN++; continue; }   /* 중개 확정 — 화면에서 뺀다 */
-    if (!bzSgDateOk(o)) { dateOutN++; continue; }          /* 선택한 날짜(수집일) 아님 */
-    if (q) {
-      var hay = ((o.nick || '') + ' ' + (o.biz || '') + ' ' + (o.phone || '') + ' '
-        + (o.addr || '') + ' ' + (o.apt || '') + ' ' + (o.dong || '')).toLowerCase();
-      if (hay.indexOf(q) < 0) continue;
-    }
-    list.push(o);
-  }
-  list.sort(function (a, b) { return String(b.seenAt || '').localeCompare(String(a.seenAt || '')); });
-
-  var total = list.length;
-  var shown = list.slice(0, bzSgMax);
-
-  if (sub) {
-    sub.textContent = '전체 ' + bzSgRows.length + '건 · 중개확정 제외 ' + confirmedN + '건'
-      + (selDate ? ' · ' + selDate + ' 수집분 아님 ' + dateOutN + '건 뺌' : '')
-      + ' · 표시 ' + total + '건'
-      + (total > bzSgMax ? ' (앞 ' + bzSgMax + '건만 보임)' : '')
-      + ' · 체크 ' + bzSgCount() + '건';
-  }
-  bzSgSum();
-  if (!shown.length) {
-    body.innerHTML = '<div class="empty-state">보여줄 수집 자료가 없습니다</div>';
-    return;
-  }
-
-  var h = '<table><thead><tr>'
-    + '<th>☐</th><th>이름</th><th>전화</th><th>주소</th><th>문구</th>'
-    + '<th>당근제목</th><th>보증/월세</th><th>수집일</th><th>게시글수</th>'
-    + '</tr></thead><tbody>';
-
-  for (i = 0; i < shown.length; i++) {
-    var r = shown[i];
-    var key = String(r.src || '') + '|' + String(r.id || '');
-    var dg = bzSgDigits(r.phone);
-    var m = bzSgMatch(r.phone);
-    var why = bzSgWhyNo(r, m);
-    var n = dg ? (cnt[dg] || 1) : 0;
-    var msg = bzSgMsg(r);
-    var nm = String(r.nick || r.biz || '').trim();
-
-    var chk = why
-      ? '<span class="badge br" style="font-size:10px" title="' + bzSgEsc(why) + '">불가</span>'
-      : '<input type="checkbox"' + (bzSgSel[key] ? ' checked' : '')
-        + ' onchange="bzSgToggle(&quot;' + bzSgEsc(key) + '&quot;,this.checked)">';
-
-    var nameCell = bzSgEsc(nm || '(이름없음)')
-      + (m ? ' <span class="badge bg" style="font-size:10px">' + bzSgEsc(m.name || '임대인') + '</span>'
-           : ' <span class="badge br" style="font-size:10px">매칭없음</span>')
-      + (bzSgMixedBiz(r) ? ' <span class="badge br" style="font-size:10px" title="1.수집 판정: 중개업소 혼합 의심(제외는 아님)">혼합의심</span>' : '');
-
-    var cntCell = String(n);
-    if (n >= 10) cntCell += ' <span class="badge br" style="font-size:10px">중개업소 의심</span>';
-
-    var titleCell = String(r.url || '').trim()
-      ? '<a href="' + bzSgEsc(r.url) + '" target="_blank" rel="noopener">당근 글 열기</a>'
-      : '<span style="color:var(--t3)">제목 없음(수집 안 함)</span>';
-
-    var msgCell = msg
-      ? '<span title="' + bzSgEsc(msg) + '">' + bzSgEsc(msg.slice(0, 24)) + (msg.length > 24 ? '…' : '') + '</span>'
-      : '<span style="color:var(--t3)">문구 없음</span>';
-
-    h += '<tr>'
-      + '<td>' + chk + '</td>'
-      + '<td>' + nameCell + '</td>'
-      + '<td style="white-space:nowrap">' + bzSgEsc(r.phone || '-') + (why ? ' <span class="badge br" style="font-size:10px">' + bzSgEsc(why) + '</span>' : '') + '</td>'
-      + '<td>' + bzSgEsc(String(r.addr || ((r.dong || '') + ' ' + (r.apt || ''))).trim() || '-') + '</td>'
-      + '<td>' + msgCell + '</td>'
-      + '<td>' + titleCell + '</td>'
-      + '<td style="white-space:nowrap">' + bzSgEsc(bzSgMoney(r)) + '</td>'
-      + '<td style="white-space:nowrap">' + bzSgEsc(String(r.seenAt || '').slice(0, 10) || '-') + '</td>'
-      + '<td style="white-space:nowrap">' + cntCell + '</td>'
-      + '</tr>';
-  }
-  h += '</tbody></table>';
-  body.innerHTML = h;
-}
-
-/* ── 🔴 2026-09-21 신설 — 발송된 것만 임대인관리에 기록·갱신 ─────────────────
-   bundle.py 의 _erp()/_new_landlord() 와 같은 규칙:
-     · 기존 임대인 있으면: note 에 이어붙이고(중복 방지) lastContact 갱신, role 은
-       **비어 있을 때만** '임대인'으로 채운다. 이름·기타 칸은 건드리지 않는다
-       (gsUpsertOne 은 안 보낸 칸을 안 바꾼다 — GAS upsertRow P0-2, 09-10 수정).
-     · 없으면: 새 줄로 등록(source: '당근수집').
-   🔴 대표 확인용으로 대표 본인 번호에 보낸 것은 여기서 걸러지지 않는다(그런 흐름이 없다 —
-      이 목록은 언제나 수집매물의 실제 연락처만 다룬다). */
-function bzSgAutoRecord(items) {
-  if (!items || !items.length) return Promise.resolve({ okN: 0, failN: 0 });
-  var day = new Date().toISOString().slice(0, 10);
-  var line = '당근수집문자 발송 ' + day;
-  var okN = 0, failN = 0;
-
-  function one(i) {
-    if (i >= items.length) return Promise.resolve({ okN: okN, failN: failN });
-    var it = items[i];
-    var m = bzSgMatch(it.phone);
-    var p;
-    if (m) {
-      var note = String(m.note || '').trim();
-      if (note.indexOf(line) < 0) note = note ? (note + ' | ' + line) : line;
-      var patch = { id: m.id, note: note, lastContact: day };
-      if (!String(m.role || '').trim()) {
-        patch.role = '임대인';
-        patch.roleEvidence = line + ' (회신 대기)';
-      }
-      p = gsUpsertOne('landlords', patch);
-    } else {
-      var d = bzSgDigits(it.phone);
-      var item = { id: 'DG' + d, name: it._nm || '당근 임대인', phone: d,
-        addr: it._addr || '', apt: it._apt || '', lastContact: day, note: line,
-        role: '임대인', roleEvidence: line + ' (회신 대기)', source: '당근수집' };
-      p = gsUpsertOne('landlords', item).then(function () {
-        if (typeof landlords !== 'undefined' && landlords) landlords.push(item);  /* 같은 배치 중복 등록 방지 */
-      });
-    }
-    return p.then(function () { okN++; }).catch(function () { failN++; }).then(function () { return one(i + 1); });
-  }
-  return one(0);
-}
-
-/* ── 발송 — 체크한 것만. 확인창 필수. 전체발송 단추는 없다 ──────────── */
-function bzSgSend() {
-  if (bzSgRows === null) { showToast('먼저 [🔄 불러오기] 를 눌러 주세요'); return; }
-  var pick = [], i, r, key, why, m;
-  for (i = 0; i < bzSgRows.length; i++) {
-    r = bzSgRows[i];
-    if (!r) continue;
-    if (bzSgConfirmedBiz(r)) continue;   /* 중개 확정 — 새로고침 사이 판정이 바뀐 경우 대비 */
-    key = String(r.src || '') + '|' + String(r.id || '');
-    if (!bzSgSel[key]) continue;
-    m = bzSgMatch(r.phone);
-    why = bzSgWhyNo(r, m);
-    if (why) continue;                         /* 막힌 번호는 넣지 않는다 */
-    var msg = bzSgMsg(r);
-    if (!msg) continue;                        /* 문구가 없으면 보내지 않는다 */
-    pick.push({ to: String(r.phone), text: msg, phone: String(r.phone),
-      _nm: String(r.nick || r.biz || ''), _addr: String(r.addr || ''), _apt: String(r.apt || '') });
-  }
-  if (!pick.length) { showToast('보낼 수 있는 체크 건이 없습니다'); return; }
-
-  var bts = 0;
-  if (typeof smsBytes === 'function') { try { bts = smsBytes(pick[0].text); } catch (e) {} }
-  var per = (bts && bts <= 90) ? 18 : 45;
-  var ok = confirm('당근 수집 목록에서 고른 ' + pick.length + '건에 문자를 보냅니다.\n\n'
-    + '· 대상: 체크하신 건만 (막힌 번호·문구 없는 건은 빠졌습니다)\n'
-    + '· 요금: 건당 약 ' + per + '원 (약 ' + (pick.length * per).toLocaleString() + '원)\n'
-    + '· 보낸 번호는 임대인관리에 자동으로 기록됩니다\n'
-    + '· 한 번 나간 문자는 취소할 수 없습니다\n\n보낼까요?');
-  if (!ok) return;
-
-  showToast('📨 ' + pick.length + '건 발송 중…');
-  smsPost(pick.map(function (p) { return { to: p.to, text: p.text }; }))
-    .then(function (j) {
-      if (!j || !j.ok) throw new Error((j && j.error) || '서버 오류');
-      var sent = (j.result && j.result.sent) || 0;
-      var failed = (j.result && j.result.failed) || [];
-      /* 🚫 2026-09-19 — 서버가 제외번호로 막은 건은 따로 센다. 0건 위장 금지 */
-      var excl = (j.result && j.result.excluded) || [];
-      showToast('📨 발송 ' + sent + '건'
-        + (excl.length ? ' · 🚫 제외 ' + excl.length + '건' : '')
-        + (failed.length ? ' · 실패 ' + failed.length + '건' : ''));
-      if (failed.length) alert('보내지 못한 건\n\n' + failed.join('\n'));
-      bzSgSel = {};
-      bzSgDraw();
-      /* 🔴 실제로 나간(제외·실패 아닌) 번호만 임대인관리에 기록한다 */
-      var failedSet = {}; failed.forEach(function (f) { failedSet[String(f).split(' ')[0]] = 1; });
-      var sentItems = pick.filter(function (p) { return !failedSet[p.to]; });
-      bzSgAutoRecord(sentItems).then(function (r) {
-        if (r.okN) showToast('임대인관리 기록 ' + r.okN + '건' + (r.failN ? ' · 실패 ' + r.failN + '건' : ''));
-        else if (r.failN) showToast('🔴 임대인관리 기록 실패 ' + r.failN + '건(발송은 정상)');
-      });
-    })
-    .catch(function (e) { alert('발송 실패: ' + e.message); });
-}
-
-/* ── 🔴 2026-09-21 변경 — 화면 열면 자동으로 불러온다 ──────────────────────
-   예전엔 자리만 만들고 대표가 [🔄 불러오기]를 직접 눌러야 했다(수동).
-   대표 지시: "예전처럼 화면을 열면 자동으로 당근수집 원본이 바로 불러와져서
-   바로 확인·선택할 수 있어야 함" — 화면(#p-sms)이 처음 켜지는 순간 bzSgLoad()를
-   1회 자동 실행한다. bzSgRows가 null(아직 한 번도 안 읽음)일 때만 자동 실행하므로
-   이미 불러온 뒤 다른 탭을 오가도 매번 다시 불러오진 않는다 — 새로고침은 여전히
-   [🔄 불러오기] 버튼으로 가능. */
-(function bzSgBoot() {
-  var tick = function () {
-    var pn = document.getElementById('p-sms');
-    if (pn && pn.className.indexOf('on') >= 0) {
-      bzSgHost();
-      if (bzSgRows === null && !bzSgLoading) bzSgLoad();
-    }
-  };
-  setInterval(tick, 1200);
-  setTimeout(tick, 600);
-})();
 
 </script>
 </body>
