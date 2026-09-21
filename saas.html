@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 11:01</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 11:49</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -28228,8 +28228,13 @@ function bzPhotoLocalPath(gasPath) {
 /* ═══ 📂 2026-09-21 오후 대표 지시 — "경로복사→탐색기 붙여넣기" 폐기, 클릭 한 번에 폴더 열기 ═══
    breeze:// 는 이미 3.광고의 BreezeAdsPublisher.exe 로 등록돼 있어(실측) 그대로 둔다(건드리면 광고 게시기가 깨진다).
    그래서 별도로 breezephoto:// 를 새로 만들어 이 PC 에 등록했다.
-   · 핸들러: crm-tools\breezephoto-open.ps1 (사진 루트 밖은 절대 안 연다 — 경로 탈출 방지 내장)
-   · 등록:   crm-tools\register-breezephoto-protocol.ps1 (HKCU, 이 사용자만 · 되돌리려면 레지스트리 키 삭제)
+   · 핸들러: crm-tools\breezephoto-open.ps1 (사진 루트 밖은 절대 안 연다 — 경로 탈출 방지 내장.
+     실패해도 조용히 안 넘어가고 메시지박스로 이유를 보여준다 — 09-21 대표 PC 재현 뒤 추가)
+   · 등록:   바탕화면 "브리즈 사진폴더 열기 설치.lnk"(더블클릭 1번) = crm-tools\register-
+     breezephoto-protocol.ps1 실행. HKCU 전용 · 되돌리려면 레지스트리 키 삭제.
+   · 🔴 09-21 실측 버그: GAS 가 주는 경로가 이미 '브리즈매물사진/' 을 포함하는데 핸들러가
+     또 그 폴더 밑에 이어붙여 "겹경로라 못 찾음" 으로 매번 조용히 실패했었다(대표 PC 재현
+     확인). breezephoto-open.ps1 안에서 겹치는 앞부분을 한 번 걷어내도록 고쳤다(수정 완료).
    · 미등록 PC 에서는 예전처럼 경로+복사로 물러난다(bzPhotoViewHtml 의 복사 단추는 그대로 둔다).
    · 폰은 그대로 드라이브 앱(웹 링크)으로 연다 — 이 프로토콜은 PC 전용이다. */
 var BZ_PHOTO_SCHEME = 'breezephoto://open?rel=';
@@ -28254,7 +28259,7 @@ function bzPhotoOpenLocal(gasPath, loc, onMissing) {
     d.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;'
       + 'background:#1F2937;color:#fff;padding:10px 14px;border-radius:10px;font-size:12.5px;max-width:560px';
     d.innerHTML = '폴더가 열리지 않으면 이 PC 에 <b>사진 폴더 열기</b> 연결이 안 된 것입니다. '
-      + '(crm-tools 폴더의 register-breezephoto-protocol.ps1 을 한 번 실행) '
+      + '바탕화면의 <b>"브리즈 사진폴더 열기 설치"</b> 를 한 번 더블클릭한 뒤 다시 눌러 주세요. '
       + '<span style="margin-left:8px;cursor:pointer;text-decoration:underline" onclick="this.parentNode.remove()">닫기</span>';
     document.body.appendChild(d);
     setTimeout(function () { try { d.remove(); } catch (e) {} }, 14000);
