@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-19 16:46</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 09:08</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23578,23 +23578,48 @@ function bzPhotoOpen(id) {
   bzPhotoRefresh(id);
 }
 
-/* 기존 사진 현황 조회를 그대로 쓴다 — 새로 만들지 않는다 */
+/* ── 🔴 2026-09-21 — 사진 현황 조회가 **없는 action 을 부르고 있었다** ────────────
+   실측: 화면은 `action=photoList` 를 불렀는데 서버 응답은
+         {"ok":false,"error":"알 수 없는 action: photoList"} 였다. 그런 action 은 없다.
+   그런데 아래 코드가 `j.ok` 를 **보지 않고** result 만 꺼내 files=[] 로 만들어
+   **언제나 "올라간 사진이 없습니다"** 를 띄웠다 — 사진이 27장 있어도 그랬다.
+   대표가 "올렸는데 또 안 올라갔다" 고 보신 것이 이것이다(파일은 드라이브에 멀쩡히 있었다).
+   → 실제로 있는 **drivePhotos**(POST)를 부른다. 원본 장수도 같이 보여 준다.
+   🔴 ok:false 면 '없음' 이 아니라 **까닭을 그대로** 띄운다(0건 위장 금지). */
 async function bzPhotoRefresh(id) {
   var box = document.getElementById('bz-ph-box');
   if (!box) return;
   var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
   if (!url) { box.textContent = '이 기기에 CRM 주소·토큰이 없습니다.'; return; }
   try {
-    var q = (typeof tokQ === 'function') ? tokQ() : '';
-    var r = await fetch(url + '?action=photoList&listingId=' + encodeURIComponent(id) + '&t=' + Date.now() + q);
+    var tok = (typeof getGsTok === 'function') ? getGsTok() : '';
+    var r = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'drivePhotos', token: tok, listingId: id })
+    });
     var j = await r.json();
-    var d = (j && (j.result || j.data)) || {};
-    var files = d.files || d.photos || d.rows || [];
-    if (!files.length) {
-      box.innerHTML = '<div style="color:var(--t2)">올라간 사진이 없습니다.</div>';
+    if (!j || j.ok === false) {
+      box.innerHTML = '<div style="color:#B91C1C">사진 현황을 읽지 못했습니다 — '
+        + bzEsc(String((j && j.error) || '까닭 미확인')) + '</div>';
       return;
     }
-    box.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    var d = (j && (j.result || j.data)) || {};
+    var raw = Number(d.raw || 0), done = Number(d.done || 0);
+    var files = d.files || d.photos || d.rows || [];
+    var head = '<div style="font-size:12.5px;margin-bottom:6px">'
+      + '원본 <b>' + raw + '장</b> · 워터마크 완료 ' + done + '장'
+      + (d.folderUrl ? (' <a href="' + bzEsc(d.folderUrl) + '" target="_blank" rel="noopener"'
+        + ' class="btn btn-xs" style="text-decoration:none;margin-left:6px">📂 폴더 열기</a>') : '')
+      + '</div>';
+    if (!files.length) {
+      /* 🔴 '원본은 있는데 광고용(보정완료)이 없는 것' 과 '아예 없는 것' 을 섞지 않는다 */
+      box.innerHTML = head + '<div style="color:var(--t2)">'
+        + (raw ? '워터마크가 아직 안 찍혔습니다 — 광고용 사진은 잠시 뒤에 생깁니다.'
+               : '올라간 사진이 없습니다.') + '</div>';
+      return;
+    }
+    box.innerHTML = head
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
       + files.slice(0, 30).map(function (f) {
         var nm = String(f.name || f.title || '');
         var ref = (nm.indexOf('참고') >= 0) || f.ref === true;
