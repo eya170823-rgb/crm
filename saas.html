@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 11:49</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 12:48</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -28139,9 +28139,16 @@ function bzPhotoShoot(id, mode) {
     var files = Array.prototype.slice.call(inp.files || []);
     try { inp.parentNode.removeChild(inp); } catch (e) {}
     if (!files.length) return;
+    /* 🔴 2026-09-21 대표 신고 — "선택 후 다시 선택하라고 뜬다"
+       원인: 파일을 고른 뒤에도 3버튼 시트(#bz-photo-sheet)를 안 닫아서, 업로드가 끝날
+       때까지 그 '찍기·앨범·폴더' 화면이 계속 화면에 남아 있었다(다시 열린 게 아니라
+       애초에 한 번도 안 닫혔던 것). 선택하는 즉시 시트부터 닫는다 — 진행 메시지는
+       bzPhotoSay 가 시트 안 글자칸이 없으면 자동으로 토스트로 돌아간다(기존 폴백). */
+    bzPhotoSheetClose();
     bzPhotoSay('올리는 중… ' + files.length + '장 (잠시만요)');
     Promise.resolve(photoUpload(files)).then(function () {
-      bzPhotoSay('올렸습니다 — 이제 광고에 쓰려면 워터마크를 찍어야 합니다.');
+      bzPhotoSay(files.length + '장 올렸습니다 — 이제 광고에 쓰려면 워터마크를 찍어야 합니다.');
+      BZ_EXP_PH[id] = null;   /* 펼치기 썸네일 캐시 무효화 — 다시 펼치면 새로 불러온다 */
       try { if (typeof renderListings === 'function') renderListings(); } catch (e) {}
     }).catch(function (e) {
       bzPhotoSay('실패 — ' + (e && e.message ? e.message : e));
@@ -28609,9 +28616,12 @@ function bzRowClickTidy() {
 
 function bzPhotoBtn(id) {
   var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
-  var cnt = o ? String(o.photoCnt || '').trim() : '';
-  var has = !!(cnt && cnt !== '0');
-  var label = has ? '📷' : '📷 없음';
+  /* 🔴 2026-09-21 대표 지시 — "사진이 첨부되면 카메라 아이콘 옆에 장수 표시(예: 📷5)"
+     예전엔 있음/없음만 보였다(bzPhotoNum 은 숫자·옛 글자 photoCnt 를 둘 다 정확히 읽는다 —
+     listing-expand.js 의 사진 탭과 같은 함수를 재사용, 새로 만들지 않는다). */
+  var cnt = (typeof bzPhotoNum === 'function') ? bzPhotoNum(o && o.photoCnt) : (parseInt(o && o.photoCnt, 10) || 0);
+  var has = cnt > 0;
+  var label = has ? ('📷' + cnt) : '📷 없음';
   /* 매물명 옆에 앉으므로 작게 — 이름이 밀리거나 줄바꿈되지 않게 nowrap */
   var base = 'margin-left:6px;padding:1px 6px;border-radius:9px;font-size:10.5px;'
     + 'line-height:1.6;white-space:nowrap;vertical-align:middle;cursor:pointer;border:1px solid ';
@@ -28619,7 +28629,7 @@ function bzPhotoBtn(id) {
     ? '#BFE0D3;background:#E4F1EC;color:#0B5040'
     : '#FCA5A5;background:#FEF2F2;color:#B91C1C;font-weight:700');
   var tip = has
-    ? ('사진 ' + cnt + ' — 누르면 사진관리가 열리고 그 매물 폴더까지 바로 열립니다')
+    ? ('사진 ' + cnt + '장 — 누르면 사진관리가 열리고 그 매물 폴더까지 바로 열립니다')
     : '사진이 없습니다 — 폰이면 눌러서 바로 찍고, PC 면 사진관리가 열리며 폴더까지 엽니다';
   return '<span class="bz-photo" data-id="' + bzEsc(id) + '"'
     + ' style="' + style + '"'
