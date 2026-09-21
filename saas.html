@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 16:19</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 16:34</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23603,9 +23603,36 @@ async function bzPhotoRefresh(id) {
     var d = (j && (j.result || j.data)) || {};
     BZ_PH_LAST[id] = d;                 /* 체크·삭제 뒤 다시 그릴 때 재조회 없이 쓴다 */
     bzPhotoBoxDraw(id, d);
+    bzPhotoCntWriteback(id, d.raw);
   } catch (e) {
     box.innerHTML = '<div style="color:var(--t3)">사진 현황을 읽지 못했습니다 — ' + bzEsc(e && e.message) + '</div>';
   }
+}
+
+/* ── 🔴 2026-09-21 — "삭제 후 다시 올려도 📷 숫자 안 바뀜" ────────────────────
+   원인: 이 모달(bzPhotoOpen/bzPhotoRefresh)은 drivePhotos 를 다시 불러 모달
+   안쪽(bzPhotoBoxDraw)만 새로 그렸을 뿐, 매물 표 🔴사진🔴 칸의 숫자가 읽는
+   로컬 매물 객체(o.photoCnt)에는 한 번도 써 주지 않았다 — 표 칸은 그 값을
+   그대로 두고 있어 갱신되지 않았다(index.html 의 옛 photoPanelRefresh 만
+   l.photoCnt 를 썼는데, 이 모달 흐름에서는 타이밍이 맞지 않아 최신값이 아니다).
+   → 여기서 로컬 매물 객체에 원본 장수를 바로 쓰고, 표에 이미 그려진 🔴사진🔴
+   버튼도 직접 고쳐 쓴다(bzPhotoCell 의 data-bzph 재확인 없이 즉시 반영 —
+   그 표시는 한 번 그리면 다시 안 훑는다). */
+function bzPhotoCntWriteback(id, raw) {
+  var n = Number(raw || 0);
+  try {
+    var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
+    if (o) o.photoCnt = n;
+  } catch (e) {}
+  try {
+    var tb = document.querySelector('#listing-cards table');
+    if (!tb) return;
+    Array.prototype.forEach.call(tb.querySelectorAll('tbody tr'), function (tr) {
+      if ((typeof bzRowId === 'function' ? bzRowId(tr) : '') !== id) return;
+      var btn = tr.querySelector('button[onclick*="bzPhotoTap"]');
+      if (btn) btn.innerHTML = '📷' + (n ? (' ' + n) : '');
+    });
+  } catch (e) {}
 }
 
 /* ═══ ✅ 2026-09-21 대표 지시 — 그리드 썸네일을 눌러도 선택 표시가 없었다 ═══════════
