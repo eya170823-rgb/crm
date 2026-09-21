@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:55</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 18:03</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23846,7 +23846,10 @@ function bzPhotoCell() {
       + ' onclick="event.stopPropagation();bzPhotoTap(&quot;' + bzEsc(id) + '&quot;)">'
       /* 🔴 2026-09-19 대표 지시 — 카메라 옆에 장수만. '없음' 단추는 만들지 않는다.
          사진이 없으면 카메라만 (눌러서 올릴 수 있게 단추는 남긴다). */
-      + '📷' + (n ? (' ' + n) : '') + '</button>';
+      + '📷' + (n ? (' ' + n) : '') + '</button>'
+      /* 🔴 2026-09-21 대표 지시 — 광고문구를 사진 옆에, 자동생성된 내용이 바로
+         보이는 형식으로(메모 칸에 있던 것을 여기로 옮김). listing-note-sec.js */
+      + ((typeof bzDescBadgeHtml === 'function') ? bzDescBadgeHtml(o, id) : '');
     td.setAttribute('data-bzph', '1');
   });
 }
@@ -26111,19 +26114,30 @@ function bzNoteCell(l) {
       + 'border-radius:6px;padding:2px 7px;font-size:11px;white-space:nowrap"'
       + ' title="누르면 바로 적습니다" onclick="' + call + '">＋메모</span>';
   }
-  /* 🔴 2026-09-21 대표 지시 — "광고문구 수정버튼이 아직 안나왔음"(세 차례 반복).
-     펼치기(bzExpHtml) 안에 넣었던 것을 대표가 못 찾은 것으로 보인다 — 처음 지시가
-     "메모 옆에, 펼치기 없이 바로" 였을 가능성이 높다. 🔒출입 칸의 bzSecOpen 과
-     똑같은 방식(펼치기 없이 표 줄에서 바로 뜨는 고정박스)으로 메모 바로 옆에
-     추가한다. 펼치기 안의 편집 버튼(listing-expand.js bzExpDescBlock)은 그대로
-     둔다 — 두 길 다 써도 된다(같은 desc 값, 같은 저장 경로). */
-  var hasDesc = String((l && l.desc) || '').trim();
-  var descHtml = '<span style="cursor:pointer;margin-left:5px;border:1px dashed '
-    + (hasDesc ? 'var(--b)' : 'var(--t3)') + ';color:' + (hasDesc ? 'var(--b)' : 'var(--t3)')
-    + ';border-radius:6px;padding:2px 6px;font-size:11px;white-space:nowrap"'
-    + ' title="광고문구(매물 설명) — 누르면 보고 고칩니다"'
-    + ' onclick="event.stopPropagation();bzDescOpen(&#39;' + id + '&#39;)">📝문구</span>';
-  return noteHtml + descHtml;
+  return noteHtml;
+}
+
+/* 🔴 2026-09-21 대표 지시 — "문구가 메모 옆에 붙었는데 사진 옆에 붙여주고
+   자동생성된걸 보여주는형식으로". 메모 칸에 있던 📝문구 배지를 사진 칸으로
+   옮기고, 그냥 편집 아이콘이 아니라 실제 생성된 문구 앞부분을 표에서 바로
+   읽을 수 있게 보여 준다(비어 있으면 "＋문구"). 클릭하면 bzDescOpen(그대로,
+   🔒출입 bzSecOpen 과 같은 방식의 고정박스). listing-photo-excel.js 의
+   bzPhotoCell() 에서 사진 버튼 뒤에 이 값을 붙여 쓴다. */
+function bzDescBadgeHtml(o, id) {
+  var v = String((o && o.desc) || '').trim();
+  if (v) {
+    var flat = v.split(String.fromCharCode(10)).join(' ');
+    var show = flat.length > 26 ? (flat.slice(0, 26) + '…') : flat;
+    return '<span style="cursor:pointer;font-size:11px;color:var(--t2);margin-left:6px;'
+      + 'max-width:220px;display:inline-block;vertical-align:middle;white-space:nowrap;'
+      + 'overflow:hidden;text-overflow:ellipsis"'
+      + ' title="' + bzAttr(v) + ' (누르면 광고문구 고치기)"'
+      + ' onclick="event.stopPropagation();bzDescOpen(&#39;' + id + '&#39;)">📝 ' + bzAttr(show) + '</span>';
+  }
+  return '<span style="cursor:pointer;border:1px dashed var(--t3);color:var(--t3);'
+    + 'border-radius:6px;padding:2px 6px;font-size:11px;white-space:nowrap;margin-left:6px"'
+    + ' title="광고문구(매물 설명) — 누르면 바로 적습니다"'
+    + ' onclick="event.stopPropagation();bzDescOpen(&#39;' + id + '&#39;)">＋문구</span>';
 }
 
 /* ── 📝 광고문구(매물 설명) — 🔒출입(bzSecOpen)과 똑같은 방식의 고정박스.
