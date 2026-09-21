@@ -44,7 +44,11 @@ self.addEventListener('fetch', (event) => {
     fetch(req, opts)
       .then((res) => {
         const copy = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {});
+        // 🔴 2026-09-21 대표 지시(배포 직후 옛 화면이 여러 번 스쳐감) — 캐시 쓰기를
+        //   event.waitUntil 밖에서 하면 응답을 돌려준 직후 브라우저가 SW를 끝낼 수 있어
+        //   쓰기가 중간에 끊길 위험이 있다(표준 문서화된 위험). waitUntil 로 감싸
+        //   캐시가 실제로 다 쓰일 때까지 SW 를 살려 둔다 — 응답 자체는 그대로 즉시 돌아간다.
+        event.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(req, copy)).catch(() => {}));
         return res;
       })
       // 🔴 2026-09-19 — 폴백을 업무화면으로. 종전 './index.html' 은 구 CRM 이라 "옛 화면" 으로 보였다.
