@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 19:32</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 19:48</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23860,8 +23860,12 @@ function bzPhotoCell() {
     /* 🔴 2026-09-21 3차(2) — max-width 만으로는 부족했다(실측): table auto-layout이
        다른 칸들에 밀려 이 칸을 90px로 눌러버렸다. min-width 로 실제 자리를
        확보해야 버튼+배지가 같은 줄에 들어갈 폭이 생긴다. */
-    td.style.maxWidth = '300px';
-    td.style.minWidth = '210px';
+    /* 🔴 2026-09-21 4차 — 매물번호 복원 + 광고칸까지 겹쳐 표 오른쪽이 다시 짤려서
+       이 칸도 한 단계 줄인다(300/210px→220/140px, 배지 미리보기도 listing-note-
+       sec.js 에서 14자로 같이 줄임). 버튼+배지가 여전히 한 줄에 있는지는 실측으로
+       재확인할 것. */
+    td.style.maxWidth = '190px';
+    td.style.minWidth = '130px';
     td.style.whiteSpace = 'normal';
     td.style.overflow = 'visible';
     td.innerHTML = '<div style="display:flex;align-items:flex-start;gap:6px">'
@@ -24912,6 +24916,61 @@ function bzAdsShowHtml(id) {
   return out.join('');
 }
 
+/* 🔴 2026-09-21 4차 — 대표 지시 "광고칸은 아이콘으로 간단하게, 누르면 전체가 펼쳐지도록"
+   (매물장 오른쪽이 짤리는 것과 같은 조사 — 칩 3개(당근·네이버·직방)를 매 줄마다 그려서
+   광고 칸 폭이 ~100px, 매물번호 복원·사진 칸 확장과 겹쳐 표 오른쪽이 화면 밖으로
+   밀려났다). 기본은 게시 현황을 한눈에 보여주는 **작은 요약 배지 하나**로 접고,
+   누르면 이 자리에 기존 포털별 칩(bzAdsShowHtml)이 그대로 펼쳐진다 — 펼친 뒤의
+   개별 포털 클릭(광고관리/즉시올리기) 동작은 손대지 않았다. */
+var BZ_ADS_EXP = {};   /* id → true 면 펼친 상태(기본은 접힘, 표를 다시 그리면 초기화) */
+
+function bzAdsCollapsedHtml(id, o) {
+  var postedN = 0, i;
+  for (i = 0; i < BZ_ADS_PORTALS.length; i++) {
+    if (bzAdsSeg(o, BZ_ADS_PORTALS[i].key).state === 'posted') postedN++;
+  }
+  var on = postedN > 0;
+  return '<span class="bz-ads-chip bz-ads-sum" title="광고 ' + postedN + '/' + BZ_ADS_PORTALS.length
+    + '곳 게시 — 눌러서 펼치기/접기"'
+    + ' style="cursor:pointer;font-weight:700;color:' + (on ? '#fff' : '#9CA3AF')
+    + ';background:' + (on ? '#FF6F0F' : '#F3F4F6') + '"'
+    + ' onclick="event.stopPropagation();bzAdsToggle(&quot;' + bzEsc(id) + '&quot;)">📢'
+    + (postedN ? postedN : '') + '</span>';
+}
+
+/* 🔴 이 이름을 bzAdsCellHtml 로 쓰지 않는다 — 그 이름은 09-19에 '안 쓰임'으로
+   남겨 둔 옛 함수(아래, 체크박스+칩 버전)가 이미 쓰고 있다. 한 스크립트 안에서
+   같은 이름을 또 선언하면 **나중 것이 이긴다**(실측: 이 칸이 안 접혀 원인 찾음) —
+   그 옛 함수가 이 파일 뒤쪽에 있어 내 것이 조용히 덮였었다. 옛 함수는 되돌리기
+   주석이 그 이름을 가리키므로 이름을 그대로 두고, 이쪽을 새 이름으로 뺐다. */
+function bzAdsCollapseCellHtml(id) {
+  var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
+  if (!o) return '';
+  var sum = bzAdsCollapsedHtml(id, o);
+  if (!BZ_ADS_EXP[id]) return sum;
+  return sum + '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">' + bzAdsShowHtml(id) + '</div>';
+}
+
+function bzAdsToggle(id) {
+  BZ_ADS_EXP[id] = !BZ_ADS_EXP[id];
+  var tb = document.querySelector('.listing-table-wrap table');
+  if (!tb) return;
+  var rows = tb.querySelectorAll('tbody tr'), i, tr, cell;
+  for (i = 0; i < rows.length; i++) {
+    tr = rows[i];
+    if ((typeof bzRowId === 'function' ? bzRowId(tr) : '') !== id) continue;
+    cell = tr.querySelector('.bz-ads-td');
+    if (!cell) break;
+    cell.innerHTML = bzAdsCollapseCellHtml(id);
+    if (BZ_ADS_EXP[id]) {
+      cell.style.whiteSpace = 'normal'; cell.style.overflow = 'visible'; cell.style.maxWidth = '150px';
+    } else {
+      cell.style.whiteSpace = 'nowrap'; cell.style.overflow = ''; cell.style.maxWidth = '';
+    }
+    break;
+  }
+}
+
 /* 아이콘을 누르면 광고관리로 (올리기는 거기서 한다) */
 function bzAdsGo(id) {
   try { bzAdsSel = {}; if (id) bzAdsSel[id] = true; } catch (e) {}
@@ -25178,8 +25237,8 @@ function bzAdsRowTidy(force) {
         continue;
       }
     }
-    /* 🔴 표시 전용 — 체크박스·올리기 단추 없음 */
-    if (cell) cell.innerHTML = bzAdsShowHtml(id);
+    /* 🔴 표시 전용 — 체크박스·올리기 단추 없음. 기본은 접힌 요약(bzAdsCollapseCellHtml) */
+    if (cell) cell.innerHTML = bzAdsCollapseCellHtml(id);
     var wc = tr.querySelector('.bz-ads-why-td');      /* 앞서 만든 사유 칸이 남아 있으면 치운다 */
     if (wc) wc.parentNode.removeChild(wc);
   }
@@ -26157,12 +26216,16 @@ function bzDescBadgeHtml(o, id) {
      보이는 역효과였다(헤드리스 실측). → bzPhotoCell() 쪽에서 이 칸(사진/첨부)만
      폭을 300px 로 늘리고 flex 가로배치로 바꿨다 — 여기서는 그 flex 줄 안의
      한 칸으로 앉도록 display:inline-block 으로 되돌리고 폭만 남는 공간에 맞춘다. */
+  /* 🔴 2026-09-21 4차 — 매물번호 복원·광고칸과 함께 표 오른쪽이 다시 짤려서
+     미리보기 폭을 한 번 더 줄인다(22자→14자, 230px→150px). 전체 문구는 그대로
+     title 툴팁과 눌러서 여는 고정박스(bzDescOpen)에 남아 있다 — 잘라 보여줄 뿐
+     지우지 않는다. */
   var v = String((o && o.desc) || '').trim();
   if (v) {
     var flat = v.split(String.fromCharCode(10)).join(' ');
-    var show = flat.length > 22 ? (flat.slice(0, 22) + '…') : flat;
+    var show = flat.length > 10 ? (flat.slice(0, 10) + '…') : flat;
     return '<span style="cursor:pointer;font-size:11px;color:var(--t2);'
-      + 'display:inline-block;min-width:0;max-width:230px;white-space:nowrap;'
+      + 'display:inline-block;min-width:0;max-width:110px;white-space:nowrap;'
       + 'overflow:hidden;text-overflow:ellipsis;line-height:1.3"'
       + ' title="' + bzAttr(v) + ' (누르면 광고문구 고치기)"'
       + ' onclick="event.stopPropagation();bzDescOpen(&#39;' + id + '&#39;)">📝 ' + bzAttr(show) + '</span>';
@@ -28494,16 +28557,24 @@ function bzColFit() {
            클래스, 다른 화면도 같이 쓴다 — 거기는 안 건드린다) 셀 padding 을 줄여도
            칩 안쪽 9px 이 남아 여전히 벌어져 보였다. 이 세 칸 안의 칩만 좁힌다. */
         var tightBadge = { '물건유형': 1, '거래유형': 1, '거래가': 1 };
+        /* 🔴 2026-09-21 대표 지시(3차) — 매물번호 복원·사진 칸 확장으로 표 오른쪽이
+           다시 짤려서, 이 세 칸을 2차보다 한 단계 더 좁힌다(cell 5px→3px,
+           badge 3px 5px→2px 3px). '거래가'는 .badge 가 아니라 맨 텍스트라
+           cell padding 만 적용된다. */
+        var tightBadge2 = { '물건유형': 1, '거래유형': 1, '거래가': 1 };
         for (r2 = 0; r2 < trs.length; r2++) {
           tds2 = trs[r2].querySelectorAll('td');
           for (c2 = 0; c2 < tds2.length; c2++) {
-            if (tight[names[c2]]) {
+            if (tightBadge2[names[c2]]) {
+              tds2[c2].style.paddingLeft = '3px';
+              tds2[c2].style.paddingRight = '3px';
+            } else if (tight[names[c2]]) {
               tds2[c2].style.paddingLeft = '5px';
               tds2[c2].style.paddingRight = '5px';
             }
             if (tightBadge[names[c2]]) {
               var bgs = tds2[c2].querySelectorAll('.badge');
-              for (var bi = 0; bi < bgs.length; bi++) { bgs[bi].style.padding = '3px 5px'; }
+              for (var bi = 0; bi < bgs.length; bi++) { bgs[bi].style.padding = '2px 3px'; }
             }
           }
         }
