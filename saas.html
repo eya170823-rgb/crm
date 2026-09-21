@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:33</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:41</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -26681,6 +26681,81 @@ function bzExpClose(id) {
   if (b) b.textContent = '펼치기';
 }
 
+/* ═══ 📝 2026-09-21 대표 지시 — "광고문구 수정버튼이 아직 안나왔음" ══════════════
+   지금까지는 보여만 줬다(펼치기는 "보여 주기만 한다"는 파일 위 원칙 그대로).
+   이번엔 대표가 직접 그 자리에서 고칠 수 있는 버튼을 명시적으로 요청 — 여기서만
+   예외로 편집을 더한다. 저장 경로는 새로 만들지 않는다 — 기존 save('listings')
+   그대로(gsAutoSync 가 바뀐 한 건만 upsert, listing-quickedit.js 의 bzQuick 과
+   같은 방식). 🏢건물 탭·📷사진 탭 둘 다 이 한 함수를 같이 쓴다(중복 안 만듦). */
+function bzExpDescBlock(o, id) {
+  var has = String(o.desc || '').trim();
+  return '<div style="font-size:12.5px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
+    + '<span style="color:var(--t3)">광고문구(매물 설명)</span>'
+    + '<button type="button" class="btn btn-xs" onclick="bzDescEdit(&#39;' + id + '&#39;)">✏ 수정</button>'
+    + '</div>'
+    + '<div id="bz-desc-view-' + id + '" style="background:#fff;border:1px solid var(--border);'
+    + 'border-radius:8px;padding:8px;max-height:220px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
+    + (has ? bzExpEsc(o.desc)
+      : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>')
+    + '</div></div>';
+}
+
+function bzExpDescFindRow(id) {
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  for (var i = 0; i < list.length; i++) { if (String(list[i].id) === String(id)) return list[i]; }
+  return null;
+}
+
+function bzDescEdit(id) {
+  var view = document.getElementById('bz-desc-view-' + id);
+  if (!view) return;
+  var row = bzExpDescFindRow(id);
+  var cur = row ? String(row.desc || '') : '';
+  view.innerHTML = '<textarea id="bz-desc-ta-' + id + '" style="width:100%;min-height:140px;max-height:280px;'
+    + 'font-size:12.5px;line-height:1.6;padding:8px;border:1px solid var(--border);border-radius:8px;'
+    + 'box-sizing:border-box;font-family:inherit">' + bzExpEsc(cur) + '</textarea>'
+    + '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px">'
+    + '<button type="button" class="btn btn-xs" onclick="bzDescCancel(&#39;' + id + '&#39;)">취소</button>'
+    + '<button type="button" class="btn btn-g btn-xs" onclick="bzDescSaveEdit(&#39;' + id + '&#39;)">저장</button>'
+    + '</div>';
+  var ta = document.getElementById('bz-desc-ta-' + id);
+  if (ta) { try { ta.focus(); } catch (e) {} }
+}
+
+function bzDescViewHtml(text) {
+  var v = String(text || '').trim();
+  return v ? bzExpEsc(text)
+    : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>';
+}
+
+function bzDescCancel(id) {
+  var view = document.getElementById('bz-desc-view-' + id);
+  if (!view) return;
+  var row = bzExpDescFindRow(id);
+  view.innerHTML = bzDescViewHtml(row ? row.desc : '');
+}
+
+function bzDescSaveEdit(id) {
+  var ta = document.getElementById('bz-desc-ta-' + id);
+  if (!ta) return;
+  var v = String(ta.value || '').trim();
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  var row = bzExpDescFindRow(id);
+  if (!row) { if (typeof showToast === 'function') showToast('그 매물을 찾지 못했습니다'); return; }
+  row.desc = v;
+  row.descAt = (typeof fmtDate === 'function') ? fmtDate() : '';
+  try {
+    save('listings', list);          /* 기존 경로 — 바뀐 한 건만 시트로 간다 */
+    if (typeof showToast === 'function') showToast('광고문구를 저장했습니다');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('저장 실패: ' + e.message);
+    return;
+  }
+  var view = document.getElementById('bz-desc-view-' + id);
+  if (view) view.innerHTML = bzDescViewHtml(v);
+}
+
 function bzExpCloseAll() {
   Array.prototype.forEach.call(document.querySelectorAll('tr[id^="bz-exp-"]'), function (r) {
     if (r.parentNode) r.parentNode.removeChild(r);
@@ -26844,12 +26919,7 @@ function bzExpHtml(o, tab) {
       + bzExpLine('입주가능일', o.availDate || o.moveDate)
       + bzExpLine('접수일', o.recvDate)
       + bzExpLine('담당', o.agent)
-      + '<div style="margin-top:8px;font-size:12.5px"><div style="color:var(--t3);margin-bottom:3px">광고문구(매물 설명)</div>'
-      + '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;'
-      + 'max-height:190px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
-      + (String(o.desc || '').trim() ? bzExpEsc(o.desc)
-        : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>')
-      + '</div></div>'
+      + '<div style="margin-top:8px">' + bzExpDescBlock(o, id) + '</div>'
       + bzExpSec(o) + bzExpDeal(o) + bzExpPrice(o);
   } else if (tab === 'photo') {
     var cnt = (typeof bzPhotoNum === 'function') ? bzPhotoNum(o.photoCnt) : (parseInt(o.photoCnt, 10) || 0);
@@ -26866,12 +26936,7 @@ function bzExpHtml(o, tab) {
        "사진옆에 광고 문구 나오도록"(2차, 위치 명확화) — 아래로 쌓지 않고 사진과
        나란히(좌우) 놓는다. 좁은 화면에서는 flex-wrap 으로 자연히 아래로 접힌다
        (o.desc 필드는 새로 만들지 않는다 — 건물 탭과 같은 값). */
-    var descCol = '<div style="font-size:12.5px"><div style="color:var(--t3);margin-bottom:3px">광고문구(매물 설명)</div>'
-      + '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;'
-      + 'max-height:220px;overflow:auto;white-space:pre-wrap;line-height:1.6">'
-      + (String(o.desc || '').trim() ? bzExpEsc(o.desc)
-        : '<span style="color:var(--t3)">아직 없습니다 — 매물장 위 [지금 만들기] 로 만들 수 있습니다</span>')
-      + '</div></div>';
+    var descCol = bzExpDescBlock(o, id);
     body = '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'
       + '<div style="flex:1 1 240px;min-width:220px">' + photoCol + '</div>'
       + '<div style="flex:1 1 260px;min-width:220px">' + descCol + '</div>'
