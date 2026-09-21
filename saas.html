@@ -1276,7 +1276,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:23</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:31</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23869,12 +23869,15 @@ function bzPhotoCell() {
        sec.js 에서 14자로 같이 줄임). 버튼+배지가 여전히 한 줄에 있는지는 실측으로
        재확인할 것. */
     /* 🔴 2026-09-21 7차 대표 지시 — "광고문구 연필(📝) 옆에 당근·직방·네이버 표시".
-       ads-launch.js 의 요약 배지(bzAdsCollapseCellHtml, 📢N)를 여기로도 같이
-       그린다 — 별도 '광고' 칸은 그대로 둔다(칸을 지우면 tds[idx] 로 칸 번호를
-       집는 다른 파일 4곳이 통째로 어긋난다, 09-19 경고). 폭이 다시 늘어난 만큼
-       td 예산도 190/130→230/150 으로 올린다. */
-    td.style.maxWidth = '260px';
-    td.style.minWidth = '205px';
+       처음엔 요약배지(bzAdsCollapseCellHtml, 📢N·클릭해야 펼침)를 붙였는데,
+       대표가 "아이콘 없어짐"이라 지적 — 원래 광고 칸이 하던 일(표를 한 번
+       보면 어느 포털에 올렸는지 바로 아는 것)이 클릭 한 번 뒤로 숨어 버린
+       것이었다. bzAdsShowHtml(원래 3칩 그대로, 당근·N·Z 색상표시)로 바꿔
+       클릭 없이 바로 보이게 한다(9차). 별도 '광고' 칸은 그대로 둔다(칸을
+       지우면 tds[idx] 로 칸 번호를 집는 다른 파일 4곳이 어긋난다, 09-19 경고).
+       칩 3개가 늘어난 만큼 td 예산도 205→260px 로 올린다. */
+    td.style.maxWidth = '280px';
+    td.style.minWidth = '240px';
     td.style.whiteSpace = 'normal';
     td.style.overflow = 'visible';
     td.innerHTML = '<div style="display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap">'
@@ -23887,7 +23890,7 @@ function bzPhotoCell() {
       /* 🔴 2026-09-21 대표 지시 — 광고문구를 사진 옆에, 자동생성된 내용이 바로
          보이는 형식으로(메모 칸에 있던 것을 여기로 옮김). listing-note-sec.js */
       + ((typeof bzDescBadgeHtml === 'function') ? bzDescBadgeHtml(o, id) : '')
-      + ((typeof bzAdsCollapseCellHtml === 'function') ? bzAdsCollapseCellHtml(id) : '')
+      + ((typeof bzAdsShowHtml === 'function') ? bzAdsShowHtml(id) : '')
       + '</div>';
     td.setAttribute('data-bzph', '1');
   });
