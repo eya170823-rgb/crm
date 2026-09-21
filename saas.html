@@ -1276,7 +1276,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 23:48</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 23:55</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23895,7 +23895,7 @@ function bzPhotoCell() {
          나가 다음 줄에 혼자 남았다. 3칩을 한 덩어리(inline-flex)로 묶어서
          **셋이 함께 줄바꿈**되도록 한다 — 중간에서 갈라지지 않는다. */
       + ((typeof bzAdsShowHtml === 'function')
-        ? ('<span style="display:inline-flex;gap:3px;flex-wrap:nowrap">' + bzAdsShowHtml(id) + '</span>')
+        ? ('<span style="display:inline-flex;gap:3px;flex-wrap:nowrap">' + bzAdsShowHtml(id, true) + '</span>')
         : '')
       + '</div>';
     td.setAttribute('data-bzph', '1');
@@ -24893,7 +24893,14 @@ function bzAdsBlockedStatus(st) {
    🔴 컬러 칩은 실제로 올라간 것만 — 근거는 adMark 기록(adsFlat 의 daangn~)뿐이다.
       눌렀다고 칩이 켜지지 않는다(미준비 포털은 실행기가 ads_mark 를 아예 안 부른다).
    경과: 09-19 오전 '안 올린 것은 표시하지 않는다' → 오후 대표 지시로 **회색 표시로 되돌림**. */
-function bzAdsShowHtml(id) {
+/* 🔴 2026-09-21 11차 대표 지시 — "당근직방네이버 간격좀 멀리 올린 날짜가
+   찍히니 줄내림됨". 원인 실측: 올린 포털은 아이콘 뒤에 날짜까지 붙어(예:
+   "🥕 09-20") 칩 하나가 58px 까지 늘어난다 — 매물장처럼 좁은 칸에서는 이게
+   버튼+문구와 한 줄에 못 들어가 줄바꿈이 잦아진다(실측: 날짜 없을 때 3칩
+   83px, 있을 때 145px). compact=true 면 날짜를 뗀다(제목 title 툴팁에는
+   그대로 남아 있어 눌러 보면 알 수 있다 — 정보를 지우는 게 아니라 표에서만
+   줄인다). 기존 호출(compact 생략)은 그대로 날짜가 붙는다 — 동작 안 바뀜. */
+function bzAdsShowHtml(id, compact) {
   var o = (typeof bzFindListing === 'function') ? bzFindListing(id) : null;
   if (!o) return '';
   var out = [], i, p, s2, click, hint;
@@ -24931,7 +24938,7 @@ function bzAdsShowHtml(id) {
       + hint
       + ' style="color:#fff;background:' + p.color + ';cursor:pointer"'
       + ' onclick="event.stopPropagation();' + click + '">'
-      + p.icon + (s2.at ? ' ' + bzEsc(bzAdsDay(s2.at)) : '') + '</span>');
+      + p.icon + ((!compact && s2.at) ? ' ' + bzEsc(bzAdsDay(s2.at)) : '') + '</span>');
   }
   return out.join('');
 }
