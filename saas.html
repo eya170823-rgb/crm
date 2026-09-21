@@ -1276,7 +1276,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:34</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 20:47</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -28522,6 +28522,57 @@ function bzFitPanel() {
   return null;
 }
 
+/* 🔴 2026-09-21 5차(3, 최종) — 열 이름별 고정 폭(px). table-layout:fixed 에서만
+   먹힌다(auto 에서는 시도해도 무시됨, 위 bzColFit 안 주석 참고). 이름으로 찾으므로
+   칸 순서가 바뀌어도 안전하다 — 순서에 없는 새 칸은 지정폭 없이 남는 공간을
+   나눠 갖는다(fixed 표의 기본 동작, 위험하지 않음). 숫자는 오늘 여러 차례
+   실측(같은줄 유지·안 잘림 확인)한 값을 그대로 옮긴 것 — 감으로 짓지 않았다. */
+var BZ_COL_PX = {
+  '매물번호': 100, '접수일': 90, '매물명': 130, '물건유형': 88, '거래유형': 70,
+  '거래가': 85, '방향': 68, '입주가능일': 90, '고객명': 90, '연락처': 108,
+  '상태': 62, '메모': 110, '🔒출입': 60, '사진': 240, '광고': 90, '지도': 60
+};
+function bzListColWidths(tbl0) {
+  var thr = tbl0.querySelector('thead tr');
+  if (!thr) return;
+  var ths = thr.querySelectorAll('th'), names = [], i;
+  /* 🔴 실측(헤드리스) — 숨긴(display:none) th 는 <col> 한 칸을 그대로 "차지"하지
+     않는다. colgroup 을 전체 16칸으로 만들면, 브라우저가 **보이는 th 개수만큼만**
+     차례로 col 을 갖다 쓴다 — 숨은 칸 자리의 col 은 건너뛰지 않고 다음 보이는
+     칸에 밀려 붙는다(1칸씩 밀리는 것을 실측으로 확인: 매물명이 접수일의 폭을,
+     물건유형이 매물명의 폭을 받는 식). → **보이는 th 만** 이름을 모아 그 개수만큼만
+     colgroup 을 만든다. */
+  for (i = 0; i < ths.length; i++) {
+    /* 🔴 실측 — style.display==='none' 만 보면 고객명 칸을 놓친다(실제로 숨겨져
+       있는데 인라인 style 이 아닌 다른 경로로 숨겨져 있었다). offsetParent 는
+       position:sticky(이 th 들이 전부 그렇다) 에서 브라우저마다 들쭉날쭉할 수
+       있어 대신 getComputedStyle 로 실제 display 값을 직접 본다. */
+    if (getComputedStyle(ths[i]).display === 'none') continue;
+    names.push(String(ths[i].textContent || '').trim());
+  }
+  /* 이미 만들어 둔 colgroup이 지금 "보이는" 칸 수·순서와 다르면 다시 만든다
+     (칸 접기/펴기로 바뀔 수 있음 — 매번 다시 세우는 쪽이 어긋난 콜그룹보다 안전하다). */
+  var cg = tbl0.querySelector('colgroup');
+  var stale = !cg || cg.children.length !== names.length;
+  if (!stale) {
+    for (i = 0; i < names.length; i++) {
+      if (cg.children[i].getAttribute('data-col') !== names[i]) { stale = true; break; }
+    }
+  }
+  if (stale) {
+    if (cg) cg.remove();
+    cg = document.createElement('colgroup');
+    for (i = 0; i < names.length; i++) {
+      var col = document.createElement('col');
+      col.setAttribute('data-col', names[i]);
+      col.style.width = (BZ_COL_PX[names[i]] || 80) + 'px';
+      cg.appendChild(col);
+    }
+    tbl0.insertBefore(cg, tbl0.firstChild);
+  }
+  tbl0.style.tableLayout = 'fixed';
+}
+
 function bzColFit() {
   var panel = bzFitPanel();
   var lock = false;
@@ -28557,6 +28608,22 @@ function bzColFit() {
         best.style.overflowX = 'auto';
         var tbl0 = best.querySelector('table');
         if (tbl0) { tbl0.style.width = '100%'; tbl0.style.minWidth = '0'; }
+        /* 🔴 2026-09-21 5차(3, 최종) — 대표가 "아직도 짤려있고 물건유형 거래유형
+           거래가 간격 좁히라고 했잖아"로 재차 지적. 그동안(3·4·5·5차2) td/th 에
+           width·max-width 를 !important 까지 줘도 물건유형 칸이 143.141px 에서
+           단 1px 도 안 줄었다 — 원인을 끝까지 실측한 결과, **table-layout:auto
+           에서는 셀 스타일의 width/max-width 가 열 폭 계산에 전혀 반영되지
+           않는다**(colgroup/col 도 auto 모드에선 마찬가지로 무시됨, 실측 확인).
+           table-layout:fixed 로 바꾸면 그제서야 지정한 폭이 그대로 먹힌다(실측:
+           70px 지정 → 92px 로 반영, 대신 auto와 달리 **모든 열**에 폭을 안 주면
+           엉뚱하게 갈린다). 이 표는 이미 #listing-cards 모바일 폭(767줄대,
+           narrow-screen 전용)에서 fixed+퍼센트로 검증된 방식이라 새로운
+           시도는 아니다 — 이번엔 desktop 폭에도 적용한다.
+           🔴 표 전역 220px 클리핑 규칙(saas.html:14716)은 그대로 둔다 — 이건
+           칸 폭을 colgroup 으로 못박는 것이지 그 규칙을 지우는 게 아니다. */
+        if (tbl0 && best.className && best.className.indexOf('listing-table-wrap') >= 0) {
+          bzListColWidths(tbl0);
+        }
         /* 🔴 2026-09-19 대표 지시 "매물번호를 줄내림하지 말고" —
            번호·날짜·전화처럼 **한 줄로 읽는 것**은 줄바꿈하지 않는다. 긴 글만 접는다. */
         var keep = { '광고': 1, '사진': 1, '지도': 1, '게시': 1,
@@ -28598,19 +28665,23 @@ function bzColFit() {
                 tds2[c2].style.textOverflow = 'ellipsis';
                 if (!tds2[c2].title) tds2[c2].title = String(tds2[c2].textContent || '').trim();
               }
-              /* 🔴 2026-09-21 5차 — "물건유형·거래유형 사이가 멀다" 원인을 헤드리스로
-                 끝까지 추적: td/th 에 width·max-width 를 !important 까지 줘도(실측
-                 여러 번) 이 칸의 auto-layout 계산 폭이 143px 에서 안 줄었다 — 원인은
-                 [＋새 매물] 빠른입력줄의 <select>(BZ_NEW_KIND 안 '빌라(투룸 이상)'가
-                 가장 긴 option) 였다(listing-newrow.js 에서 감싸는 div로 해결, 그
-                 줄 자체는 92px로 정상 확보됨 — 실측 확인). 그런데도 **데이터 줄의
-                 이 칸만은** 여전히 143px 그대로였다 — table auto-layout이 inline
-                 배지(.badge)의 max-width/ellipsis 를 열 폭 계산에 반영하지 않는
-                 것으로 보인다(원인 🔴 확정 못함 — 브라우저 auto-layout 내부 동작,
-                 추가 조사 필요). 배지에 max-width 만 걸면 칸은 안 줄고 텍스트만
-                 잘려 **빈 자리가 오히려 더 도드라지므로** 텍스트 자르기는 걷어내고
-                 padding만 남긴다(더 줄이려면 table-layout:fixed 로 표 전체를
-                 바꿔야 하는데 12칸 전부 폭을 다시 잡아야 해서 별도 작업으로 미룸). */
+              /* 🔴 2026-09-21 5차(3, 최종) — auto-layout에선 td/th 의 width·
+                 max-width 가 !important 를 줘도 안 먹혔던 문제(위 여러 차례
+                 실측)는 table-layout:fixed + bzListColWidths(colgroup) 로
+                 해결했다(위 bzColFit 초입). 칸이 이제 진짜 88px 로 묶이므로
+                 배지에 다시 ellipsis 를 준다 — 이번엔 칸이 같이 줄어드니
+                 "글자만 잘리고 빈자리 도드라지는" 역효과가 없다(실측 확인 예정). */
+              if (names[c2] === '물건유형') {
+                var bgKind = tds2[c2].querySelector('.badge');
+                if (bgKind) {
+                  bgKind.style.display = 'inline-block';
+                  bgKind.style.maxWidth = '100%';
+                  bgKind.style.overflow = 'hidden';
+                  bgKind.style.textOverflow = 'ellipsis';
+                  bgKind.style.verticalAlign = 'bottom';
+                  if (!bgKind.title) bgKind.title = String(bgKind.textContent || '').trim();
+                }
+              }
               continue;
             }
             tds2[c2].style.whiteSpace = 'normal';
