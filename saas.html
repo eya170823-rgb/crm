@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:41</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 17:55</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -26101,14 +26101,93 @@ function bzNoteCell(l) {
   var id = String((l && l.id) || '');
   var v = String((l && l.note) || '').trim().split(String.fromCharCode(10)).join(' ');
   var call = 'bzNoteEdit(event,&#39;' + id + '&#39;)';
+  var noteHtml;
   if (v) {
     var show = v.length > 14 ? (v.slice(0, 14) + '…') : v;
-    return '<span style="cursor:pointer;font-size:11.5px" title="' + bzAttr(v)
+    noteHtml = '<span style="cursor:pointer;font-size:11.5px" title="' + bzAttr(v)
       + '" onclick="' + call + '">' + bzAttr(show) + '</span>';
+  } else {
+    noteHtml = '<span style="cursor:pointer;border:1px dashed var(--t3);color:var(--t3);'
+      + 'border-radius:6px;padding:2px 7px;font-size:11px;white-space:nowrap"'
+      + ' title="누르면 바로 적습니다" onclick="' + call + '">＋메모</span>';
   }
-  return '<span style="cursor:pointer;border:1px dashed var(--t3);color:var(--t3);'
-    + 'border-radius:6px;padding:2px 7px;font-size:11px;white-space:nowrap"'
-    + ' title="누르면 바로 적습니다" onclick="' + call + '">＋메모</span>';
+  /* 🔴 2026-09-21 대표 지시 — "광고문구 수정버튼이 아직 안나왔음"(세 차례 반복).
+     펼치기(bzExpHtml) 안에 넣었던 것을 대표가 못 찾은 것으로 보인다 — 처음 지시가
+     "메모 옆에, 펼치기 없이 바로" 였을 가능성이 높다. 🔒출입 칸의 bzSecOpen 과
+     똑같은 방식(펼치기 없이 표 줄에서 바로 뜨는 고정박스)으로 메모 바로 옆에
+     추가한다. 펼치기 안의 편집 버튼(listing-expand.js bzExpDescBlock)은 그대로
+     둔다 — 두 길 다 써도 된다(같은 desc 값, 같은 저장 경로). */
+  var hasDesc = String((l && l.desc) || '').trim();
+  var descHtml = '<span style="cursor:pointer;margin-left:5px;border:1px dashed '
+    + (hasDesc ? 'var(--b)' : 'var(--t3)') + ';color:' + (hasDesc ? 'var(--b)' : 'var(--t3)')
+    + ';border-radius:6px;padding:2px 6px;font-size:11px;white-space:nowrap"'
+    + ' title="광고문구(매물 설명) — 누르면 보고 고칩니다"'
+    + ' onclick="event.stopPropagation();bzDescOpen(&#39;' + id + '&#39;)">📝문구</span>';
+  return noteHtml + descHtml;
+}
+
+/* ── 📝 광고문구(매물 설명) — 🔒출입(bzSecOpen)과 똑같은 방식의 고정박스.
+   펼치기 없이 표 줄에서 바로 열린다. 저장은 새 경로를 만들지 않는다 —
+   기존 save('listings') 그대로(listing-quickedit.js 의 bzQuick, listing-expand.js
+   의 bzDescSaveEdit 과 같은 방식 — 바뀐 한 건만 시트로 upsert). */
+function bzDescOpen(id) {
+  var old = document.getElementById('bz-desc-box');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  var list = (typeof listings !== 'undefined' && listings) ? listings : [];
+  var row = null;
+  for (var i = 0; i < list.length; i++) { if (String(list[i].id) === String(id)) { row = list[i]; break; } }
+  if (!row) { if (typeof showToast === 'function') showToast('그 매물을 찾지 못했습니다'); return; }
+
+  var box = document.createElement('div');
+  box.id = 'bz-desc-box';
+  box.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10000;'
+    + 'background:#fff;border:2px solid #0F6E56;border-radius:12px;padding:16px 18px;'
+    + 'box-shadow:0 10px 40px rgba(0,0,0,.25);min-width:320px;max-width:92vw;width:480px;font-size:13px';
+  var h = document.createElement('div');
+  h.style.cssText = 'font-weight:700;margin-bottom:8px';
+  h.textContent = '📝 광고문구(매물 설명) — ' + id;
+  box.appendChild(h);
+
+  var ta = document.createElement('textarea');
+  ta.value = String(row.desc || '');
+  ta.style.cssText = 'width:100%;box-sizing:border-box;min-height:220px;max-height:50vh;'
+    + 'font-size:12.5px;line-height:1.6;padding:8px;border:1px solid var(--border);border-radius:8px;'
+    + 'font-family:inherit;resize:vertical';
+  ta.placeholder = '아직 없습니다 — 매물장 위 [지금 만들기] 로 자동 생성하거나 여기서 직접 적을 수 있습니다.';
+  box.appendChild(ta);
+
+  var bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:10px';
+  var bSave = document.createElement('button');
+  bSave.className = 'btn btn-g btn-sm';
+  bSave.textContent = '저장';
+  bSave.style.cssText = 'background:#0F6E56;color:#fff;border:0;border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer';
+  var bClose = document.createElement('button');
+  bClose.className = 'btn btn-sm';
+  bClose.textContent = '닫기';
+  bClose.style.cssText = 'background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer';
+  bClose.onclick = function () { if (box.parentNode) box.parentNode.removeChild(box); };
+  bar.appendChild(bClose);
+  bar.appendChild(bSave);
+  box.appendChild(bar);
+
+  bSave.onclick = function () {
+    var v = String(ta.value || '').trim();
+    row.desc = v;
+    row.descAt = (typeof fmtDate === 'function') ? fmtDate() : '';
+    try {
+      save('listings', list);
+      if (typeof showToast === 'function') showToast('광고문구를 저장했습니다 — ' + id);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('저장 실패: ' + e.message);
+      return;
+    }
+    if (box.parentNode) box.parentNode.removeChild(box);
+    if (typeof renderListings === 'function') renderListings();
+  };
+
+  document.body.appendChild(box);
+  try { ta.focus(); } catch (e) {}
 }
 
 function bzAttr(t) {
