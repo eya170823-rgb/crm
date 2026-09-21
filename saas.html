@@ -1272,7 +1272,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 09:08</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-21 09:11</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -23608,9 +23608,11 @@ async function bzPhotoRefresh(id) {
     var files = d.files || d.photos || d.rows || [];
     var head = '<div style="font-size:12.5px;margin-bottom:6px">'
       + '원본 <b>' + raw + '장</b> · 워터마크 완료 ' + done + '장'
-      + (d.folderUrl ? (' <a href="' + bzEsc(d.folderUrl) + '" target="_blank" rel="noopener"'
-        + ' class="btn btn-xs" style="text-decoration:none;margin-left:6px">📂 폴더 열기</a>') : '')
-      + '</div>';
+      + '</div>'
+      /* 📂 2026-09-21 대표 승인(㉢) — PC 는 탐색기 경로+[경로 복사], 폰은 드라이브 앱 */
+      + ((typeof bzPhotoViewHtml === 'function') ? bzPhotoViewHtml(d)
+         : (d.folderUrl ? ('<a href="' + bzEsc(d.folderUrl) + '" target="_blank" rel="noopener"'
+            + ' class="btn btn-xs" style="text-decoration:none">📂 폴더 열기</a>') : ''));
     if (!files.length) {
       /* 🔴 '원본은 있는데 광고용(보정완료)이 없는 것' 과 '아예 없는 것' 을 섞지 않는다 */
       box.innerHTML = head + '<div style="color:var(--t2)">'
@@ -28086,8 +28088,10 @@ function bzPhotoLaunch(id) {
   if (!id) return;
   /* 📱 폰·태블릿은 현장에서 바로 찍는 것이 일이므로 작은 창을 띄운다(찍기 · 앨범 · 폴더). */
   if (bzPhotoIsPhone()) { bzPhotoSheet(id); return; }
-  /* PC 는 곧장 드라이브 폴더로. 사진은 상태와 무관하게 관리한다
-     (임대중·거래완료 매물도 사진은 손봐야 하므로 상태로 막지 않는다). */
+  /* 📂 2026-09-21 대표 승인(㉢) — PC 는 **탐색기 경로**를 보여 준다(드라이브 웹 아님).
+     브라우저가 탐색기를 직접 못 열어서, 경로 글자 + [경로 복사] 로 준다.
+     사진은 상태와 무관하게 관리한다(임대중·거래완료도 막지 않는다). */
+  if (typeof bzPhotoViewOpen === 'function') { bzPhotoViewOpen(id); return; }
   bzPhotoFolder(id);
 }
 
@@ -28195,6 +28199,104 @@ function bzPhotoSheetClose() {
 /* 그 매물의 드라이브 사진 폴더를 새 탭으로 연다.
    🔴 창은 **누른 그 순간** 열어 둔다. 드라이브에 물어본 뒤에 열면 팝업 차단에 막힌다.
       (구글드라이브 조회는 3~18초 걸린다 — 실측) */
+/* ══ 📂 2026-09-21 대표 승인(㉢) — [보기] 는 **탐색기 경로**로 통일 ═══════════════
+   왜 이렇게 하나
+     · 브라우저는 https 화면에서 file:/// 로 탐색기를 **못 연다**(보안 차단).
+     · 예전에 쓰던 breezephoto:// 는 09-19 에 없앴다 — 지금 등록돼 있지 않고 EXE 도 없다(실측).
+     · 바탕화면이 구글드라이브 미러라 **같은 파일이 로컬에도 그대로 있다**(실측: 30개 일치).
+   그래서 PC 에서는 **그 로컬 경로를 글자로 보여 주고 [경로 복사]** 를 준다.
+   대표가 탐색기 주소창에 붙여넣으면 바로 그 폴더가 열린다. 설치할 것이 없다.
+   폰에는 탐색기가 없으므로 **드라이브 앱(웹 링크)** 으로 연다 — 앱이 깔려 있으면 앱이 받는다.
+   🔴 드라이브 문자(G:)는 이 PC 기준이다. 다른 PC 에서 다르면 아래 한 줄만 고치면 된다. */
+var BZ_PHOTO_LOCAL_ROOT = 'G:\\내 드라이브\\';
+
+/* GAS 가 준 경로(브리즈매물사진/01_주거용/…/0301호) → 이 PC 의 탐색기 경로 + 원본 */
+function bzPhotoLocalPath(gasPath) {
+  var t = String(gasPath || '').trim();
+  if (!t) return '';
+  return BZ_PHOTO_LOCAL_ROOT + t.split('/').join('\\') + '\\원본';
+}
+
+function bzPhotoCopyPath(t) {
+  t = String(t || '');
+  if (!t) return;
+  var done = function () { if (typeof showToast === 'function') showToast('경로를 복사했습니다 — 탐색기 주소창에 붙여넣으세요'); };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(done); return; }
+  } catch (e) {}
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = t; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); done();
+  } catch (e2) {
+    if (typeof showToast === 'function') showToast('복사가 안 됩니다 — 경로를 직접 긁어 주세요');
+  }
+}
+
+/* 화면에 보여 줄 조각 — PC 는 경로+복사, 폰은 드라이브 단추. 어디서든 이 하나를 쓴다. */
+function bzPhotoViewHtml(d) {
+  var url = String((d && d.folderUrl) || '').trim();
+  var loc = bzPhotoLocalPath(d && d.path);
+  var phone = (typeof bzPhotoIsPhone === 'function') ? bzPhotoIsPhone() : false;
+  if (phone) {
+    return url
+      ? ('<a href="' + bzEsc(url) + '" target="_blank" rel="noopener" class="btn btn-xs"'
+         + ' style="text-decoration:none">📂 드라이브 앱에서 열기</a>')
+      : '<span style="color:var(--t3)">폴더를 찾지 못했습니다</span>';
+  }
+  if (!loc) return url
+    ? ('<a href="' + bzEsc(url) + '" target="_blank" rel="noopener" class="btn btn-xs"'
+       + ' style="text-decoration:none">📂 드라이브에서 열기</a>')
+    : '<span style="color:var(--t3)">폴더를 찾지 못했습니다</span>';
+  return '<div style="font-size:12px;color:var(--t3);margin-top:4px">📂 이 PC 폴더</div>'
+    + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+    + '<code style="font-size:11.5px;background:#F1F5F9;border:1px solid var(--border);'
+    + 'border-radius:6px;padding:3px 6px;word-break:break-all">' + bzEsc(loc) + '</code>'
+    + '<button class="btn btn-xs" onclick="bzPhotoCopyPath(this.getAttribute(&quot;data-p&quot;))"'
+    + ' data-p="' + bzEsc(loc) + '">📋 경로 복사</button>'
+    + (url ? ('<a href="' + bzEsc(url) + '" target="_blank" rel="noopener" class="btn btn-xs"'
+             + ' style="text-decoration:none">드라이브</a>') : '')
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--t3);margin-top:3px">'
+    + '복사해서 탐색기 주소창에 붙여넣으면 그 폴더가 열립니다.</div>';
+}
+
+/* 작은 창에 경로를 띄운다(폰이면 드라이브로 바로) */
+function bzPhotoViewOpen(id) {
+  id = String(id || '').trim();
+  if (!id) return;
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url || typeof gsFetchJson !== 'function') {
+    if (typeof showToast === 'function') showToast('구글 시트 연동이 안 돼 있습니다 — 설정에서 토큰을 넣어 주세요');
+    return;
+  }
+  if (typeof showToast === 'function') showToast('사진 폴더를 찾는 중… ' + id);
+  gsFetchJson(url, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'drivePhotos', token: getGsTok(), listingId: id })
+  }, '사진 폴더').then(function (r) {
+    var d = (r && r.result) ? r.result : r;
+    if (!d || d.error) {
+      if (typeof showToast === 'function') showToast('폴더를 못 찾았습니다 — ' + ((d && d.error) || ''));
+      return;
+    }
+    if ((typeof bzPhotoIsPhone === 'function') && bzPhotoIsPhone()) {
+      var go = String(d.folderUrl || d.bldUrl || '').trim();
+      if (go) { window.open(go, '_blank'); return; }
+    }
+    if (typeof bzModal === 'function') {
+      bzModal('사진 폴더 — ' + id,
+        '<div style="font-size:12.5px;margin-bottom:8px">원본 <b>' + Number(d.raw || 0)
+        + '장</b> · 워터마크 완료 ' + Number(d.done || 0) + '장</div>' + bzPhotoViewHtml(d));
+    } else {
+      bzPhotoCopyPath(bzPhotoLocalPath(d.path));
+    }
+  }).catch(function (e) {
+    if (typeof showToast === 'function') showToast('폴더를 못 찾았습니다 — ' + ((e && e.message) || e));
+  });
+}
+
 function bzPhotoFolder(id) {
   id = String(id || '').trim();
   if (!id) return;
