@@ -1277,7 +1277,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-22 15:42</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-22 15:59</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -8261,7 +8261,7 @@ function renderSms(){
     return`<div class="card"><div class="card-hd"><div><div class="card-title">${bzVpEsc(s.name)} <span class="badge ${s.role==='임대인'?'bg':'bb'}">${s.role}</span> ${feeBadge}</div><div class="card-sub">${bzVpEsc(s.phone)} · ${bzVpEsc(s.apt)}</div>${bzVpExtraHtml(i,s)}</div><div class="row">
       ${okPhone?`<button class="btn btn-g btn-sm" onclick="sendSmsOne(${i})">📨 발송</button>`:`<span class="badge br" style="font-size:10px">번호 없음</span>`}
       <button class="btn btn-sm" onclick="(()=>{navigator.clipboard.writeText(document.getElementById('smsg-${i}').textContent).then(()=>showToast('복사했습니다!'))})()">📋 복사</button>
-    </div></div><div class="sms-box" id="smsg-${i}">${bzVpEsc(s.msg)}</div></div>`;}).join('');
+    </div></div><div class="sms-box" id="smsg-${i}" contenteditable="true" oninput="bzSmsMsgEdit(${i})" title="눌러서 바로 고칠 수 있습니다">${bzVpEsc(s.msg)}</div></div>`;}).join('');
 }
 
 // ─── 솔라피 자동 발송 (GAS v10 smsSend/smsBalance) ───
@@ -26648,7 +26648,7 @@ function bzNewRow() {
     '매물명': bzNewInp('bz-n-apt', '건물명', 84) + ' ' + bzNewInp('bz-n-ho', '호수', 46),
     '물건유형': bzNewSel('bz-n-kind', BZ_NEW_KIND, 92, true),
     '거래유형': bzNewSel('bz-n-type', BZ_NEW_TYPE, 70, false),
-    '거래가': bzNewInp('bz-n-price', '보증금', 56) + '/' + bzNewInp('bz-n-rent', '월세', 46),
+    '거래가': bzNewInp('bz-n-price', '보증금', 56) + '/' + bzNewInp('bz-n-rent', '월세', 46) + '<div style="margin-top:2px">' + bzNewInp('bz-n-rooms', '방', 28) + '/' + bzNewInp('bz-n-baths', '욕실', 28) + '</div>',
     '방향': bzNewSel('bz-n-dir', BZ_NEW_DIR, 72, true),
     '입주가능일': bzNewInp('bz-n-avail', '즉시입주', 78),
     '고객명': bzNewInp('bz-n-cname', '이름', 66),
@@ -26677,6 +26677,7 @@ function bzNewRow() {
 
   /* 어느 칸에서든 Enter 로 저장 */
   var ids = ['bz-n-recv', 'bz-n-apt', 'bz-n-ho', 'bz-n-price', 'bz-n-rent',
+             'bz-n-rooms', 'bz-n-baths',
              'bz-n-avail', 'bz-n-cname', 'bz-n-cphone', 'bz-n-note'];
   for (var k = 0; k < ids.length; k++) {
     var e = document.getElementById(ids[k]);
@@ -26720,6 +26721,7 @@ function bzNewVals() {
     recv: bzNewVal('bz-n-recv'), apt: bzNewVal('bz-n-apt'), ho: bzNewHoNorm(bzNewVal('bz-n-ho')),
     kind: bzNewVal('bz-n-kind'), type: bzNewVal('bz-n-type'),
     price: bzNewVal('bz-n-price'), rent: bzNewVal('bz-n-rent'),
+    rooms: bzNewVal('bz-n-rooms'), baths: bzNewVal('bz-n-baths'),
     dir: bzNewVal('bz-n-dir'), avail: bzNewVal('bz-n-avail'),
     cname: bzNewVal('bz-n-cname'), cphone: bzNewVal('bz-n-cphone'),
     status: bzNewVal('bz-n-status'), note: bzNewVal('bz-n-note')
@@ -26784,6 +26786,7 @@ async function bzNewSave() {
     id: id, apt: v.apt, addr2: v.ho,
     kind: v.kind, type: v.type || '월세',
     price: v.price, rentAmt: v.rent,
+    rooms: v.rooms, baths: v.baths,
     direction: v.dir, availDate: v.avail,
     cname: v.cname, cphone: bzPhoneFmt(v.cphone),
     note: v.note,
@@ -29695,7 +29698,8 @@ function bzVpBuildList(role) {
   var out = [];
   (bzVpRows || []).forEach(function (o) {
     if (!o) return;
-    if (String(o.agencySignal || '').trim() === 'confirmed') return;
+    var sig = String(o.agencySignal || '').trim();
+    if (sig === 'confirmed' || sig === 'mixed') return;
     if (selDate && String((o && o.seenAt) || '').slice(0, 10) !== selDate) return;
     var cands = bzVpCandidates(o);
     if (!cands.length) return;
@@ -29762,6 +29766,56 @@ function bzVpExtraHtml(i, s) {
   if (s.memo) h += '<div class="card-sub" style="color:var(--t3)">📝 ' + bzVpEsc(s.memo) + '</div>';
   return h;
 }
+
+/* ═══ 2026-09-22 대표 지시 — 문자 내용을 발송 전에 수정할 수 없음 ═══════════════
+   위치: renderSms() 의 .sms-box(index.html 원본, saas 빌드 때 tools/build-saas.js
+   가 contenteditable + 이 파일의 핸들러로 감싼다). 2703줄 vito-result-text 의
+   contenteditable="true" 패턴을 그대로 재사용 — 새 저장소를 만들지 않는다.
+   고친 즉시 smsPreviewList[i].msg 도 같이 갱신해 발송(sendSmsOne/sendSmsAll)이
+   그대로 그 값을 쓴다.
+   🔴 드롭다운(날짜·테마 등)을 바꾸면 renderSms() 가 목록을 통째로 다시 만들어
+   고친 내용이 사라진다 — 막을 수는 없다(다시 만드는 게 그 조작의 목적이므로),
+   대신 고친 것이 있으면 다시 만들기 직전에 반드시 물어서, 취소하면 **다시 만들지
+   않고 고친 내용을 그대로 둔다**(사라지지 않게 하는 쪽에 가깝게 처리 — 확인 없이
+   조용히 지우지 않는다). sendSmsAll() 도 내부에서 renderSms() 를 부르므로 같은
+   보호를 받는다(취소하면 방금 고친 문구 그대로 발송된다 — 의도한 동작). */
+var bzSmsDirty = {};   /* index(i) → true, 이번 렌더에서 사람이 고친 카드 */
+
+function bzSmsMsgEdit(i) {
+  var box = document.getElementById('smsg-' + i);
+  if (!box) return;
+  bzSmsDirty[i] = true;
+  if (typeof smsPreviewList !== 'undefined' && smsPreviewList[i]) {
+    smsPreviewList[i].msg = String(box.textContent || '');
+  }
+}
+
+function bzSmsDirtyCount() {
+  var n = 0, k;
+  for (k in bzSmsDirty) { if (bzSmsDirty[k]) n++; }
+  return n;
+}
+
+(function bzSmsRenderGuard() {
+  function wrap() {
+    if (window.__bzSmsRenderGuarded || typeof window.renderSms !== 'function') return;
+    window.__bzSmsRenderGuarded = true;
+    var _renderSms = window.renderSms;
+    window.renderSms = function () {
+      var n = bzSmsDirtyCount();
+      if (n > 0) {
+        var ok = confirm('수정한 문구 ' + n + '건이 있습니다.' + String.fromCharCode(10)
+          + '목록을 다시 만들면 그 수정 내용이 사라집니다.' + String.fromCharCode(10)
+          + '계속할까요? (취소하면 방금 고친 내용 그대로 남습니다)');
+        if (!ok) return;    /* 취소 — 다시 만들지 않는다, 고친 내용 그대로 유지 */
+      }
+      bzSmsDirty = {};
+      return _renderSms.apply(this, arguments);
+    };
+  }
+  wrap();
+  [500, 1500, 4000].forEach(function (ms) { setTimeout(wrap, ms); });
+})();
 
 
 /* ═══ 📬 2026-09-21 8차 대표 지시 — 공실확인 문자 문구 교체 ═══════════════════
