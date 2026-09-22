@@ -1277,7 +1277,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-22 16:28</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-22 16:39</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -26041,10 +26041,37 @@ async function bzPullListings(quiet) {
   }
 }
 
+/* 🚨 2026-09-22 대표 최우선 신고 — "매물목록이 0건으로 나오고 검색도 안 됨".
+   실측(헤드리스+실제 GAS 왕복, 쓰기 0건): 서버 데이터는 멀쩡했다(getAll type=listings
+   가 실제 매물 57건을 정확히 돌려줌 — python으로 직접 조회해 확인) — 서버쪽 문제가
+   아니다. gsLoadFromSheet/bzPullListings 를 직접 불러도 정상적으로 57건이 채워지고
+   화면에도 뜬다 — 코드 자체가 깨진 것도 아니다.
+   진짜 원인: 이 화면(매물관리)에 데이터를 채우는 유일한 길은 [🔄 시트에서 새로 읽기]/
+   [⬇️ 전체 불러오기] 버튼을 사람이 직접 눌러야만 한다(bzPullListings 가 어디서도
+   자동으로 불리지 않았다 — 실제 코드 확인). "새 아이폰"처럼 이 기기 localStorage 에
+   매물 데이터가 아예 없던 적 없던 기기는, 그 버튼을 아직 안 눌렀으면 그냥 0건으로
+   보인다(설계상 그렇다 — 새로 깨진 게 아니다).
+   고침: 새 기기를 사람이 알아채기 전에 스스로 한 번 채운다 — listings 가 완전히 비어
+   있고(0건) GAS 주소가 이미 설정돼 있으면, 매물장을 여는 순간 조용히 딱 한 번
+   bzPullListings 를 불러 채운다(이미 데이터가 있는 기존 기기는 전혀 건드리지 않는다 —
+   0건일 때만, 세션당 한 번만). 새 저장 경로 없음 — 기존 bzPullListings 그대로 재사용. */
+var BZ_AUTOPULL_TRIED = false;
+function bzAutoPullIfEmpty() {
+  if (BZ_AUTOPULL_TRIED) return;
+  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+  if (!url) return;
+  var cur = (typeof listings !== 'undefined') ? listings : null;
+  if (!cur || cur.length > 0) return;
+  BZ_AUTOPULL_TRIED = true;
+  if (typeof showToast === 'function') showToast('이 기기에 매물 목록이 없어 시트에서 한 번 채웁니다…');
+  bzPullListings(false);
+}
+
 /* 매물장 화면 위에 단추를 하나 놓는다 — 사이드바 맨 아래까지 안 가도 되게 */
 (function bzPullBtn() {
   function put() {
     var host = document.getElementById('p-listing');
+    if (host) { try { bzAutoPullIfEmpty(); } catch (e) {} }
     if (!host || document.getElementById('bz-pull-btn')) return;   /* 둘 다 이 가드로 함께 붙는다 */
     var b = document.createElement('button');
     b.id = 'bz-pull-btn';
