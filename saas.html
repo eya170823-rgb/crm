@@ -326,6 +326,23 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-section{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+/* 🏠 2026-09-22 매물 입력화면 개선 — #modal-listing 전용(다른 모달·.modal 공통규칙은 그대로 둔다) */
+#modal-listing.modal{max-width:1180px;display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+#modal-listing .modal-title{flex:0 0 auto;margin-bottom:10px}
+#modal-listing .lst-topbar{flex:0 0 auto;display:flex;justify-content:flex-end;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--border)}
+#modal-listing .lst-body{flex:1 1 auto;overflow-y:auto;padding-right:6px;min-height:0}
+#modal-listing .modal-footer{flex:0 0 auto;margin-top:12px}
+#modal-listing .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+#modal-listing .lst-bldg-box{background:var(--bg2,#F4F6F5);border:1px solid var(--border);border-radius:10px;padding:12px 14px 2px;margin-bottom:14px}
+#modal-listing .lst-bldg-box .form-section{margin-top:0}
+#modal-listing .lst-progress{flex:0 0 auto;font-size:11px;color:var(--t2);padding:2px 0 8px}
+#modal-listing details.lst-more{margin:4px 0 14px;border-top:1px solid var(--border);padding-top:10px}
+#modal-listing details.lst-more>summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--t2);list-style:none;padding:2px 0}
+#modal-listing details.lst-more>summary::-webkit-details-marker{display:none}
+#modal-listing details.lst-more>summary:before{content:'▶ ';font-size:10px}
+#modal-listing details.lst-more[open]>summary:before{content:'▼ ';font-size:10px}
+#modal-listing details.lst-more>summary .lst-more-hint{font-weight:400;color:var(--t3);margin-left:6px}
+@media (max-width:900px){#modal-listing .form-row3{grid-template-columns:1fr 1fr}}
 /* Toast */
 #toast{position:fixed;bottom:24px;right:24px;background:#1A1D21;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:9999;pointer-events:none}
 #toast.show{opacity:1}
@@ -512,6 +529,18 @@ body.sx-narrow{--nav-w:var(--rail-w)}
 body.sx-narrow .sidebar{grid-template-columns:var(--rail-w)}
 body.sx-narrow .sidebar .sb-header,body.sx-narrow .sx-find,
 body.sx-narrow .sx-list,body.sx-narrow .sidebar .sb-footer{display:none}
+/* 🔴 2026-09-22 대표 확인 — 아이폰에서 왼쪽 위 ☰ 가 2개 겹쳐 보임.
+   원인 실측: 이 접기단추(sxNarrowBoot, id=sx-burger, "좌측 업무메뉴 접기" —
+   데스크톱에서 사이드바를 아이콘 레일로 접는 용도)가 클래스만 같은
+   .sx-burger 를 그대로 써서, 모바일 서랍단추(정적 HTML, class 만 있고
+   id 없음 — sxDrawer() 로 여는 전혀 다른 기능)의 화면폭≤760px 노출 CSS를
+   그대로 물려받았다. sxNarrowBoot() 의 중복방지 체크가
+   getElementById('sx-burger') 라 id 없는 정적 단추는 못 찾아 매번 새로
+   만들어 .sx-top 맨 앞에 꽂았다 — 그 결과 폰 화면에 두 단추가 나란히
+   보였다(기능은 다른데 모양이 같아 "겹쳐 보인다"로 보고됨).
+   고침: 접기단추(id=sx-burger) 는 이 기능이 뜻하는 대로 **데스크톱 전용**
+   이므로 모바일 폭에서는 감춘다 — 서랍단추(정적, id 없음)만 남는다.
+   메뉴·라우팅은 손대지 않았다(CSS 노출 조건만 바꿈). */
 @media(max-width:760px){#sx-burger{display:none!important}}
 .sx-burger{background:none;border:0;color:inherit;cursor:pointer;font-size:17px;line-height:1;
   padding:6px 9px;border-radius:8px;opacity:.85}
@@ -1277,7 +1306,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-22 17:00</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-22 18:25</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -2742,18 +2771,25 @@ body{padding-bottom:46px}
 <!-- ═══ MODALS ═══ -->
 <!-- 매물 모달 -->
 <div class="modal-overlay" id="modal-listing" style="display:none" onclick="if(event.target===this)closeModal('listing')">
-  <div class="modal" style="max-width:640px">
+  <div class="modal" style="max-width:1180px">
     <div class="modal-title">
       <span id="listing-modal-title">🏠 매물 추가</span>
       <button class="btn btn-sm" onclick="closeModal('listing')" style="font-size:16px;padding:2px 8px">✕</button>
     </div>
+    <!-- 🏠 2026-09-22 — 스크롤해도 저장 버튼이 보이게 상단에도 둔다(아래 modal-footer 도 그대로 둠) -->
+    <div class="lst-progress" id="lst-progress"></div>
+    <div class="lst-topbar">
+      <button class="btn" onclick="closeModal('listing')">취소</button>
+      <button class="btn btn-g" id="listing-save-btn-top" onclick="saveListing()">✓ 저장</button>
+    </div>
+    <div class="lst-body" id="lst-body">
 
     <!-- 기본 정보 -->
     <div class="form-section">📋 기본 정보</div>
     <div class="form-group" style="position:relative">
       <label>소재지 주소 *</label>
       <div style="display:flex;gap:8px;align-items:center">
-        <input id="l-addr" placeholder="건물명 또는 주소를 입력하세요 (예: 삼화아파트, 연동 260-18)" style="flex:1" autocomplete="off" oninput="onAddrSearchInput(this.value)" onfocus="if(this.value.trim())onAddrSearchInput(this.value)">
+        <input id="l-addr" placeholder="건물명 또는 주소를 입력하세요 (예: 삼화아파트, 연동 260-18)" style="flex:1" autocomplete="off" oninput="onAddrSearchInput(this.value);listingProgress()" onfocus="if(this.value.trim())onAddrSearchInput(this.value)">
         <button type="button" class="btn btn-sm" onclick="openListingMap()" style="white-space:nowrap">📍 지도</button>
       </div>
       <div id="addr-search-results" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);max-height:260px;overflow-y:auto;margin-top:4px"></div>
@@ -2768,22 +2804,20 @@ body{padding-bottom:46px}
         <button type="button" class="btn btn-sm" onclick="fillBldgForOpenListing()" style="white-space:nowrap;border-color:#0F6E56;color:#0F6E56" title="총 주차대수·세대수·엘리베이터를 대장에서 가져옵니다. 당근 엑셀에는 주차 가능/불가능 자동 판정과 31·32열(총 주차대수·세대당) 및 설명문으로 전달됩니다">🅿️ 주차·세대수</button>
         <button type="button" class="btn btn-sm" onclick="requestDocsForOpenListing()" style="white-space:nowrap;border-color:#1E88E5;color:#1E88E5" title="이 매물의 등기부·건축물대장·토지대장 발급을 '발급요청' 목록에 올립니다. 사무실 PC 발급기가 그 목록을 읽어 자동으로 발급합니다">📄 공부발급</button>
       </div>
-      <div style="font-size:10px;color:var(--t3);margin-top:4px">상세주소 입력을 마치면 해당층·총층·전용면적·사용승인일이 자동 조회됩니다. 호수를 모르면 [호수목록]에서 선택하세요. (방수·욕실수는 공공데이터에 없어 직접 입력)</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:4px">상세주소 입력을 마치면 <b>먼저 브리즈 건물마스터에 있는지</b> 확인하고, 없으면 대장에서 해당층·총층·전용면적·사용승인일을 조회합니다. 호수를 모르면 [호수목록]에서 선택하세요. (방수·욕실수는 공공데이터에 없어 직접 입력)</div>
       <div id="bldg-units-list" style="display:none;max-height:220px;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--sh);margin-top:6px"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>매물명 (동호수) *</label><input id="l-apt" placeholder="예: 연동 OO 101동 801호"></div>
+    <div class="form-row3">
+      <div class="form-group"><label>매물명 (동호수) *</label><input id="l-apt" placeholder="예: 연동 OO 101동 801호" oninput="listingProgress()"></div>
       <div class="form-group"><label>거래 유형 *</label>
-        <select id="l-type">
+        <select id="l-type" onchange="listingTypeToggle();listingProgress()">
           <option value="매매">매매</option><option value="전세">전세</option>
           <option value="월세">월세</option><option value="연세">연세</option>
           <option value="단기">단기</option>
         </select>
       </div>
-    </div>
-    <div class="form-row">
       <div class="form-group"><label>물건 유형 *</label>
-        <select id="l-kind">
+        <select id="l-kind" onchange="listingTypeToggle();listingProgress()">
           <option value="오픈형 원룸">오픈형 원룸</option><option value="분리형 원룸">분리형 원룸</option>
           <option value="빌라(투룸 이상)">빌라(투룸 이상)</option><option value="아파트">아파트</option>
           <option value="오피스텔">오피스텔</option><option value="주택">주택</option>
@@ -2792,96 +2826,53 @@ body{padding-bottom:46px}
           <option value="토지">토지</option>
         </select>
       </div>
-      <div class="form-group"><label>거래가 (보증금·전세금·매매가) *</label><input id="l-price" placeholder="예: 매매·전세 3억 2천 / 월세·연세는 보증금 500"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>월세(만원) <span style="font-size:10px;color:var(--t3)">월세·연세·단기 필수</span></label><input id="l-rent" placeholder="예: 55"></div>
-      <div class="form-group"><label>권리금(만원)</label><input id="l-premium" placeholder="예: 3000 (상가·사무실)"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>면적 (전용)</label><input id="l-area" placeholder="예: 59㎡ · 자동조회 가능"></div>
-      <div class="form-group"><label>해당 층</label><input id="l-floor" placeholder="예: 8층 · 자동조회 가능"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>총 층</label><input id="l-total-floor" placeholder="예: 12층 · 자동조회 가능"></div>
-      <div class="form-group"><label>사용승인일</label><input id="l-apr-date" placeholder="예: 1992-01-25 · 자동조회 가능"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>건물용도</label><input id="l-bldg-use" placeholder="예: 오피스텔 · 자동조회 가능"></div>
-    </div>
-    <!-- 🏢 2026-09-08 표제부 확장(지시어③) — 대장 자동조회가 채운다. 1일 캐시. -->
-    <div class="form-row">
-      <div class="form-group"><label>대지면적</label><input id="l-plat-area" placeholder="자동조회(표제부)"></div>
-      <div class="form-group"><label>연면적</label><input id="l-tot-area" placeholder="자동조회(표제부)"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>구조</label><input id="l-strct" placeholder="예: 철근콘크리트구조 · 자동조회"></div>
-      <div class="form-group"><label>내진설계</label><select id="l-quake"><option value="">모름</option><option value="Y">적용</option><option value="N">미적용</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>지하층</label><input id="l-ug-floor" placeholder="예: 2층 · 자동조회"></div>
-      <div class="form-group"><label>검수 상태</label><div id="l-verified-show" style="font-size:12px;padding:9px 0;color:var(--t2)">검수 전</div></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>방 수</label><input id="l-rooms" placeholder="예: 3 · 직접 입력"></div>
-      <div class="form-group"><label>욕실 수</label><input id="l-baths" placeholder="예: 2 · 직접 입력"></div>
     </div>
 
-    <!-- 광고·관리비 정보 (표시·광고 규정 항목) -->
-    <div class="form-section">📢 광고·관리비 정보</div>
-    <div class="form-row">
-      <div class="form-group"><label>향</label>
-        <select id="l-direction">
-          <option value="">선택</option>
-          <option>남향</option><option>동향</option><option>서향</option><option>북향</option>
-          <option>남동향</option><option>남서향</option><option>북동향</option><option>북서향</option>
-        </select>
+    <!-- 🏢 2026-09-22 — 건물 공통정보. bldgAutoFill 이 건물마스터→(없으면)대장 순으로 채운다.
+         🔴 값은 그대로 두고 배경색만 다르다 — 대표가 필요하면 직접 고칠 수 있다(잠금 아님). -->
+    <div class="lst-bldg-box">
+      <div class="form-section">🏢 건물 공통정보 <span style="font-size:11px;color:var(--t3);font-weight:400">건물마스터/대장에서 자동 반영 · 직접 고칠 수 있음</span></div>
+      <div class="form-row3">
+        <div class="form-group"><label>총 층</label><input id="l-total-floor" placeholder="예: 12층 · 자동조회 가능"></div>
+        <div class="form-group"><label>사용승인일</label><input id="l-apr-date" placeholder="예: 1992-01-25 · 자동조회 가능"></div>
+        <div class="form-group"><label>건물용도</label><input id="l-bldg-use" placeholder="예: 오피스텔 · 자동조회 가능"></div>
       </div>
-      <div class="form-group"><label>입주가능일</label><input id="l-avail-date" placeholder="예: 즉시입주 / 2026-09-01"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>관리비 유형</label>
-        <select id="l-fee-type">
-          <option value="">선택</option>
-          <option>정액 관리비</option><option>기타 부과</option><option>확인 불가</option>
-        </select>
+      <div class="form-row3">
+        <div class="form-group"><label>구조</label><input id="l-strct" placeholder="예: 철근콘크리트구조 · 자동조회"></div>
+        <div class="form-group"><label>내진설계</label><select id="l-quake"><option value="">모름</option><option value="Y">적용</option><option value="N">미적용</option></select></div>
+        <div class="form-group"><label>지하층</label><input id="l-ug-floor" placeholder="예: 2층 · 자동조회"></div>
       </div>
-      <div class="form-group"><label>총 관리비(만원)</label><input id="l-fee-amt" placeholder="예: 10"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>관리비 포함항목</label><input id="l-fee-items" placeholder="공용, 전기료, 수도료, 가스비, 난방비, 인터넷비, TV, 기타 (쉼표 구분)"></div>
-      <div class="form-group"><label>관리비 기준</label>
-        <select id="l-fee-basis">
-          <option value="">선택</option>
-          <option>직전 월</option><option>최근 3개월 평균</option><option>최근 1년 평균</option><option>기타</option>
-        </select>
+      <!-- 🏢 2026-09-08 표제부 확장(지시어③) — 대장 자동조회가 채운다. 1일 캐시. 건물마스터엔 없음. -->
+      <div class="form-row3">
+        <div class="form-group"><label>대지면적</label><input id="l-plat-area" placeholder="자동조회(표제부)"></div>
+        <div class="form-group"><label>연면적</label><input id="l-tot-area" placeholder="자동조회(표제부)"></div>
+        <div class="form-group"><label>검수 상태</label><div id="l-verified-show" style="font-size:12px;padding:9px 0;color:var(--t2)">검수 전</div></div>
       </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>관리비 실비근거</label>
-        <select id="l-fee-evidence">
-          <option value="">선택</option>
-          <option>세대별 사용량에 따라 부과</option>
-          <option>관리규약에 따라 부과</option>
-          <option>전체 사용량을 세대수로 나누어 부과</option>
-        </select>
-      </div>
-      <div class="form-group"><label>관리비 확인불가 사유</label>
-        <select id="l-fee-note">
-          <option value="">선택</option>
-          <option>단독주택</option><option>오피스텔 제외 상가 건물</option><option>미등기/신축건물</option>
-        </select>
+      <div class="form-row3">
+        <div class="form-group"><label>주차</label>
+          <select id="l-parking"><option value="">선택</option><option>가능</option><option>불가능</option><option>확인필요</option></select>
+        </div>
+        <div class="form-group"><label>반려동물</label>
+          <select id="l-pets"><option value="">선택</option><option>가능</option><option>불가능</option><option>확인필요</option></select>
+        </div>
+        <div></div>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>주차</label>
-        <select id="l-parking"><option value="">선택</option><option>가능</option><option>불가능</option><option>확인필요</option></select>
-      </div>
-      <div class="form-group"><label>반려동물</label>
-        <select id="l-pets"><option value="">선택</option><option>가능</option><option>불가능</option><option>확인필요</option></select>
-      </div>
+
+    <!-- 이 호실 정보 -->
+    <div class="form-section">🚪 이 호실 정보</div>
+    <div class="form-row3">
+      <div class="form-group"><label>거래가 (보증금·전세금·매매가) *</label><input id="l-price" placeholder="예: 매매·전세 3억 2천 / 월세·연세는 보증금 500" oninput="listingProgress()"></div>
+      <div class="form-group" id="fg-rent"><label>월세(만원) <span style="font-size:10px;color:var(--t3)">월세·연세·단기 필수</span></label><input id="l-rent" placeholder="예: 55" oninput="listingProgress()"></div>
+      <div class="form-group" id="fg-premium"><label>권리금(만원)</label><input id="l-premium" placeholder="예: 3000 (상가·사무실)"></div>
     </div>
-    <div class="form-row">
+    <div class="form-row3">
+      <div class="form-group"><label>면적 (전용)</label><input id="l-area" placeholder="예: 59㎡ · 자동조회 가능"></div>
+      <div class="form-group"><label>해당 층</label><input id="l-floor" placeholder="예: 8층 · 자동조회 가능"></div>
+      <div class="form-group"><label>방 수</label><input id="l-rooms" placeholder="예: 3 · 직접 입력"></div>
+    </div>
+    <div class="form-row3">
+      <div class="form-group"><label>욕실 수</label><input id="l-baths" placeholder="예: 2 · 직접 입력"></div>
       <div class="form-group"><label>대출</label>
         <select id="l-loan"><option value="">선택</option><option>있음</option><option>없음</option><option>확인필요</option></select>
       </div>
@@ -2891,42 +2882,90 @@ body{padding-bottom:46px}
       </div>
     </div>
 
-    <!-- 📈 광고 성과 (2026-08-27 신설) — 사장님 지시 "어떤 문구가 먹혔는지 알 수 있게".
-         조회수·문의수는 당근·직방 **광고주 화면에만** 있는 값이라, 여기에 적어 두지 않으면
-         나중에 어떤 광고문이 효과가 있었는지 영영 알 수 없다. 광고문이 바뀐 날(자동 기록)과
-         함께 보면 "이 문구로 며칠간 몇 명이 봤는지"가 남는다. -->
-    <div class="form-section">📈 광고 성과 <span style="font-size:11px;color:var(--t3);font-weight:400">당근·직방 광고주 화면 숫자를 가끔 옮겨 적어 주세요</span></div>
-    <div class="form-row">
-      <div class="form-group"><label>조회수</label><input id="l-ad-views" inputmode="numeric" placeholder="예: 120"></div>
-      <div class="form-group"><label>문의수</label><input id="l-ad-inq" inputmode="numeric" placeholder="예: 3"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>집계일</label><input type="date" id="l-ad-stat-at"></div>
-      <div class="form-group"><label>광고문 생성일 <span style="font-size:10px;color:var(--t3)">자동</span></label>
-        <input id="l-desc-at" readonly style="background:var(--bg2,#f5f5f5);color:var(--t3)"></div>
-    </div>
-    <div id="l-ad-rate" style="font-size:12px;color:var(--t2);padding:2px 0 8px"></div>
-    <div class="form-row">
-      <div class="form-group"><label>토지 지목 <span style="font-size:10px;color:var(--t3)">토지 필수</span></label>
-        <select id="l-jimok">
+    <!-- 광고·관리비 정보 (표시·광고 규정 항목) -->
+    <div class="form-section">📢 광고·관리비 정보</div>
+    <div class="form-row3">
+      <div class="form-group"><label>향</label>
+        <select id="l-direction">
           <option value="">선택</option>
-          <option>전</option><option>답</option><option>대</option><option>임야</option>
-          <option>과수원</option><option>잡종지</option><option>목장용지</option>
-          <option>광천지</option><option>염전</option><option>공장용지</option><option>창고용지</option>
-          <option>기타</option>
+          <option>남향</option><option>동향</option><option>서향</option><option>북향</option>
+          <option>남동향</option><option>남서향</option><option>북동향</option><option>북서향</option>
         </select>
       </div>
-      <div class="form-group"><label>용도지역 <span style="font-size:10px;color:var(--t3)">토지 필수</span></label>
-        <select id="l-zone">
+      <div class="form-group"><label>입주가능일</label><input id="l-avail-date" placeholder="예: 즉시입주 / 2026-09-01"></div>
+      <div class="form-group"><label>관리비 유형</label>
+        <select id="l-fee-type" onchange="listingFeeToggle()">
           <option value="">선택</option>
-          <option>도시지역</option><option>관리지역</option><option>농림지역</option><option>자연환경보전지역</option>
+          <option>정액 관리비</option><option>기타 부과</option><option>확인 불가</option>
         </select>
       </div>
     </div>
-    <div class="form-group">
-      <label>매물 설명 (광고용) <button type="button" class="btn btn-xs" onclick="genListingDesc()" style="margin-left:6px">✨ 자동생성</button></label>
-      <textarea id="l-desc" style="min-height:120px" placeholder="특징을 짧게 적고 [✨ 자동생성]을 누르면 브리즈 광고 양식으로 완성됩니다 (예: 역세권 도보 5분, 풀옵션)"></textarea>
+    <div class="form-row3">
+      <div class="form-group" id="fg-fee-amt"><label>총 관리비(만원)</label><input id="l-fee-amt" placeholder="예: 10"></div>
+      <div class="form-group" id="fg-fee-items"><label>관리비 포함항목</label><input id="l-fee-items" placeholder="공용, 전기료, 수도료, 가스비, 난방비, 인터넷비, TV, 기타 (쉼표 구분)"></div>
+      <div class="form-group" id="fg-fee-basis"><label>관리비 기준</label>
+        <select id="l-fee-basis">
+          <option value="">선택</option>
+          <option>직전 월</option><option>최근 3개월 평균</option><option>최근 1년 평균</option><option>기타</option>
+        </select>
+      </div>
     </div>
+    <div class="form-row3">
+      <div class="form-group" id="fg-fee-evidence"><label>관리비 실비근거</label>
+        <select id="l-fee-evidence">
+          <option value="">선택</option>
+          <option>세대별 사용량에 따라 부과</option>
+          <option>관리규약에 따라 부과</option>
+          <option>전체 사용량을 세대수로 나누어 부과</option>
+        </select>
+      </div>
+      <div class="form-group" id="fg-fee-note"><label>관리비 확인불가 사유</label>
+        <select id="l-fee-note">
+          <option value="">선택</option>
+          <option>단독주택</option><option>오피스텔 제외 상가 건물</option><option>미등기/신축건물</option>
+        </select>
+      </div>
+      <div></div>
+    </div>
+
+    <details class="lst-more">
+      <summary>📈 광고 성과 · 매물 설명<span class="lst-more-hint">조회수·문의수·광고 문구</span></summary>
+      <!-- 📈 광고 성과 (2026-08-27 신설) — 사장님 지시 "어떤 문구가 먹혔는지 알 수 있게".
+           조회수·문의수는 당근·직방 **광고주 화면에만** 있는 값이라, 여기에 적어 두지 않으면
+           나중에 어떤 광고문이 효과가 있었는지 영영 알 수 없다. 광고문이 바뀐 날(자동 기록)과
+           함께 보면 "이 문구로 며칠간 몇 명이 봤는지"가 남는다. -->
+      <div class="form-row3">
+        <div class="form-group"><label>조회수</label><input id="l-ad-views" inputmode="numeric" placeholder="예: 120"></div>
+        <div class="form-group"><label>문의수</label><input id="l-ad-inq" inputmode="numeric" placeholder="예: 3"></div>
+        <div class="form-group"><label>집계일</label><input type="date" id="l-ad-stat-at"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>광고문 생성일 <span style="font-size:10px;color:var(--t3)">자동</span></label>
+          <input id="l-desc-at" readonly style="background:var(--bg2,#f5f5f5);color:var(--t3)"></div>
+      </div>
+      <div id="l-ad-rate" style="font-size:12px;color:var(--t2);padding:2px 0 8px"></div>
+      <div class="form-row" id="fr-jimok-zone">
+        <div class="form-group"><label>토지 지목 <span style="font-size:10px;color:var(--t3)">토지 필수</span></label>
+          <select id="l-jimok">
+            <option value="">선택</option>
+            <option>전</option><option>답</option><option>대</option><option>임야</option>
+            <option>과수원</option><option>잡종지</option><option>목장용지</option>
+            <option>광천지</option><option>염전</option><option>공장용지</option><option>창고용지</option>
+            <option>기타</option>
+          </select>
+        </div>
+        <div class="form-group"><label>용도지역 <span style="font-size:10px;color:var(--t3)">토지 필수</span></label>
+          <select id="l-zone">
+            <option value="">선택</option>
+            <option>도시지역</option><option>관리지역</option><option>농림지역</option><option>자연환경보전지역</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>매물 설명 (광고용) <button type="button" class="btn btn-xs" onclick="genListingDesc()" style="margin-left:6px">✨ 자동생성</button></label>
+        <textarea id="l-desc" style="min-height:120px" placeholder="특징을 짧게 적고 [✨ 자동생성]을 누르면 브리즈 광고 양식으로 완성됩니다 (예: 역세권 도보 5분, 풀옵션)"></textarea>
+      </div>
+    </details>
 
     <div class="form-row">
       <div class="form-group"><label>진행 상태</label>
@@ -2989,47 +3028,51 @@ body{padding-bottom:46px}
       <div class="form-group"><label>연락처</label><input id="l-cphone" placeholder="010-0000-0000"></div>
     </div>
 
-    <!-- 네이버 매물 링크 -->
-    <div class="form-section">🔗 네이버 매물 링크</div>
-    <div class="form-group">
-      <label>네이버 부동산 매물 URL</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input id="l-naver-url" placeholder="https://land.naver.com/article/..." style="flex:1">
-        <button type="button" class="btn btn-sm" onclick="testNaverLink()" style="white-space:nowrap;background:#03C75A;color:#fff;border-color:#03C75A">열기</button>
+    <details class="lst-more">
+      <summary>🔗 네이버 링크 · 📷 사진 · 📎 첨부 · 메모<span class="lst-more-hint">선택 입력</span></summary>
+      <!-- 네이버 매물 링크 -->
+      <div class="form-section">🔗 네이버 매물 링크</div>
+      <div class="form-group">
+        <label>네이버 부동산 매물 URL</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="l-naver-url" placeholder="https://land.naver.com/article/..." style="flex:1">
+          <button type="button" class="btn btn-sm" onclick="testNaverLink()" style="white-space:nowrap;background:#03C75A;color:#fff;border-color:#03C75A">열기</button>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">네이버 부동산에서 매물 URL을 복사해 붙여넣으세요</div>
       </div>
-      <div style="font-size:11px;color:var(--t3);margin-top:4px">네이버 부동산에서 매물 URL을 복사해 붙여넣으세요</div>
-    </div>
 
-    <!-- 매물사진 (2026-08-27) — 올리면 구글드라이브 '원본'으로 가고, 사진보정 프로그램이 워터마크를 찍습니다 -->
-    <!-- 🔴 2026-09-15 ERP-PHOTO-01 — 사진 저장·편집은 ERP 밖에서 한다.
+      <!-- 매물사진 (2026-08-27) — 올리면 구글드라이브 '원본'으로 가고, 사진보정 프로그램이 워터마크를 찍습니다 -->
+      <!-- 🔴 2026-09-15 ERP-PHOTO-01 — 사진 저장·편집은 ERP 밖에서 한다.
          칸과 코드는 그대로 두고 보이지만 않게 했다(photo-panel 을 찾는 코드가 있다). -->
     <div class="form-section" style="display:none">📷 매물사진</div>
-    <div class="form-group">
-      <div id="photo-panel" style="font-size:12px;display:none">불러오는 중…</div>
-    </div>
-
-    <!-- 첨부파일 -->
-    <div class="form-section">📎 첨부파일 (등기사항전부증명서 등)</div>
-    <div class="form-group">
-      <label>파일 첨부 <span style="font-size:10px;color:var(--t3)">(PDF·이미지, 최대 5MB)</span></label>
-      <div class="attach-drop" id="attach-drop"
-        onclick="document.getElementById('l-file-input').click()"
-        ondragover="event.preventDefault();this.classList.add('drag')"
-        ondragleave="this.classList.remove('drag')"
-        ondrop="attachFileDrop(event)">
-        <input type="file" id="l-file-input" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="attachFileSelected(this)">
-        <div style="font-size:22px;margin-bottom:6px">📄</div>
-        <div style="font-size:12px;font-weight:600;color:var(--t2)">클릭하거나 파일을 드래그하세요</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:3px">PDF, JPG, PNG 지원</div>
+      <div class="form-group">
+        <div id="photo-panel" style="font-size:12px;display:none">불러오는 중…</div>
       </div>
-      <div id="attach-preview" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
-    </div>
 
-    <!-- 메모 -->
-    <div class="form-group"><label>메모</label><textarea id="l-note" placeholder="특이사항, 요청사항 등"></textarea></div>
+      <!-- 첨부파일 -->
+      <div class="form-section">📎 첨부파일 (등기사항전부증명서 등)</div>
+      <div class="form-group">
+        <label>파일 첨부 <span style="font-size:10px;color:var(--t3)">(PDF·이미지, 최대 5MB)</span></label>
+        <div class="attach-drop" id="attach-drop"
+          onclick="document.getElementById('l-file-input').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="attachFileDrop(event)">
+          <input type="file" id="l-file-input" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="attachFileSelected(this)">
+          <div style="font-size:22px;margin-bottom:6px">📄</div>
+          <div style="font-size:12px;font-weight:600;color:var(--t2)">클릭하거나 파일을 드래그하세요</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px">PDF, JPG, PNG 지원</div>
+        </div>
+        <div id="attach-preview" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+      </div>
+
+      <!-- 메모 -->
+      <div class="form-group"><label>메모</label><textarea id="l-note" placeholder="특이사항, 요청사항 등"></textarea></div>
+    </details>
 
     <input type="hidden" id="l-edit-id">
     <input type="hidden" id="l-customer-id">
+    </div>
     <div class="modal-footer">
       <button class="btn btn-r" id="listing-del-btn" style="margin-right:auto" onclick="deleteListingFromModal()">🗑 삭제</button>
       <button class="btn" onclick="closeModal('listing')">취소</button>
@@ -4351,6 +4394,27 @@ function normalizeAddr2(){
   return v;
 }
 function addr2Changed(){ normalizeAddr2(); bldgAutoFill(true); }
+
+/* 🏢 2026-09-22 매물 입력화면 개선 — 건물마스터(buildings) 먼저 찾아본다.
+   🔴 왜: 예전엔 같은 건물 다른 호실을 등록할 때마다 정부 대장 API를 다시 불렀다.
+      브리즈가 이미 등록해 둔 건물(엘리베이터·주차·관리비 메모 등 사람이 고친 값 포함)이
+      있어도 재사용하지 않았다. 여기서 buildings 시트의 addrKey("동 지번")로 먼저 찾고,
+      있으면 그 값을 쓴다 — 없으면 예전처럼 대장 API 로 넘어간다(회귀 0).
+   🔴 새 action 을 만들지 않는다 — 기존 getAll&type=buildings 그대로 읽기만 한다. */
+let __bldgMasterCache=null;
+async function bldgFindMaster_(dongName, jibunStr){
+  const key=(String(dongName||'').trim()+' '+String(jibunStr||'').trim()).trim();
+  if(!key) return null;
+  try{
+    const gsUrl=getGsUrl(); if(!gsUrl) return null;
+    if(!__bldgMasterCache){
+      const r=await fetch(gsUrl+'?action=getAll&type=buildings&t='+Date.now()+'&token='+encodeURIComponent(getGsTok()));
+      const j=await r.json();
+      __bldgMasterCache=(j&&j.ok)?(j.data||j.result||[]):[];
+    }
+    return __bldgMasterCache.find(b=>String(b.addrKey||'').trim()===key)||null;
+  }catch(e){ return null; }
+}
 async function bldgAutoFill(silent){
   const addr=document.getElementById('l-addr').value.trim();
   if(!addr){ if(!silent) showToast('먼저 소재지 주소를 입력해주세요'); return; }
@@ -4376,6 +4440,18 @@ async function bldgAutoFill(silent){
       const nums=rest.match(/\d+/g)||[];
       if(nums.length) ho=nums[nums.length-1];
     }
+    // 🏢 건물마스터 먼저 — 있으면 건물 공통칸만 채우고, 그 칸은 대장API가 덮지 않는다
+    const jibunStr=geo.main_address_no+((geo.sub_address_no&&geo.sub_address_no!=='0')?('-'+geo.sub_address_no):'');
+    const master=await bldgFindMaster_(geo.region_3depth_name, jibunStr);
+    const fromMaster={};
+    if(master){
+      const setM=(id,v)=>{ const el=document.getElementById(id); if(el&&v){ el.value=v; fromMaster[id]=true; } };
+      setM('l-total-floor',master.totalFloor); setM('l-apr-date',master.aprDate);
+      setM('l-bldg-use',master.bldgUse); setM('l-strct',master.strct); setM('l-ug-floor',master.ugFloor);
+      if(master.park) setM('l-parking',master.park);
+      if(master.pets) setM('l-pets',master.pets);
+      showToast('🏢 건물마스터 "'+(master.name||geo.region_3depth_name)+'" 정보 반영('+Object.keys(fromMaster).length+'개) — 나머지는 대장에서 조회합니다');
+    }
     const qs=new URLSearchParams({
       action:'bldg',
       sigunguCd:bcode.slice(0,5), bjdongCd:bcode.slice(5),
@@ -4387,13 +4463,13 @@ async function bldgAutoFill(silent){
     const json=await res.json();
     if(!json.ok) throw new Error(json.error||'조회 실패');
     const d=json.data||{};
-    const setIf=(id,v)=>{ const el=document.getElementById(id); if(el&&v) el.value=v; };
+    const setIf=(id,v)=>{ if(fromMaster[id]) return; const el=document.getElementById(id); if(el&&v) el.value=v; };
     setIf('l-total-floor',d.totalFloor);
     setIf('l-apr-date',d.aprDate);
     setIf('l-floor',d.floor);
     setIf('l-area',d.area);
     setIf('l-bldg-use',d.use);
-    // 🏢 2026-09-08 표제부 확장 — 대지면적·연면적·구조·내진·지하층
+    // 🏢 2026-09-08 표제부 확장 — 대지면적·연면적·구조·내진·지하층 (건물마스터엔 없는 값들)
     setIf('l-plat-area',d.platArea); setIf('l-tot-area',d.totArea); setIf('l-strct',d.strct); setIf('l-ug-floor',d.ugFloor);
     if(d.quake){ const q=document.getElementById('l-quake'); if(q) q.value=d.quake; }
     const got=['totalFloor','aprDate','floor','area'].filter(k=>d[k]).length;
@@ -5193,9 +5269,10 @@ function openModal(type, editId){
     attachBuffer=[];
     document.getElementById('l-edit-id').value=editId||'';
     // 삭제는 수정 모달 안에서만 (표의 삭제 열 제거, 2026-08-11) — 신규 등록 땐 숨김
-    const _db=document.getElementById('listing-del-btn'),_sb=document.getElementById('listing-save-btn');
+    const _db=document.getElementById('listing-del-btn'),_sb=document.getElementById('listing-save-btn'),_sbTop=document.getElementById('listing-save-btn-top');
     if(_db)_db.style.display=editId?'':'none';
     if(_sb)_sb.textContent=editId?'✓ 수정':'✓ 저장';
+    if(_sbTop)_sbTop.textContent=editId?'✓ 수정':'✓ 저장';
     document.getElementById('l-customer-id').value='';
     document.getElementById('addr-search-results').style.display='none';
     document.getElementById('addr-map-preview').style.display='none';
@@ -5284,6 +5361,9 @@ function openModal(type, editId){
     // 상태에 맞춰 계약/임대 날짜 칸을 열어둔다 — 예전에는 상태를 직접 바꿀 때만 열려서
     // 저장된 계약완료 매물을 다시 열면 계약일·만료일이 보이지 않았다
     toggleListingContractSection();
+    // 🏠 2026-09-22 매물 입력화면 개선 — 거래유형·물건유형에 맞는 칸만 보이게, 진행상태 갱신
+    if(typeof listingTypeToggle==='function') listingTypeToggle();
+    if(typeof listingProgress==='function') listingProgress();
     document.getElementById('modal-listing').style.display='flex';
   } else if(type==='customer'){
     document.getElementById('c-edit-id').value=editId||'';
@@ -6263,11 +6343,44 @@ function genListingDesc(){
   showToast('✨ 매물설명이 브리즈 양식으로 생성되었습니다. 확인 후 필요한 부분을 수정하세요');
 }
 
+/* 🏠 2026-09-22 매물 입력화면 개선 — 거래유형·물건유형에 안 맞는 칸을 숨긴다.
+   🔴 값은 지우지 않는다(숨김만) — 유형을 바꿔도 이미 입력한 값은 그대로 남는다. */
+function listingTypeToggle(){
+  const type=(document.getElementById('l-type')||{}).value||'';
+  const kind=(document.getElementById('l-kind')||{}).value||'';
+  const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  show('fg-rent', ['월세','연세','단기'].includes(type));
+  show('fg-premium', ['상가','사무실'].includes(kind));
+  show('fr-jimok-zone', kind==='토지');
+  listingFeeToggle();
+}
+function listingFeeToggle(){
+  const ft=(document.getElementById('l-fee-type')||{}).value||'';
+  const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  show('fg-fee-amt', ft==='정액 관리비');
+  show('fg-fee-items', ft==='정액 관리비');
+  show('fg-fee-basis', ft==='정액 관리비');
+  show('fg-fee-evidence', ft==='정액 관리비');
+  show('fg-fee-note', ft==='확인 불가');
+}
+/* 🏠 2026-09-22 — 필수 입력 진행상태 표시(눌러야 켜지는 잠금은 아니다, 안내만) */
+function listingProgress(){
+  const el=document.getElementById('lst-progress'); if(!el) return;
+  const v=id=>((document.getElementById(id)||{}).value||'').trim();
+  const type=v('l-type');
+  const req=[v('l-addr'), v('l-apt'), type, v('l-kind'), v('l-price')];
+  if(['월세','연세','단기'].includes(type)) req.push(v('l-rent'));
+  const done=req.filter(Boolean).length;
+  el.textContent='🔴 필수 '+req.length+'개 중 '+done+'개 입력됨';
+  el.style.color=(done<req.length)?'#B91C1C':'#0F6E56';
+}
+
 function saveListing(){
   const addr=document.getElementById('l-addr').value.trim();
   const apt=document.getElementById('l-apt').value.trim();
   const price=document.getElementById('l-price').value.trim();
-  ['l-addr','l-apt','l-price'].forEach(function(bzId){var bzEl=document.getElementById(bzId);if(bzEl){bzEl.style.border='';bzEl.style.background='';}});if(!addr||!apt||!price){showToast('소재지 주소·매물명·거래가는 필수입니다 — 빨간 칸을 채우고 다시 눌러 주세요');[['l-addr',addr],['l-apt',apt],['l-price',price]].forEach(function(bzP){var bzEl=document.getElementById(bzP[0]);if(bzEl&&!bzP[1]){bzEl.style.border='2px solid #DC2626';bzEl.style.background='#FEF2F2';try{bzEl.focus();bzEl.scrollIntoView({block:'center',behavior:'smooth'});}catch(bzE){}}});return;}
+  ['l-addr','l-apt','l-price'].forEach(function(bzId){var bzEl=document.getElementById(bzId);if(bzEl){bzEl.style.border='';bzEl.style.background='';}});
+  if(!addr||!apt||!price){showToast('소재지 주소·매물명·거래가는 필수입니다 — 빨간 칸을 채우고 다시 눌러 주세요');[['l-addr',addr],['l-apt',apt],['l-price',price]].forEach(function(bzP){var bzEl=document.getElementById(bzP[0]);if(bzEl&&!bzP[1]){bzEl.style.border='2px solid #DC2626';bzEl.style.background='#FEF2F2';try{bzEl.focus();bzEl.scrollIntoView({block:'center',behavior:'smooth'});}catch(bzE){}}});return;}
   // ─── 조건부 필수 검증 (표시·광고 규정) ───
   const typeV=document.getElementById('l-type').value;
   const kindV=document.getElementById('l-kind').value;
@@ -26047,31 +26160,40 @@ async function bzPullListings(quiet) {
    아니다. gsLoadFromSheet/bzPullListings 를 직접 불러도 정상적으로 57건이 채워지고
    화면에도 뜬다 — 코드 자체가 깨진 것도 아니다.
    진짜 원인: 이 화면(매물관리)에 데이터를 채우는 유일한 길은 [🔄 시트에서 새로 읽기]/
-   [⬇️ 전체 불러오기] 버튼을 사람이 직접 눌러야만 한다(bzPullListings 가 어디서도
+   [⬇️ 전체 불러오기] 버튼을 **사람이 직접 눌러야만** 한다(bzPullListings 가 어디서도
    자동으로 불리지 않았다 — 실제 코드 확인). "새 아이폰"처럼 이 기기 localStorage 에
    매물 데이터가 아예 없던 적 없던 기기는, 그 버튼을 아직 안 눌렀으면 그냥 0건으로
-   보인다(설계상 그렇다 — 새로 깨진 게 아니다).
+   보인다(설계상 그렇다 — 새로 깨진 게 아니다). 메모리 crm-device-token.md 의 "불러오기
+   0건 = 토큰 미입력 또는 아직 안 눌러짐" 과 같은 종류의 함정.
    고침: 새 기기를 사람이 알아채기 전에 스스로 한 번 채운다 — listings 가 완전히 비어
-   있고(0건) GAS 주소가 이미 설정돼 있으면, 매물장을 여는 순간 조용히 딱 한 번
+   있고(0건) GAS 주소가 이미 설정돼 있으면, 매물장을 여는 순간 **조용히 딱 한 번**
    bzPullListings 를 불러 채운다(이미 데이터가 있는 기존 기기는 전혀 건드리지 않는다 —
    0건일 때만, 세션당 한 번만). 새 저장 경로 없음 — 기존 bzPullListings 그대로 재사용. */
-var BZ_AUTOPULL_TRIED = false;
-function bzAutoPullIfEmpty() {
-  if (BZ_AUTOPULL_TRIED) return;
-  var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
-  if (!url) {
-    BZ_AUTOPULL_TRIED = true;
-    if (typeof showToast === 'function') {
-      showToast('이 기기엔 구글시트 주소가 설정돼 있지 않습니다 — 설정에서 한 번 넣어야 매물이 보입니다');
+  /* 🚨 2026-09-22 추가 — 대표 실기기 재현(스크린샷): 레이아웃은 고쳐졌는데
+     매물목록은 여전히 0건. 아이폰 "홈 화면에 추가"(PWA 단독모드)는 iOS 자체
+     특성으로 일반 사파리 탭과 저장공간(localStorage)이 완전히 분리된다 —
+     사파리 탭에서 구글시트 주소(GAS URL)를 이미 넣어 뒀어도, 홈화면 아이콘은
+     "새 기기"나 마찬가지라 그 값이 아예 없을 수 있다. 이 경우 위 자동채움도
+     "url 없음"으로 조용히 멈춘다 — 사람이 원인을 알 길이 없었다. 이제는
+     그 경우에도 최소한 알려는 준다(자동으로 채울 수는 없다 — 주소를
+     지어낼 수 없으므로 사람이 설정에서 한 번 넣어야 한다). */
+  var BZ_AUTOPULL_TRIED = false;
+  function bzAutoPullIfEmpty() {
+    if (BZ_AUTOPULL_TRIED) return;
+    var url = (typeof getGsUrl === 'function') ? getGsUrl() : '';
+    if (!url) {
+      BZ_AUTOPULL_TRIED = true;
+      if (typeof showToast === 'function') {
+        showToast('이 기기엔 구글시트 주소가 설정돼 있지 않습니다 — 설정에서 한 번 넣어야 매물이 보입니다');
+      }
+      return;
     }
-    return;
+    var cur = (typeof listings !== 'undefined') ? listings : null;
+    if (!cur || cur.length > 0) return;                   /* 이미 데이터가 있으면 절대 안 건드림 */
+    BZ_AUTOPULL_TRIED = true;
+    if (typeof showToast === 'function') showToast('이 기기에 매물 목록이 없어 시트에서 한 번 채웁니다…');
+    bzPullListings(false);
   }
-  var cur = (typeof listings !== 'undefined') ? listings : null;
-  if (!cur || cur.length > 0) return;
-  BZ_AUTOPULL_TRIED = true;
-  if (typeof showToast === 'function') showToast('이 기기에 매물 목록이 없어 시트에서 한 번 채웁니다…');
-  bzPullListings(false);
-}
 
 /* 매물장 화면 위에 단추를 하나 놓는다 — 사이드바 맨 아래까지 안 가도 되게 */
 (function bzPullBtn() {
@@ -26681,7 +26803,14 @@ function bzNewRow() {
     '매물명': bzNewInp('bz-n-apt', '건물명', 84) + ' ' + bzNewInp('bz-n-ho', '호수', 46),
     '물건유형': bzNewSel('bz-n-kind', BZ_NEW_KIND, 92, true),
     '거래유형': bzNewSel('bz-n-type', BZ_NEW_TYPE, 70, false),
-    '거래가': bzNewInp('bz-n-price', '보증금', 56) + '/' + bzNewInp('bz-n-rent', '월세', 46) + '<div style="margin-top:2px">' + bzNewInp('bz-n-rooms', '방', 28) + '/' + bzNewInp('bz-n-baths', '욕실', 28) + '</div>',
+    /* 🔴 2026-09-22 대표 지시 — "거래가 다음에 방/욕실수 입력화면 넣기".
+       새 칸(열)을 만들지 않는다 — 이미 있는 물건유형·거래유형 칸처럼 자리(nth-child)로
+       숨기고 넓이를 잡는 CSS·colgroup·검산이 많아, 열을 하나 끼워 넣으면 그 전부가
+       한 칸씩 밀려 깨진다(이번 세션에 이미 여러 번 실제로 겪은 사고 패턴). 대신
+       같은 '거래가' 칸 안에, 보증금/월세 **아래 줄**로 작게 붙인다(칸 수 그대로). */
+    '거래가': bzNewInp('bz-n-price', '보증금', 56) + '/' + bzNewInp('bz-n-rent', '월세', 46)
+      + '<div style="margin-top:2px">' + bzNewInp('bz-n-rooms', '방', 28) + '/'
+      + bzNewInp('bz-n-baths', '욕실', 28) + '</div>',
     '방향': bzNewSel('bz-n-dir', BZ_NEW_DIR, 72, true),
     '입주가능일': bzNewInp('bz-n-avail', '즉시입주', 78),
     '고객명': bzNewInp('bz-n-cname', '이름', 66),
@@ -28064,7 +28193,12 @@ function bzRailFix() {
   if (rail) { side.style.gridTemplateColumns = ''; return; }   /* 안에 있으면 원래대로 */
   if (document.body && document.body.classList.contains('sx-narrow')) return;
   /* 🔴 칸만 1개로 줄이면 안 된다 — 자식들이 CSS 로 '2번째 칸' 에 박혀 있어서
-     빈 1번 칸이 그대로 남는다(실측: 123px + 155px). 자식도 1번 칸으로 옮긴다. */
+     빈 1번 칸이 그대로 남는다(실측: 123px + 155px). 자식도 1번 칸으로 옮긴다.
+     🔴 2026-09-22 대표 신고 "구글시트 주소칸이 다 잘렸다" — 순수 '1fr' 은 최소폭이
+     auto(자식 내용 기준)라, 사이드바 폭이 --nav-w(115px)로 줄어든 지금은 하단
+     '구글 시트 바로 열기'·연동상태 글자가 그 폭에 맞춰 줄바꿈하는 대신 옆으로
+     넘쳐 .sidebar 의 overflow:hidden 에 잘렸다(실측: 링크 right 119px > 사이드바
+     right 115px). minmax(0,1fr) 이면 칸이 실제로 줄어들어 글자가 줄바꿈된다. */
   if (side.style.gridTemplateColumns !== 'minmax(0,1fr)') side.style.gridTemplateColumns = 'minmax(0,1fr)';
   var kids = side.children;
   for (var i = 0; i < kids.length; i++) {
@@ -29725,6 +29859,17 @@ function bzVpPickPhone(o) {
 
 /* renderSms() 의 vacancy 분기가 부른다. role==='임차인' 이면 이 테마는 대상이 없다
    (임대인 전용 — 기존 renderSms 로직과 동일한 규칙을 그대로 옮겼다). */
+/* 🔴 2026-09-22 대표 확인 — "공인중개업소 번호가 대상에 계속 잡힘".
+   실측(GAS gatherList 32,734행 직접 조회): agencySignal 분포는 unknown 12,159·
+   confirmed 11,367·mixed 7,399·individual 716·빈값 1,093. 이 화면 기준(confirmed
+   만 제외)을 통과한 8,962행 중 apt/nick/biz/writer 에 "부동산·중개·공인·리얼티"
+   류 키워드가 실제로 있는 행이 7,902건(88%) — 그런데 그 7,902건의 agencySignal은
+   **전부** mixed(7,068) 또는 빈값(834)이고 confirmed 는 0건이었다. 즉 confirmed
+   가 새는 버그가 아니라, "confirmed만 빼고 나머진 대표 판단"이라는 09-21 설계
+   그대로 mixed 가 그대로 노출된 것 — 그리고 그 mixed 의 대부분이 실제로는
+   중개업소였다(대표 지시대로 이제 mixed 도 자동 제외). unknown/개인(빈값 포함)은
+   그대로 둔다 — 전체 20,268건 중 대다수라 여기까지 막으면 진짜 임대인까지 다
+   가려진다(근거 없이 넓히지 않는다). */
 function bzVpBuildList(role) {
   if (role === '임차인') return [];
   var selDate = bzVpSelDate();
