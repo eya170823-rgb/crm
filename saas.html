@@ -29842,8 +29842,20 @@ function bzVpLatestDate() {
   return max;
 }
 
+/* 🔴 2026-09-23 대표 신고 — "임대인 매칭 번호는 안 나오고 공인중개사 사무실 번호가
+   임대인으로 나온다". 실측(gatherList 33,525행): 오일장 수집분 중 writer='중개'
+   (중개사가 올린 글)인데 1.수집이 아직 임대인 번호를 못 찾은(matchPhone 빈칸) 행이
+   556건 — 이 화면이 matchPhone 없으면 phone 으로 대신 썼는데, 그 phone 은 글쓴이인
+   중개사 자신의 번호다(임대인 번호가 아니다). agencySignal 도 이 556건은 전부
+   빈칸('unknown'이 아니라 빈 문자열)이라 confirmed/mixed 제외망에 안 걸렸다.
+   → matchPhone 이 없을 때 phone 을 대신 쓰는 것은 writer='개인'(글쓴이 본인이
+   임대인인 경우)일 때만 안전하다. writer='중개'면 matchPhone 없이는 임대인 번호를
+   모르는 것 — 그 행은 후보 없음으로 두고 화면에서 뺀다(잘못된 번호로 보내는 것보다
+   안전하다). */
 function bzVpCandidates(o) {
-  var raw = String((o && (o.matchPhone || o.phone)) || '').trim();
+  var mp = String((o && o.matchPhone) || '').trim();
+  var writer = String((o && o.writer) || '').trim();
+  var raw = mp || (writer === '중개' ? '' : String((o && o.phone) || '').trim());
   if (!raw) return [];
   var parts = raw.split(/[,\/;|·]+/).map(function (s) { return s.trim(); }).filter(Boolean);
   var seen = {}, out = [];
