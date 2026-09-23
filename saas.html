@@ -1306,7 +1306,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-23 12:51</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-23 14:10</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -5194,7 +5194,7 @@ function renderListings(){
   if(view==='table'){
     el.innerHTML=`<div class="listing-table-wrap"><table>
       <thead><tr>
-        <th>매물번호</th><th>접수일</th><th>매물명</th><th>물건유형</th><th>거래유형</th><th>거래가</th><th>방향</th>
+        <th>매물번호</th><th>접수일</th><th>매물명</th><th>주소</th><th>물건유형</th><th>거래유형</th><th>거래가</th><th>관리비</th><th>방향</th>
         <th>입주가능일</th><th>고객명</th><th>연락처</th>
         <th>상태</th><th>메모</th><th>🔒출입</th><th>사진</th><th>수정</th><th>지도</th>
       </tr></thead>
@@ -5206,9 +5206,9 @@ function renderListings(){
         <td style="font-size:11px;white-space:nowrap;color:${dN?'var(--r)':'var(--b)'};font-weight:600">${l.id}${dN?' <span class="badge br" style="font-size:9px" title="매물번호 중복 — 시트 입력 확인 필요">⚠️중복</span>':''}</td>
         <td style="font-size:11px;white-space:nowrap">${l.recvDate||'-'}</td>
         <td style="font-weight:600;white-space:nowrap">${l.apt}${l.addr2?' '+l.addr2:''}${dA?' <span class="badge br" style="font-size:9px" title="주소·호수 중복 — 당근 중복등록 시 계정 제재 위험">⚠️주소중복</span>':''}${auditBadge(l)}</td>
-        <td>${bzCell(l,'kind')}</td>
+        <td>${bzAddrCell(l)}</td><td>${bzCell(l,'kind')}</td>
         <td>${typeBadge(l.type)}</td>
-        <td style="white-space:nowrap">${l.price}${l.rentAmt?' / '+l.rentAmt:''}</td><td>${bzCell(l,'direction')}</td>
+        <td style="white-space:nowrap">${l.price}${l.rentAmt?' / '+l.rentAmt:''}</td><td>${bzFeeCell(l)}</td><td>${bzCell(l,'direction')}</td>
         <td style="white-space:nowrap">${l.availDate||moveBadge(l.moveDate)||`<span style="color:var(--t3);font-size:11px">${l.moveDate||'-'}</span>`}</td>
         <td style="font-weight:500">${lk?maskNameUI(l.cname):(l.cname||'-')}</td>
         <td style="color:var(--b);white-space:nowrap">${lk?maskPhoneUI(l.cphone):(l.cphone||'-')}</td>
@@ -14845,14 +14845,14 @@ function fcG1Css(){
     +   '#p-listing .listing-table-wrap td:nth-child(2){display:none}'
     + '@media (min-width:1400px){#p-listing .listing-table-wrap th:nth-child(2),'
     +   '#p-listing .listing-table-wrap td:nth-child(2){display:table-cell}}'
-    + '#p-listing .listing-table-wrap th:nth-child(8),'
-    +   '#p-listing .listing-table-wrap td:nth-child(8),'
-    +   '#p-listing .listing-table-wrap th:nth-child(9),'
-    +   '#p-listing .listing-table-wrap td:nth-child(9){display:none}'
-    + '@media (min-width:1850px){#p-listing .listing-table-wrap th:nth-child(8),'
-    +   '#p-listing .listing-table-wrap td:nth-child(8),'
-    +   '#p-listing .listing-table-wrap th:nth-child(9),'
-    +   '#p-listing .listing-table-wrap td:nth-child(9){display:table-cell}}'
+    + '#p-listing .listing-table-wrap th:nth-child(10),'
+    +   '#p-listing .listing-table-wrap td:nth-child(10),'
+    +   '#p-listing .listing-table-wrap th:nth-child(11),'
+    +   '#p-listing .listing-table-wrap td:nth-child(11){display:none}'
+    + '@media (min-width:1850px){#p-listing .listing-table-wrap th:nth-child(10),'
+    +   '#p-listing .listing-table-wrap td:nth-child(10),'
+    +   '#p-listing .listing-table-wrap th:nth-child(11),'
+    +   '#p-listing .listing-table-wrap td:nth-child(11){display:table-cell}}'
     + '</style>';
 }
 function fcG1Find(id){
@@ -30125,6 +30125,33 @@ function bzSmsDirtyCount() {
   }
   if (!apply()) { [200, 800, 2000].forEach(function (ms) { setTimeout(apply, ms); }); }
 })();
+
+
+/* ═══ 📍💰 매물장에 주소·관리비 칸 추가 (2026-09-23 대표 지시) ═══════════════
+   대표가 보여야 한다고 지목한 목록: 매물번호·매물명·호수·주소·물건유형·거래유형·
+   거래가·관리비·방향·입주가능일·고객명·연락처·상태·메모·사진·광고문구·당근/네이버/
+   직방 바로 올리기 — 나머지는 이미 있었고(호수는 매물명 칸에 합쳐서, 광고문구·
+   포털 버튼은 사진 칸 안에), 실측으로 빠져 있던 두 가지만 이 조각이 채운다.
+   🔴 읽기 전용 표시만 한다(수정은 기존 [✏️ 수정] 모달의 l-addr·l-fee-* 칸으로). */
+function bzAddrCell(l) {
+  var s = String((l && l.addr) || '').trim();
+  return s ? bzEsc(s) : '<span style="color:var(--t3)">-</span>';
+}
+
+/* google_apps_script.js 의 vacSmsText_ 처럼, 광고문 buildListingDesc() 의 관리비
+   문구 계산과 같은 규칙을 쓴다(index.html buildListingDesc, feeType 분기) —
+   화면 표시와 실제 광고문이 다르게 보이면 안 되므로 로직을 그대로 옮긴다. */
+function bzFeeCell(l) {
+  var feeType = String((l && l.feeType) || '').trim();
+  var feeAmt = String((l && l.feeAmt) || '').trim();
+  var feeNote = String((l && l.feeNote) || '').trim();
+  if (!feeType) return '<span style="color:var(--t3)">-</span>';
+  var fee = feeType;
+  if (feeType === '정액 관리비') fee = feeAmt ? (feeAmt + '만원') : '정액';
+  else if (feeType === '기타 부과') fee = '실비 부과' + (feeAmt ? (' ' + feeAmt + '만원') : '');
+  else if (feeType === '확인 불가') fee = '확인 불가' + (feeNote ? (' (' + feeNote + ')') : '');
+  return bzEsc(fee);
+}
 
 </script>
 </body>
