@@ -239,6 +239,145 @@ pre.raw{margin:0;padding:10px;background:var(--panel2);border:1px solid var(--li
 </head>
 <body>
 
+<!-- ═══ 비밀번호 잠금 화면(2026-09-29 신설 — 대표 지시) ═══
+     🔴 이 화면엔 잠금이 아예 없어서, index.html/saas.html에 로그인한 적 있는 기기는
+     localStorage(crm_gs_url·crm_gs_token)를 그대로 읽어 비밀번호 없이 저장까지 됐다.
+     saas.html과 똑같은 계정 4개·세션 키(crm_session·crm_acct)를 그대로 써서, saas.html에서
+     이미 로그인한 세션이 있으면 여기서도 자동으로 통과된다(같은 도메인 localStorage 공유). -->
+<div id="lock-screen" style="position:fixed;inset:0;background:linear-gradient(135deg,#0F6E56,#185FA5);z-index:9999;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:20px;padding:34px 30px;width:100%;max-width:330px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;margin:16px">
+    <div style="font-size:42px;margin-bottom:8px">🏡</div>
+    <div style="font-size:17px;font-weight:800;color:#1A1D21;margin-bottom:22px">브리즈부동산중개</div>
+    <select id="bz-acct" style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid #E2E6EA;font-size:15px;outline:none;margin-bottom:9px;box-sizing:border-box;background:#fff;color:#1A1D21">
+      <option value="">아이디 선택</option>
+      <option value="ceo">대표</option>
+      <option value="manager">팀장</option>
+      <option value="staff">직원</option>
+      <option value="admin">관리자</option>
+    </select>
+    <input id="lock-pw-input" type="password" placeholder="비밀번호"
+      style="width:100%;padding:12px 14px;border-radius:10px;border:1.5px solid #E2E6EA;font-size:15px;text-align:center;outline:none;margin-bottom:10px;letter-spacing:4px;box-sizing:border-box">
+    <div id="lock-error" style="font-size:12px;color:#A32D2D;margin-bottom:10px;display:none;background:#FCEBEB;padding:8px;border-radius:6px"></div>
+    <button id="lock-btn" style="width:100%;padding:13px;background:#0F6E56;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">로그인</button>
+  </div>
+</div>
+
+<!-- 잠금화면 전용 스크립트 (다른 JS 와 독립 — saas.html 것과 동일 규칙: 계정별 SHA-256 해시, 5회 30분 잠금) -->
+<script>
+(function(){
+  var ACCTS = {
+    ceo:     { id:'breeze_ceo',     label:'대표',   role:'representative', who:'대표' },
+    manager: { id:'breeze_manager', label:'팀장',   role:'manager',        who:'팀장' },
+    staff:   { id:'breeze_staff',   label:'직원',   role:'staff',          who:'직원' },
+    admin:   { id:'breeze_admin',   label:'관리자', role:'admin',          who:'관리자' }
+  };
+  var SES_KEY = 'crm_session', ACCT_KEY = 'crm_acct';
+  var SESSION_HRS = 8, MAX_FAIL = 5, LOCK_MIN = 30;
+  function pwKey(k){ return 'crm_pw_' + k; }
+  function failKey(k){ return 'crm_pw_fail_' + k; }
+  function lockKey(k){ return 'crm_pw_lock_' + k; }
+  function hasPw(k){ try{ return !!localStorage.getItem(pwKey(k)); }catch(e){ return false; } }
+  async function sha256Hex(s){
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    var arr = Array.from(new Uint8Array(buf));
+    return arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  }
+  function isLocked(k){
+    try{
+      var t = parseInt(localStorage.getItem(lockKey(k)) || '0', 10);
+      if (!t) return false;
+      if (Date.now() - t < LOCK_MIN * 60000) return true;
+      localStorage.removeItem(lockKey(k)); localStorage.removeItem(failKey(k));
+      return false;
+    }catch(e){ return false; }
+  }
+  function say(m){ var e = document.getElementById("lock-error"); if(!e) return;
+    e.textContent = m; e.style.display = m ? "block" : "none"; }
+  function apply(k){
+    var A = ACCTS[k]; if(!A) return;
+    window.__bzAcct = k; window.__bzAcctInfo = A;
+    window.__crmRole = (A.role === "admin") ? "admin" : (A.role === "representative" ? "admin" : "staff");
+    window.__bzRole = A.role;
+    window.__crmWho = A.who;
+    try{
+      localStorage.setItem(ACCT_KEY, k);
+      localStorage.setItem("crm_role", window.__crmRole);
+      localStorage.setItem("crm_who", A.who);
+    }catch(e){}
+  }
+  function unlock(k){
+    apply(k);
+    try{
+      localStorage.setItem(SES_KEY, Date.now());
+      localStorage.removeItem(failKey(k)); localStorage.removeItem(lockKey(k));
+    }catch(e){}
+    var ls = document.getElementById("lock-screen"); if(ls) ls.style.display = "none";
+  }
+  async function trySetup(k, pw){
+    if (pw.length < 4) { alert('비밀번호는 4자 이상이어야 합니다.'); return false; }
+    var again = prompt(ACCTS[k].label + ' 계정을 처음 씁니다. 방금 입력한 비밀번호를 확인차 다시 한 번 입력하세요:');
+    if (again === null) return false;
+    if (again !== pw) { alert('두 번 입력한 비밀번호가 서로 다릅니다. 처음부터 다시 해주세요.'); return false; }
+    var h = await sha256Hex(k + ":" + pw);
+    try{ localStorage.setItem(pwKey(k), h); }catch(e){}
+    return true;
+  }
+  async function tryLogin(){
+    var k = (document.getElementById("bz-acct")||{}).value || "";
+    var pw = (document.getElementById("lock-pw-input")||{}).value || "";
+    if(!k){ say("아이디를 골라 주세요"); return; }
+    if(!pw){ say("비밀번호를 입력해 주세요"); return; }
+    if(isLocked(k)){ say(ACCTS[k].label + " 계정은 5회 잘못 입력해 " + LOCK_MIN + "분간 잠겼습니다"); return; }
+    if(!hasPw(k)){
+      var ok = await trySetup(k, pw);
+      if(!ok) return;
+      say(""); document.getElementById("lock-pw-input").value = ""; unlock(k); return;
+    }
+    var h = await sha256Hex(k + ":" + pw);
+    var stored = null;
+    try{ stored = localStorage.getItem(pwKey(k)); }catch(e){}
+    if(h !== stored){
+      var fails = 1;
+      try{ fails = (parseInt(localStorage.getItem(failKey(k)) || "0", 10) || 0) + 1; localStorage.setItem(failKey(k), String(fails)); }catch(e){}
+      if(fails >= MAX_FAIL){
+        try{ localStorage.setItem(lockKey(k), String(Date.now())); }catch(e){}
+        say(ACCTS[k].label + " 계정이 5회 잘못 입력되어 " + LOCK_MIN + "분간 잠겼습니다");
+      } else {
+        say("비밀번호가 올바르지 않습니다(" + fails + "/" + MAX_FAIL + ")");
+      }
+      document.getElementById("lock-pw-input").value = "";
+      document.getElementById("lock-pw-input").focus(); return;
+    }
+    say("");
+    document.getElementById("lock-pw-input").value = "";
+    unlock(k);
+  }
+  document.getElementById("lock-btn").addEventListener("click", function(){ tryLogin(); });
+  document.getElementById("lock-pw-input").addEventListener("keydown", function(e){
+    if(e.key === "Enter") tryLogin(); });
+  document.getElementById("bz-acct").addEventListener("change", function(){
+    say("");
+    var k = this.value, inp = document.getElementById("lock-pw-input");
+    if(!inp) return;
+    if(k && !hasPw(k)) inp.placeholder = "처음 씁니다 — 새 비밀번호(4자 이상)";
+    else inp.placeholder = "비밀번호";
+  });
+  /* saas.html에서 이미 로그인한 세션(8시간)이 있으면 여기서도 자동 통과 — 같은 도메인 localStorage 공유 */
+  var ses = null, was = null;
+  try{ ses = localStorage.getItem(SES_KEY); was = localStorage.getItem(ACCT_KEY); }catch(e){}
+  if(ses && was && ACCTS[was] && (Date.now() - parseInt(ses)) < SESSION_HRS * 3600000){
+    unlock(was);
+  } else {
+    try{ localStorage.removeItem(SES_KEY); localStorage.removeItem(ACCT_KEY); }catch(e){}
+    setTimeout(function(){ var el = document.getElementById("bz-acct"); if(el) el.focus(); }, 100);
+  }
+  window.BZ_ACCTS = ACCTS;
+  window.bzAcctKey = function(){ try{ return localStorage.getItem(ACCT_KEY) || ""; }catch(e){ return ""; } };
+  window.bzRole = function(){ return window.__bzRole || (ACCTS[window.bzAcctKey()] || {}).role || "staff"; };
+  window.bzLabel = function(){ return (ACCTS[window.bzAcctKey()] || {}).label || "사용자"; };
+})();
+</script>
+
 <header>
   <div class="top1">
     <div class="logo"><i>B</i><span>브리즈 ERP</span></div>
