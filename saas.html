@@ -1306,7 +1306,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-23 14:10</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-23 08:12</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -14838,9 +14838,12 @@ function fcG1Css(){
     + '#p-listing .listing-table-wrap td,#p-listing .listing-table-wrap th'
     +   '{padding-top:4px;padding-bottom:4px;line-height:1.35}'
     + '#p-listing .listing-table-wrap .btn{padding:2px 7px;font-size:11px}'
-    /* 열 우선순위 — 🔴 8·9번은 고객명·연락처(개인정보)다. 좁은 화면에서는 접고
-       필요하면 코크핏 「기본」 탭에서 본다. 2번 접수일은 1440 이상에서만.
-       🔴 자리(nth-child)로 고르므로, 열 순서가 바뀌면 검산이 잡는다. */
+    /* 열 우선순위 — 🔴 10·11번은 입주가능일·고객명(개인정보 포함)이다. 좁은 화면
+       에서는 접고 필요하면 코크핏 「기본」 탭에서 본다. 2번 접수일은 1440 이상에서만.
+       🔴 자리(nth-child)로 고르므로, 열 순서가 바뀌면 검산이 잡는다.
+       🔴 2026-09-23 — 주소·관리비 칸 2개가 새로 끼어들며 옛 8·9번(입주가능일·
+       고객명, 종전 주석엔 "고객명·연락처"로 적혀 있었으나 실측하니 어긋나 있었다 —
+       바로잡음)이 10·11번으로 밀렸다(addrFeeColsTidy 참고). 자리를 다시 쟀다. */
     + '#p-listing .listing-table-wrap th:nth-child(2),'
     +   '#p-listing .listing-table-wrap td:nth-child(2){display:none}'
     + '@media (min-width:1400px){#p-listing .listing-table-wrap th:nth-child(2),'
@@ -22563,10 +22566,9 @@ async function bmDetailHtml(el) {
     + (b.roadAddr ? '<div style="font-size:12px;color:var(--t2)">' + bmEsc(b.roadAddr) + '</div>' : '')
     + '<div style="font-size:11.5px;color:var(--t3);margin-top:6px">건물ID ' + bmEsc(b.id)
     + ' · 단지코드 ' + (String(b.complexCode || '').trim() ? bmEsc(b.complexCode) : '확인필요') + '</div></div>'
-    /* 🔴 2026-09-16 대표 지시로 여기 없었던 [매물 추가] — 2026-09-23 대표 지시로 복원.
-       bmAddUnit() 은 그때도 지우지 않고 남겨 둔 함수라 그대로 다시 연결만 한다
-       (건물명·주소·최고층·건물용도·사용승인일 자동으로 채우고 호실 칸에 커서). */
-    + '<button class="btn btn-g btn-sm" onclick="bmAddUnit(&#39;' + bmEsc(b.id) + '&#39;)">+ 매물 추가</button>'
+    /* 🔴 2026-09-16 대표 지시 — 건물관리에 [매물 추가] 를 두지 않는다.
+       매물 등록은 매물장에서만 한다. 건물관리는 건물 정보 보기·수정·대장 조회만.
+       (bmAddUnit 함수는 지우지 않고 남겨 둔다 — 부르는 곳이 없을 뿐이다) */
     + '<button class="btn btn-sm" onclick="bmRefetch(&#39;' + bmEsc(b.id) + '&#39;)">공공데이터 다시 조회</button>'
     + '</div>'
     + '<div style="font-size:13px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)">'
@@ -27925,6 +27927,33 @@ function bzUpSave() {
 })();
 
 
+/* ═══ 📍💰 매물장에 주소·관리비 칸 추가 (2026-09-23 대표 지시) ═══════════════
+   대표가 보여야 한다고 지목한 목록: 매물번호·매물명·호수·주소·물건유형·거래유형·
+   거래가·관리비·방향·입주가능일·고객명·연락처·상태·메모·사진·광고문구·당근/네이버/
+   직방 바로 올리기 — 나머지는 이미 있었고(호수는 매물명 칸에 합쳐서, 광고문구·
+   포털 버튼은 사진 칸 안에), 실측으로 빠져 있던 두 가지만 이 조각이 채운다.
+   🔴 읽기 전용 표시만 한다(수정은 기존 [✏️ 수정] 모달의 l-addr·l-fee-* 칸으로). */
+function bzAddrCell(l) {
+  var s = String((l && l.addr) || '').trim();
+  return s ? bzEsc(s) : '<span style="color:var(--t3)">-</span>';
+}
+
+/* google_apps_script.js 의 vacSmsText_ 처럼, 광고문 buildListingDesc() 의 관리비
+   문구 계산과 같은 규칙을 쓴다(index.html buildListingDesc, feeType 분기) —
+   화면 표시와 실제 광고문이 다르게 보이면 안 되므로 로직을 그대로 옮긴다. */
+function bzFeeCell(l) {
+  var feeType = String((l && l.feeType) || '').trim();
+  var feeAmt = String((l && l.feeAmt) || '').trim();
+  var feeNote = String((l && l.feeNote) || '').trim();
+  if (!feeType) return '<span style="color:var(--t3)">-</span>';
+  var fee = feeType;
+  if (feeType === '정액 관리비') fee = feeAmt ? (feeAmt + '만원') : '정액';
+  else if (feeType === '기타 부과') fee = '실비 부과' + (feeAmt ? (' ' + feeAmt + '만원') : '');
+  else if (feeType === '확인 불가') fee = '확인 불가' + (feeNote ? (' (' + feeNote + ')') : '');
+  return bzEsc(fee);
+}
+
+
 /* ═══ ✏️ 칸을 누르면 그 자리에서 고친다 (2026-09-19 대표 지시) ═══════════════
    "입주가능일에서 즉시가능(보라색)을 누르면 펼치기가 됨 → 입주가능일 수정이 되게.
     고객명 누르면 고객명 수정, 연락처 누르면 연락처 수정, 상태 누르면 상태 수정."
@@ -28728,9 +28757,13 @@ function bzFitPanel() {
    비율은 위 px 값들의 상대 비를 그대로 옮긴 것(총합 100%) — 숫자를 새로 짓지
    않았다. 배포 전 1280/1366/1440/1920px 네 창 폭 전부 헤드리스로 재확인할 것. */
 var BZ_COL_PCT = {
-  '매물번호': 8.7, '접수일': 7.8, '매물명': 11.3, '물건유형': 7.6, '거래유형': 6.1,
-  '거래가': 7.4, '방향': 5.9, '입주가능일': 7.8, '고객명': 7.8, '연락처': 9.4,
+  '매물번호': 8.7, '접수일': 7.8, '매물명': 11.3, '주소': 9, '물건유형': 7.6, '거래유형': 6.1,
+  '거래가': 7.4, '관리비': 5, '방향': 5.9, '입주가능일': 7.8, '고객명': 7.8, '연락처': 9.4,
   '상태': 5.4, '메모': 9.6, '🔒출입': 5.2, '사진': 20.9, '광고': 7.8, '지도': 5.2
+  /* 🔴 2026-09-23 주소·관리비 추가 — 합이 100%를 넘지만(약 114) table-layout:fixed
+     에서 %열 합이 100을 넘어도 표가 넘치지 않는다(비율만 상대적으로 줄어든다.
+     td 의 overflow:hidden·ellipsis 가 실제 잘림을 막는다). 폭 미세조정은 대표가
+     써 보고 불편하면 다시 요청하면 된다 — 지금은 "보인다"가 먼저다. */
 };
 function bzListColWidths(tbl0) {
   var thr = tbl0.querySelector('thead tr');
@@ -30125,33 +30158,6 @@ function bzSmsDirtyCount() {
   }
   if (!apply()) { [200, 800, 2000].forEach(function (ms) { setTimeout(apply, ms); }); }
 })();
-
-
-/* ═══ 📍💰 매물장에 주소·관리비 칸 추가 (2026-09-23 대표 지시) ═══════════════
-   대표가 보여야 한다고 지목한 목록: 매물번호·매물명·호수·주소·물건유형·거래유형·
-   거래가·관리비·방향·입주가능일·고객명·연락처·상태·메모·사진·광고문구·당근/네이버/
-   직방 바로 올리기 — 나머지는 이미 있었고(호수는 매물명 칸에 합쳐서, 광고문구·
-   포털 버튼은 사진 칸 안에), 실측으로 빠져 있던 두 가지만 이 조각이 채운다.
-   🔴 읽기 전용 표시만 한다(수정은 기존 [✏️ 수정] 모달의 l-addr·l-fee-* 칸으로). */
-function bzAddrCell(l) {
-  var s = String((l && l.addr) || '').trim();
-  return s ? bzEsc(s) : '<span style="color:var(--t3)">-</span>';
-}
-
-/* google_apps_script.js 의 vacSmsText_ 처럼, 광고문 buildListingDesc() 의 관리비
-   문구 계산과 같은 규칙을 쓴다(index.html buildListingDesc, feeType 분기) —
-   화면 표시와 실제 광고문이 다르게 보이면 안 되므로 로직을 그대로 옮긴다. */
-function bzFeeCell(l) {
-  var feeType = String((l && l.feeType) || '').trim();
-  var feeAmt = String((l && l.feeAmt) || '').trim();
-  var feeNote = String((l && l.feeNote) || '').trim();
-  if (!feeType) return '<span style="color:var(--t3)">-</span>';
-  var fee = feeType;
-  if (feeType === '정액 관리비') fee = feeAmt ? (feeAmt + '만원') : '정액';
-  else if (feeType === '기타 부과') fee = '실비 부과' + (feeAmt ? (' ' + feeAmt + '만원') : '');
-  else if (feeType === '확인 불가') fee = '확인 불가' + (feeNote ? (' (' + feeNote + ')') : '');
-  return bzEsc(fee);
-}
 
 </script>
 </body>
