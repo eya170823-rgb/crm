@@ -1159,17 +1159,35 @@ body{padding-bottom:46px}
 <!-- 잠금화면 전용 스크립트 (다른 JS 와 독립) -->
 <script>
 (function(){
-  /* 🔐 계정 4개 — 초기 비밀번호는 모두 1234. 비밀번호를 바꾸면 crm_pw_<키> 에 남는다. */
+  /* 🔐 2026-09-29 보안조치(대표 지시): 계정별 비밀번호는 SHA-256 해시로만 저장하고,
+     기본값(옛 1234)을 없앴다 — 계정을 처음 쓸 때 비밀번호를 직접 정해야 한다.
+     5회 연속 오답이면 그 계정만 30분 잠근다(전역 잠금 아님, 다른 계정은 영향 없음). */
   var ACCTS = {
     ceo:     { id:'breeze_ceo',     label:'대표',   role:'representative', who:'대표' },
     manager: { id:'breeze_manager', label:'팀장',   role:'manager',        who:'팀장' },
     staff:   { id:'breeze_staff',   label:'직원',   role:'staff',          who:'직원' },
     admin:   { id:'breeze_admin',   label:'관리자', role:'admin',          who:'관리자' }
   };
-  var DEFPW = '1234';
   var SES_KEY = 'crm_session', ACCT_KEY = 'crm_acct';
-  var SESSION_HRS = 8;
-  function pwOf(k){ try{ return localStorage.getItem("crm_pw_" + k) || DEFPW; }catch(e){ return DEFPW; } }
+  var SESSION_HRS = 8, MAX_FAIL = 5, LOCK_MIN = 30;
+  function pwKey(k){ return 'crm_pw_' + k; }
+  function failKey(k){ return 'crm_pw_fail_' + k; }
+  function lockKey(k){ return 'crm_pw_lock_' + k; }
+  function hasPw(k){ try{ return !!localStorage.getItem(pwKey(k)); }catch(e){ return false; } }
+  async function sha256Hex(s){
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    var arr = Array.from(new Uint8Array(buf));
+    return arr.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  }
+  function isLocked(k){
+    try{
+      var t = parseInt(localStorage.getItem(lockKey(k)) || '0', 10);
+      if (!t) return false;
+      if (Date.now() - t < LOCK_MIN * 60000) return true;
+      localStorage.removeItem(lockKey(k)); localStorage.removeItem(failKey(k));
+      return false;
+    }catch(e){ return false; }
+  }
   function say(m){ var e = document.getElementById("lock-error"); if(!e) return;
     e.textContent = m; e.style.display = m ? "block" : "none"; }
   function apply(k){
@@ -1187,26 +1205,63 @@ body{padding-bottom:46px}
   }
   function unlock(k){
     apply(k);
-    try{ localStorage.setItem(SES_KEY, Date.now()); }catch(e){}
+    try{
+      localStorage.setItem(SES_KEY, Date.now());
+      localStorage.removeItem(failKey(k)); localStorage.removeItem(lockKey(k));
+    }catch(e){}
     var ls = document.getElementById("lock-screen"); if(ls) ls.style.display = "none";
     try{ if(typeof bzRoleApply === "function") bzRoleApply(); }catch(e){}
   }
-  function tryLogin(){
+  /* 이 계정을 처음 쓰는 경우 — 지금 입력칸에 친 값을 새 비밀번호로 삼고, 한 번 더 확인받는다 */
+  async function trySetup(k, pw){
+    if (pw.length < 4) { alert('비밀번호는 4자 이상이어야 합니다.'); return false; }
+    var again = prompt(ACCTS[k].label + ' 계정을 처음 씁니다. 방금 입력한 비밀번호를 확인차 다시 한 번 입력하세요:');
+    if (again === null) return false;
+    if (again !== pw) { alert('두 번 입력한 비밀번호가 서로 다릅니다. 처음부터 다시 해주세요.'); return false; }
+    var h = await sha256Hex(k + ":" + pw);
+    try{ localStorage.setItem(pwKey(k), h); }catch(e){}
+    return true;
+  }
+  async function tryLogin(){
     var k = (document.getElementById("bz-acct")||{}).value || "";
     var pw = (document.getElementById("lock-pw-input")||{}).value || "";
     if(!k){ say("아이디를 골라 주세요"); return; }
     if(!pw){ say("비밀번호를 입력해 주세요"); return; }
-    if(pw !== pwOf(k)){ say("비밀번호가 올바르지 않습니다");
+    if(isLocked(k)){ say(ACCTS[k].label + " 계정은 5회 잘못 입력해 " + LOCK_MIN + "분간 잠겼습니다"); return; }
+    if(!hasPw(k)){
+      var ok = await trySetup(k, pw);
+      if(!ok) return;
+      say(""); document.getElementById("lock-pw-input").value = ""; unlock(k); return;
+    }
+    var h = await sha256Hex(k + ":" + pw);
+    var stored = null;
+    try{ stored = localStorage.getItem(pwKey(k)); }catch(e){}
+    if(h !== stored){
+      var fails = 1;
+      try{ fails = (parseInt(localStorage.getItem(failKey(k)) || "0", 10) || 0) + 1; localStorage.setItem(failKey(k), String(fails)); }catch(e){}
+      if(fails >= MAX_FAIL){
+        try{ localStorage.setItem(lockKey(k), String(Date.now())); }catch(e){}
+        say(ACCTS[k].label + " 계정이 5회 잘못 입력되어 " + LOCK_MIN + "분간 잠겼습니다");
+      } else {
+        say("비밀번호가 올바르지 않습니다(" + fails + "/" + MAX_FAIL + ")");
+      }
       document.getElementById("lock-pw-input").value = "";
-      document.getElementById("lock-pw-input").focus(); return; }
+      document.getElementById("lock-pw-input").focus(); return;
+    }
     say("");
     document.getElementById("lock-pw-input").value = "";
     unlock(k);
   }
-  document.getElementById("lock-btn").addEventListener("click", tryLogin);
+  document.getElementById("lock-btn").addEventListener("click", function(){ tryLogin(); });
   document.getElementById("lock-pw-input").addEventListener("keydown", function(e){
     if(e.key === "Enter") tryLogin(); });
-  document.getElementById("bz-acct").addEventListener("change", function(){ say(""); });
+  document.getElementById("bz-acct").addEventListener("change", function(){
+    say("");
+    var k = this.value, inp = document.getElementById("lock-pw-input");
+    if(!inp) return;
+    if(k && !hasPw(k)) inp.placeholder = "처음 씁니다 — 새 비밀번호(4자 이상)";
+    else inp.placeholder = "비밀번호";
+  });
   /* 세션이 살아 있으면 그 계정으로 이어 간다(8시간) */
   var ses = null, was = null;
   try{ ses = localStorage.getItem(SES_KEY); was = localStorage.getItem(ACCT_KEY); }catch(e){}
@@ -1306,7 +1361,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-29 14:29</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-29 14:46</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
