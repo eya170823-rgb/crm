@@ -1306,7 +1306,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-23 08:12</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-29 14:29</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1482,7 +1482,7 @@ body{padding-bottom:46px}
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
         <button id="gs-bulk-btn" onclick="gsSyncAllGuarded()" title="이 화면 목록으로 중앙 DB를 통째로 맞춥니다. 평소에는 쓰지 않습니다 — 고친 내용은 자동으로 올라갑니다." style="display:none;width:100%;padding:6px;background:#B91C1C;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⚠️ 전체 데이터 강제 동기화 — 대표</button>
         
-        <a href="https://docs.google.com/spreadsheets/d/1B69qGMsO6BPZvGVPxTnVzYmgRCqDB4UkrJjOluFqsBA/edit#gid=196975335" target="_blank" rel="noopener" style="display:block;width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t2);cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box">📊 구글 시트 바로 열기</a>
+        <button onclick="openGsSheetLink()" style="display:block;width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t2);cursor:pointer;text-align:center;box-sizing:border-box">📊 구글 시트 바로 열기</button>
         
       </div>
       <div style="margin-top:8px">
@@ -3498,6 +3498,14 @@ body{padding-bottom:46px}
         onfocus="this.style.borderColor='#0F6E56'" onblur="this.style.borderColor='#E2E6EA'">
     </div>
 
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:#5A6270;display:block;margin-bottom:6px">구글 시트 바로가기 URL (선택)</label>
+      <input id="gs-sheet-url-input" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit"
+        style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #E2E6EA;font-size:12px;font-family:monospace;outline:none"
+        onfocus="this.style.borderColor='#0F6E56'" onblur="this.style.borderColor='#E2E6EA'">
+      <div style="font-size:10px;color:#9AA3AF;margin-top:4px">사이드바 "📊 구글 시트 바로 열기" 버튼이 이 주소로 엽니다(기기별 저장, 코드에는 없음)</div>
+    </div>
+
     <div style="background:#F7F8FA;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:11px;color:#5A6270;line-height:1.6">
       💡 <strong>자동 동기화:</strong> 데이터 저장 시 2초 후 구글 시트에 자동 반영됩니다<br>
       💡 <strong>공유 방법:</strong> 같은 URL+토큰을 다른 직원 CRM에도 입력하면 즉시 공유됩니다<br>
@@ -3750,7 +3758,7 @@ function verBanner(live){
   document.body.appendChild(d);
 }
 // ═══ STORAGE (localStorage + Google Sheets 연동) ═══
-const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contracts',landlords:'crm_landlords',expStatus:'crm_expStatus',contacted:'crm_contacted',vitoKey:'crm_vitoKey',vitoNotes:'crm_vitoNotes',voiceMemos:'crm_voiceMemos',gsUrl:'crm_gs_url',schedules:'crm_schedules',kakaoKey:'crm_kakao_key'};
+const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contracts',landlords:'crm_landlords',expStatus:'crm_expStatus',contacted:'crm_contacted',vitoKey:'crm_vitoKey',vitoNotes:'crm_vitoNotes',voiceMemos:'crm_voiceMemos',gsUrl:'crm_gs_url',gsSheetUrl:'crm_gs_sheet_url',schedules:'crm_schedules',kakaoKey:'crm_kakao_key'};
 const load=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||[];}catch{return [];}};
 const loadObj=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||{};}catch{return {};}};
 const loadStr=k=>localStorage.getItem(K[k])||'';
@@ -3768,6 +3776,14 @@ let gsSyncTimer = null;
 
 function getGsUrl(){ return localStorage.getItem(K.gsUrl)||''; }
 function setGsUrl(url){ GS_URL=url; localStorage.setItem(K.gsUrl,url); }
+// 🔴 2026-09-29 보안조치: "구글 시트 바로 열기" 링크의 시트ID를 코드에서 뺐다 — 기기별 설정으로만 둔다.
+function getGsSheetUrl(){ return localStorage.getItem(K.gsSheetUrl)||''; }
+function setGsSheetUrl(url){ localStorage.setItem(K.gsSheetUrl,url); }
+function openGsSheetLink(){
+  const u=getGsSheetUrl();
+  if(!u){ alert('⚙️ 구글 시트 설정에서 "구글 시트 바로가기 URL"을 먼저 입력하세요.'); openGsSetup(); return; }
+  window.open(u,'_blank','noopener');
+}
 // API 토큰: 웹앱 URL이 홈페이지 공개로 노출되므로, 데이터 조회·저장·문자발송은 토큰이 있어야 처리됨 (GAS v10)
 function getGsTok(){ return localStorage.getItem('crm_gs_token')||''; }
 function setGsTok(t){ localStorage.setItem('crm_gs_token', String(t||'').trim()); }
@@ -4614,7 +4630,7 @@ function saveKakaoKeyAndRetry(){
 
 function openGsSetup(){
   const modal=document.getElementById('gs-setup-modal');
-  if(modal){ document.getElementById('gs-url-input').value=getGsUrl(); document.getElementById('gs-token-input').value=getGsTok(); modal.style.display='flex'; }
+  if(modal){ document.getElementById('gs-url-input').value=getGsUrl(); document.getElementById('gs-token-input').value=getGsTok(); document.getElementById('gs-sheet-url-input').value=getGsSheetUrl(); modal.style.display='flex'; }
 }
 function closeGsSetup(){ const m=document.getElementById('gs-setup-modal'); if(m) m.style.display='none'; }
 function saveGsUrl(){
@@ -4623,6 +4639,7 @@ function saveGsUrl(){
   if(!url.includes('script.google.com')){ showToast('Apps Script 배포 URL이 아닙니다'); return; }
   setGsUrl(url);
   setGsTok(document.getElementById('gs-token-input').value);
+  setGsSheetUrl(document.getElementById('gs-sheet-url-input').value.trim());
   closeGsSetup();
   showToast('구글 시트 연동 정보가 저장되었습니다');
   gsShowStatus('ok');
@@ -8075,11 +8092,10 @@ function exportContractsExcel(){
 }
 
 // ─── 비밀번호 시스템 ───
-const DEFAULT_PW='1234';          // 초기 일반 비밀번호
-const DEFAULT_MASTER='admin1234'; // 초기 마스터 비밀번호
-
-function getPw(){return localStorage.getItem('crm_pw')||DEFAULT_PW;}
-function getMasterPw(){return localStorage.getItem('crm_master_pw')||DEFAULT_MASTER;}
+// 🔴 2026-09-29 보안조치: 하드코딩 기본값 제거. 최초 설정은 상단 잠금화면 스크립트가 강제한다 —
+//   이 시점(메인 앱 로딩 후)엔 이미 둘 다 설정돼 있는 게 정상이라 빈 문자열이면 그냥 매칭 실패로 둔다.
+function getPw(){return localStorage.getItem('crm_pw')||'';}
+function getMasterPw(){return localStorage.getItem('crm_master_pw')||'';}
 
 function checkPassword(){
   const input=document.getElementById('lock-pw-input').value.trim();

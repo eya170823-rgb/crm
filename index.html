@@ -362,7 +362,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div style="background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;margin:16px">
     <div style="font-size:48px;margin-bottom:10px">🏡</div>
     <div style="font-size:18px;font-weight:700;color:#1A1D21;margin-bottom:4px">브리즈부동산중개 CRM</div>
-    <div style="font-size:12px;color:#9AA3AF;margin-bottom:24px">비밀번호를 입력하세요</div>
+    <div id="lock-sub" style="font-size:12px;color:#9AA3AF;margin-bottom:24px">비밀번호를 입력하세요</div>
     <input id="lock-pw-input" type="password" placeholder="비밀번호 입력"
       style="width:100%;padding:12px 16px;border-radius:10px;border:1.5px solid #E2E6EA;font-size:16px;text-align:center;outline:none;margin-bottom:10px;letter-spacing:6px;box-sizing:border-box">
     <div id="lock-error" style="font-size:12px;color:#A32D2D;margin-bottom:10px;display:none;background:#FCEBEB;padding:8px;border-radius:6px">⚠️ 비밀번호가 올바르지 않습니다</div>
@@ -377,76 +377,127 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
 <!-- 잠금화면 전용 스크립트 (다른 JS와 독립) -->
 <script>
 (function(){
-  var DEFPW  = '1234';
-  var DEFMST = 'admin1234';
+  // 🔴 2026-09-29 보안조치(대표 지시): 하드코딩 기본값(1234/admin1234) 제거.
+  //   이제 비밀번호가 아예 없으면(최초 실행) 접속을 강제로 새로 정하게 한다 — 대표가 실제 쓰는
+  //   비밀번호는 코드에 절대 넣지 않는다(localStorage 에만 저장, 기기별로 따로 존재).
   var PW_KEY = 'crm_pw';
   var MST_KEY= 'crm_master_pw';
   var SES_KEY= 'crm_session';
   var SESSION_HRS = 8;
 
-  function getPw()  { return localStorage.getItem(PW_KEY)  || DEFPW;  }
-  function getMst() { return localStorage.getItem(MST_KEY) || DEFMST; }
+  function getPw()  { return localStorage.getItem(PW_KEY);  }
+  function getMst() { return localStorage.getItem(MST_KEY); }
+
+  var subEl   = document.getElementById('lock-sub');
+  var inputEl = document.getElementById('lock-pw-input');
+  var btnEl   = document.getElementById('lock-btn');
+  var errEl   = document.getElementById('lock-error');
+  var masterBtnEl = document.getElementById('lock-master-btn');
+  var resetBtnEl  = document.getElementById('lock-reset-btn');
 
   function unlock() {
     document.getElementById('lock-screen').style.display = 'none';
     localStorage.setItem(SES_KEY, Date.now());
   }
 
+  function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
+  function hideErr()    { errEl.style.display = 'none'; }
+
   function tryLogin() {
-    var input = document.getElementById('lock-pw-input').value;
-    var err   = document.getElementById('lock-error');
-    if (!input) {
-      err.textContent = '⚠️ 비밀번호를 입력해주세요';
-      err.style.display = 'block';
-      return;
-    }
+    var input = inputEl.value;
+    if (!input) { showErr('⚠️ 비밀번호를 입력해주세요'); return; }
     if (input === getPw() || input === getMst()) {
-      err.style.display = 'none';
-      document.getElementById('lock-pw-input').value = '';
+      hideErr();
+      inputEl.value = '';
       unlock();
     } else {
-      err.textContent = '⚠️ 비밀번호가 올바르지 않습니다';
-      err.style.display = 'block';
-      document.getElementById('lock-pw-input').value = '';
-      document.getElementById('lock-pw-input').focus();
+      showErr('⚠️ 비밀번호가 올바르지 않습니다');
+      inputEl.value = '';
+      inputEl.focus();
     }
   }
 
-  // 버튼 이벤트 연결
-  document.getElementById('lock-btn').addEventListener('click', tryLogin);
-  document.getElementById('lock-pw-input').addEventListener('keydown', function(e){
-    if (e.key === 'Enter') tryLogin();
-  });
-  document.getElementById('lock-reset-btn').addEventListener('click', function(){
-    var mst = prompt('비밀번호 초기화에는 마스터 비밀번호가 필요합니다.\n마스터 비밀번호를 입력하세요:');
-    if (mst === null) return;
-    if (mst !== getMst()) { alert('마스터 비밀번호가 올바르지 않습니다.'); return; }
-    if (confirm('접속 비밀번호를 초기값(1234)으로 되돌립니까?\n저장된 데이터와 마스터 비밀번호는 유지됩니다.')) {
-      localStorage.removeItem(PW_KEY);
-      localStorage.removeItem(SES_KEY);
-      location.reload();
-    }
-  });
-  document.getElementById('lock-master-btn').addEventListener('click', function(){
-    // 마스터 모달은 메인 JS 로딩 후 사용 가능
-    if (typeof showMasterSetting === 'function') {
-      showMasterSetting();
-    } else {
-      alert('페이지 로딩 후 다시 시도해주세요.');
-    }
+  // ── 최초 실행(마스터 비밀번호가 아예 없음) — 접속+마스터 비밀번호를 둘 다 강제로 정한다 ──
+  function runSetupFull() {
+    subEl.textContent = '최초 실행입니다 — 접속 비밀번호를 정하세요(4자 이상)';
+    btnEl.textContent = '✅ 접속 비밀번호 설정';
+    masterBtnEl.style.display = 'none';
+    resetBtnEl.style.display  = 'none';
+    btnEl.onclick = function(){
+      var newPw = inputEl.value.trim();
+      if (newPw.length < 4) { showErr('⚠️ 4자 이상 입력하세요'); return; }
+      var m1 = prompt('마스터 비밀번호(접속 비밀번호를 잊었을 때 초기화용)를 새로 정하세요(4자 이상):');
+      if (m1 === null) return;
+      if (m1.trim().length < 4) { alert('마스터 비밀번호는 4자 이상이어야 합니다.'); return; }
+      var m2 = prompt('마스터 비밀번호를 다시 한 번 입력하세요(확인):');
+      if (m2 === null) return;
+      if (m1.trim() !== m2.trim()) { alert('마스터 비밀번호가 서로 달라서 처음부터 다시 해야 합니다.'); return; }
+      localStorage.setItem(PW_KEY, newPw);
+      localStorage.setItem(MST_KEY, m1.trim());
+      inputEl.value = '';
+      hideErr();
+      unlock();
+    };
+  }
+
+  // ── 접속 비밀번호만 없음(초기화 직후) — 마스터 비밀번호는 그대로 두고 접속 비밀번호만 새로 ──
+  function runSetupPwOnly() {
+    subEl.textContent = '새 접속 비밀번호를 정하세요(4자 이상)';
+    btnEl.textContent = '✅ 저장';
+    masterBtnEl.style.display = '';
+    resetBtnEl.style.display  = 'none';
+    btnEl.onclick = function(){
+      var newPw = inputEl.value.trim();
+      if (newPw.length < 4) { showErr('⚠️ 4자 이상 입력하세요'); return; }
+      localStorage.setItem(PW_KEY, newPw);
+      inputEl.value = '';
+      hideErr();
+      unlock();
+    };
+  }
+
+  // ── 평소 로그인 ──
+  function runNormal() {
+    btnEl.onclick = tryLogin;
+    resetBtnEl.addEventListener('click', function(){
+      var mst = prompt('비밀번호 재설정에는 마스터 비밀번호가 필요합니다.\n마스터 비밀번호를 입력하세요:');
+      if (mst === null) return;
+      if (mst !== getMst()) { alert('마스터 비밀번호가 올바르지 않습니다.'); return; }
+      if (confirm('접속 비밀번호를 지우고 새로 정합니다. 계속할까요?\n(저장된 데이터와 마스터 비밀번호는 그대로 유지됩니다)')) {
+        localStorage.removeItem(PW_KEY);
+        localStorage.removeItem(SES_KEY);
+        location.reload();
+      }
+    });
+    masterBtnEl.addEventListener('click', function(){
+      // 마스터 모달은 메인 JS 로딩 후 사용 가능
+      if (typeof showMasterSetting === 'function') {
+        showMasterSetting();
+      } else {
+        alert('페이지 로딩 후 다시 시도해주세요.');
+      }
+    });
+  }
+
+  inputEl.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && typeof btnEl.onclick === 'function') btnEl.onclick();
   });
 
-  // 세션 확인 (8시간 유지)
-  var session = localStorage.getItem(SES_KEY);
-  if (session && (Date.now() - parseInt(session)) < SESSION_HRS * 3600000) {
-    unlock();
+  // ── 상태 판별 ──
+  if (!getMst()) {
+    runSetupFull();
+  } else if (!getPw()) {
+    runSetupPwOnly();
   } else {
-    // 자동 포커스
-    setTimeout(function(){
-      var el = document.getElementById('lock-pw-input');
-      if (el) el.focus();
-    }, 100);
+    runNormal();
+    // 세션 확인(8시간 유지)은 접속·마스터 비밀번호가 둘 다 있을 때만
+    var session = localStorage.getItem(SES_KEY);
+    if (session && (Date.now() - parseInt(session)) < SESSION_HRS * 3600000) {
+      unlock();
+    }
   }
+
+  setTimeout(function(){ inputEl.focus(); }, 100);
 
   // 전역에서도 호출 가능하도록 노출
   window.checkPassword    = tryLogin;
@@ -489,7 +540,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
       <div class="sb-brand">🏡 브리즈부동산중개</div>
-      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-29 13:59</span></div>
+      <div class="sb-sub">중개사무소 CRM 시스템 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-29 14:29</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -532,7 +583,7 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
         <button id="gs-bulk-btn" onclick="gsSyncAllGuarded()" title="이 화면 목록으로 중앙 DB를 통째로 맞춥니다. 평소에는 쓰지 않습니다 — 고친 내용은 자동으로 올라갑니다." style="display:none;width:100%;padding:6px;background:#B91C1C;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⚠️ 전체 데이터 강제 동기화 — 대표</button>
         <button onclick="gsEnrichAndLoad()" title="구글 시트에 적어 넣은 매물을 건축물대장 기준으로 채운 뒤 CRM으로 가져옵니다" style="width:100%;padding:6px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer">⬇️ 시트에서 불러오기</button>
-        <a href="https://docs.google.com/spreadsheets/d/1B69qGMsO6BPZvGVPxTnVzYmgRCqDB4UkrJjOluFqsBA/edit" target="_blank" rel="noopener" style="display:block;width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t2);cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box">📊 구글 시트 바로 열기</a>
+        <button onclick="openGsSheetLink()" style="display:block;width:100%;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t2);cursor:pointer;text-align:center;box-sizing:border-box">📊 구글 시트 바로 열기</button>
         <button onclick="openGsSetup()" style="width:100%;padding:6px;background:none;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t3);cursor:pointer">⚙️ 구글 시트 설정</button>
       </div>
       <div style="margin-top:8px">
@@ -2345,6 +2396,14 @@ select.action-sel{font-size:11px;padding:4px 8px;border-radius:6px;border:1px so
         onfocus="this.style.borderColor='#0F6E56'" onblur="this.style.borderColor='#E2E6EA'">
     </div>
 
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:#5A6270;display:block;margin-bottom:6px">구글 시트 바로가기 URL (선택)</label>
+      <input id="gs-sheet-url-input" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit"
+        style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #E2E6EA;font-size:12px;font-family:monospace;outline:none"
+        onfocus="this.style.borderColor='#0F6E56'" onblur="this.style.borderColor='#E2E6EA'">
+      <div style="font-size:10px;color:#9AA3AF;margin-top:4px">사이드바 "📊 구글 시트 바로 열기" 버튼이 이 주소로 엽니다(기기별 저장, 코드에는 없음)</div>
+    </div>
+
     <div style="background:#F7F8FA;border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:11px;color:#5A6270;line-height:1.6">
       💡 <strong>자동 동기화:</strong> 데이터 저장 시 2초 후 구글 시트에 자동 반영됩니다<br>
       💡 <strong>공유 방법:</strong> 같은 URL+토큰을 다른 직원 CRM에도 입력하면 즉시 공유됩니다<br>
@@ -2522,7 +2581,7 @@ function verBanner(live){
   document.body.appendChild(d);
 }
 // ═══ STORAGE (localStorage + Google Sheets 연동) ═══
-const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contracts',landlords:'crm_landlords',expStatus:'crm_expStatus',contacted:'crm_contacted',vitoKey:'crm_vitoKey',vitoNotes:'crm_vitoNotes',voiceMemos:'crm_voiceMemos',gsUrl:'crm_gs_url',schedules:'crm_schedules',kakaoKey:'crm_kakao_key'};
+const K={listings:'crm_listings',customers:'crm_customers',contracts:'crm_contracts',landlords:'crm_landlords',expStatus:'crm_expStatus',contacted:'crm_contacted',vitoKey:'crm_vitoKey',vitoNotes:'crm_vitoNotes',voiceMemos:'crm_voiceMemos',gsUrl:'crm_gs_url',gsSheetUrl:'crm_gs_sheet_url',schedules:'crm_schedules',kakaoKey:'crm_kakao_key'};
 const load=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||[];}catch{return [];}};
 const loadObj=k=>{try{return JSON.parse(localStorage.getItem(K[k]))||{};}catch{return {};}};
 const loadStr=k=>localStorage.getItem(K[k])||'';
@@ -2540,6 +2599,14 @@ let gsSyncTimer = null;
 
 function getGsUrl(){ return localStorage.getItem(K.gsUrl)||''; }
 function setGsUrl(url){ GS_URL=url; localStorage.setItem(K.gsUrl,url); }
+// 🔴 2026-09-29 보안조치: "구글 시트 바로 열기" 링크의 시트ID를 코드에서 뺐다 — 기기별 설정으로만 둔다.
+function getGsSheetUrl(){ return localStorage.getItem(K.gsSheetUrl)||''; }
+function setGsSheetUrl(url){ localStorage.setItem(K.gsSheetUrl,url); }
+function openGsSheetLink(){
+  const u=getGsSheetUrl();
+  if(!u){ alert('⚙️ 구글 시트 설정에서 "구글 시트 바로가기 URL"을 먼저 입력하세요.'); openGsSetup(); return; }
+  window.open(u,'_blank','noopener');
+}
 // API 토큰: 웹앱 URL이 홈페이지 공개로 노출되므로, 데이터 조회·저장·문자발송은 토큰이 있어야 처리됨 (GAS v10)
 function getGsTok(){ return localStorage.getItem('crm_gs_token')||''; }
 function setGsTok(t){ localStorage.setItem('crm_gs_token', String(t||'').trim()); }
@@ -3386,7 +3453,7 @@ function saveKakaoKeyAndRetry(){
 
 function openGsSetup(){
   const modal=document.getElementById('gs-setup-modal');
-  if(modal){ document.getElementById('gs-url-input').value=getGsUrl(); document.getElementById('gs-token-input').value=getGsTok(); modal.style.display='flex'; }
+  if(modal){ document.getElementById('gs-url-input').value=getGsUrl(); document.getElementById('gs-token-input').value=getGsTok(); document.getElementById('gs-sheet-url-input').value=getGsSheetUrl(); modal.style.display='flex'; }
 }
 function closeGsSetup(){ const m=document.getElementById('gs-setup-modal'); if(m) m.style.display='none'; }
 function saveGsUrl(){
@@ -3395,6 +3462,7 @@ function saveGsUrl(){
   if(!url.includes('script.google.com')){ showToast('Apps Script 배포 URL이 아닙니다'); return; }
   setGsUrl(url);
   setGsTok(document.getElementById('gs-token-input').value);
+  setGsSheetUrl(document.getElementById('gs-sheet-url-input').value.trim());
   closeGsSetup();
   showToast('구글 시트 연동 정보가 저장되었습니다');
   gsShowStatus('ok');
@@ -6847,11 +6915,10 @@ function exportContractsExcel(){
 }
 
 // ─── 비밀번호 시스템 ───
-const DEFAULT_PW='1234';          // 초기 일반 비밀번호
-const DEFAULT_MASTER='admin1234'; // 초기 마스터 비밀번호
-
-function getPw(){return localStorage.getItem('crm_pw')||DEFAULT_PW;}
-function getMasterPw(){return localStorage.getItem('crm_master_pw')||DEFAULT_MASTER;}
+// 🔴 2026-09-29 보안조치: 하드코딩 기본값 제거. 최초 설정은 상단 잠금화면 스크립트가 강제한다 —
+//   이 시점(메인 앱 로딩 후)엔 이미 둘 다 설정돼 있는 게 정상이라 빈 문자열이면 그냥 매칭 실패로 둔다.
+function getPw(){return localStorage.getItem('crm_pw')||'';}
+function getMasterPw(){return localStorage.getItem('crm_master_pw')||'';}
 
 function checkPassword(){
   const input=document.getElementById('lock-pw-input').value.trim();
