@@ -1361,7 +1361,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-10-08 11:36</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-10-08 11:57</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -24672,9 +24672,19 @@ async function ezLoadContact() {
       return Array.isArray(v) ? v : [];
     } catch (e) { return []; }
   };
-  EZ_CONTACT.inbox = await grab('inboxList', '&limit=500');
-  EZ_CONTACT.sms = await grab('smsQueueList', '&limit=500');
-  EZ_CONTACT.vac = await grab('vacSmsList', '&limit=500');
+  /* 🔴 2026-10-08 속도개선(대표 승인, 작은 안) — 순차 3회(await·await·await)를 병렬로.
+     셋이 서로 의존하지 않아 굳이 차례로 기다릴 이유가 없었다(실측: 순차 시 합산
+     10초 안팎, GAS 1건당 기본비용이 커서 셋을 더하면 그대로 느려짐).
+     grab() 은 이미 자체 try/catch 로 실패 시 [] 를 돌려주므로, 하나가 실패해도
+     Promise.all 이 reject 되지 않고 나머지는 그대로 받아진다(기존 동작 그대로). */
+  var r3 = await Promise.all([
+    grab('inboxList', '&limit=500'),
+    grab('smsQueueList', '&limit=500'),
+    grab('vacSmsList', '&limit=500'),
+  ]);
+  EZ_CONTACT.inbox = r3[0];
+  EZ_CONTACT.sms = r3[1];
+  EZ_CONTACT.vac = r3[2];
   EZ_CONTACT.ready = true;
   return EZ_CONTACT;
 }
