@@ -1361,7 +1361,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-09-29 14:46</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-10-08 11:36</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -1888,6 +1888,11 @@ body{padding-bottom:46px}
           <option value="임대중">임대중</option>
           <option value="거래완료">거래완료</option>
           <option value="보류">보류</option>
+        </select>
+        <!-- 📌 2026-10-06 — 담당자 필터. 옵션은 listingAgentFilterRender() 가 role 에 맞게 채운다 -->
+        <select id="l-filter-agent" onchange="renderListings()">
+          <option value="all">전체 매물</option>
+          <option value="mine">내 매물</option>
         </select>
         <select id="l-sort" onchange="renderListings()">
           <option value="접수일_최신">접수일 최신순</option>
@@ -4005,6 +4010,36 @@ async function gsUpsertOne(type, item){
   return json;
 }
 
+/** 🔢 2026-10-06 2단계 — 매물번호 새 양식(가-1001) 서버발급. kind 로 자동분류 안 되면
+    (건물 통매매·기타) letterOverride 를 반드시 넘겨야 한다(서버 idLetterForKind_ 와 짝). */
+async function gsNextIdNew(kind, letterOverride){
+  const url=getGsUrl();
+  if(!url) throw new Error('구글시트 연동 주소가 설정되지 않았습니다 — 설정에서 먼저 연결해주세요');
+  const body={action:'idNew', kind:kind||'', token:getGsTok()};
+  if(letterOverride) body.letter=letterOverride;
+  const json=await gsFetchJson(url,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify(body)
+  }, '매물번호 발급');
+  if(!json.ok) throw new Error(json.error||'매물번호 발급 실패');
+  return json.result&&json.result.id;
+}
+/** idNew_ 가 "가/나/다를 자동분류 못 함" 에러를 던지면, 사람에게 직접 물어 letter 를 받아
+    한 번 더 시도한다(건물 통매매·기타 대비 — 지시서 요구사항). 두 번째도 실패하면 null. */
+async function gsNextIdNewAsk(kind){
+  try{ return await gsNextIdNew(kind); }
+  catch(e){
+    if(!/자동분류할 수 없습니다/.test(e.message||'')) throw e;
+    let pick='';
+    while(!['가','나','다'].includes(pick)){
+      pick=prompt('이 매물(종류: '+(kind||'미입력')+")은 번호를 가/나/다 중 무엇으로 매길지 자동으로 정할 수 없습니다.\n가=주거용 / 나=상가·사무실·공장창고 / 다=토지\n건물 통매매는 주 용도에 맞는 글자를 골라주세요.\n\n가, 나, 다 중 하나만 입력해주세요:");
+      if(pick===null) return null;   // 취소
+      pick=pick.trim();
+    }
+    return await gsNextIdNew(kind, pick);
+  }
+}
 async function gsSaveAll(type, data, reqId){
   const url=getGsUrl();
   if(!url) return;
@@ -5176,19 +5211,35 @@ function clearListingCustomer(){
   document.getElementById('l-customer-id').value='';
 }
 
+/* 📌 2026-10-06 — 매물번호 검색용 정규화: 공백·하이픈 제거 + 소문자화.
+   "가1001"/"가-1001"/"가 1001" 모두 같은 값으로, 구형식(R260916-01)·oldId 도 같은 방식으로 비교. */
+function idNorm_(s){ return String(s||'').replace(/[\s-]+/g,'').toLowerCase(); }
+
 function getFilteredListings(){
-  const q=(document.getElementById('l-search')?.value||'').trim().toLowerCase();
+  const qRaw=(document.getElementById('l-search')?.value||'').trim();
+  const q=qRaw.toLowerCase();
+  const qn=idNorm_(qRaw);
   const ft=document.getElementById('l-filter-type')?.value||'all';
   const fs=document.getElementById('l-filter-status')?.value||'all';
+  const fa=document.getElementById('l-filter-agent')?.value||'all';
   const sort=document.getElementById('l-sort')?.value||'접수일_최신';
 
   let list=[...listings];
   if(ft!=='all') list=list.filter(l=>l.type===ft);
   if(fs!=='all') list=list.filter(l=>l.status===fs);
+  // 📌 2026-10-06 — 담당자 필터: 내매물/전체/직원별(관리자)/담당자없음(대표소유)
+  if(fa==='mine') list=list.filter(l=>String(l.agent||'').trim()===crmMyId());
+  else if(fa==='unassigned') list=list.filter(l=>!String(l.agent||'').trim());
+  else if(fa!=='all') list=list.filter(l=>String(l.agent||'').trim()===fa);
   if(q){
     list=list.filter(l=>{
       const fields=[l.apt,l.cname,l.cphone,l.recvDate,l.moveDate,l.note,l.price].filter(Boolean).join(' ').toLowerCase();
-      return fields.includes(q);
+      if(fields.includes(q)) return true;
+      // 매물번호: 공백/하이픈 무시, 신형식(가-1001)·구형식(id 또는 oldId) 모두 인식
+      if(!qn) return false;
+      if(idNorm_(l.id).includes(qn)) return true;
+      if(l.oldId && idNorm_(l.oldId).includes(qn)) return true;
+      return false;
     });
   }
   // sort
@@ -5250,7 +5301,28 @@ function listingViewSave(){
   const sel=document.getElementById('l-view'); if(!sel) return;
   try{ localStorage.setItem(LISTING_VIEW_KEY, sel.value==='card'?'card':'table'); }catch(e){}
 }
+/* 📌 2026-10-06 — 담당자 필터 옵션을 role 에 맞게 1회만 채운다(직원은 staffList 호출 권한이
+   없어 adminOnly_ 에서 막힘 — 그래서 관리자일 때만 부른다. 직원은 전체/내매물 2개로 충분). */
+let __agentFilterInit=false;
+function listingAgentFilterRender(){
+  if(__agentFilterInit) return;
+  const sel=document.getElementById('l-filter-agent');
+  if(!sel||!getGsUrl()) return;
+  if(window.__crmRole!=='admin') return;
+  __agentFilterInit=true;
+  gsFetchJson(getGsUrl(), { method:'POST', headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'staffList', token:getGsTok() }) }, '직원 목록')
+    .then(j=>{
+      const rows=(j&&j.data)||[];
+      window.__staffById=window.__staffById||{};
+      rows.forEach(s=>{ if(s&&s.id) window.__staffById[s.id]=s.name||s.id; });
+      const extra=rows.filter(s=>s&&s.id).map(s=>`<option value="${gEsc(s.id)}">${gEsc(s.name||s.id)}</option>`).join('');
+      sel.insertAdjacentHTML('beforeend', '<option value="unassigned">담당자 없음(대표)</option>'+extra);
+    }).catch(()=>{ __agentFilterInit=false; });   // 실패하면 다음 렌더에서 재시도
+}
+
 function renderListings(){
+  listingAgentFilterRender();
   const list=getFilteredListings();
   const dup=getListingDupSets();
   const view=listingViewGet();
@@ -6076,7 +6148,9 @@ function buildListingDesc(o,allListings){
   const rooms=v(o.rooms), baths=v(o.baths), opts=v(o.options);
   const parking=v(o.parking), pets=v(o.pets);
   const aprDate=normDateStr(v(o.aprDate));
-  const no=v(o.id)||genListingNo(kind); // 신규 매물은 저장 시 부여될 번호를 미리 계산해 표기 (저장 전 예약은 아님)
+  // 🔢 2026-10-06 — 번호는 서버(idNew_)에서만 발급. 여기서 미리 만들면 쓰지도 않을 번호를
+  //   매번 서버에 태우게 되므로, 신규 매물은 숫자를 추측하지 않고 자리표시문구만 보여준다.
+  const no=v(o.id)||'(저장 시 발급)';
 
   const priceLabel={매매:'매매가',전세:'전세금',월세:'보증금',연세:'보증금',단기:'보증금'}[type]||'가격';
   const priceDisp=price?(/^[\d,.]+$/.test(price)?price+'만원':price):'문의'; // 숫자만 적으면 만원 단위 자동
@@ -6448,7 +6522,7 @@ function listingProgress(){
   el.style.color=(done<req.length)?'#B91C1C':'#0F6E56';
 }
 
-function saveListing(){
+async function saveListing(){
   const addr=document.getElementById('l-addr').value.trim();
   const apt=document.getElementById('l-apt').value.trim();
   const price=document.getElementById('l-price').value.trim();
@@ -6526,7 +6600,12 @@ function saveListing(){
     if(idx>=0){listings[idx]={...listings[idx],...data};savedItem=listings[idx];}
     showToast('매물이 수정되었습니다 ✓');
   } else {
-    savedItem={id:genListingNo(data.kind),...data};
+    // 🔢 2026-10-06 2단계 — 매물번호는 서버(idNew_)에서만 발급. 잠금 처리는 서버가 함.
+    let newId=null;
+    try{ newId=await gsNextIdNewAsk(data.kind); }
+    catch(e){ showToast('매물번호 발급 실패: '+e.message); return; }
+    if(!newId) return;   // 취소했거나 발급 못 받음 — 저장하지 않는다(중복/빈번호 방지)
+    savedItem={id:newId,...data};
     listings.push(savedItem);
     showToast(`매물이 추가되었습니다 ✓ (매물번호 ${savedItem.id})`);
   }
@@ -8252,7 +8331,7 @@ function vacancyReconcileOpen(){
   wrap.addEventListener('click',e=>{ if(e.target===wrap) wrap.remove(); });
   document.body.appendChild(wrap);
 }
-function vacancyReconcileRun(){
+async function vacancyReconcileRun(){
   const key=document.getElementById('vac-apt').value;
   const raw=document.getElementById('vac-hos').value;
   const toks=String(raw||'').split(/[^0-9\-]+/).filter(Boolean);
@@ -8270,7 +8349,8 @@ function vacancyReconcileRun(){
   if(r.attention.length) msg+='\n⚠️ 확인 필요:\n'+r.attention.map(a=>'· '+a).join('\n')+'\n';
   msg+='\n이대로 적용할까요?';
   if(!confirm(msg)){ showToast('적용하지 않았습니다'); return; }
-  r.apply();
+  try{ await r.apply(); }
+  catch(e){ showToast('일부 적용 실패: '+e.message); save('listings',listings); renderListings(); updateStats(); return; }
   save('listings',listings);
   renderListings(); updateStats();
   const m=document.getElementById('vac-modal'); if(m) m.remove();
@@ -8295,8 +8375,11 @@ function vacancyReconcile(key,hos){
     const ex=byHo[ho];
     if(!ex||!ex.length){
       added.push(ho);
-      ops.push(()=>{
-        const nl={ id:genListingNo(tpl&&tpl.kind||'기타'), apt:aptName,
+      ops.push(async()=>{
+        // 🔢 2026-10-06 — 번호는 서버(idNew_)에서만 발급(동시추가 겹침 방지)
+        const newId=await gsNextIdNewAsk(tpl&&tpl.kind||'기타');
+        if(!newId) throw new Error(ho+'호: 매물번호를 받지 못해 추가를 멈췄습니다');
+        const nl={ id:newId, apt:aptName,
           addr:tpl&&tpl.addr||'', addr2:ho+'호',
           kind:tpl&&tpl.kind||'', type:tpl&&tpl.type||'',
           price:tpl&&tpl.price||'', rentAmt:tpl&&tpl.rentAmt||'',
@@ -8335,7 +8418,7 @@ function vacancyReconcile(key,hos){
       ops.push(()=>{ l.status='임대중'; });
     }
   });
-  return { aptName, added, revived, kept, rented, attention, apply(){ ops.forEach(f=>f()); } };
+  return { aptName, added, revived, kept, rented, attention, async apply(){ for(const f of ops){ await f(); } } };
 }
 
 // ═══ SMS ═══
@@ -8927,25 +9010,41 @@ function getCV(row,key,cols){
   return idx>=0?String(row[idx]||'').trim():'';
 }
 
-function confirmUpload(){
+async function confirmUpload(){
   const mode=document.querySelector('input[name="upload-mode"]:checked').value;
   const cols=uploadTargetType==='listing'?LISTING_COLS:CUSTOMER_COLS;
   const errors=[];const newItems=[];
-  uploadRawRows.forEach((row,i)=>{
-    const rn=i+2;
+  // 🔢 2026-10-06 — 이 업로더는 매물종류(kind) 칸이 없어 가/나/다를 자동분류할 수 없다.
+  //   매물번호는 서버(idNew_)에서만 발급하므로, 올리기 전에 한 번만 물어 이번 업로드
+  //   전체에 같은 글자를 쓴다(행마다 물으면 엑셀 수백행에 수백 번 팝업이 뜨게 된다).
+  let batchLetter=null;
+  if(uploadTargetType==='listing'){
+    let pick='';
+    while(!['가','나','다'].includes(pick)){
+      pick=prompt('이번에 올리는 매물들은 번호를 가/나/다 중 무엇으로 매길까요?\n가=주거용 / 나=상가·사무실·공장창고 / 다=토지\n\n가, 나, 다 중 하나만 입력해주세요:');
+      if(pick===null){ showToast('업로드를 취소했습니다'); return; }
+      pick=pick.trim();
+    }
+    batchLetter=pick;
+  }
+  for(let i=0;i<uploadRawRows.length;i++){
+    const row=uploadRawRows[i], rn=i+2;
     if(uploadTargetType==='listing'){
       const apt=getCV(row,'apt',cols),price=getCV(row,'price',cols),type=getCV(row,'type',cols);
-      if(!apt){errors.push(`${rn}행: 매물명 누락`);return;}
-      if(!price){errors.push(`${rn}행: 거래가 누락`);return;}
+      if(!apt){errors.push(`${rn}행: 매물명 누락`);continue;}
+      if(!price){errors.push(`${rn}행: 거래가 누락`);continue;}
       const tv=['매매','전세','월세','연세','단기','단기임대'].includes(type)?type:'전세';
       // '공실'은 폐지된 상태 — 옛 파일에 있으면 '접수'로 받는다 (2026-08-27)
       const sv0=getCV(row,'status',cols);
       const sv=['접수','상담중','계약완료','임대중','거래완료','보류'].includes(sv0)?sv0:'접수';
-      newItems.push({id:bzUpId(),addr:getCV(row,'addr',cols),addr2:getCV(row,'addr2',cols),apt,type:tv,price,area:getCV(row,'area',cols),floor:getCV(row,'floor',cols),status:sv,recvDate:getCV(row,'recvDate',cols),moveDate:getCV(row,'moveDate',cols),cname:getCV(row,'cname',cols),cphone:getCV(row,'cphone',cols),naverUrl:getCV(row,'naverUrl',cols),note:getCV(row,'note',cols),attachments:[]});
+      let newId;
+      try{ newId=await gsNextIdNew(null, batchLetter); }
+      catch(e){ errors.push(`${rn}행: 매물번호 발급 실패(${e.message})`); continue; }
+      newItems.push({id:newId,addr:getCV(row,'addr',cols),addr2:getCV(row,'addr2',cols),apt,type:tv,price,area:getCV(row,'area',cols),floor:getCV(row,'floor',cols),status:sv,recvDate:getCV(row,'recvDate',cols),moveDate:getCV(row,'moveDate',cols),cname:getCV(row,'cname',cols),cphone:getCV(row,'cphone',cols),naverUrl:getCV(row,'naverUrl',cols),note:getCV(row,'note',cols),attachments:[]});
     } else {
       const name=getCV(row,'name',cols),phone=getCV(row,'phone',cols);
-      if(!name){errors.push(`${rn}행: 이름 누락`);return;}
-      if(!phone){errors.push(`${rn}행: 연락처 누락`);return;}
+      if(!name){errors.push(`${rn}행: 이름 누락`);continue;}
+      if(!phone){errors.push(`${rn}행: 연락처 누락`);continue;}
       const rv=['임대인','임차인'].includes(getCV(row,'role',cols))?getCV(row,'role',cols):'임차인';
       const tv=['매매','전세','월세','연세','단기','단기임대'].includes(getCV(row,'type',cols))?getCV(row,'type',cols):'전세';
       const sn=getCV(row,'stepName',cols);
@@ -8954,7 +9053,7 @@ function confirmUpload(){
       const crv=['미신청','신청','해당없음'].includes(getCV(row,'conRenewal',cols))?getCV(row,'conRenewal',cols):'미신청';
       newItems.push({id:uid(),name,phone,role:rv,type:tv,recvDate:getCV(row,'recvDate',cols),deadline:getCV(row,'deadline',cols),budget:getCV(row,'budget',cols),step:sv,progressStatus:pv,conApt:getCV(row,'conApt',cols),conMoveIn:getCV(row,'conMoveIn',cols),conFloor:getCV(row,'conFloor',cols),conUnit:getCV(row,'conUnit',cols),conPrice:getCV(row,'conPrice',cols),conRenewal:crv,note:getCV(row,'note',cols)});
     }
-  });
+  }
   const we=document.getElementById('upload-warning'),se=document.getElementById('upload-success');
   we.style.display='none';se.style.display='none';
   if(errors.length){we.style.display='block';we.innerHTML=`⚠️ 아래 행에 오류가 있어 건너뜁니다:<br>${errors.slice(0,8).join('<br>')}${errors.length>8?`<br>... 외 ${errors.length-8}건`:''}`;}
@@ -11106,7 +11205,7 @@ async function gatherMenuSetup(){
   try{
     const r = await fetch(`${url}?action=ping&t=${Date.now()}${tokQ()}`);
     const j = await r.json();
-    if(j && j.ok){ show = (j.role === 'admin'); window.__crmWho = String(j.who||''); window.__crmOffice = String(j.title||'').replace(/\s*(통합매물장|매물장|CRM)\s*$/,'').trim() || undefined; try{ if(window.__crmOffice) localStorage.setItem('crm_office', window.__crmOffice); }catch(e2){} try{ localStorage.setItem('crm_role', show ? 'admin' : 'staff'); localStorage.setItem('crm_who', window.__crmWho); }catch(e){} }
+    if(j && j.ok){ show = (j.role === 'admin'); window.__crmWho = String(j.who||''); window.__crmId = String(j.id||''); window.__crmOffice = String(j.title||'').replace(/\s*(통합매물장|매물장|CRM)\s*$/,'').trim() || undefined; try{ if(window.__crmOffice) localStorage.setItem('crm_office', window.__crmOffice); }catch(e2){} try{ localStorage.setItem('crm_role', show ? 'admin' : 'staff'); localStorage.setItem('crm_who', window.__crmWho); localStorage.setItem('crm_id', window.__crmId); }catch(e){} }
     else if(j && /인증 실패/.test(String(j.error||''))){ show = false; try{ localStorage.removeItem('crm_role'); }catch(e){} }
   }catch(e){ show = null; }
   if(show === null) return;                     // 판단 불가 → 지난 상태 그대로
@@ -11562,6 +11661,8 @@ let visits = [];
 try { visits = JSON.parse(localStorage.getItem('crm_visits') || '[]'); } catch (e) { visits = []; }
 function visitsSave(){ try { localStorage.setItem('crm_visits', JSON.stringify(visits)); } catch (e) {} }
 function crmWho(){ return (window.__crmWho || localStorage.getItem('crm_who') || '').trim() || (window.__crmRole === 'admin' ? '대표' : '직원'); }
+/* 📌 2026-10-06 — agent/owner 비교 기준값(user.id). 이름(crmWho)과 다르다 — 섞어 쓰지 말 것. */
+function crmMyId(){ return (window.__crmId || localStorage.getItem('crm_id') || '').trim(); }
 function nowHM(){ const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 function ym(d){ d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
@@ -24403,50 +24504,10 @@ async function ezNextId(type, prefix) {
   return res.id;
 }
 
-/* 매물 저장 직전에 번호를 서버에서 받아 끼워 넣는다 — 기존 genListingNo 는 남겨 둔다 */
-(function ezIdHook() {
-  function hook() {
-    if (typeof window.genListingNo !== 'function' || window.__ezIdHooked) return;
-    window.__ezIdHooked = true;
-    window.__genListingNoLocal = window.genListingNo;   /* 옛 방식은 여기 남는다 */
-    /* 🔴 동기 함수라 서버를 기다릴 수 없다 — 저장 직전에 갈아끼우는 것은 saveListing 쪽에서 한다.
-       여기서는 "화면이 만든 번호"임을 표시만 해 둔다. */
-    window.genListingNo = function (kind) {
-      var v = window.__genListingNoLocal(kind);
-      window.__ezLocalNo = v;
-      return v;
-    };
-  }
-  function hookSave() {
-    if (typeof window.saveListing !== 'function' || window.__ezSaveHooked) return;
-    window.__ezSaveHooked = true;
-    var orig = window.saveListing;
-    window.saveListing = async function () {
-      /* 새 매물일 때만 서버 번호로 바꾼다(수정은 번호를 건드리지 않는다) */
-      try {
-        var ed = document.getElementById('l-edit-id');
-        var isNew = !(ed && String(ed.value || '').trim());
-        if (isNew) {
-          var kindEl = document.getElementById('l-kind');
-          var kind = kindEl ? String(kindEl.value || '') : '';
-          var pre = (typeof KIND_CODE === 'object' && KIND_CODE[kind]) ? KIND_CODE[kind] : 'R';
-          var sid = await ezNextId('listings', pre);
-          window.__ezServerNo = sid;                  /* saveListing 안에서 쓰도록 */
-        } else {
-          window.__ezServerNo = '';
-        }
-      } catch (e) {
-        window.__ezServerNo = '';
-        if (typeof showToast === 'function') showToast('번호를 서버에서 받지 못했습니다 — ' + (e && e.message));
-      }
-      return orig.apply(this, arguments);
-    };
-  }
-  function boot() { hook(); hookSave(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
-  [400, 1500, 4000].forEach(function (ms) { setTimeout(boot, ms); });
-})();
+/* 🔴 2026-10-08 대표 승인 — ezIdHook(genListingNo/saveListing 후킹) 삭제.
+   서버번호(__ezServerNo)를 받아 왔지만 아무도 읽지 않는 죽은 코드였고(그랩으로 확인),
+   매물 저장마다 구형식 서버번호를 하나씩 헛되이 소비했다. saveListing() 자체가 이제
+   gsNextIdNewAsk() 로 직접·더 정확하게(종류별 글자까지) 서버발급을 하므로 불필요. */
 
 /* ── 20. 고객번호 C + 접수일 6자리 + 순번 2자리 ───────────────────────── */
 async function ezCustomerId() { return ezNextId('customers'); }
@@ -25487,14 +25548,16 @@ function bzAdsModalTidy() {
   var m = document.querySelector('#modal-body, .modal-body, #modal .modal-content');
   if (!m || m.querySelector('.bz-ads-modal')) return;
   var t = String(m.textContent || '');
-  var mm = t.match(/\b([A-Z]\d{6}-\d{2})\b/);
+  // 🔴 2026-10-06 — 신형식(가-1001) 추가. 한글 앞뒤는 \b 가 안 먹어 그냥 나란히 둔다.
+  var mm = t.match(/([A-Z]\d{6}-\d{2})|([가나다]-\d{4,})/);
   if (!mm) return;
   var hd = m.querySelector('h2, h3, .modal-title, .page-hd') || m.firstElementChild;
   if (!hd) return;
+  var foundId = mm[1] || mm[2];
   hd.insertAdjacentHTML('beforeend',
     ' <button class="btn btn-xs bz-ads-modal" style="background:#FF6F0F;color:#fff;border-color:#FF6F0F"'
     + ' title="이 매물을 당근에 올립니다 (임시저장까지)"'
-    + ' onclick="event.stopPropagation();bzAdsLaunch(&quot;daangn&quot;,[&quot;' + bzEsc(mm[1]) + '&quot;])">🥕 당근 올리기</button>');
+    + ' onclick="event.stopPropagation();bzAdsLaunch(&quot;daangn&quot;,[&quot;' + bzEsc(foundId) + '&quot;])">🥕 당근 올리기</button>');
 }
 
 /* 🔴 2026-09-19 실측 — 초안 표시가 저장 한 번에 통째로 사라지던 자리.
@@ -27022,7 +27085,11 @@ async function bzNewSave() {
   bzNewMsg('번호 받는 중…');
   var id = '';
   try {
-    id = await ezNextId('listings', 'R');          /* 🔴 번호는 서버가 준다 */
+    /* 🔴 2026-10-06 — 구형식(ezNextId 'R' 고정)은 종류와 무관하게 늘 'R'을 줬다(실제 버그,
+       adversarial audit로 발견). 새 양식은 종류(kind)로 가/나/다를 서버가 직접 정한다 —
+       자동분류 안 되면(건물·기타) gsNextIdNewAsk 가 사람에게 한 번 물어본다. */
+    id = await gsNextIdNewAsk(v.kind);
+    if (!id) { bzNewMsg('번호를 받지 못해 저장을 멈췄습니다'); return; }
   } catch (e) {
     bzNewMsg('번호를 못 받았습니다: ' + String(e && e.message || e).slice(0, 44));
     return;
@@ -27909,15 +27976,11 @@ function bzUpSave() {
     window.confirmUpload = async function () {
       var isL = (typeof uploadTargetType !== 'undefined' && uploadTargetType === 'listing');
       var idWhy = '';
-
-      if (isL) {
-        var n = bzUpCount();
-        if (n > 0) {
-          var got = await bzUpGetIds(n);
-          window.__bzIdQ = got.q;
-          idWhy = got.why;
-        }
-      }
+      /* 🔴 2026-10-06 — 번호 미리받기(bzUpGetIds/__bzIdQ) 중단. confirmUpload 자체가
+         이제 매물마다 gsNextIdNew(새 양식)를 직접 불러 끼운다 — 여기서 또 받으면
+         옛 방식(ezNextId 'R' 고정)으로 번호를 헛되이 예약만 하고 버리게 된다.
+         bzUpId()/bzUpGetIds() 는 그대로 남겨 둔다(지금은 아무도 안 부름 — 삭제는
+         지시 범위 밖이라 보고만 하고 건드리지 않음). */
 
       var before = {};
       var list0 = (typeof listings !== 'undefined' && listings) ? listings : [];
@@ -27936,9 +27999,12 @@ function bzUpSave() {
       }
       if (!fresh.length) return r;          /* 오류로 한 줄도 안 들어갔다 */
 
+      // 🔴 2026-10-06 — 'R' 로 시작하는지만 보면 신형식(가-1001)은 영원히 0건으로 집계된다.
+      //   신형식·구형식 둘 다 인식(정상적으로 들어온 행은 지금 전부 서버발급이라 사실상 전부 해당).
       var svr = 0, hasAddr = 0;
+      var SVR_RE = /^[A-Za-z]\d{6}-\d{2}$|^[가나다]-\d{4,}$/;
       for (var m = 0; m < fresh.length; m++) {
-        if (String(fresh[m].id || '').charAt(0) === 'R') svr++;
+        if (SVR_RE.test(String(fresh[m].id || ''))) svr++;
         if (String(fresh[m].addr || '').trim()) hasAddr++;
       }
 
@@ -28155,7 +28221,8 @@ function bzCeTidy() {
     try { raw = (typeof bzPhotoRowId === 'function') ? bzPhotoRowId(tr) : ''; } catch (e) {}
     if (!raw) {
       var t0 = tr.querySelector('td');
-      var m = String(t0 ? t0.textContent : '').match(/[A-Za-z]\d{6}-\d{2}/);
+      // 🔴 2026-10-06 — 신형식(가-1001) 추가(bzPhotoRowId 가 못 찾았을 때의 폴백)
+      var m = String(t0 ? t0.textContent : '').match(/[A-Za-z]\d{6}-\d{2}|[가나다]-\d{4,}/);
       raw = m ? m[0] : '';
     }
     if (!raw) return;
@@ -29638,7 +29705,9 @@ function bzPhotoBtn(id) {
 /* 🔴 2026-09-18 — 행에서 매물번호를 안전하게 뽑는다.
    다른 세션이 매물장 첫 칸에 펼치기 화살표(▸)를 붙이면서 공용 bzRowId 가
    '▸R260917-08' 을 돌려주게 됐다(실측). 그대로 쓰면 엉뚱한 매물을 열거나 주소가 깨진다.
-   매물번호 모양(영문1 + 숫자6 + '-' + 숫자2)만 골라낸다. */
+   매물번호 모양(구형식: 영문1+숫자6+'-'+숫자2 / 신형식: 가·나·다+'-'+숫자4자리↑)만 골라낸다.
+   🔴 2026-10-06 — 신형식(가-1001) 추가. 한글 앞뒤는 \b 가 안 먹으므로(JS 정규식의 \b 는
+   ASCII 단어문자 기준) 두 글자클래스를 그냥 나란히 둔다. */
 function bzPhotoRowId(tr) {
   var raw = '';
   try { raw = (typeof bzRowId === 'function') ? bzRowId(tr) : ''; } catch (e) {}
@@ -29646,7 +29715,7 @@ function bzPhotoRowId(tr) {
     var td = tr.querySelector('td');
     raw = td ? String(td.textContent || '') : '';
   }
-  var m = String(raw).match(/[A-Za-z]\d{6}-\d{2}/);
+  var m = String(raw).match(/[A-Za-z]\d{6}-\d{2}|[가나다]-\d{4,}/);
   return m ? m[0] : '';
 }
 
@@ -29726,11 +29795,12 @@ function bzPhotoBadgeTidy() {
 function bzPhotoModalTidy() {
   var m = document.querySelector('#modal-body, .modal-body, #modal .modal-content');
   if (!m || m.querySelector('.bz-photo')) return;
-  var mm = String(m.textContent || '').match(/\b([A-Z]\d{6}-\d{2})\b/);
+  // 🔴 2026-10-06 — 신형식(가-1001) 추가. 한글 앞뒤는 \b 가 안 먹어 그냥 나란히 둔다.
+  var mm = String(m.textContent || '').match(/([A-Z]\d{6}-\d{2})|([가나다]-\d{4,})/);
   if (!mm) return;
   var hd = m.querySelector('h2, h3, .modal-title, .page-hd') || m.firstElementChild;
   if (!hd) return;
-  hd.insertAdjacentHTML('beforeend', ' ' + bzPhotoBtn(mm[1]));
+  hd.insertAdjacentHTML('beforeend', ' ' + bzPhotoBtn(mm[1] || mm[2]));
 }
 
 /* 🔴 매물 작업패널(#fc-g1)의 [📷 사진] 단추를 사진관리로 돌린다 — 대표 지시(2026-09-18)
