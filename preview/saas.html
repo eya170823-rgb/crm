@@ -32,7 +32,27 @@
      · 짧은 시간(기본 20초)만 담는다. 낡은 자료를 오래 보여주지 않기 위해서다.
      · 주소에 fresh=1 이 있으면 담아 둔 것을 무시하고 새로 받는다(새로고침 단추용).
      · 실시간으로 보여야 하는 것(callRingPoll·smsSend 등)은 목록에 없다 — 그대로 매번 간다.
-   되돌리기: 이 파일을 지우고 build-saas.js 의 speedCacheTidy 호출 한 줄을 빼면 원래대로다. */
+   되돌리기: 이 파일을 지우고 build-saas.js 의 speedCacheTidy 호출 한 줄을 빼면 원래대로다.
+
+   ⚡ 2026-10-14 속도-2(대표 승인, 큰 안) — 번들로 한 번에 받기 + 자동 폴백
+   ────────────────────────────────────────────────────────────────────────
+   왜: 속도-1(요청 합치기)은 "같은 호출 두 번"만 잡았다. 실측(10-08)으로 보면
+       첫 화면은 서로 다른 호출을 8~9종 "따로" 부르고, GAS 1건당 기본비용(실행마다
+       스프레드시트를 새로 여는 비용)이 커서 합산하면 10초 안팎이 걸렸다.
+   어떻게: 이 8종 중 아무거나 하나가 "캐시에 없음"으로 걸리면, 그 요청을 그대로
+       보내는 대신 서버의 action=bootBundle 을 **딱 한 번** 부른다. 거기서 8칸이
+       한 번에 오면 각자의 캐시 키에 나눠 담아 두고, 원래 요청은 그 캐시에서 받는다.
+   🔴 안전장치(폴백) — 번들이 실패하면(네트워크 오류 · 구버전 GAS에 아직
+       action=bootBundle 이 없음 · 서버가 ok:false 를 줌) **그 즉시 원래의 개별
+       action 호출로 그대로 넘어간다.** 번들을 다시 시도하지는 않는다(이번 화면
+       수명 동안은 "번들 안 되는구나" 로 치고 전부 개별 호출로 간다) — 실패를
+       반복해서 느려지게 하지 않기 위해서다.
+   🔴 쓰기(저장·삭제·문자발송)는 건드리지 않는다 — bootBundle 자체가 GAS 쪾에서도
+       읽기 action 들만 재사용한다(google_apps_script.js bootBundle_ 참고).
+   🔴 vacSmsList 는 번들에 없다 — 그런 GAS action 자체가 없어(점검 중 발견, 이번
+       범위 밖) 지금도 항상 빈 결과로 끝나던 호출이다. 번들이 못 채워 주므로 그
+       요청은 원래 그대로(여전히 빈 결과로 끝나는) 개별 호출로 간다 — 동작은 그대로,
+       손해도 더 안 생긴다. */
 (function () {
   if (window.__sxOnceOn) return;
   window.__sxOnceOn = true;
@@ -45,6 +65,14 @@
   };
   var TTL_MS = 20000;                 /* 기본 20초 — 부팅 중복만 잡는 길이 */
   var TTL_ONE = { collectStatus: 60000 };  /* 수집 상태는 '분' 단위 표시라 60초면 화면이 같다 */
+
+  /* bootBundle_ 이 채워줄 수 있는 키 목록(서버 쪽과 1:1 — google_apps_script.js 참고).
+     여기 없는 키(vacSmsList·inboxStat·docReqList 등)는 번들을 거치지 않고 항상 그대로 간다. */
+  var BUNDLEABLE = {
+    'ping': 'ping', 'getAll:listings': 'listings', 'backupStatus': 'backupStatus',
+    'scheduleList': 'scheduleList', 'cfgAll': 'cfgAll',
+    'inboxList#500': 'inboxList', 'autoReplyLog#200': 'autoReplyLog', 'smsQueueList#500': 'smsQueueList'
+  };
 
   function param(s, name) {
     var k = name + '=';
@@ -71,6 +99,42 @@
 
   var mem = {};   /* key -> { at: 시각, p: Promise<본문글자> } */
   var orig = window.fetch;
+  var bundlePromise = null;   /* null=아직 안 시도 · 그 외=시도함(성공 true / 실패 false), 다시 안 시도 */
+
+  function fireBundleOnce(sampleUrl) {
+    if (bundlePromise) return bundlePromise;
+    var base = sampleUrl.split('?')[0];
+    var tok = param(sampleUrl, 'token');
+    var burl = base + '?action=bootBundle&t=' + Date.now() + (tok ? ('&token=' + tok) : '');
+    bundlePromise = orig(burl, { method: 'GET' }).then(function (r) {
+      if (!r || !r.ok) throw new Error('bundle http ' + (r && r.status));
+      return r.text();
+    }).then(function (text) {
+      var j;
+      try { j = JSON.parse(text); } catch (e) { throw new Error('bundle not json'); }
+      if (!j || !j.ok || !j.result) throw new Error('bundle not ok');
+      var b = j.result, now2 = Date.now();
+      function put(key, bodyObj) { mem[key] = { at: now2, p: Promise.resolve(JSON.stringify(bodyObj)) }; }
+      if (b.ping)         put('ping', { ok: true, message: b.ping.message, title: b.ping.title, role: b.ping.role, who: b.ping.who, id: b.ping.id, time: b.ping.time });
+      if (b.listings)     put('getAll:listings', { ok: true, data: b.listings });
+      if (b.backupStatus) put('backupStatus', { ok: true, result: b.backupStatus });
+      if (b.scheduleList) put('scheduleList', { ok: true, result: b.scheduleList });
+      if (b.cfgAll)       put('cfgAll', { ok: true, result: b.cfgAll });
+      if (b.inboxList)    put('inboxList#500', { ok: true, result: b.inboxList });
+      if (b.autoReplyLog) put('autoReplyLog#200', { ok: true, result: b.autoReplyLog });
+      if (b.smsQueueList) put('smsQueueList#500', { ok: true, result: b.smsQueueList });
+      return true;
+    }).catch(function () { return false; });   /* 실패해도 reject 하지 않는다 — 호출부가 폴백으로 넘어가게 */
+    return bundlePromise;
+  }
+
+  function serveFromMem(key) {
+    var hit = mem[key];
+    if (!hit) return null;
+    return hit.p.then(function (text) {
+      return new Response(text, { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+  }
 
   window.fetch = function (u, o) {
     var s;
@@ -83,28 +147,39 @@
 
     var now = Date.now();
     var ttl = TTL_ONE[key.split(':')[0]] || TTL_MS;
-    var hit = mem[key];
     var fresh = s.indexOf('fresh=1') > -1;
 
-    if (!fresh && hit && (now - hit.at) < ttl) {
-      return hit.p.then(function (text) {
+    function doRealFetch() {
+      var p = orig.apply(window, [u, o]).then(function (r) {
+        if (!r || !r.ok) { delete mem[key]; throw new Error('HTTP ' + (r && r.status)); }
+        return r.text();
+      }).then(function (text) {
+        /* 실패 응답은 담아 두지 않는다 — 다음 호출이 다시 서버에 물어보게 */
+        if (!text || text.indexOf('"ok":false') > -1 || text.indexOf('"ok": false') > -1) delete mem[key];
+        return text;
+      }).catch(function (err) { delete mem[key]; throw err; });
+      mem[key] = { at: now, p: p };
+      return p.then(function (text) {
         return new Response(text, { status: 200, headers: { 'Content-Type': 'application/json' } });
       });
     }
 
-    var p = orig.apply(window, [u, o]).then(function (r) {
-      if (!r || !r.ok) { delete mem[key]; throw new Error('HTTP ' + (r && r.status)); }
-      return r.text();
-    }).then(function (text) {
-      /* 실패 응답은 담아 두지 않는다 — 다음 호출이 다시 서버에 물어보게 */
-      if (!text || text.indexOf('"ok":false') > -1 || text.indexOf('"ok": false') > -1) delete mem[key];
-      return text;
-    }).catch(function (err) { delete mem[key]; throw err; });
+    if (!fresh) {
+      var hitResp = serveFromMem(key);
+      if (hitResp && (now - mem[key].at) < ttl) return hitResp;
 
-    mem[key] = { at: now, p: p };
-    return p.then(function (text) {
-      return new Response(text, { status: 200, headers: { 'Content-Type': 'application/json' } });
-    });
+      if (BUNDLEABLE[key]) {
+        return fireBundleOnce(s).then(function (okBundle) {
+          if (okBundle) {
+            var hit2 = serveFromMem(key);
+            if (hit2) return hit2;
+          }
+          return doRealFetch();   /* 번들 실패, 또는 이 키만 번들 응답에 없었음 — 원래 길로 */
+        });
+      }
+    }
+
+    return doRealFetch();
   };
 
   /* 대표가 [새로고침]을 눌렀을 때 화면 쪽에서 부를 수 있는 비우기 */
@@ -1361,7 +1436,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-10-08 11:57</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-10-14 10:12</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -7042,7 +7117,10 @@ async function weekMetricsLoad(){
   note('서버 집계 중...');
   try{
     const [ib,ar]=await Promise.all([
-      gsFetchJson(`${url}?action=inboxList&limit=200&t=${Date.now()}${tokQ()}`,null,'주간 인입 집계'),
+      // 🔴 2026-10-14 속도개선 — limit=500으로 맞춰 ezLoadContact()의 inboxList 호출과
+      //   같은 캐시 키가 되게 함(tools/parts/speed-cache.js). 이번 주 집계엔 200도
+      //   충분했지만 500도 그보다 더 걸러낼 뿐 결과는 같다 — 중복 호출만 없어짐.
+      gsFetchJson(`${url}?action=inboxList&limit=500&t=${Date.now()}${tokQ()}`,null,'주간 인입 집계'),
       gsFetchJson(`${url}?action=autoReplyLog&limit=200&t=${Date.now()}${tokQ()}`,null,'자동응답 집계')
     ]);
     if(ib&&ib.ok){ set('wm-inq',(ib.result&&ib.result.rows||[]).filter(r=>String(r.when||'').slice(0,10)>=monStr).length); }
@@ -10570,6 +10648,7 @@ function ctiStart(){
   ctiSince = 0;                                                // 첫 응답의 서버 시각(now)으로 맞춘다 — PC 시계가 빨라도 벨을 놓치지 않게(리뷰 09-08)
   const sec = Math.max(5, parseInt(cfgGet('CTI_POLL_SEC'),10) || 8);
   ctiTimer = setInterval(ctiPoll, sec * 1000);
+  ctiPoll();   // 🔴 2026-10-14 속도개선 — 주기(8초)는 그대로 두고 첫 1회만 바로 확인(대표 지시)
   ctiSettingInit();
 }
 async function ctiPoll(){
