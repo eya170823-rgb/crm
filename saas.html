@@ -1436,7 +1436,7 @@ body{padding-bottom:46px}
 </div>
   <div class="sidebar" id="sidebar">
     <div class="sb-header">
-      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-10-14 16:35</span></div>
+      <div class="sb-sub" style="padding-top:2px">버전 <span class="sb-ver" id="appVer" onclick="verManual()" title="누르면 최신 버전을 확인·갱신합니다">2026-10-14 17:27</span></div>
     </div>
     <!-- 🏢 2026-09-08 브리즈 엔터프라이즈 IA(SaaS 기획서 PART1) — 6대 구조.
          🔴 go() 의 ids 배열이 .sb-item 버튼 '순서'로 짝을 맞춘다. 버튼을 옮기면 ids 도 같이. 계산기(go 없음)는 맨 끝. -->
@@ -5407,7 +5407,8 @@ function renderListings(){
   const view=listingViewGet();
   const el=document.getElementById('listing-cards');
   const sub=document.getElementById('listing-count-sub');
-  if(sub) sub.textContent=`전체 ${listings.length}건 중 ${list.length}건 표시`;
+  if(sub) sub.textContent=`전체 ${listings.length}건 중 ${list.length}건 표시`
+    +(window.__crmRole==='staff'?' · 내 매물만 보는 중':'');
 
   if(!list.length){
     el.innerHTML=`<div class="empty-state"><div class="es-icon">🏠</div>조건에 맞는 매물이 없습니다<br><div style="margin-top:10px;font-size:12.5px;color:var(--t2)">아래 <b>＋새 매물</b> 줄에 건물명·호수를 치면 바로 등록됩니다</div></div>`;
