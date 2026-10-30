@@ -11686,6 +11686,10 @@ async function myPasswordGo(){
   const next = prompt('새 비밀번호(숫자 6자리)');
   if(next===null) return;
   if(!/^\d{6}$/.test(next)){ alert('숫자 6자리로 입력해주세요'); return; }
+  // 2026-10-30 대표 지시 — 확인 칸 하나 더: 잘못 눌러 틀린 번호로 바뀌는 사고 방지
+  const next2 = prompt('새 비밀번호 확인(다시 한 번 입력)');
+  if(next2===null) return;
+  if(next !== next2){ alert('두 번 입력한 비밀번호가 서로 다릅니다. 다시 시도해주세요.'); return; }
   try{
     await gsCall('setMyPassword', { currentPassword: cur, newPassword: next });
     alert('비밀번호를 설정했습니다. 다음 로그인부터 이 번호를 쓰세요.');
