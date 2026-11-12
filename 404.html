@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>브리즈</title>
+<script>
+// 2026-11-12 브리즈 ERP V2 — 안쪽 주소(예: /crm/erp-v2/listings)에서 새로고침해도 404가 보이지 않게.
+// 원래 주소를 적어 두고 ERP 첫 화면으로 보내면, ERP(main.tsx)가 그 주소로 되돌린다.
+(function () {
+  var p = location.pathname;
+  if (p.indexOf('/crm/erp-v2/') === 0) {
+    try { sessionStorage.setItem('erp2_redirect', p + location.search + location.hash); } catch (e) {}
+    location.replace('/crm/erp-v2/');
+  } else {
+    location.replace('/crm/');
+  }
+})();
+</script></head><body>이동 중…</body></html>
