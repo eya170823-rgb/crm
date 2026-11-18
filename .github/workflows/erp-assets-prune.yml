@@ -1,0 +1,56 @@
+# 2026-11-19 대표 지시 — erp-v2/assets 에 쌓이는 예전 빌드 파일 자동 정리.
+# index.html 이 올라올 때마다(또는 Actions 화면에서 수동 실행) 지금 빌드 + 바로 전 빌드가 쓰는 파일만 남기고 나머지를 지운다.
+# 바로 전 빌드를 남기는 이유: 배포 순간 이미 열려 있던 화면이 나중에 여는 페이지 파일을 못 찾지 않게.
+name: erp-v2 assets 정리
+on:
+  push:
+    branches: [main]
+    paths: ['erp-v2/index.html']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: erp-assets-prune
+  cancel-in-progress: false
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 100
+      - name: 안 쓰는 빌드 파일 지우기
+        run: |
+          python3 - <<'PY'
+          import os, re, subprocess, sys
+          D = 'erp-v2'; A = D + '/assets'
+          names = sorted(os.listdir(A))
+          def used_by(html):
+              keep, todo = set(), [n for n in names if ('assets/' + n) in html]
+              while todo:
+                  n = todo.pop()
+                  if n in keep: continue
+                  keep.add(n)
+                  if n.endswith(('.js', '.css')):
+                      t = open(os.path.join(A, n), encoding='utf-8', errors='ignore').read()
+                      todo += [m for m in names if m not in keep and m in t]
+              return keep
+          cur = open(D + '/index.html', encoding='utf-8').read()
+          keep = used_by(cur)
+          if not any(n.startswith('index-') and n.endswith('.js') for n in keep):
+              print('지금 index.html 이 쓰는 파일을 찾지 못해 아무것도 지우지 않습니다'); sys.exit(0)
+          revs = subprocess.check_output(['git', 'log', '--format=%H', '-n', '2', '--', D + '/index.html']).decode().split()
+          if len(revs) > 1:
+              prev = subprocess.check_output(['git', 'show', revs[1] + ':' + D + '/index.html']).decode('utf-8', 'ignore')
+              keep |= used_by(prev)
+          gone = [n for n in names if n not in keep and re.search(r'\.(js|css|map)$', n)]
+          print('남김', len(keep), '/ 지움', len(gone))
+          if not gone: sys.exit(0)
+          subprocess.check_call(['git', 'rm', '-q', '--'] + [os.path.join(A, n) for n in gone])
+          PY
+          if ! git diff --cached --quiet; then
+            git config user.name "erp-assets-bot"
+            git config user.email "erp-assets-bot@users.noreply.github.com"
+            git commit -q -m "erp-v2 assets 정리(예전 빌드 파일 삭제)"
+            git push
+          fi
