@@ -12,10 +12,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="브리즈 ERP" />
-    <script type="module" crossorigin src="/crm/erp-v2/assets/index-DPgy4iuM.js"></script>
-    <link rel="stylesheet" crossorigin href="/crm/erp-v2/assets/index-DPXGDFW3.css">
+    <script type="module" crossorigin src="/crm/erp-v2/assets/index-B-fNFwvT.js"></script>
+    <link rel="stylesheet" crossorigin href="/crm/erp-v2/assets/index-CRp4VbaN.css">
   </head>
   <body>
     <div id="root"></div>
+    <!-- 2026-11-23 대표 지시 — 화면 파일을 못 받아 하얀 화면이면: 한 번은 저절로 다시 불러오고, 그래도 안 되면 버튼을 보여 준다 -->
+    <script>
+      setTimeout(function () {
+        var r = document.getElementById('root'); if (!r || r.children.length) return;
+        var k = 'erp2_bootretry', last = 0; try { last = +sessionStorage.getItem(k) || 0; } catch (e) {}
+        var again = function () { location.replace('/crm/erp-v2/?t=' + Date.now()); };
+        if (Date.now() - last > 60000) { try { sessionStorage.setItem(k, String(Date.now())); } catch (e) {} again(); return; }
+        r.innerHTML = '<div style="max-width:420px;margin:80px auto;padding:20px;font-family:sans-serif;text-align:center;color:#1f2937"><b style="font-size:17px">화면을 불러오지 못했습니다</b><p style="font-size:14px;color:#475569">새 버전으로 바뀌는 중일 수 있습니다. 잠시 뒤 다시 눌러 주세요.</p><button id="bt-re" style="height:40px;padding:0 18px;border:0;border-radius:4px;background:#0f2544;color:#fff;font-size:15px">다시 불러오기</button></div>';
+        document.getElementById('bt-re').onclick = again;
+      }, 9000);
+    </script>
   </body>
 </html>
