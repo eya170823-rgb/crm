@@ -1,0 +1,25 @@
+# 2026-11-24 대표 지시 — 브리즈 블로그 발행 프로그램(exe)을 윈도우에서 자동으로 만든다(tools/blog-exe 가 바뀔 때만)
+name: blog-exe
+on:
+  push:
+    paths: ['tools/blog-exe/**', '.github/workflows/blog-exe.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyinstaller playwright requests pillow
+      - run: pyinstaller --noconfirm --onefile --windowed --name BreezeBlog --icon tools/blog-exe/icon.ico --add-data "tools/blog-exe/icon.ico;." --collect-all playwright tools/blog-exe/breeze_blog.py
+      - name: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete blog-exe --yes --cleanup-tag || true
+          gh release create blog-exe dist/BreezeBlog.exe --title "BreezeBlog" --notes "auto build" --latest=false
