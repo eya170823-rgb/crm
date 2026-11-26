@@ -83,6 +83,26 @@ def won_man(s):
     return int(v)
 
 
+_PHONE = re.compile(r'(?:\+?82[-.\s]?)?0\d{1,2}[-.\s)]*\d{3,4}[-.\s]*\d{4}')
+_ASK = re.compile(r'연락|문의|상담|전화|카톡|카카오톡|오픈채팅|문자 ?주')
+
+
+def clean_ad_text(t, one_line=False):
+    """2026-11-26 대표 지시 — 직방 광고문구에서 전화번호를 뺀다. 직방이 반려하는 연락 유도 문구(연락·문의·상담·전화…)가 든 줄도 뺀다"""
+    if one_line:
+        return re.sub(r'\s{2,}', ' ', _ASK.sub('', _PHONE.sub('', str(t or '')))).strip()
+    lines = []
+    for ln in str(t or '').splitlines():
+        if _ASK.search(ln):
+            continue
+        if _PHONE.search(ln):   # 번호가 있던 줄은 번호를 빼고, 남는 말이 거의 없으면(예: '📞 브리즈') 줄째 뺀다
+            ln = _PHONE.sub('', ln).rstrip()
+            if len(re.sub(r'[^0-9A-Za-z가-힣]', '', ln)) < 6:
+                continue
+        lines.append(ln)
+    return re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip()
+
+
 class ERP:
     def __init__(self):
         self.conf = {}
@@ -383,6 +403,13 @@ class App:
             am = re.search(r'\d+(?:\.\d+)?', area)
             if am and await pg.locator('input[name="sizeM2"]').count() and not (await pg.input_value('input[name="sizeM2"]')).strip():
                 await pg.fill('input[name="sizeM2"]', am.group(0))
+            for sel, one in (('input[name="title"]', True), ('textarea[name="description"]', False)):
+                if await pg.locator(sel).count():
+                    old = await pg.input_value(sel)
+                    new = clean_ad_text(old, one)
+                    if new != old.strip():
+                        await pg.fill(sel, new)
+                        self.log('   📵 광고문구에서 전화번호·연락 문구를 뺐습니다' + (' (제목)' if one else ''))
             agree = pg.locator('input[type=checkbox]').last   # 맨 아래 '광고등록 규정 동의'
             try:
                 if not await agree.is_checked():
