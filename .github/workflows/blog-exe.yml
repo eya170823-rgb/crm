@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pyinstaller playwright requests pillow
-      - run: pyinstaller --noconfirm --onefile --windowed --name BreezeBlog --icon tools/blog-exe/icon.ico --add-data "tools/blog-exe/icon.ico;." --collect-all playwright tools/blog-exe/breeze_blog.py
+      - run: pyinstaller --noconfirm --onefile --windowed --name BreezeBlog --icon tools/blog-exe/icon.ico --add-data "tools/blog-exe/icon.ico;." --add-data "tools/blog-exe/chars;chars" --collect-all playwright tools/blog-exe/breeze_blog.py
       - name: release
         shell: bash
         env:
