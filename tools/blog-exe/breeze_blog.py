@@ -234,6 +234,53 @@ SAVE_SELS = ["button[data-click-area='tpb.save']", "button[class*='save_btn']", 
 POPUP_SELS = ['button.se-popup-button-cancel', '.se-popup-button-cancel', 'button.se-help-panel-close-button']
 
 
+# 2026-11-26 대표 지시 — 브리즈 가족 캐릭터를 글 중간중간에(글마다 다른 컷). 그림은 프로그램 안 chars 폴더
+CHAR_DIR = os.path.join(getattr(sys, '_MEIPASS', EXE_DIR), 'chars')
+CHAR_POOL = {'hello': ['hello_mom', 'hello_mom_daughter'], 'cond': ['cond_mong', 'cond_daughter'], 'trust': ['trust_kkam', 'trust_dad'],
+             'close': ['close_bri', 'close_dad_bri'], 'end': ['end_family']}
+
+
+def char_path(slot):
+    import random
+    names = CHAR_POOL.get(slot) or []
+    random.shuffle(names)
+    for n in names:
+        p = os.path.join(CHAR_DIR, n + '.jpg')
+        if os.path.exists(p):
+            return p
+    return ''
+
+
+def add_chars(body):
+    """원고 html 에 캐릭터 자리(data-photo="CHAR:…")를 넣는다 — 인사 뒤 · 금액 앞 · 중간 · 문의 앞 · 서명 뒤"""
+    if 'CHAR:' in body:
+        return body
+    mk = lambda k: f'<div data-photo="CHAR:{k}"></div>'
+    paras = [m for m in re.finditer(r'<p[^>]*>.*?</p>', body, re.S | re.I)]
+    text = lambda m: re.sub(r'<[^>]+>', '', m.group(0))
+    ins = []   # (위치, 표시)
+    if paras:
+        ins.append((paras[0].end(), mk('hello')))
+        money = next((m for m in paras[1:] if re.search(r'보증금|연세|월세|전세|매매가|만원', text(m))), None)
+        if money:
+            ins.append((money.start(), mk('cond')))
+        if len(paras) >= 6:
+            ins.append((paras[len(paras) // 2].end(), mk('trust')))
+        close = next((m for m in reversed(paras) if re.search(r'전화|연락|문의|보러', text(m)) and not text(m).strip().startswith('#')), None)
+        if close and close.start() > paras[0].end():
+            ins.append((close.start(), mk('close')))
+    sig = re.search(r'<div[^>]*border-top[^>]*>.*?브리즈부동산중개.*?</div>', body, re.S | re.I)
+    if sig:
+        ins.append((sig.end(), mk('end')))
+    seen = set()
+    for pos, tag in sorted(ins, key=lambda x: -x[0]):
+        if pos in seen:
+            continue
+        seen.add(pos)
+        body = body[:pos] + tag + body[pos:]
+    return body
+
+
 class Naver:
     """크롬 한 창을 프로그램이 끝날 때까지 쓴다(작업은 이 스레드에서만)"""
     def __init__(self, log):
@@ -278,6 +325,16 @@ class Naver:
             return True
         if 'nid.naver.com' not in page.url:
             page.goto('https://nid.naver.com/nidlogin.login?url=' + urllib.parse.quote(url, safe=''))
+        # 2026-11-26 대표 지시 — 아이디(eya81)는 채워 두고 비밀번호 칸에 커서를 둔다. 비밀번호는 프로그램에 저장하지 않는다(사람이 입력 · 크롬 비밀번호 저장 사용 가능)
+        nid = getattr(self, 'naver_id', '')
+        if nid:
+            try:
+                page.wait_for_selector('#id', timeout=8000)
+                if not page.input_value('#id'):
+                    page.fill('#id', nid)
+                page.focus('#pw')
+            except Exception:
+                pass
         self.log('🔑 열린 크롬 창에서 네이버에 로그인해 주세요 ("로그인 상태 유지" 체크하면 다음부터 생략) — 10분 기다립니다')
         t0 = time.time()
         # 2026-11-26 로그인을 해도 글이 안 써지던 문제 — time.sleep 으로 기다리면 크롬의 주소 변화가 프로그램에 전달되지 않아 '아직 로그인 화면'으로 알았다.
@@ -411,6 +468,11 @@ class Naver:
                     break
                 slot = parts[i + 1]
                 pick = None
+                if slot.startswith('CHAR:'):
+                    pick = char_path(slot[5:])
+                    if pick and self._upload(page, frame, [pick]):
+                        page.keyboard.press('Enter')
+                    continue
                 if '썸네일' in slot and job.get('thumb') and not used_thumb:
                     pick, used_thumb = job['thumb'], True
                 else:
@@ -578,9 +640,9 @@ class App:
         def after(rows):
             self.rows = rows
             self.tree.delete(*self.tree.get_children())
-            order = {'새 원고': 0, '옮김요청': 1, '보류': 2, '옮김': 3, '비공개': 4}
+            order = {'새 원고': 0, '임시저장': 1, '옮김요청': 2, '보류': 3, '옮김': 4, '비공개': 5}
             for i, d in enumerate(sorted(rows, key=lambda x: (order.get(x.get('status'), 5), str(x.get('date', ''))), reverse=False)):
-                st = '발행됨' if d.get('status') == '옮김' else d.get('status', '')
+                st = '발행됨' if d.get('status') == '옮김' else ('임시저장됨' if d.get('status') == '임시저장' else d.get('status', ''))
                 self.tree.insert('', 'end', iid=str(i), values=(st, d.get('kind', ''), d.get('listingId', ''), d.get('title', '')))
                 self.tree.set(str(i), 'st', st)
                 self.tree.item(str(i), tags=(d.get('fileId'),))
@@ -608,6 +670,9 @@ class App:
             return
         if d.get('status') in ('옮김', '비공개') and not messagebox.askyesno(APP, '이미 발행한 원고입니다. 그래도 다시 임시저장할까요?'):
             return
+        # 2026-11-26 대표 지시 — 이미 네이버 임시저장을 누른 원고는 표시하고, 다시 하면 중복된다고 묻는다
+        if d.get('status') == '임시저장' and not messagebox.askyesno(APP, '이미 네이버에 임시저장한 원고입니다.\n또 하면 네이버에 같은 글이 두 개 생깁니다. 그래도 할까요?'):
+            return
         if not self.conf or not self.conf.get('id'):
             messagebox.showerror(APP, '네이버 블로그 설정(블로그 아이디)을 못 받았습니다')
             return
@@ -626,6 +691,7 @@ class App:
             title, body = parse_draft(html)
             job = {'title': title or d.get('title', ''), 'body': body}
             # 2026-11-26 대표 지시 — 해시태그(#…) 줄 바로 위에 홈페이지 주소를 넣는다(원고에 이미 있으면 그대로)
+            job['body'] = add_chars(job['body'])
             HOME = 'https://eya170823-rgb.github.io/breeze/'
             if 'github.io/breeze' not in job['body'] and 'breezejeju' not in job['body']:
                 hp = f'<p style="font-size:15px;margin:26px 0 0;">🏠 브리즈부동산 홈페이지 <a href="{HOME}">{HOME}</a></p>'
@@ -670,7 +736,12 @@ class App:
 
         def after(job):
             self.log('크롬 여는 중…')
-            self.naver.submit(self.naver.write, job, lambda ok: self.root.after(0, lambda: self.go.config(state='normal')))
+            self.naver.naver_id = str((self.conf or {}).get('id') or '')
+            def fin(ok):
+                self.root.after(0, lambda: self.go.config(state='normal'))
+                if ok:
+                    self.root.after(0, lambda: self.mark_for(d, '임시저장'))   # 2026-11-26 임시저장까지 됐으면 원고 목록에 '임시저장됨'
+            self.naver.submit(self.naver.write, job, fin)
         def guard():
             try:
                 return prep()
@@ -680,7 +751,9 @@ class App:
         self.bg(guard, after)
 
     def mark(self, status):
-        d = self.cur
+        self.mark_for(self.cur, status)
+
+    def mark_for(self, d, status):
         if not d:
             return
         def run():
