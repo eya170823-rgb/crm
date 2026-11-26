@@ -278,16 +278,32 @@ class Naver:
             return True
         if 'nid.naver.com' not in page.url:
             page.goto('https://nid.naver.com/nidlogin.login?url=' + urllib.parse.quote(url, safe=''))
-        self.log('🔑 열린 크롬 창에서 네이버에 로그인해 주세요 ("로그인 상태 유지" 체크하면 다음부터 생략) — 5분 기다립니다')
+        self.log('🔑 열린 크롬 창에서 네이버에 로그인해 주세요 ("로그인 상태 유지" 체크하면 다음부터 생략) — 10분 기다립니다')
         t0 = time.time()
-        while time.time() - t0 < 300:
-            time.sleep(2)
-            if 'nid.naver.com' not in page.url:
-                if 'blog.naver.com' not in page.url:
+        # 2026-11-26 로그인을 해도 글이 안 써지던 문제 — time.sleep 으로 기다리면 크롬의 주소 변화가 프로그램에 전달되지 않아 '아직 로그인 화면'으로 알았다.
+        #   크롬에 직접 주소를 물어보고(열린 탭 전부), 로그인된 탭을 찾으면 그 탭에서 글쓰기 화면을 연다
+        while time.time() - t0 < 600:
+            page.wait_for_timeout(1500)
+            for pg in list(self.ctx.pages):
+                try:
+                    href = pg.evaluate('location.href')
+                except Exception:
+                    continue
+                if 'nid.naver.com' in href or not href.startswith('http'):
+                    continue
+                if 'naver.com' in href:
+                    if pg is not page:
+                        try:
+                            pg.close()
+                        except Exception:
+                            pass
                     page.goto(url)
-                page.wait_for_load_state('domcontentloaded')
-                return True
-        raise RuntimeError('네이버 로그인을 기다리다 시간이 지났습니다')
+                    page.wait_for_load_state('domcontentloaded')
+                    if 'nid.naver.com' in page.evaluate('location.href'):
+                        break
+                    self.log('✔ 네이버 로그인 확인')
+                    return True
+        raise RuntimeError('네이버 로그인을 기다리다 시간이 지났습니다(10분)')
 
     def _click_any(self, frame, sels, timeout=2000):
         for s in sels:
@@ -322,9 +338,24 @@ class Naver:
         page = self._page()
         page.bring_to_front()
         self._login(page, job['url'])
-        page.wait_for_selector('iframe#' + EDITOR_IFRAME, timeout=60000)
-        frame = page.frame(name=EDITOR_IFRAME)
-        time.sleep(3)
+        # 2026-11-26 글쓰기 칸이 안쪽 창(mainFrame)에 있든 바깥 화면에 바로 있든 찾는다(최대 90초)
+        frame = None
+        for _ in range(90):
+            f = page.frame(name=EDITOR_IFRAME)
+            for cand in ([f] if f else []) + [page.main_frame]:
+                try:
+                    if cand.locator('.se-documentTitle, .se-title-text, textarea.se-title-textarea').count():
+                        frame = cand
+                        break
+                except Exception:
+                    pass
+            if frame:
+                break
+            page.wait_for_timeout(1000)
+        if not frame:
+            raise RuntimeError('네이버 글쓰기 화면을 못 찾았습니다 — 크롬 창에 글쓰기 화면이 떠 있는지 확인해 주세요')
+        self.log('✔ 글쓰기 화면 확인')
+        page.wait_for_timeout(3000)
         for _ in range(3):   # '작성 중인 글 이어쓰기' · 도움말 창 닫기
             if not self._click_any(frame, POPUP_SELS):
                 break
