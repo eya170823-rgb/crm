@@ -389,25 +389,59 @@ class Naver:
         if not moved:
             page.keyboard.press('Enter')
         time.sleep(0.8)
-        if job.get('thumb'):
-            if self._upload(page, frame, [job['thumb']]):
-                page.keyboard.press('Enter')
-                self.log('✔ 썸네일(대표 사진)')
-        # 본문 — 서식 그대로 붙여 넣기(사람이 Ctrl+V 하는 것과 같다)
-        plain = re.sub(r'<[^>]+>', '', job['body'])
-        page.evaluate("""async ([h, p]) => { await navigator.clipboard.write([new ClipboardItem({'text/html': new Blob([h], {type: 'text/html'}), 'text/plain': new Blob([p], {type: 'text/plain'})})]); }""", [job['body'], plain])
-        page.keyboard.press('Control+V')
-        time.sleep(3)
-        self.log('✔ 본문')
+        def paste(html):
+            if not re.sub(r'<[^>]+>|\s|&nbsp;', '', html) and '<img' not in html:
+                return
+            plain = re.sub(r'<[^>]+>', '', html)
+            page.evaluate("""async ([h, p]) => { await navigator.clipboard.write([new ClipboardItem({'text/html': new Blob([h], {type: 'text/html'}), 'text/plain': new Blob([p], {type: 'text/plain'})})]); }""", [html, plain])
+            page.keyboard.press('Control+V')
+            time.sleep(1.5)
+        # 2026-11-26 대표 지시 — 사진은 원고의 [사진 자리](data-photo)마다 제자리에 넣는다.
+        #   자리 이름과 같은 사진이 있으면 그것, 없으면 남은 사진을 순서대로. 썸네일 자리에는 썸네일. 자리가 모자라 남은 사진은 맨 끝에
+        slot_re = re.compile(r'<div[^>]*data-photo="([^"]*)"[^>]*>.*?</div>', re.S | re.I)
+        parts = slot_re.split(job['body'])
+        photos = list(job.get('photos') or [])
+        base = lambda x: re.sub(r'\.[^.]+$', '', os.path.basename(str(x))).lower()
+        used_thumb = False
+        if len(parts) > 1:
+            n_in = 0
+            for i in range(0, len(parts), 2):
+                paste(parts[i])
+                if i + 1 >= len(parts):
+                    break
+                slot = parts[i + 1]
+                pick = None
+                if '썸네일' in slot and job.get('thumb') and not used_thumb:
+                    pick, used_thumb = job['thumb'], True
+                else:
+                    want = base(slot)
+                    hit = next((x for x in photos if base(x) == want or want.endswith(base(x)) or base(x).endswith(want)), None)
+                    if hit is None and photos:
+                        hit = photos[0]
+                    if hit is not None:
+                        photos.remove(hit)
+                        pick = hit
+                        n_in += 1
+                if pick and self._upload(page, frame, [pick]):
+                    page.keyboard.press('Enter')
+            self.log(f'✔ 본문 · 사진 {n_in}장 제자리' + (' · 썸네일' if used_thumb else ''))
+        else:
+            if job.get('thumb'):
+                if self._upload(page, frame, [job['thumb']]):
+                    page.keyboard.press('Enter')
+                    used_thumb = True
+                    self.log('✔ 썸네일(대표 사진)')
+            paste(job['body'])
+            self.log('✔ 본문')
         page.keyboard.press('Control+End')
         page.keyboard.press('Enter')
         if job.get('card'):
             if self._upload(page, frame, [job['card']]):
                 page.keyboard.press('Enter')
                 self.log('✔ 매물정보표')
-        if job.get('photos'):
-            if self._upload(page, frame, job['photos']):
-                self.log(f"✔ 매물 사진 {len(job['photos'])}장")
+        if photos:
+            if self._upload(page, frame, photos):
+                self.log(f"✔ 남은 매물 사진 {len(photos)}장(맨 끝)")
         time.sleep(2)
         page.mouse.move(0, 0)
         if self._click_any(frame, SAVE_SELS, 5000) or self._click_any(page, SAVE_SELS, 5000):
@@ -610,7 +644,8 @@ class App:
                 paths = []
                 for i, x in enumerate(ph[:10]):
                     ext = '.png' if 'png' in x.get('mime', '') else '.jpg'
-                    p = os.path.join(TMP, f'photo_{i + 1:02d}{ext}')
+                    nm = re.sub(r'[\\/:*?"<>|]', '_', re.sub(r'\.[^.]+$', '', str(x.get('name') or '')))   # 2026-11-26 원래 파일 이름을 살려 [사진 자리] 이름과 맞춘다
+                    p = os.path.join(TMP, f'{i + 1:02d}_{nm}{ext}' if nm else f'photo_{i + 1:02d}{ext}')
                     open(p, 'wb').write(base64.b64decode(x['b64']))
                     paths.append(p)
                 job['photos'] = paths
