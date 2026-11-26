@@ -625,6 +625,14 @@ class App:
             html = api('blogDraftGet', fileId=d['fileId']).get('html') or ''
             title, body = parse_draft(html)
             job = {'title': title or d.get('title', ''), 'body': body}
+            # 2026-11-26 대표 지시 — 해시태그(#…) 줄 바로 위에 홈페이지 주소를 넣는다(원고에 이미 있으면 그대로)
+            HOME = 'https://eya170823-rgb.github.io/breeze/'
+            if 'github.io/breeze' not in job['body'] and 'breezejeju' not in job['body']:
+                hp = f'<p style="font-size:15px;margin:26px 0 0;">🏠 브리즈부동산 홈페이지 <a href="{HOME}">{HOME}</a></p>'
+                mt = None
+                for mt in re.finditer(r'<p[^>]*>\s*#[^<]+</p>', job['body']):
+                    pass
+                job['body'] = (job['body'][:mt.start()] + hp + job['body'][mt.start():]) if mt else job['body'] + hp
             # 2026-11-26 대표 지시 — 매물 블로그에는 매물번호를 꼭 쓴다(원고에 없으면 첫 사진 자리 바로 뒤, 없으면 맨 앞에 한 줄)
             lid0 = str(d.get('listingId') or '').strip()
             vis0 = re.sub(r'<[^>]+>', '', re.sub(r'<div[^>]*data-photo="[^"]*"[^>]*>.*?</div>', '', job['body'], flags=re.S | re.I))   # 사진 자리 이름은 글에 안 보이므로 빼고 본다
