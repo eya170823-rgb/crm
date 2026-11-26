@@ -1,0 +1,20 @@
+# 2026-11-27 대표 지시 — 당근 새 매물 감지를 구글 서버 대신 깃허브 클라우드에서 30분마다(구글 호출 한도와 상관없이)
+name: daangn-feed
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch: {}
+jobs:
+  feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 당근 목록 받아 ERP 로 보내기
+        env:
+          GAS_URL: https://script.google.com/macros/s/AKfycbwM-LUL3NJ19XGeedp0Toz71cYR_RW38bVuh4bfSIzTd2qn-dGyGFLfjsodIyTA4LWu/exec
+          DGN_INGEST_KEY: ${{ secrets.DGN_INGEST_KEY }}
+        run: node tools/daangn-feed.mjs
