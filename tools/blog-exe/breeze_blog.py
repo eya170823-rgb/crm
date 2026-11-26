@@ -625,6 +625,13 @@ class App:
             html = api('blogDraftGet', fileId=d['fileId']).get('html') or ''
             title, body = parse_draft(html)
             job = {'title': title or d.get('title', ''), 'body': body}
+            # 2026-11-26 대표 지시 — 매물 블로그에는 매물번호를 꼭 쓴다(원고에 없으면 첫 사진 자리 바로 뒤, 없으면 맨 앞에 한 줄)
+            lid0 = str(d.get('listingId') or '').strip()
+            vis0 = re.sub(r'<[^>]+>', '', re.sub(r'<div[^>]*data-photo="[^"]*"[^>]*>.*?</div>', '', job['body'], flags=re.S | re.I))   # 사진 자리 이름은 글에 안 보이므로 빼고 본다
+            if lid0 and lid0 not in vis0:
+                line = f'<p style="font-size:17px;font-weight:700;margin:0 0 18px;">매물번호 {lid0}<br><span style="font-weight:400;font-size:15px;">매물번호를 알려주시면 빠르게 상담가능합니다.</span></p>'
+                m0 = re.search(r'<div[^>]*data-photo="[^"]*"[^>]*>.*?</div>', job['body'], re.S | re.I)
+                job['body'] = (job['body'][:m0.end()] + line + job['body'][m0.end():]) if m0 and m0.start() < 50 else line + job['body']
             cat = (self.conf.get('cat') or {}).get(d.get('kind', ''), '')
             job['url'] = f"https://blog.naver.com/PostWriteForm.naver?blogId={urllib.parse.quote(self.conf['id'])}&Redirect=Write" + (f'&categoryNo={cat}' if cat else '')
             if want_t and d.get('thumbId'):
