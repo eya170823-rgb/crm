@@ -179,7 +179,7 @@ def info_rows(d):
 
 
 def office_rows(staff=''):
-    return [('명칭', OFFICE['name']), ('등록번호', OFFICE['reg']), ('소재지', OFFICE['addr']), ('개업공인중개사', OFFICE['ceo']), ('연락처', OFFICE['phone']), ('소속공인중개사', staff)]
+    return [('명칭', OFFICE['name']), ('등록번호', OFFICE['reg']), ('소재지', OFFICE['addr']), ('개업공인중개사', OFFICE['ceo']), ('연락처', OFFICE['phone'])]   # 2026-11-26 대표 지시 — 소속공인중개사 칸은 뺀다
 
 
 def draw_info_card(d, path):
