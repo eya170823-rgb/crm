@@ -149,13 +149,13 @@ class ERP:
             self.rows = j.get('data') or []
         return len(self.rows)
 
-    def set_zb_no(self, r, no):
+    def set_zb_no(self, r, no, off=False):
         """ERP 광고 표시 'zigbang~번호~시각~' — 켜진 직방 칸에 직방 등록번호를 적는다"""
         segs = [x.strip() for x in str(r.get('adsFlat') or '').split('|') if x.strip()]
         out = []
         for x in segs:
             p = (x.split('~') + ['', '', '', ''])[:4]
-            if p[0] == 'zigbang':
+            if p[0] == ('off:zigbang' if off else 'zigbang'):
                 p[1] = str(no)
                 x = '~'.join(p)
             out.append(x)
@@ -209,7 +209,7 @@ class App:
         tk.Button(top, text='지금 처리', command=self.run_once, bg='#1c3a6e', fg='white').pack(side='left')
         self.auto = tk.BooleanVar(value=True)
         tk.Checkbutton(top, text='2분마다 자동', variable=self.auto).pack(side='left', padx=8)
-        self.dry = tk.BooleanVar(value=bool(self.st.get('dry', True)))
+        self.dry = tk.BooleanVar(value=bool(self.st.get('dry', False)))   # 2026-11-26 대표 지시 — 기본은 바로 처리
         tk.Checkbutton(top, text='시험 모드(마지막 버튼은 안 누름)', variable=self.dry, command=self._save_dry).pack(side='left', padx=8)
         tk.Button(top, text='ERP 로그인', command=self._erp_login_dialog).pack(side='right')
         tk.Label(root, text=f"ERP 에서 {self.st['since']} 이후에 누른 '직' 버튼만 처리합니다.", fg='#555').pack(anchor='w', padx=10)
@@ -369,15 +369,17 @@ class App:
             await pg.wait_for_timeout(2500)
             self.log(f'   ✅ {rid} 직방 광고 종료')
             self._done(key, f'종료 {hit["no"]}')
+            self.erp.set_zb_no(r, '', off=True)
             return
         self.log(f'· {rid} 직방에 광고중인 같은 매물이 없습니다(이미 내려감)')
         self._done(key, '광고 없음')
+        self.erp.set_zb_no(r, '', off=True)
 
     async def _up(self, pg, key, r, dry):
         rid = r.get('id')
         if any(k in str(r.get('status') or '') for k in STOP):
             self.log(f'🚫 {rid} ERP 상태가 "{r.get("status")}" — 직방에 올리지 않습니다')
-            self._done(key, '상태 차단')
+            self._done(key, '상태 차단'); self.erp.set_zb_no(r, 'X')
             return
         for svc in SVCS:   # 이미 광고중이면 번호만 적는다
             hit = next((c for c in await self._cards(pg, svc, 'open') if card_matches(c, r)), None)
@@ -425,7 +427,7 @@ class App:
                 err = re.sub(r'\s+', ' ', (await pg.locator('main').inner_text()))
                 bad = re.findall(r'[^ ]{0,20}(?:입력해|선택해|필수)[^ ]{0,20}', err)[:3]
                 self.log(f'   ❌ {rid} 등록이 안 됐습니다 — {" / ".join(bad) or "화면의 빨간 안내를 확인해 주세요"}')
-                self._done(key, '재등록 실패')
+                self._done(key, '재등록 실패'); self.erp.set_zb_no(r, 'X')
                 return
             for svc2 in SVCS:
                 hit2 = next((c for c in await self._cards(pg, svc2, 'open') if card_matches(c, r)), None)
@@ -438,7 +440,7 @@ class App:
             self._done(key, '재등록(검수대기)')
             return
         self.log(f'· {rid} 직방에 이전 광고가 없습니다 — 신규 등록은 다음 단계에서 됩니다(지금은 직접 올려 주세요)')
-        self._done(key, '신규 필요')
+        self._done(key, '신규 필요'); self.erp.set_zb_no(r, 'X')
 
     def _erp_login_dialog(self):
         d = tk.Toplevel(self.root)
@@ -484,7 +486,29 @@ class App:
         self.root.destroy()
 
 
+def ensure_autostart():
+    """2026-11-26 대표 지시 — PC 를 켜면 이 프로그램이 저절로 켜지게(윈도우 시작프로그램 폴더에 바로가기 1개)"""
+    if not getattr(sys, 'frozen', False):
+        return
+    try:
+        d = os.path.join(os.environ.get('APPDATA', ''), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+        f = os.path.join(d, '브리즈 직방 광고.url')
+        body = '[InternetShortcut]\r\nURL=file:///' + sys.executable.replace('\\', '/') + '\r\nIconFile=' + sys.executable + '\r\nIconIndex=0\r\n'
+        if os.path.isdir(d) and (not os.path.exists(f) or open(f, encoding='utf-8', errors='ignore').read() != body):
+            with open(f, 'w', encoding='utf-8') as fh:
+                fh.write(body)
+    except Exception:
+        crash_log('시작프로그램 등록 실패: ' + traceback.format_exc())
+
+
 if __name__ == '__main__':
+    import socket
+    _lock = socket.socket()
+    try:
+        _lock.bind(('127.0.0.1', 48731))   # 두 개가 동시에 돌면 같은 매물을 두 번 처리하므로 하나만
+    except OSError:
+        sys.exit(0)
+    ensure_autostart()
     root = tk.Tk()
     App(root)
     root.mainloop()
