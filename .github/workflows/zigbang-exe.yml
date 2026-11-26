@@ -1,0 +1,25 @@
+# 2026-11-26 대표 지시 — 브리즈 직방 광고(ERP '직' 버튼 = 직방 올리기·내리기) exe 를 윈도우에서 자동으로 만든다
+name: zigbang-exe
+on:
+  push:
+    paths: ['tools/zigbang-exe/**', '.github/workflows/zigbang-exe.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyinstaller playwright
+      - run: pyinstaller --noconfirm --onefile --windowed --name BreezeZigbang --icon tools/isj-exe/icon.ico --collect-all playwright tools/zigbang-exe/breeze_zigbang.py
+      - name: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete zigbang-exe --yes --cleanup-tag || true
+          gh release create zigbang-exe dist/BreezeZigbang.exe --title "BreezeZigbang" --notes "auto build" --latest=false
