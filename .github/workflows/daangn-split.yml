@@ -1,0 +1,34 @@
+# 2026-11-27 대표 승인 — 잘못 합쳐진 수집매물 줄 나누기(손으로만 실행)
+name: daangn-split
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'plan(목록만) / apply(나누기) / restore(되돌리기)'
+        default: 'plan'
+      max:
+        description: 'apply 한 번에 나눌 줄 수'
+        default: '100'
+      restore_ids:
+        description: 'restore 할 원래 글번호(빈칸으로 구분, 비우면 전부)'
+        default: ''
+concurrency:
+  group: daangn-feed
+  cancel-in-progress: false
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 당근 목록 받아 ERP 줄 나누기
+        env:
+          GAS_URL: https://script.google.com/macros/s/AKfycbwM-LUL3NJ19XGeedp0Toz71cYR_RW38bVuh4bfSIzTd2qn-dGyGFLfjsodIyTA4LWu/exec
+          DGN_INGEST_KEY: ${{ secrets.DGN_INGEST_KEY }}
+          MODE: ${{ inputs.mode }}
+          MAX: ${{ inputs.max }}
+          RESTORE_IDS: ${{ inputs.restore_ids }}
+        run: node tools/daangn-split.mjs
