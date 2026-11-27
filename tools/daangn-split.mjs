@@ -33,7 +33,15 @@ const jeju = all.filter((a) => ((a.region || {}).name2 || '') === '제주시');
 console.log('제주시', jeju.length);
 if (!all.length) process.exit(1);
 const MODE = process.env.MODE || 'plan', MAX = Number(process.env.MAX || 100), RIDS = String(process.env.RESTORE_IDS || '').split(/[\s,]+/).filter(Boolean);
-const res = await fetch(GAS, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ action: 'dgnSplit', key: KEY, mode: MODE, max: MAX, restoreIds: RIDS, articles: jeju }), redirect: 'follow' });
-const txt = await res.text();
-console.log('ERP', res.status, txt.slice(0, 3000));
-if (!/"ok":\s*true/.test(txt)) process.exit(1);
+// 2026-11-27 — apply 는 LOOP=1 이면 100줄씩 끝날 때까지(매번 줄 수·글번호 수 확인, 다르면 멈춤)
+const LOOP = process.env.LOOP === '1';
+for (let n = 0; n < (LOOP && MODE === 'apply' ? 20 : 1); n++) {
+  const res = await fetch(GAS, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ action: 'dgnSplit', key: KEY, mode: MODE, max: MAX, restoreIds: RIDS, articles: jeju }), redirect: 'follow' });
+  const txt = await res.text();
+  console.log('ERP', n + 1, res.status, txt.slice(0, 3000));
+  if (!/"ok":\s*true/.test(txt)) process.exit(1);
+  let r = {}; try { r = JSON.parse(txt).result || {}; } catch (e) { process.exit(1); }
+  if (r.stopped) { console.log('멈춤:', r.stopped); process.exit(1); }
+  if (MODE === 'apply' && r.idsCheck !== undefined && r.idsCheck !== r.idsBefore) { console.log('글번호 수가 다름 — 멈춤', r.idsBefore, r.idsCheck); process.exit(1); }
+  if (!r.done) break;
+}
