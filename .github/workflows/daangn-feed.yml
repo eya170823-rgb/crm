@@ -18,3 +18,4 @@ jobs:
           GAS_URL: https://script.google.com/macros/s/AKfycbwM-LUL3NJ19XGeedp0Toz71cYR_RW38bVuh4bfSIzTd2qn-dGyGFLfjsodIyTA4LWu/exec
           DGN_INGEST_KEY: ${{ secrets.DGN_INGEST_KEY }}
         run: node tools/daangn-feed.mjs
+# 예약 실행 재등록 2026-11-27
