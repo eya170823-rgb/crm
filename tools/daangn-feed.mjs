@@ -10,7 +10,7 @@ if (!GAS || !KEY) { console.log('GAS_URL / DGN_INGEST_KEY 없음'); process.exit
 const pick = (a) => ({ originalId: a.originalId, region: a.region, trades: a.trades, salesTypeV3: a.salesTypeV3, salesType: a.salesType,
   area: a.area, floor: a.floor, topFloor: a.topFloor, publicCoordinate: a.publicCoordinate, writerTypeV2: a.writerTypeV2,
   writer: { nickname: (a.writer || {}).nickname }, buildingName: a.buildingName, complex: a.complex ? { name: a.complex.name } : null, addressInfo: a.addressInfo });
-let after = null; const all = [];
+let after = null; const all = []; let complete = false, fail = '';   // 2026-11-27 끝까지 정상으로 받았는지(거래완료 판정은 이때만)
 for (let p = 0; p < MAX_PAGES; p++) {
   const body = { variables: { first: 50, after, input: {
     locationFilter: { neCoordinate: { lat: '33.60', lon: '127.00' }, swCoordinate: { lat: '33.20', lon: '126.10' } },
@@ -18,11 +18,11 @@ for (let p = 0; p < MAX_PAGES; p++) {
     extensions: { persistedQuery: { version: 1, sha256Hash: HASH } } };
   const r = await fetch(GQL, { method: 'POST', headers: { 'content-type': 'application/json', accept: '*/*', 'accept-language': 'ko-KR',
     origin: 'https://realty.daangn.com', referer: 'https://realty.daangn.com/', 'x-realty-platform': 'realty-web' }, body: JSON.stringify(body) });
-  if (!r.ok) { console.log('당근 HTTP', r.status); break; }
+  if (!r.ok) { console.log('당근 HTTP', r.status); fail = '당근 HTTP ' + r.status; break; }
   const j = await r.json(); const f = j && j.data && j.data.articleFeed;
-  if (!f) { console.log('당근 목록 없음', JSON.stringify(j.errors || '').slice(0, 300)); break; }
+  if (!f) { console.log('당근 목록 없음', JSON.stringify(j.errors || '').slice(0, 300)); fail = '당근 목록 없음(차단·구조 변경?)'; break; }
   for (const e of f.edges || []) { const a = e && e.node && e.node.article; if (a && a.originalId) all.push(pick(a)); }
-  if (!f.pageInfo || !f.pageInfo.hasNextPage || !f.pageInfo.endCursor) break;
+  if (!f.pageInfo || !f.pageInfo.hasNextPage || !f.pageInfo.endCursor) { complete = true; break; }
   after = f.pageInfo.endCursor; await new Promise((ok) => setTimeout(ok, 250));
 }
 const kinds = {}; all.forEach((a) => { const k = (a.salesTypeV3 || {}).type || a.salesType || '?'; kinds[k] = (kinds[k] || 0) + 1; });
@@ -30,8 +30,12 @@ console.log('당근 받은 글', all.length, '쪽', JSON.stringify(kinds));
 // ERP 는 제주시 글만 쓴다(서버 규칙과 같게) — 보내는 양을 줄인다
 const jeju = all.filter((a) => ((a.region || {}).name2 || '') === '제주시');
 console.log('제주시', jeju.length);
-if (!all.length) process.exit(1);
-const res = await fetch(GAS, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ action: 'dgnIngest', key: KEY, articles: jeju }), redirect: 'follow' });
+if (!all.length) { console.log('실패: 받은 글 0건'); process.exit(1); }
+if (!complete) console.log('주의: 끝까지 받지 못함(' + (fail || '쪽 상한 도달') + ') — 이번 회차는 거래완료 판정 안 함');
+const res = await fetch(GAS, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ action: 'dgnIngest', key: KEY, articles: jeju, complete }), redirect: 'follow' });
 const txt = await res.text();
 console.log('ERP', res.status, txt.slice(0, 400));
 if (!/"ok":\s*true/.test(txt)) process.exit(1);
+// 2026-11-27 대표 지시(실패 알림) — 끝까지 못 받았거나 서버가 오류(받은 글 10% 넘게 감소 등)를 알리면 실패로 끝내 깃허브가 메일로 알린다
+let rr = {}; try { rr = JSON.parse(txt).result || {}; } catch (e) { /* 무시 */ }
+if (!complete || fail || (rr && rr.err)) { console.log('실패 알림:', fail || (rr && rr.err) || '끝까지 받지 못함'); process.exit(1); }
