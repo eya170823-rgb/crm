@@ -5,7 +5,7 @@ const HASH = 'fe0d66638e6508da75bd156a54a2f11624fdce3c575b06ff86f4ebfd8c3a31e3';
 const GQL = 'https://realty.kr.karrotmarket.com/graphql';
 // 2026-11-27 대표 지시(당근 공실이 제대로 수집 안 됨) — 원인: 당근 목록은 최신순이 아니고 한 쪽에 20건만 온다.
 //   12쪽(240건)만 받아서 제주 전체 4천여 건 중 대부분을 못 봤다 → 끝까지 다 받는다(최대 400쪽 = 8천 건)
-const MAX_PAGES = 400;
+const MAX_PAGES = 800;   // 2026-11-27 확인: 제주 전체 1만 건 넘음(500쪽에도 안 끝남) → 800쪽(1만6천 건)까지
 if (!GAS || !KEY) { console.log('GAS_URL / DGN_INGEST_KEY 없음'); process.exit(1); }
 const pick = (a) => ({ originalId: a.originalId, region: a.region, trades: a.trades, salesTypeV3: a.salesTypeV3, salesType: a.salesType,
   area: a.area, floor: a.floor, topFloor: a.topFloor, publicCoordinate: a.publicCoordinate, writerTypeV2: a.writerTypeV2,
