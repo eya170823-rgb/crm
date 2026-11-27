@@ -9,6 +9,9 @@ on:
       max:
         description: 'apply 한 번에 나눌 줄 수'
         default: '100'
+      loop:
+        description: 'apply 를 100줄씩 끝까지 반복(1)'
+        default: '0'
       restore_ids:
         description: 'restore 할 원래 글번호(빈칸으로 구분, 비우면 전부)'
         default: ''
@@ -31,4 +34,5 @@ jobs:
           MODE: ${{ inputs.mode }}
           MAX: ${{ inputs.max }}
           RESTORE_IDS: ${{ inputs.restore_ids }}
+          LOOP: ${{ inputs.loop }}
         run: node tools/daangn-split.mjs
