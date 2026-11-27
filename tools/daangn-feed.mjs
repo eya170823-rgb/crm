@@ -3,7 +3,9 @@
 const GAS = process.env.GAS_URL, KEY = process.env.DGN_INGEST_KEY;
 const HASH = 'fe0d66638e6508da75bd156a54a2f11624fdce3c575b06ff86f4ebfd8c3a31e3';
 const GQL = 'https://realty.kr.karrotmarket.com/graphql';
-const MAX_PAGES = 12;   // 50건 × 12쪽 = 최신 600건(30분마다라 충분)
+// 2026-11-27 대표 지시(당근 공실이 제대로 수집 안 됨) — 원인: 당근 목록은 최신순이 아니고 한 쪽에 20건만 온다.
+//   12쪽(240건)만 받아서 제주 전체 4천여 건 중 대부분을 못 봤다 → 끝까지 다 받는다(최대 400쪽 = 8천 건)
+const MAX_PAGES = 400;
 if (!GAS || !KEY) { console.log('GAS_URL / DGN_INGEST_KEY 없음'); process.exit(1); }
 const pick = (a) => ({ originalId: a.originalId, region: a.region, trades: a.trades, salesTypeV3: a.salesTypeV3, salesType: a.salesType,
   area: a.area, floor: a.floor, topFloor: a.topFloor, publicCoordinate: a.publicCoordinate, writerTypeV2: a.writerTypeV2,
@@ -21,12 +23,15 @@ for (let p = 0; p < MAX_PAGES; p++) {
   if (!f) { console.log('당근 목록 없음', JSON.stringify(j.errors || '').slice(0, 300)); break; }
   for (const e of f.edges || []) { const a = e && e.node && e.node.article; if (a && a.originalId) all.push(pick(a)); }
   if (!f.pageInfo || !f.pageInfo.hasNextPage || !f.pageInfo.endCursor) break;
-  after = f.pageInfo.endCursor; await new Promise((ok) => setTimeout(ok, 400));
+  after = f.pageInfo.endCursor; await new Promise((ok) => setTimeout(ok, 250));
 }
 const kinds = {}; all.forEach((a) => { const k = (a.salesTypeV3 || {}).type || a.salesType || '?'; kinds[k] = (kinds[k] || 0) + 1; });
-console.log('당근 받은 글', all.length, JSON.stringify(kinds));
+console.log('당근 받은 글', all.length, '쪽', JSON.stringify(kinds));
+// ERP 는 제주시 글만 쓴다(서버 규칙과 같게) — 보내는 양을 줄인다
+const jeju = all.filter((a) => ((a.region || {}).name2 || '') === '제주시');
+console.log('제주시', jeju.length);
 if (!all.length) process.exit(1);
-const res = await fetch(GAS, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ action: 'dgnIngest', key: KEY, articles: all }), redirect: 'follow' });
+const res = await fetch(GAS, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ action: 'dgnIngest', key: KEY, articles: jeju }), redirect: 'follow' });
 const txt = await res.text();
 console.log('ERP', res.status, txt.slice(0, 400));
 if (!/"ok":\s*true/.test(txt)) process.exit(1);
