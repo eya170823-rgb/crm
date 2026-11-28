@@ -15,7 +15,7 @@ let after = null; const all = [];
 for (let p = 0; p < MAX_PAGES; p++) {
   const body = { variables: { first: 50, after, input: {
     locationFilter: { neCoordinate: { lat: '33.60', lon: '127.00' }, swCoordinate: { lat: '33.20', lon: '126.10' } },
-    propertyFilter: { salesTypes: [], tradeTypes: ['MONTH', 'YEAR'] }, resolution: 9, surface: 'MAP' } },
+    propertyFilter: { salesTypes: [], tradeTypes: ['MONTH', 'YEAR', 'SHORT'] }, resolution: 9, surface: 'MAP' } },
     extensions: { persistedQuery: { version: 1, sha256Hash: HASH } } };
   const r = await fetch(GQL, { method: 'POST', headers: { 'content-type': 'application/json', accept: '*/*', 'accept-language': 'ko-KR',
     origin: 'https://realty.daangn.com', referer: 'https://realty.daangn.com/', 'x-realty-platform': 'realty-web' }, body: JSON.stringify(body) });
